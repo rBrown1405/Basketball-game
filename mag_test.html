@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>COURTSIDE — magazine test</title>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/magazine.css">
+  <style>
+    body { overflow: auto; }
+    .tb { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .tb b { font: 800 18px/1 var(--font-display); text-transform: uppercase; margin-right: 8px; }
+    #log { padding: 10px 18px; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <!-- Standalone test page for the COURTSIDE preview magazine (not part of the game).
+       Query params: league=men|women, seed=N, seasons=N (sim N seasons + offseasons first), team=tid, page=N, noopen=1 -->
+  <div class="tb">
+    <b>COURTSIDE test</b>
+    <button class="btn primary" id="open">📖 Open magazine</button>
+    <button class="btn" id="sim">Sim a season + offseason</button>
+    <a class="btn" href="?league=men">Men</a><a class="btn" href="?league=women">Women</a>
+    <a class="btn" href="?league=men&seasons=1">Men, year 2</a><a class="btn" href="?league=women&seasons=1">Women, year 2</a>
+  </div>
+  <div id="app" style="display:none"><aside id="nav"></aside><div id="main"><header id="topbar"></header><main id="screen"></main></div></div>
+  <div id="fullscreen"></div><div id="modals"></div><div id="toasts"></div>
+  <div id="log"></div>
+
+  <script src="js/core/util.js"></script>
+  <script src="js/core/names.js"></script>
+  <script src="js/core/config.js"></script>
+  <script src="js/core/player.js"></script>
+  <script src="js/core/league.js"></script>
+  <script src="js/core/stats.js"></script>
+  <script src="js/core/ai.js"></script>
+  <script src="js/core/sim.js"></script>
+  <script src="js/core/season.js"></script>
+  <script src="js/core/coach.js"></script>
+  <script src="js/core/draft.js"></script>
+  <script src="js/core/offseason.js"></script>
+  <script src="js/core/trade.js"></script>
+  <script src="js/core/storage.js"></script>
+  <script src="js/core/magazine.js"></script>
+  <script src="js/ui/core.js"></script>
+  <script src="js/ui/magazine.js"></script>
+  <script>
+    (function () {
+      const q = new URLSearchParams(location.search);
+      const key = q.get('league') === 'women' ? 'women' : 'men';
+      const seed = Number(q.get('seed') || 5);
+      const log = m => { document.getElementById('log').textContent += m + '\n'; };
+      const S = PBC.League.create({ leagueKey: key, seed });
+      S.userTid = q.has('team') ? Number(q.get('team')) : (key === 'women' ? 3 : 7);
+      PBC.Coach.create(S, q.get('coach') || 'Mag Tester', S.userTid);
+      PBC.League.preseasonProjections(S);
+      PBC.UI.save = function () {};   // test page: never write careers into the game's save slots
+      PBC.UI.setState(S);
+      window.S = S;
+      function simSeason() {
+        const t0 = performance.now();
+        PBC.Season.startRegularSeason(S);
+        let guard = 0;
+        while (S.phase !== 'awards' && guard++ < 3000) PBC.Season.simDay(S);
+        if (PBC.Offseason && PBC.Offseason.autoAll) PBC.Offseason.autoAll(S);
+        else { S.season++; PBC.League.newSeasonSetup(S); }
+        log(`Simulated to ${S.season} preseason (${Math.round(performance.now() - t0)} ms), phase ${S.phase}`);
+      }
+      const n = Number(q.get('seasons') || 0);
+      for (let i = 0; i < n; i++) simSeason();
+      log(`${PBC.League.cfg(S).label} · ${S.season} · user team ${S.teams[S.userTid].city} ${S.teams[S.userTid].name}`);
+      document.getElementById('open').onclick = () => PBC.Magazine.open(S);
+      document.getElementById('sim').onclick = () => { simSeason(); PBC.Magazine.open(S); };
+      if (!q.get('noopen')) PBC.Magazine.open(S, { page: Number(q.get('page') || 1) });
+    })();
+  </script>
+</body>
+</html>

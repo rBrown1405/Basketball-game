@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mini-games Test Bench — Pro BBALL Coach</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/mini.css">
+<style>
+  :root {
+    --bg:#0b0f17; --panel:#121826; --panel2:#182033; --line:#243049; --text:#e8edf5; --muted:#8a96ab;
+    --accent:#ff6b1a; --accent2:#ffb020; --good:#29d17d; --bad:#ff4d5e; --gold:#ffc940;
+    --font-ui: -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    --font-display:"Avenir Next Condensed","Oswald","Arial Narrow","Roboto Condensed",Impact,sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.4 var(--font-ui); }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font: 900 20px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+  header h1 span { color: var(--accent); }
+  header .sp { flex: 1; }
+  header label { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center; }
+  main { flex: 1; display: flex; min-height: 0; }
+  aside { width: 330px; flex: none; overflow-y: auto; border-right: 1px solid var(--line); background: #0e131e; padding: 12px; }
+  aside h3 { margin: 14px 0 8px; font: 800 12px/1 var(--font-display); letter-spacing: .2em; color: var(--accent2); text-transform: uppercase; }
+  aside h3:first-child { margin-top: 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  button.b { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); cursor: pointer; font: 700 12px/1.2 var(--font-ui); text-align: left; }
+  button.b:hover:not(:disabled) { border-color: var(--accent); }
+  button.b:disabled { opacity: .45; cursor: default; }
+  button.b.wide { grid-column: 1 / -1; }
+  button.b.hot { background: linear-gradient(90deg, #3a1d0c, #2a2012); border-color: #6a3a18; }
+  .row { display: grid; grid-template-columns: 92px 1fr 46px; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; color: var(--muted); }
+  .row input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row output { color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+  select, input[type=text] { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; }
+  pre#out { margin: 0; padding: 10px; min-height: 120px; max-height: 320px; overflow: auto; border-radius: 8px; background: #070a11; border: 1px solid var(--line); font: 11px/1.45 ui-monospace, Menlo, monospace; color: #bfe7cf; white-space: pre-wrap; }
+  #leak { margin-top: 6px; font-size: 11px; color: var(--muted); }
+  #stage { flex: 1; min-width: 0; min-height: 440px; overflow: hidden; }
+  /* fake paused game behind the GIM overlays */
+  .fake { position: relative; height: 100%; overflow: hidden; background:
+      radial-gradient(ellipse 60% 40% at 50% 62%, rgba(255,160,90,.18), transparent 70%),
+      linear-gradient(180deg, #06080d 0%, #0b1220 38%, #3a2a1c 39%, #6b4a2c 70%, #7a5634 100%); }
+  .fake::before { content: ""; position: absolute; left: 8%; right: 8%; top: 44%; bottom: 6%; border: 2px solid rgba(255,255,255,.35); border-radius: 50% 50% 0 0 / 30% 30% 0 0; transform: perspective(400px) rotateX(38deg); }
+  .fake::after { content: ""; position: absolute; left: 38%; right: 38%; top: 44%; bottom: 6%; background: rgba(160,40,40,.35); border: 2px solid rgba(255,255,255,.35); transform: perspective(400px) rotateX(38deg); }
+  .fake .crowd { position: absolute; left: 0; right: 0; top: 16%; height: 22%; background: radial-gradient(circle, rgba(255,255,255,.12) 1.5px, transparent 2px) 0 0 / 9px 9px; opacity: .6; }
+  .fake .bug { position: absolute; left: 16px; bottom: 16px; display: flex; gap: 0; border-radius: 6px; overflow: hidden; font: 800 16px/1 var(--font-display); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+  .fake .bug span { padding: 8px 12px; background: #111827; }
+  .fake .bug .h { background: #0b6e4f; } .fake .bug .a { background: #f58426; color: #111; } .fake .bug .c { background: #1f2937; color: var(--accent2); }
+  .fake .paused { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; background: rgba(0,0,0,.55); font: 800 11px/1.4 var(--font-ui); letter-spacing: .2em; color: var(--muted); }
+  .note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  @media (max-width: 760px) { main { flex-direction: column-reverse; } aside { width: auto; max-height: 45vh; border-right: 0; border-top: 1px solid var(--line); } #stage { min-height: 55vh; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pro BBALL Coach <span>·</span> Mini-games bench</h1>
+  <div class="sp"></div>
+  <label><input type="checkbox" id="mute"> Mute</label>
+</header>
+<main>
+  <aside>
+    <h3>Practice drills</h3>
+    <div class="row"><span>Difficulty</span><input type="range" id="diff" min="0" max="1" step="0.05" value="0.5"><output id="diffO">0.50</output></div>
+    <div class="row" style="grid-template-columns:92px 1fr"><span>Players</span><input type="text" id="players" value="M. Hill, J. Brown, D. Okafor, T. Reed, K. Vance"></div>
+    <div class="grid" id="drills"></div>
+    <div class="grid" style="margin-top:6px"><button class="b wide" id="twice">Run selected drill twice in a row</button></div>
+    <div class="row" style="grid-template-columns:92px 1fr"><span>Twice drill</span><select id="twiceKey"></select></div>
+
+    <h3>Game Impact Moment</h3>
+    <div class="grid">
+      <button class="b hot" id="gim4">Choose · 4 options</button>
+      <button class="b" id="gim2">Choose · 2 options</button>
+      <button class="b" id="gimBuzz">Buzzer beater · 3</button>
+      <button class="b" id="gimShort">Timeout test (3 s)</button>
+      <button class="b hot wide" id="gimFlow">Full GIM flow: choose → shot meter</button>
+    </div>
+
+    <h3>Shot meter</h3>
+    <div class="row"><span>windowSize</span><input type="range" id="win" min="0.03" max="0.16" step="0.005" value="0.09"><output id="winO">0.090</output></div>
+    <div class="row"><span>speed</span><input type="range" id="spd" min="0.8" max="1.3" step="0.05" value="1"><output id="spdO">1.00</output></div>
+    <div class="row"><span>pressure</span><input type="range" id="prs" min="0" max="1" step="0.05" value="0.3"><output id="prsO">0.30</output></div>
+    <div class="row"><span>timeLimit</span><input type="range" id="tl" min="3" max="15" step="1" value="8"><output id="tlO">8</output></div>
+    <div class="row" style="grid-template-columns:92px 1fr"><span>contest</span><select id="ctst"><option>open</option><option selected>contested</option><option>tight</option></select></div>
+    <div class="grid">
+      <button class="b hot" id="meter">Shot meter</button>
+      <button class="b" id="help">Reset "first time" help</button>
+    </div>
+
+    <h3>Result</h3>
+    <pre id="out">Pick a mini-game. Results appear here.</pre>
+    <div id="leak"></div>
+    <div class="note">Esc cancels any mini-game. The stage div has no position set, so the overlay makes it position:relative and restores it afterwards.</div>
+  </aside>
+  <div id="stage">
+    <div class="fake"><div class="crowd"></div><div class="paused">❚❚ GAME PAUSED</div>
+      <div class="bug"><span class="h">BOS 98</span><span class="a">NYK 100</span><span class="c">4TH 0:14</span></div></div>
+  </div>
+</main>
+
+<script src="js/mini/core.js"></script>
+<script src="js/mini/court.js"></script>
+<script src="js/mini/meter.js"></script>
+<script src="js/mini/gim.js"></script>
+<script src="js/mini/drills.js"></script>
+<script src="js/mini/drills_shoot.js"></script>
+<script src="js/mini/drills_court.js"></script>
+<script src="js/mini/drills_rhythm.js"></script>
+<script>
+(function () {
+  'use strict';
+  const M = PBC.Mini, $ = id => document.getElementById(id), stage = $('stage'), out = $('out');
+  const SAMPLE = {
+    type: 'clutch', situation: '0:14 · 4TH QTR · DOWN 2', userTeam: 0,
+    teams: [{ abbr: 'BOS', score: 98, color: '#0b6e4f' }, { abbr: 'NYK', score: 100, color: '#f58426' }],
+    options: [
+      { label: 'Pull-up three', player: 'M. Hill', num: 23, detail: 'Star iso at the top', pct: 0.38, pts: 3, kind: 'pullup' },
+      { label: 'Attack the rim', player: 'M. Hill', num: 23, detail: 'Hill drives off a high screen', pct: 0.52, pts: 2, kind: 'layup' },
+      { label: 'Pick & roll lob', player: 'D. Okafor', num: 4, detail: 'Brown hits Okafor rolling to the rim', pct: 0.61, pts: 2, kind: 'alley' },
+      { label: 'Corner three', player: 'J. Brown', num: 7, detail: 'Hill draws two, kicks to Brown', pct: 0.29, pts: 3, kind: 'catch_shoot' },
+    ],
+  };
+  const log = (window.__log = []);
+  let busy = false;
+  const buttons = () => Array.from(document.querySelectorAll('button.b'));
+  function leak() { $('leak').textContent = `active sessions: ${M._active.length} · overlays in DOM: ${document.querySelectorAll('.pbc-mini').length} · stage position: "${stage.style.position || '(unset)'}"`; }
+  async function run(label, fn) {
+    if (busy) return;
+    busy = true; buttons().forEach(b => (b.disabled = true));
+    const t0 = performance.now();
+    out.textContent = label + ' … running';
+    try {
+      const res = await fn();
+      log.push({ label, res });
+      window.__last = res;
+      out.textContent = `${label}  (${((performance.now() - t0) / 1000).toFixed(1)} s)\n` + JSON.stringify(res, (k, v) => (k === 'shots' && Array.isArray(v) ? v.length + ' shots…' : v), 2);
+    } catch (e) { out.textContent = 'ERROR\n' + (e && e.stack || e); }
+    busy = false; buttons().forEach(b => (b.disabled = false));
+    leak(); setTimeout(leak, 400);
+  }
+  const players = () => $('players').value.split(',').map(s => s.trim()).filter(Boolean);
+  const drillOpts = () => ({ difficulty: +$('diff').value, players: players() });
+
+  // drills
+  M.DRILLS.forEach(d => {
+    const b = document.createElement('button');
+    b.className = 'b'; b.textContent = d.icon + ' ' + d.name; b.title = d.desc + '\nTrains: ' + d.trains.join(', ');
+    b.onclick = () => run('runDrill · ' + d.key, () => M.runDrill(stage, d.key, drillOpts()));
+    $('drills').appendChild(b);
+    const o = document.createElement('option'); o.value = d.key; o.textContent = d.name; $('twiceKey').appendChild(o);
+  });
+  $('twice').onclick = () => run('runDrill ×2 · ' + $('twiceKey').value, async () => {
+    const a = await M.runDrill(stage, $('twiceKey').value, drillOpts());
+    const b = await M.runDrill(stage, $('twiceKey').value, drillOpts());
+    return { first: a, second: b };
+  });
+
+  // GIM
+  const ctxWith = (n, extra) => Object.assign({}, SAMPLE, { options: SAMPLE.options.slice(0, n) }, extra || {});
+  $('gim4').onclick = () => run('gimChoose · 4', () => M.gimChoose(stage, ctxWith(4)));
+  $('gim2').onclick = () => run('gimChoose · 2', () => M.gimChoose(stage, ctxWith(2, { situation: '0:03 · 4TH QTR · TIED' })));
+  $('gimBuzz').onclick = () => run('gimChoose · buzzer', () => M.gimChoose(stage, ctxWith(3, { type: 'buzzer', situation: '0:04 · 2ND QTR · UP 5', teams: [{ abbr: 'BOS', score: 55, color: '#0b6e4f' }, { abbr: 'NYK', score: 50, color: '#f58426' }] })));
+  $('gimShort').onclick = () => run('gimChoose · timeout', () => M.gimChoose(stage, ctxWith(3, { timeLimit: 3 })));
+  const meterOpts = extra => Object.assign({ windowSize: +$('win').value, speed: +$('spd').value, pressure: +$('prs').value, timeLimit: +$('tl').value, contest: $('ctst').value, label: 'Pull-up three', player: 'M. Hill', num: 23, pts: 3 }, extra || {});
+  $('meter').onclick = () => run('shotMeter', () => M.shotMeter(stage, meterOpts()));
+  $('gimFlow').onclick = () => run('GIM flow', async () => {
+    const pick = await M.gimChoose(stage, ctxWith(4));
+    if (pick.cancelled) return { pick };
+    const o = SAMPLE.options[pick.index];
+    const shot = await M.shotMeter(stage, meterOpts({ label: o.label, player: o.player, num: o.num, pts: o.pts, windowSize: +(0.04 + o.pct * 0.16).toFixed(3), pressure: 0.8 }));
+    return { pick, option: o.label, shot };
+  });
+  $('help').onclick = () => { try { localStorage.removeItem('pbc.mini.meterHelpSeen'); } catch (e) {} out.textContent = 'Shot-meter help will show again.'; };
+
+  // controls
+  const bind = (id, fmt) => { const i = $(id), o = $(id + 'O'); const f = () => (o.textContent = fmt(+i.value)); i.oninput = f; f(); };
+  bind('diff', v => v.toFixed(2)); bind('win', v => v.toFixed(3)); bind('spd', v => v.toFixed(2)); bind('prs', v => v.toFixed(2)); bind('tl', v => String(v));
+  $('mute').onchange = e => { M.muted = e.target.checked; };
+  leak();
+})();
+</script>
+<script>
+/* Automation aid: mini_test.html?vclock=1 swaps performance.now / requestAnimationFrame / setTimeout for a virtual clock
+   so headless tests can step the mini-games deterministically (window.__step(ms)), even in a background tab. */
+(function () {
+  if (!/[?&]vclock=1/.test(location.search)) return;
+  let t = performance.now(), seq = 1;
+  const timers = new Map(), rafs = new Map(), errors = [];
+  performance.now = () => t;
+  window.requestAnimationFrame = cb => { const id = seq++; rafs.set(id, cb); return id; };
+  window.cancelAnimationFrame = id => { rafs.delete(id); };
+  window.setTimeout = (fn, ms, ...a) => { const id = seq++; timers.set(id, { at: t + Math.max(0, +ms || 0), fn: typeof fn === 'function' ? () => fn(...a) : () => {} }); return id; };
+  window.clearTimeout = id => { timers.delete(id); };
+  const fire = until => { for (;;) { let best = null, bid = null; for (const [id, tm] of timers) if (tm.at <= until && (!best || tm.at < best.at)) { best = tm; bid = id; } if (!best) return; timers.delete(bid); t = Math.max(t, best.at); try { best.fn(); } catch (e) { errors.push(String(e && e.stack || e)); } } };
+  window.__vc = { errors, now: () => t, pending: () => ({ timers: timers.size, rafs: rafs.size }),
+    advance(ms, step) { step = step || 16.667; const end = t + ms; while (t < end - 1e-9) { const next = Math.min(end, t + step); fire(next); t = next; const cbs = [...rafs.values()]; rafs.clear(); for (const cb of cbs) { try { cb(t); } catch (e) { errors.push(String(e && e.stack || e)); } } } return t; } };
+  const kev = (type, key, code) => window.dispatchEvent(new KeyboardEvent(type, { key, code: code || '', bubbles: true, cancelable: true }));
+  Object.assign(window, {
+    __down: (k, c) => kev('keydown', k, c), __up: (k, c) => kev('keyup', k, c), __tap: (k, c) => { kev('keydown', k, c); kev('keyup', k, c); },
+    __spaceDown: () => kev('keydown', ' ', 'Space'), __spaceUp: () => kev('keyup', ' ', 'Space'),
+    __step: ms => window.__vc.advance(ms),
+    __waitFor: (pred, maxMs) => { let w = 0; maxMs = maxMs || 10000; while (!pred() && w < maxMs) { window.__vc.advance(16.667); w += 16.667; } return !!pred(); },
+    __q: sel => document.querySelector(sel),
+    __txt: sel => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; },
+    __leak: () => ({ active: PBC.Mini._active.length, overlays: document.querySelectorAll('.pbc-mini').length, stagePos: document.getElementById('stage').style.position || '(unset)', pending: window.__vc.pending() }),
+    __holdIdeal: bias => { const m = document.querySelector('.pm-meter').pbcMeter; kev('keydown', ' ', 'Space'); const ms = m.idealHold() * 1000 + (bias || 0); window.__vc.advance(ms); kev('keyup', ' ', 'Space'); return Math.round(ms); },
+    __pointer: (type, x, y, target) => { const el = target || document.elementFromPoint(x, y); el.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0, isPrimary: true })); return el; },
+  });
+  const st = document.createElement('style');
+  st.textContent = '.pbc-mini, .pbc-mini * { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; } .pbc-mini .pm-toast.is-on { animation: none !important; opacity: 1 !important; }';
+  document.head.appendChild(st);
+  PBC.Mini.muted = true;
+})();
+</script>
+</body>
+</html>

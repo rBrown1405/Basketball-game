@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pro BBALL Coach</title>
+  <meta name="theme-color" content="#0a0e16">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='17' fill='%23f06a1a'/%3E%3Cg fill='none' stroke='%233a1804' stroke-width='2'%3E%3Cpath d='M3 20h34M20 3v34M8 8c6 5 6 19 0 24M32 8c-6 5-6 19 0 24'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/screens.css">
+  <link rel="stylesheet" href="css/live.css">
+  <link rel="stylesheet" href="css/mini.css">
+  <link rel="stylesheet" href="css/magazine.css">
+  <link rel="stylesheet" href="css/offseason.css">
+  <link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="nav"></aside>
+    <div id="main">
+      <header id="topbar"></header>
+      <main id="screen"></main>
+    </div>
+  </div>
+  <div id="fullscreen"></div>
+  <div id="modals"></div>
+  <div id="toasts"></div>
+
+  <!-- core (no DOM) -->
+  <script src="js/core/util.js"></script>
+  <script src="js/core/names.js"></script>
+  <script src="js/core/config.js"></script>
+  <script src="js/core/player.js"></script>
+  <script src="js/core/league.js"></script>
+  <script src="js/core/stats.js"></script>
+  <script src="js/core/ai.js"></script>
+  <script src="js/core/sim.js"></script>
+  <script src="js/core/season.js"></script>
+  <script src="js/core/coach.js"></script>
+  <script src="js/core/draft.js"></script>
+  <script src="js/core/offseason.js"></script>
+  <script src="js/core/trade.js"></script>
+  <script src="js/core/magazine.js"></script>
+  <script src="js/core/storage.js"></script>
+  <!-- on-court visuals & mini-games -->
+  <!--MATCH_SCRIPTS-->
+  <script src="js/match/pixel.js"></script>
+  <script src="js/match/retro.js"></script>
+  <script src="js/mini/core.js"></script>
+  <script src="js/mini/court.js"></script>
+  <script src="js/mini/meter.js"></script>
+  <script src="js/mini/gim.js"></script>
+  <script src="js/mini/drills.js"></script>
+  <script src="js/mini/drills_shoot.js"></script>
+  <script src="js/mini/drills_court.js"></script>
+  <script src="js/mini/drills_rhythm.js"></script>
+  <!-- UI -->
+  <script src="js/ui/core.js"></script>
+  <script src="js/ui/cards.js"></script>
+  <script src="js/ui/app.js"></script>
+  <script src="js/ui/team.js"></script>
+  <script src="js/ui/league.js"></script>
+  <script src="js/ui/career.js"></script>
+  <script src="js/ui/live.js"></script>
+  <script src="js/ui/magazine.js"></script>
+  <script src="js/ui/offseason.js"></script>
+  <script src="js/ui/draft.js"></script>
+  <script src="js/ui/freeagency.js"></script>
+  <script src="js/ui/trade.js"></script>
+  <script src="js/ui/editor.js"></script>
+  <script>PBC.App.start();</script>
+</body>
+</html>

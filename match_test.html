@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pro BBALL Coach — Match View Test</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07080b; color: #dde; font: 13px -apple-system, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
+  #bar { position: fixed; left: 0; right: 0; top: 0; height: 40px; display: flex; gap: 8px; align-items: center; padding: 0 10px; background: #111319; border-bottom: 1px solid #22252e; z-index: 5; flex-wrap: nowrap; overflow-x: auto; }
+  #bar button, #bar select { background: #1d2029; color: #dde; border: 1px solid #333846; border-radius: 5px; padding: 4px 8px; font: inherit; cursor: pointer; }
+  #bar button.on { background: #2f5bd8; border-color: #2f5bd8; color: #fff; }
+  #bar label { display: flex; gap: 4px; align-items: center; white-space: nowrap; }
+  #bar .sep { width: 1px; height: 22px; background: #2a2e39; }
+  #stage { position: fixed; left: 0; right: 0; top: 40px; bottom: 0; display: flex; align-items: center; justify-content: center; }
+  #wrap { position: relative; }
+  #wrap canvas { display: block; }
+  #mag { position: absolute; left: 0; top: 0; display: none; pointer-events: none; }
+  #hud { position: absolute; left: 14px; top: 12px; display: flex; align-items: stretch; font-weight: 800; letter-spacing: .5px; box-shadow: 0 2px 10px rgba(0,0,0,.5); pointer-events: none; }
+  #hud .tm { display: flex; align-items: center; gap: 8px; padding: 6px 10px; color: #fff; font-size: 15px; }
+  #hud .sc { font-size: 20px; min-width: 30px; text-align: right; }
+  #hud .mid { background: #0c0d12; color: #fff; padding: 4px 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 12px; }
+  #hud .clock { font-size: 16px; font-variant-numeric: tabular-nums; }
+  #hud .shot { color: #ffb000; font-variant-numeric: tabular-nums; }
+  #setname { position: absolute; left: 14px; bottom: 70px; background: rgba(10,12,20,.82); border-left: 5px solid #f2b632; color: #fff; padding: 6px 14px; font-weight: 800; letter-spacing: 1px; opacity: 0; transition: opacity .4s; pointer-events: none; }
+  #pbp { position: absolute; right: 12px; bottom: 12px; width: 360px; max-height: 190px; overflow: hidden; background: rgba(8,9,14,.72); border-radius: 6px; padding: 6px 10px; font-size: 12px; line-height: 1.45; pointer-events: none; }
+  #pbp div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #pbp .score { color: #ffd24a; font-weight: 700; }
+  #gim { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); background: rgba(10,12,20,.85); color: #fff; padding: 10px 18px; border-radius: 8px; font-weight: 800; display: none; pointer-events: none; }
+  #fps { position: absolute; right: 12px; top: 10px; color: #8a8f9c; font-size: 11px; pointer-events: none; }
+  #vlabel { position: absolute; left: 14px; top: 12px; color: #fff; font-weight: 800; font-size: 16px; display: none; pointer-events: none; text-shadow: 0 1px 3px #000; }
+  #viewerBar { display: none; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <button id="bPause">Pause</button>
+  <span>Speed</span>
+  <button class="spd on" data-s="1">1x</button><button class="spd" data-s="2">2x</button><button class="spd" data-s="4">4x</button><button class="spd" data-s="8">8x</button><button class="spd" data-s="16">16x</button>
+  <div class="sep"></div>
+  <label>Play <select id="sPlay"><option value="">auto</option><option>transition</option><option>pnr</option><option>iso</option><option>post</option><option>spot</option><option>offscreen</option><option>handoff</option><option>cut</option><option>none</option></select></label>
+  <label>Camera <select id="sCam"><option>broadcast</option><option>wide</option><option>close</option></select></label>
+  <label><input type="checkbox" id="cPix"> Pixel</label>
+  <label><input type="checkbox" id="cNames"> Names</label>
+  <label><input type="checkbox" id="cLow"> Low quality</label>
+  <label><input type="checkbox" id="cWomen"> Women's league</label>
+  <label><input type="checkbox" id="cGim" checked> GIM auto-resume</label>
+  <div class="sep"></div>
+  <label>Mode <select id="sMode"><option value="game">Game (mock)</option><option value="viewer">Animation viewer</option><option value="engine">Game (engine)</option></select></label>
+  <span id="viewerBar">
+    <label>Clip <select id="sClip"></select></label>
+    <label><input type="checkbox" id="cSpin" checked> Rotate</label>
+    <label>Facing <input type="range" id="rFace" min="-180" max="180" value="-90"></label>
+    <label>Player <select id="sLook"></select></label>
+  </span>
+</div>
+<div id="stage"><div id="wrap">
+  <canvas id="cv"></canvas><canvas id="mag"></canvas>
+  <div id="hud"><div class="tm" id="hH"><span id="hHn">HOME</span><span class="sc" id="hHs">0</span></div><div class="mid"><span class="clock" id="hClock">12:00</span><span id="hPer">Q1</span><span class="shot" id="hShot">24</span></div><div class="tm" id="hA"><span class="sc" id="hAs">0</span><span id="hAn">AWAY</span></div></div>
+  <div id="vlabel"></div>
+  <div id="setname"></div>
+  <div id="gim">GAME IMPACT MOMENT — shot meter...</div>
+  <div id="pbp"></div>
+  <div id="fps"></div>
+</div></div>
+
+<!-- real engine (optional: the harness falls back to the mock if these fail to load) -->
+<script src="js/core/util.js"></script>
+<script src="js/core/names.js"></script>
+<script src="js/core/config.js"></script>
+<script src="js/core/player.js"></script>
+<script src="js/core/league.js"></script>
+<script src="js/core/stats.js"></script>
+<script src="js/core/ai.js"></script>
+<script src="js/core/sim.js"></script>
+<script src="js/match/util.js"></script>
+<script src="js/match/camera.js"></script>
+<script src="js/match/court.js"></script>
+<script src="js/match/arena.js"></script>
+<script src="js/match/hoop.js"></script>
+<script src="js/match/rig.js"></script>
+<script src="js/match/poses.js"></script>
+<script src="js/match/figure.js"></script>
+<script src="js/match/anims.js"></script>
+<script src="js/match/clips.js"></script>
+<script src="js/match/actor.js"></script>
+<script src="js/match/ball.js"></script>
+<script src="js/match/choreo.js"></script>
+<script src="js/match/view.js"></script>
+<script src="js/match/viewer.js"></script>
+<script src="js/match/mock.js"></script>
+<script>
+(function () {
+  'use strict';
+  const PM = PBC.Match;
+  const cv = document.getElementById('cv'), wrap = document.getElementById('wrap');
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const S = {
+    speed: +(params.get('speed') || 1), paused: false, mode: params.get('mode') || 'game',
+    women: params.get('women') === '1', forcePlay: params.get('play') || '', camera: params.get('cam') || 'broadcast',
+    pixel: false, names: false, low: false, gim: true, fixedW: +(params.get('w') || 0), fixedH: +(params.get('h') || 0),
+  };
+  let ctx, game, view, viewer, poss, nextAt = 0, simTime = 0, engineGame = null;
+
+  // ---------------------------------------------------------------- layout
+  function layout() {
+    let W, H;
+    if (S.fixedW) { W = S.fixedW; H = S.fixedH || Math.round(W * 9 / 16); }
+    else {
+      const aw = window.innerWidth, ah = window.innerHeight - 40;
+      W = aw; H = Math.round(W * 9 / 16);
+      if (H > ah) { H = ah; W = Math.round(H * 16 / 9); }
+    }
+    wrap.style.width = W + 'px'; wrap.style.height = H + 'px';
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const mag = $('mag'); mag.style.width = W + 'px'; mag.style.height = H + 'px';
+    if (view) view.resize(W, H);
+    if (viewer) viewer.resize(W, H);
+    S.W = W; S.H = H;
+  }
+  window.addEventListener('resize', layout);
+
+  // ---------------------------------------------------------------- HUD
+  const pbp = $('pbp');
+  function log(txt, cls) {
+    const d = document.createElement('div');
+    d.textContent = txt; if (cls) d.className = cls;
+    pbp.appendChild(d);
+    while (pbp.children.length > 11) pbp.removeChild(pbp.firstChild);
+  }
+  let setTimer = 0;
+  function showSet(name) { const el = $('setname'); el.textContent = name; el.style.opacity = 1; setTimer = 3; }
+  function hudTeams() {
+    $('hH').style.background = ctx.home.colors.primary; $('hA').style.background = ctx.away.colors.primary;
+    $('hHn').textContent = ctx.home.abbr; $('hAn').textContent = ctx.away.abbr;
+  }
+  function fmtClock(c) { if (c >= 60) { const m = Math.floor(c / 60); return m + ':' + String(Math.floor(c - m * 60)).padStart(2, '0'); } return c.toFixed(1); }
+  let score = [0, 0];
+  window.EVLOG = [];
+  function onEvent(ev) {
+    if (!ev) return;
+    window.EVLOG.push({ type: ev.type, t: ev.t, clock: view ? +view.clock().toFixed(2) : 0, sim: +simTime.toFixed(2) });
+    if (window.EVLOG.length > 400) window.EVLOG.shift();
+    const tag = ev.type.toUpperCase();
+    if (ev.type === 'score') { score[ev.team] += ev.pts; log('SCORE +' + ev.pts + ' ' + (ev.team === 0 ? ctx.home.abbr : ctx.away.abbr), 'score'); }
+    else if (ev.type === 'ft' && ev.made) { const p = ctx.players[ev.shooter]; score[p ? p.teamIdx : 0] += 1; log(ev.text || tag); }
+    else if (ev.type === 'set') { showSet(ev.setName || ''); log(ev.text || tag); }
+    else log('[' + tag + '] ' + (ev.text || ''));
+    if (ev.type === 'shot' && ev.pending) {
+      $('gim').style.display = 'block';
+      const theP = poss;
+      const resolve = () => {
+        $('gim').style.display = 'none';
+        if (engineGame && PBC.Sim && PBC.Sim.resolvePending) PBC.Sim.resolvePending(engineGame, theP, { quality: 'good' });
+        else game.resolvePending(theP, 0.55);
+        view.resume();
+      };
+      window.resolveGim = resolve;
+      if (S.gim) setTimeout(resolve, 1000);
+    }
+    $('hHs').textContent = score[0]; $('hAs').textContent = score[1];
+  }
+  function onDone() {
+    if (poss && poss.endScore) { score = poss.endScore.slice(); $('hHs').textContent = score[0]; $('hAs').textContent = score[1]; }
+    window.DONES = (window.DONES || 0) + 1;
+    nextAt = simTime + 0.35;
+  }
+
+  // ---------------------------------------------------------------- game setup
+  function engineAvailable() { return !!(window.PBC && PBC.Sim && typeof PBC.Sim.nextPossession === 'function' && PBC.League && PBC.League.create); }
+  // engine mode: a real league + game, context built exactly like js/ui/live.js (UI.matchContext)
+  window.makeEngineGame = function () {
+    const EU = PBC.U;
+    const S0 = PBC.League.create({ leagueKey: S.women ? 'women' : 'men', seed: (Date.now() & 0xffff) });
+    S0.userTid = 0;
+    const g = PBC.Sim.createGame(S0, 0, 1, {});
+    const uniformFor = (t, home) => { const p = t.colors.primary, s = t.colors.secondary; return home ? { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' } : { jersey: p, number: EU.textOn && EU.textOn(p) === '#ffffff' ? '#ffffff' : s, trim: s, shorts: p }; };
+    const teamLook = (t, home) => ({ id: t.id, abbr: t.abbr, city: t.city, name: t.name, colors: Object.assign({}, t.colors), uniform: uniformFor(t, home), court: { paint: t.colors.primary, logoText: t.abbr, wood: t.wood || 'light' } });
+    const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle });
+    const L = PBC.League.cfg(S0);
+    const players = {};
+    g.t.forEach((T, i) => T.players.forEach((c) => { players[c.id] = playerLook(c.p, i); }));
+    const c = { league: L.key, periodLen: L.quarterLen, otLen: L.otLen, threePt: L.threePt, home: teamLook(S0.teams[g.tids[0]], true), away: teamLook(S0.teams[g.tids[1]], false), players,
+      lineups: [g.t[0].on.map((x) => x.id), g.t[1].on.map((x) => x.id)], defScheme: [g.t[0].strat.def, g.t[1].strat.def] };
+    return { ctx: c, game: g };
+  };
+  function newGame() {
+    const mockCtx = PM.Mock.makeContext({ women: S.women, seed: 11 });
+    ctx = mockCtx;
+    engineGame = null;
+    game = new PM.Mock.Game(mockCtx, { periodLen: +(params.get('period') || 0) || undefined, seed: +(params.get('seed') || 0) || undefined });
+    game.forcePlay = S.forcePlay || null;
+    if (S.mode === 'engine' && engineAvailable() && window.makeEngineGame) {
+      try { const r = window.makeEngineGame(); ctx = r.ctx; engineGame = r.game; } catch (e) { console.warn('engine mode failed, using mock', e); engineGame = null; ctx = mockCtx; }
+    }
+    if (view) view.destroy();
+    view = new PM.View(cv, ctx, { camera: S.camera, pixelMode: S.pixel, showNames: S.names, quality: S.low ? 'low' : 'high' });
+    window.view = view; window.game = game; window.ctx = ctx;
+    score = [0, 0];
+    hudTeams();
+    layout();
+    nextAt = simTime + 0.3;
+  }
+  function nextPossession() {
+    try {
+      if (engineGame) {
+        if (engineGame.final) { newGame(); return; }
+        const gim = PBC.Sim.gimCheck ? PBC.Sim.gimCheck(engineGame) : null;
+        poss = gim && gim.options && gim.options.length ? PBC.Sim.startGimPossession(engineGame, gim.options[0]) : PBC.Sim.nextPossession(engineGame);
+        if (!poss) { newGame(); return; }
+        if (poss.defScheme) view.setDefScheme(1 - poss.off, poss.defScheme);
+        view.period = poss.period;
+      } else poss = game.nextPossession();
+    } catch (e) { console.error(e); engineGame = null; poss = game.nextPossession(); }
+    window.poss = poss;
+    view.play(poss, { onEvent, onDone });
+    if (poss.period) $('hPer').textContent = poss.period <= 4 ? 'Q' + poss.period : 'OT' + (poss.period - 4);
+  }
+
+  // ---------------------------------------------------------------- animation viewer
+  const VIEW_CLIPS = ['— locomotion: walk', '— locomotion: jog', '— locomotion: sprint', '— locomotion: backpedal', '— locomotion: defensive slide', '— dribble: stationary', '— dribble: jog', '— dribble: crossover', '— dribble: between the legs', '— dribble: behind the back',
+    'jumpshot', 'pullup', 'stepback', 'fadeaway', 'freethrow', 'layup', 'reverse', 'floater', 'hook', 'dunk', 'dunk2', 'alley', 'tip', 'rebound', 'contestJump', 'contestUp', 'block', 'swipe', 'intercept',
+    'passChest', 'passBounce', 'passOverhead', 'passPush', 'passLob', 'passOutlet', 'passInbound', 'catch', 'pickup', 'jab', 'spin', 'hesi', 'backdown', 'jumpTip', 'fall',
+    'fistPump', 'flex', 'threeFingers', 'point', 'clap', 'dejected', 'refWhistle', 'refFoul', 'refThree', 'refThreeGood', 'refTravel', 'refOut', 'refTimeout', 'refCharge', 'refThreeSec', 'refShotClock', 'refToss',
+    '~ stance: stand', '~ stance: ready', '~ stance: defense', '~ stance: triple', '~ stance: screen', '~ stance: boxout', '~ stance: postUp', '~ stance: inbound'];
+  const vState = { idx: 0, t: 0, cur: null, act: null, face: -Math.PI / 2 };
+  function setupViewer() {
+    if (!ctx) ctx = PM.Mock.makeContext({ women: S.women, seed: 11 });
+    viewer = new PM.Turntable(cv, ctx, {});
+    viewer.zoom = 1.2; viewer.center = { x: 47, y: 18 };
+    window.viewer = viewer;
+    layout();
+    const sel = $('sClip'); sel.innerHTML = '<option value="*">cycle all</option>' + VIEW_CLIPS.map((c) => '<option>' + c + '</option>').join('');
+    const ls = $('sLook');
+    const ids = Object.keys(ctx.players).filter((id, i) => i % 2 === 0).slice(0, 14);
+    ls.innerHTML = ids.map((id) => { const p = ctx.players[id]; return '<option value="' + id + '">#' + p.num + ' ' + p.last + ' ' + Math.floor(p.height / 12) + "'" + (p.height % 12) + '" ' + p.hand + ' ' + p.look.hair + '</option>'; }).join('') + '<option value="ref">Referee</option>';
+    ls.onchange = () => buildViewerActor();
+    sel.onchange = () => { const i = VIEW_CLIPS.indexOf(sel.value); if (i >= 0) vState.idx = i; startClip(); };
+    buildViewerActor();
+  }
+  function buildViewerActor() {
+    viewer.actors = [];
+    const id = $('sLook').value;
+    const look = id === 'ref' ? { id: 'refV', num: 21, height: 74, weight: 200, gender: 'm', look: { skin: 2, hair: 'buzz', build: 0.4 } } : Object.assign({}, ctx.players[id]);
+    const a = viewer.addActor(look, look.teamIdx || 0, id === 'ref' ? 'ref' : 'player');
+    a.place(47, 18, vState.face);
+    vState.act = a;
+    viewer.ball = new PM.Ball(viewer);
+    viewer.ball.give(a, 'chest');
+    startClip();
+  }
+  function startClip() {
+    const a = vState.act, b = viewer.ball;
+    if (!a) return;
+    const sel = $('sClip').value;
+    const name = sel === '*' ? VIEW_CLIPS[vState.idx % VIEW_CLIPS.length] : sel;
+    vState.cur = name; vState.t = 0; vState.loco = null; vState.releaseAt = null; vState.nextMove = 0;
+    $('vlabel').textContent = name.replace(/^[—~] /, '');
+    a.stopClip(0); a.upper = null; a.place(47, 18, vState.face);
+    a.setStance('ready'); a.ballHold = 'chest';
+    b.hidden = false; b.give(a, 'chest'); b.blend = null; b.update(0, b.time);
+    if (name.indexOf('— ') === 0) {
+      const kind = name.split(': ')[1];
+      vState.loco = (name.indexOf('dribble') > 0 ? 'd:' : '') + kind;
+      if (name.indexOf('dribble') < 0) { b.release(); b.hidden = true; } else { a.setStance('dribble'); b.dribble(a, a.lefty ? 0 : 1); }
+      if (kind === 'defensive slide') a.setStance('defense');
+      vState.dur = 5;
+      return;
+    }
+    if (name.indexOf('~ ') === 0) {
+      const st = name.split(': ')[1];
+      a.setStance(st); vState.dur = 3;
+      if (st === 'triple') a.ballHold = 'triple'; else if (st === 'inbound') a.ballHold = 'over'; else { b.release(); b.hidden = true; }
+      return;
+    }
+    const clip = PM.Anims.get(name);
+    if (!clip) { vState.dur = 0.5; return; }
+    const noBall = /^(ref|contest|block|swipe|fistPump|flex|threeFingers|point|clap|dejected|fall|jumpTip|catch)/.test(name);
+    if (noBall) { b.release(); b.hidden = true; }
+    if (name === 'jab') a.ballHold = 'triple';
+    if (name === 'pickup') { b.release(); b.placeAt(a.x + Math.cos(a.facing) * 1.9, a.y + Math.sin(a.facing) * 1.9, 0.39); b.state = 'loose'; }
+    if (name === 'intercept') { b.release(); b.hidden = true; }
+    vState.dur = clip.dur + 0.6;
+    a.play(name, { x: 47, y: 18, facing: a.facing, onEvent: (n) => {
+      if (n === 'grab' && name === 'pickup') { b.hidden = false; b.give(a, 'chest'); }
+      if (n === 'release' && b.holder === a) {
+        const p = [b.x, b.y, b.z]; b.release();
+        const c = Math.cos(a.facing), s = Math.sin(a.facing);
+        const up = /pass/.test(name) ? 4 : 17, fw = /pass/.test(name) ? 30 : 14;
+        b.flight([PM.Ball.seg(b.time, p, [c * fw, s * fw, up], 2.2)], null);
+      }
+    } });
+  }
+  function viewerUpdate(dt) {
+    const a = vState.act, b = viewer.ball;
+    if (!a) return;
+    vState.t += dt;
+    const spin = $('cSpin').checked;
+    const L = vState.loco;
+    if (L) {
+      const baseAng = (+$('rFace').value) * Math.PI / 180 + (spin ? vState.t * 0.22 : 0);
+      const flip = Math.floor(vState.t / 2.4) % 2 ? -1 : 1;
+      const kind = L.replace('d:', '');
+      if (kind === 'backpedal') { const ang = baseAng; a.moveTo(47 - Math.cos(ang) * 40 * flip, 18 - Math.sin(ang) * 40 * flip, { speed: 7, face: flip > 0 ? ang : ang + Math.PI, stance: 'ready' }); a.goal.arrive = false; }
+        else if (kind === 'defensive slide') { const ang = baseAng; a.moveTo(47 + Math.cos(ang + Math.PI / 2) * 40 * flip, 18 + Math.sin(ang + Math.PI / 2) * 40 * flip, { speed: 9, face: ang, stance: 'defense' }); a.goal.arrive = false; }
+      else if (kind === 'stationary' || kind === 'crossover' || kind === 'between the legs' || kind === 'behind the back') {
+        a.moveTo(47, 18, { face: baseAng, stance: 'dribble', speed: 3 });
+        if (b.state !== 'dribble') b.dribble(a, a.lefty ? 0 : 1);
+        if (kind !== 'stationary' && vState.t > vState.nextMove) { vState.nextMove = vState.t + 1.0; b.dribbleMove(kind === 'crossover' ? 'cross' : kind === 'between the legs' ? 'btl' : 'btb'); }
+      } else {
+        const sp = kind === 'walk' ? 4.6 : kind === 'sprint' ? 21 : 11;
+        a.moveTo(47 + Math.cos(baseAng) * 60, 18 + Math.sin(baseAng) * 60, { speed: sp, face: 'move', stance: L.indexOf('d:') === 0 ? 'dribble' : 'stand' });
+        a.goal.arrive = false;
+        if (Math.hypot(a.x - 47, a.y - 18) > 12) { a.place(47 - Math.cos(baseAng) * 11, 18 - Math.sin(baseAng) * 11, baseAng); a.vx = Math.cos(baseAng) * sp; a.vy = Math.sin(baseAng) * sp; a.speed = sp; if (L.indexOf('d:') === 0) b.dribble(a, a.lefty ? 0 : 1); }
+      }
+      viewer.center.x = U_lerp(viewer.center.x, a.x, 0.05); viewer.center.y = U_lerp(viewer.center.y, a.y + 0, 0.05);
+    } else {
+      if (spin && a.clip == null && !a.upper) { vState.face += dt * 0.35; a.setFace(vState.face); a.moveTo(47, 18, { face: vState.face, speed: 2 }); }
+      viewer.center.x = U_lerp(viewer.center.x, 47, 0.05); viewer.center.y = U_lerp(viewer.center.y, 18, 0.05);
+    }
+    if (vState.t > vState.dur) {
+      if ($('sClip').value === '*') vState.idx++;
+      if (spin && !L) vState.face += 0.9;
+      startClip();
+    }
+    viewer.update(dt);
+  }
+  function U_lerp(a, b, t) { return a + (b - a) * t; }
+  window.snap = (x, y, z) => {
+    const src = S.mode === 'viewer' ? viewer : view;
+    src.render();
+    const mag = $('mag'); mag.style.display = 'block'; mag.width = S.W; mag.height = S.H;
+    const g = mag.getContext('2d'), dpr = cv.width / S.W, w = S.W / z, h = S.H / z;
+    g.drawImage(cv, (x - w / 2) * dpr, (y - h / 2) * dpr, w * dpr, h * dpr, 0, 0, S.W, S.H);
+    return 'snap';
+  };
+  window.magOff = () => { $('mag').style.display = 'none'; };
+  /** advance deterministically (tests): seconds of wall time at the current speed */
+  window.advance = (secs, fps) => {
+    const h = 1 / (fps || 60);
+    for (let t = 0; t < secs; t += h) tick(h, true);
+    (S.mode === 'viewer' ? viewer : view).render();
+    if (view) { $('hClock').textContent = fmtClock(view.clock()); $('hShot').textContent = Math.ceil(view.shotClock()); }
+    return { clock: view ? +view.clock().toFixed(1) : null, idle: view ? view.isIdle() : null, n: poss ? poss.n : null };
+  };
+  window.S = S;
+  /** run the harness loop without rendering (tests) */
+  window.tickOnly = (secs, fps, each) => { const h = 1 / (fps || 60); for (let t = 0; t < secs; t += h) { tick(h, true); if (each) each(); } };
+
+  // ---------------------------------------------------------------- loop
+  let last = performance.now(), fpsAcc = 0, fpsN = 0;
+  function tick(dt, manual) {
+    if (S.mode === 'viewer') { viewerUpdate(dt); return; }
+    if (S.paused && !manual) return;
+    const sdt = dt * S.speed;
+    simTime += sdt;
+    if (view.isIdle() && simTime >= nextAt && nextAt > 0) { nextAt = 0; nextPossession(); }
+    view.update(sdt);
+    if (setTimer > 0) { setTimer -= dt; if (setTimer <= 0) $('setname').style.opacity = 0; }
+  }
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const t0 = performance.now();
+    tick(dt);
+    if (S.mode === 'viewer') viewer.render(); else {
+      view.render();
+      $('hClock').textContent = fmtClock(view.clock());
+      $('hShot').textContent = Math.ceil(view.shotClock());
+    }
+    const ms = performance.now() - t0;
+    fpsAcc += dt; fpsN++;
+    if (fpsAcc > 0.5) { $('fps').textContent = Math.round(fpsN / fpsAcc) + ' fps · ' + ms.toFixed(1) + ' ms/frame'; fpsAcc = 0; fpsN = 0; }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------------------------------------------------------- controls
+  $('bPause').onclick = () => { S.paused = !S.paused; $('bPause').textContent = S.paused ? 'Play' : 'Pause'; $('bPause').classList.toggle('on', S.paused); };
+  document.querySelectorAll('.spd').forEach((b) => b.onclick = () => { S.speed = +b.dataset.s; document.querySelectorAll('.spd').forEach((x) => x.classList.toggle('on', x === b)); });
+  $('sPlay').onchange = (e) => { S.forcePlay = e.target.value; if (game) game.forcePlay = S.forcePlay || null; };
+  $('sCam').onchange = (e) => { S.camera = e.target.value; if (view) view.setOption('camera', S.camera); };
+  $('cPix').onchange = (e) => { S.pixel = e.target.checked; if (view) view.setOption('pixelMode', S.pixel); };
+  $('cNames').onchange = (e) => { S.names = e.target.checked; if (view) view.setOption('showNames', S.names); };
+  $('cLow').onchange = (e) => { S.low = e.target.checked; if (view) view.setOption('quality', S.low ? 'low' : 'high'); };
+  $('cWomen').onchange = (e) => { S.women = e.target.checked; ctx = null; if (S.mode === 'viewer') setupViewer(); else newGame(); };
+  $('cGim').onchange = (e) => { S.gim = e.target.checked; };
+  function setMode(m) {
+    S.mode = m;
+    $('viewerBar').style.display = m === 'viewer' ? 'flex' : 'none';
+    ['hud', 'pbp', 'setname'].forEach((id) => { $(id).style.display = m === 'viewer' ? 'none' : ''; });
+    $('vlabel').style.display = m === 'viewer' ? 'block' : 'none';
+    if (m === 'viewer') setupViewer(); else { viewer = null; newGame(); }
+  }
+  $('sMode').onchange = (e) => setMode(e.target.value);
+  $('rFace').oninput = (e) => { vState.face = (+e.target.value) * Math.PI / 180; if (vState.act) { vState.act.facing = vState.face; vState.act.setFace(vState.face); } };
+  const eng = $('sMode').querySelector('option[value=engine]');
+  if (!engineAvailable()) eng.textContent = 'Game (engine: not loaded)';
+  $('sPlay').value = S.forcePlay; $('sCam').value = S.camera; $('cWomen').checked = S.women; $('sMode').value = S.mode;
+  setMode(S.mode);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
