@@ -27,7 +27,8 @@ uniform int uRow;
 uniform mat4 uVP;
 uniform vec3 uFlut;
 uniform vec3 uSway;
-out vec3 vW; out vec3 vN; out vec3 vB; out vec3 vBN; out vec4 vM; out vec2 vUV;
+uniform mat4 uShM;      // world -> shadow tile (xy in atlas uv, z depth 0..1)
+out vec3 vW; out vec3 vN; out vec3 vB; out vec3 vBN; out vec4 vM; out vec2 vUV; out vec3 vSh;
 void main() {
   vec3 p = vec3(0.0), n = vec3(0.0);
   vec4 P4 = vec4(aPos, 1.0);
@@ -56,12 +57,18 @@ void main() {
   if (mat == 2 || mat == 3) p += uFlut * f * f;       // shorts / jersey hem sway
   if (mat == 7) p += uSway * f * f;                  // hanging hair
   vW = p; vN = n; vB = aPos; vBN = aNrm; vM = aMat; vUV = aUV;
+  // normal offset against acne
+  vec4 sp = uShM * vec4(p + normalize(n) * 0.035, 1.0);
+  vSh = sp.xyz;
   gl_Position = uVP * vec4(p, 1.0);
 }`;
 
   const FS = `#version 300 es
 precision highp float;
-in vec3 vW; in vec3 vN; in vec3 vB; in vec3 vBN; in vec4 vM; in vec2 vUV;
+in vec3 vW; in vec3 vN; in vec3 vB; in vec3 vBN; in vec4 vM; in vec2 vUV; in vec3 vSh;
+uniform highp sampler2DShadow uShadow;
+uniform vec4 uShTile;   // atlas tile: u0, v0, du, dv
+uniform float uShOn;
 uniform vec3 uCam;
 uniform sampler2D uMask1, uMask2;
 uniform vec4 uMaskP;    // has masks, hairline threshold, brow threshold, lash strength
@@ -101,6 +108,22 @@ float ksk(vec3 N, vec3 L, vec3 V, float m) {
 vec3 wrapD(float ndl, vec3 w) { return clamp((vec3(ndl) + w) / ((1.0 + w) * (1.0 + w)), 0.0, 1.0); }
 float charlie(float r, float ndh) { float inv = 1.0 / r; float s2 = max(1.0 - ndh * ndh, 0.0078125); return (2.0 + inv) * pow(s2, inv * 0.5) / (2.0 * PI); }
 vec3 amb(vec3 N, float ao) { return mix(uGround, uSky, 0.5 + 0.5 * N.z) * ao; }
+// key-light visibility from the person's shadow tile (5-tap PCF; arena light arrays make soft shadows)
+float gKey = 1.0;
+float keyShadow() {
+  if (uShOn < 0.5) return 1.0;
+  vec2 uv = vSh.xy;
+  if (uv.x <= 0.0 || uv.y <= 0.0 || uv.x >= 1.0 || uv.y >= 1.0) return 1.0;
+  vec2 tuv = uShTile.xy + uv * uShTile.zw;
+  float z = vSh.z - 0.004;
+  vec2 px = uShTile.zw / 512.0 * 1.6;
+  float s = texture(uShadow, vec3(tuv, z));
+  s += texture(uShadow, vec3(tuv + vec2(px.x, 0.0), z));
+  s += texture(uShadow, vec3(tuv - vec2(px.x, 0.0), z));
+  s += texture(uShadow, vec3(tuv + vec2(0.0, px.y), z));
+  s += texture(uShadow, vec3(tuv - vec2(0.0, px.y), z));
+  return mix(0.28, 1.0, s / 5.0);
+}
 float rim(vec3 N, vec3 V) { return pow(1.0 - max(dot(N, V), 0.0), 4.0) * max(N.z, 0.0); }
 
 vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
@@ -109,7 +132,7 @@ vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
   float mu = mix(0.16, 0.5, oil);
   float m1 = mix(0.42, 0.34, oil), m2 = mix(0.19, 0.1, oil);
   float rs = mix(0.32, 0.55, oil);
-  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0, uC1, uC2);
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey, uC1, uC2);
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
     float t = ndl + 0.25;
@@ -125,7 +148,7 @@ vec3 shadeCloth(vec3 alb, vec3 N, vec3 V, float ao, float rough, float sheen) {
   vec3 dif = vec3(0.0), spc = vec3(0.0);
   vec3 sc = sqrt(max(alb, vec3(0.0))) * sheen;
   float ndv = max(dot(N, V), 1e-3);
-  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0, uC1, uC2);
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey, uC1, uC2);
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
     dif += Cs[i] * clamp((ndl + 0.5) / 2.25, 0.0, 1.0);
@@ -140,7 +163,7 @@ vec3 shadeCloth(vec3 alb, vec3 N, vec3 V, float ao, float rough, float sheen) {
 }
 vec3 shadeGloss(vec3 alb, vec3 N, vec3 V, float ao, float m, float ks) {
   vec3 dif = vec3(0.0), spc = vec3(0.0);
-  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0, uC1, uC2);
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey, uC1, uC2);
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
     dif += Cs[i] * max(ndl, 0.0);
@@ -156,7 +179,7 @@ vec3 shadeHair(vec3 alb, vec3 N, vec3 V, float ao, vec3 T, float shift, float co
   vec3 dif = vec3(0.0), spc = vec3(0.0);
   vec3 t1 = normalize(T + (0.12 + shift) * N), t2 = normalize(T + (-0.08 + shift) * N);
   float n1 = mix(90.0, 18.0, coil), n2 = mix(28.0, 8.0, coil);
-  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0, uC1, uC2);
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey, uC1, uC2);
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
     dif += Cs[i] * mix(0.25, 1.0, clamp(ndl, 0.0, 1.0));
@@ -185,6 +208,7 @@ vec3 pbrNeutral(vec3 color) {
 vec3 toSRGB(vec3 c) { c = max(c, vec3(0.0)); return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 
 void main() {
+  gKey = keyShadow();
   int mat = int(vM.x * 255.0 + 0.5);
   float ao = vM.y, a0 = vM.z, a1 = vM.w;
   vec3 N = normalize(vN);
@@ -393,6 +417,11 @@ void main() {
   oCol = vec4(toSRGB(pbrNeutral(col)), 1.0);
 }`;
 
+  const DEPTH_FS = `#version 300 es
+precision mediump float;
+out vec4 oCol;
+void main() { oCol = vec4(1.0); }`;
+
   function compile(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src); gl.compileShader(s);
@@ -436,6 +465,24 @@ void main() {
       if (!gl) throw new Error('no webgl2');
       this.cv = cv; this.gl = gl;
       this.prog = program(gl, VS, FS);
+      this.dprog = program(gl, VS, DEPTH_FS);
+      this.du = {};
+      const nd = gl.getProgramParameter(this.dprog, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < nd; i++) { const info = gl.getActiveUniform(this.dprog, i); this.du[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(this.dprog, info.name); }
+      // shadow atlas: 4 x 4 tiles of 512 px
+      this.shTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.shTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, 2048, 2048, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+      this.shFbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shFbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.shTex, 0);
+      gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
+      this.shadowsOk = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.shM = new Float32Array(16);
       this.bprog = program(gl, BALL_VS, BALL_FS);
       this.bu = {};
       const nb = gl.getProgramParameter(this.bprog, gl.ACTIVE_UNIFORMS);
@@ -526,6 +573,21 @@ void main() {
         if (old && old !== m) { gl.deleteVertexArray(old.vao); gl.deleteBuffer(old.vb); gl.deleteBuffer(old.ib); this.meshes.delete(old.k); }
       }
       return m;
+    }
+    /**
+     * Queue meshes for people who will be on screen soon (the view calls this when a game opens), and build them in
+     * the background, one per timer tick, so the first frames of play do not stall.
+     */
+    warm(list) {
+      for (const pp of list) this.mesh(pp.style, pp.dims, 'high', false);
+      if (this._warmT || !this.queue.length) return;
+      const tick = () => {
+        this._warmT = null;
+        if (!this.queue.length || !M.Human || !M.Human.ready()) return;
+        this.pump(40);
+        if (this.queue.length) this._warmT = setTimeout(tick, 30);
+      };
+      this._warmT = setTimeout(tick, 30);
     }
     /** build queued meshes within a time budget (called once per frame) */
     pump(ms) {
@@ -660,9 +722,40 @@ void main() {
       if (this.numDirty) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.numCv); gl.generateMipmap(gl.TEXTURE_2D); this.numDirty = false; }
       gl.uniform1i(u.uNumTex, 1);
       this._masks();
+      // ---- shadow pass: each person's depth from the overhead key light into a 512 px tile
+      const useSh = this.shadowsOk && opts.shadows !== false && rows <= 16;
+      if (useSh) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.shFbo);
+        gl.viewport(0, 0, 2048, 2048);
+        gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.useProgram(this.dprog);
+        gl.uniform1i(this.du.uBones, 0);
+        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 2);
+        for (let r = 0; r < rows; r++) {
+          const c = list[r];
+          c.tile = [(r % 4) * 0.25, Math.floor(r / 4) * 0.25, 0.25, 0.25];
+          this._lightMatrix(c);
+          gl.viewport((r % 4) * 512, Math.floor(r / 4) * 512, 512, 512);
+          gl.uniformMatrix4fv(this.du.uVP, false, c.lvp);
+          gl.uniform1i(this.du.uRow, r);
+          const sw = this._sway(c);
+          gl.uniform3f(this.du.uFlut, sw[0], sw[1], 0); gl.uniform3f(this.du.uSway, sw[2], sw[3], 0);
+          gl.bindVertexArray(c.m.vao);
+          gl.drawElements(gl.TRIANGLES, c.m.n, gl.UNSIGNED_INT, 0);
+        }
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.useProgram(this.prog);
+      }
+      gl.activeTexture(gl.TEXTURE4);
+      gl.bindTexture(gl.TEXTURE_2D, this.shTex);
+      gl.uniform1i(u.uShadow, 4);
+      gl.uniform1f(u.uShOn, useSh ? 1 : 0);
       this._lights(cam);
       for (let r = 0; r < rows; r++) {
         const c = list[r];
+        if (useSh) { gl.uniformMatrix4fv(u.uShM, false, c.shm); gl.uniform4fv(u.uShTile, c.tile); }
+        else gl.uniformMatrix4fv(u.uShM, false, this.shM);
         gl.viewport(c.cx, CH - c.cy - c.ch, c.cw, c.ch);
         this._vp(cam, c);
         gl.uniformMatrix4fv(u.uVP, false, this.VP);
@@ -736,6 +829,28 @@ void main() {
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.maskTex[0]);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.maskTex[1]);
       gl.uniform1i(u.uMask1, 2); gl.uniform1i(u.uMask2, 3);
+    }
+    /** orthographic light view of one person: c.lvp (clip) and c.shm (world -> tile uv + depth 0..1) */
+    _lightMatrix(c) {
+      const sk = c.pp.sk, P = sk.P, H = sk.dims.H;
+      // bounding sphere around the pelvis
+      const cx = P[0], cy = P[1], cz = P[2] + 0.1 * H, r = 0.72 * H;
+      const L = [0.18, -0.42, 1], ll = Math.hypot(L[0], L[1], L[2]);
+      const f = [-L[0] / ll, -L[1] / ll, -L[2] / ll];           // light travel direction
+      let rx = f[1] * 0 - f[2] * 1, ry = f[2] * 0 - f[0] * 0, rz = f[0] * 1 - f[1] * 0; // right = f x (0,1,0)
+      let rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+      const ux = ry * f[2] - rz * f[1], uy = rz * f[0] - rx * f[2], uz = rx * f[1] - ry * f[0]; // up = right x f
+      const k = 1 / r;
+      const m = c.lvp || (c.lvp = new Float32Array(16)), sm = c.shm || (c.shm = new Float32Array(16));
+      const row = (M, i, a, b, cc, d) => { M[i] = a; M[4 + i] = b; M[8 + i] = cc; M[12 + i] = d; };
+      // clip: x = right.(p-c)/r, y = up.(p-c)/r, z = f.(p-c)/r
+      row(m, 0, rx * k, ry * k, rz * k, -(rx * cx + ry * cy + rz * cz) * k);
+      row(m, 1, ux * k, uy * k, uz * k, -(ux * cx + uy * cy + uz * cz) * k);
+      row(m, 2, f[0] * k, f[1] * k, f[2] * k, -(f[0] * cx + f[1] * cy + f[2] * cz) * k);
+      row(m, 3, 0, 0, 0, 1);
+      // tile uv (0..1 inside the tile) and depth (0..1)
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) sm[j * 4 + i] = m[j * 4 + i] * 0.5 + (j === 3 ? 0.5 : 0);
+      sm[3] = 0; sm[7] = 0; sm[11] = 0; sm[15] = 1;
     }
     _vp(cam, c) {
       const sp = cam.sp, cp = cam.cp, f = cam.f;
@@ -818,17 +933,19 @@ void main() {
       const fadeSides = { fade: 0.55, hightop: 0.5, mohawk: 0.25, buzz: 1, waves: 1 }[st.hair];
       gl.uniform4f(u.uScalpP, fadeSides == null ? 1 : fadeSides, (m.head.eye ? m.head.eye.z : 3) + 5.5, 2.2, 0);
       gl.uniform4f(u.uCloth, cache.panel, 1, cache.stripe, cache.sockStripe);
-      // cloth sway from the pelvis motion (a small spring per person)
-      const a = c.pp.a;
-      let fx = 0, fy = 0, fz = 0, sx = 0, sy = 0, sz = 0;
+      const sw = this._sway(c);
+      gl.uniform3f(u.uFlut, sw[0], sw[1], 0);
+      gl.uniform3f(u.uSway, sw[2], sw[3], 0);
+    }
+    /** cloth and hair sway from the person's running velocity: [flutter x, y, hair x, y] */
+    _sway(c) {
+      const a = c.pp.a, o = this._swv || (this._swv = [0, 0, 0, 0]);
+      o[0] = o[1] = o[2] = o[3] = 0;
       if (a && a.vx != null) {
-        const sp = a._clothSpring || (a._clothSpring = { x: 0, y: 0, vx: 0, vy: 0, px: a.vx, py: a.vy });
-        void sp;
-        fx = -U.clamp((a.vx || 0) * 0.012, -0.12, 0.12); fy = -U.clamp((a.vy || 0) * 0.012, -0.12, 0.12);
-        sx = fx * 2; sy = fy * 2; sz = 0;
+        o[0] = -U.clamp((a.vx || 0) * 0.012, -0.12, 0.12); o[1] = -U.clamp((a.vy || 0) * 0.012, -0.12, 0.12);
+        o[2] = o[0] * 2; o[3] = o[1] * 2;
       }
-      gl.uniform3f(u.uFlut, fx, fy, fz);
-      gl.uniform3f(u.uSway, sx, sy, sz);
+      return o;
     }
     _styleColors(st) {
       const v3 = {};

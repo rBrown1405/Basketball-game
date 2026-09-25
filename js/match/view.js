@@ -50,6 +50,17 @@
       this.items = [];
       this.whistleT = -9; this.hornT = -9;
       this.initialLayout();
+      // realistic players: load the body data and build everyone's mesh in the background before play starts
+      if (M.GL3D && M.Human && this.opts.models !== '2d') {
+        M.Human.load().then(ok => {
+          if (!ok || this.destroyed) return;
+          const R3 = M.GL3D.get(); if (!R3) return;
+          const list = [];
+          for (const id in this.actors) { const a = this.actors[id]; list.push({ style: a.style, dims: a.dims }); }
+          for (const r of this.refs) list.push({ style: r.style, dims: r.dims });
+          R3.warm(list);
+        });
+      }
       this.resize(canvas.clientWidth || canvas.width || 1600, canvas.clientHeight || canvas.height || 900);
       this.camRig.update(0.016, { x: 47, snap: true });
     }
