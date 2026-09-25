@@ -147,7 +147,10 @@
     if (k <= 0.001 && kArms <= 0.001) return;
     const gw = gaitWeights(speed, TMPW);
     const sets = [[WALK, gw.walk], [JOG, gw.jog], [SPRINT, gw.sprint]];
-    const ph = backwards ? 1 - phase : phase;
+    // backwards: 0..1 (or boolean); in between, the forward and the reversed cycles are mixed
+    const bw = backwards === true ? 1 : +backwards || 0;
+    const ph = bw >= 1 ? 1 - phase : phase;
+    const mixB = bw > 0 && bw < 1;
     const acc = applyGait._acc || (applyGait._acc = new Float32Array(RG.NCH));
     const has = applyGait._has || (applyGait._has = new Uint8Array(RG.NCH));
     acc.fill(0); has.fill(0);
@@ -156,7 +159,7 @@
       for (const key in set) {
         const i = CH[key];
         const v = set[key];
-        const val = typeof v === 'number' ? v : U.loopSample(v, ph);
+        const val = typeof v === 'number' ? v : mixB ? U.loopSample(v, phase) * (1 - bw) + U.loopSample(v, 1 - phase) * bw : U.loopSample(v, ph);
         acc[i] += (RG.LINEAR[key] ? val : val * D) * w;
         has[i] = 1;
       }

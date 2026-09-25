@@ -310,14 +310,24 @@
       for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden && a.y > -6) list.push(a); }
       for (const r of this.refs) list.push(r);
       const n = list.length;
+      // torsos lean ahead of the feet (defensive stance, sprinting): test the chests too, from the last solve
+      const CHS = M.Rig.J.CHS * 3;
+      for (const a of list) {
+        const P = a.sk && a.sk.P;
+        a._chx = P ? U.clamp(P[CHS] - a.x, -1.2, 1.2) : 0; a._chy = P ? U.clamp(P[CHS + 1] - a.y, -1.2, 1.2) : 0;
+      }
       for (let i = 0; i < n; i++) {
         const a = list[i];
         const ra = a.H * 0.15;
         for (let j = i + 1; j < n; j++) {
           const b = list[j];
-          const dx = b.x - a.x, dy = b.y - a.y;
-          const minD = ra + b.H * 0.15;
-          const d2 = dx * dx + dy * dy;
+          let dx = b.x - a.x, dy = b.y - a.y;
+          let minD = ra + b.H * 0.15;
+          let d2 = dx * dx + dy * dy;
+          if (d2 > 36) continue;
+          const cdx = dx + b._chx - a._chx, cdy = dy + b._chy - a._chy, minC = (a.H + b.H) * 0.125;
+          const c2 = cdx * cdx + cdy * cdy;
+          if (c2 < minC * minC && minC - Math.sqrt(c2) > minD - Math.sqrt(d2)) { dx = cdx; dy = cdy; d2 = c2; minD = minC; }
           if (d2 >= minD * minD) continue;
           const d = Math.sqrt(d2) || 0.01;
           const push = (minD - d);
@@ -326,9 +336,19 @@
           const la = a.isBusy() ? 0 : a.hasBall ? 0.3 : 1, lb = b.isBusy() ? 0 : b.hasBall ? 0.3 : 1;
           const tot = la + lb;
           if (tot <= 0) continue;
-          const k = Math.min(1, 12 * h) * push;
+          // soft push-out, and a hard floor: torsos never pass into each other (bodies ~1 ft deep)
+          let k = Math.min(1, 30 * h) * push;
+          const hard = push - minD * 0.2;
+          if (hard > k) k = hard;
           a.x -= nx * k * la / tot; a.y -= ny * k * la / tot;
           b.x += nx * k * lb / tot; b.y += ny * k * lb / tot;
+          // contact: stop pressing into each other (inelastic along the contact normal) so steering slides
+          // them around one another instead of re-penetrating every frame
+          const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          if (rv < 0) {
+            a.vx += nx * rv * la / tot; a.vy += ny * rv * la / tot;
+            b.vx -= nx * rv * lb / tot; b.vy -= ny * rv * lb / tot;
+          }
         }
       }
     }

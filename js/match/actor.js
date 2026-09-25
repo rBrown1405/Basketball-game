@@ -323,7 +323,9 @@
         // accelerating hard: quicker, shorter steps (sprinter's start)
         const accF = Math.max(0, this.ax * this.moveDirX + this.ay * this.moveDirY);
         let sps = A.stepsPerSec(Math.min(this.maxSpeed, sp + accF * 0.3), H);
-        if (fwdDot < 0.5) { sps *= 1.12; gp.lift *= 0.55; gp.beta = Math.max(gp.beta, 0.45); gp.toePitch *= 0.6; }
+        // (blended, not switched: a hard switch changed the swing foot's lift and timing in a single frame)
+        const nfw = U.smooth((0.6 - fwdDot) / 0.2);
+        if (nfw > 0) { sps *= 1 + 0.12 * nfw; gp.lift *= 1 - 0.45 * nfw; gp.beta = U.lerp(gp.beta, Math.max(gp.beta, 0.45), nfw); gp.toePitch *= 1 - 0.4 * nfw; }
         // lateral movement: step-slide (lead foot lands ahead, trail foot behind; feet never cross)
         const latK = U.smooth((0.88 - Math.abs(fwdDot)) / 0.4);
         if (latK > 0) {
@@ -721,14 +723,16 @@
       // 2. gait
       const st = A.STANCE[this.stance] || A.STANCE.stand;
       if (this.gaitK > 0.001) {
-        const back = (this.fwdDot || 1) < -0.3;
-        const lateral = Math.abs(this.fwdDot || 1) < 0.6;
-        const slideStance = st.slide && lateral;
-        const kT = this.gaitK * (slideStance ? 0.25 : U.lerp(st.gaitTorso, 1, U.smooth((this.speed - 6) / 6)));
-        const kA = this.gaitK * (slideStance ? 0.1 : U.lerp(st.gaitArms, 1, U.smooth((this.speed - 7) / 6)));
+        // moving sideways (a shuffle) or backwards the arms stop pumping and the torso stays quiet; all blended
+        // by direction so nothing pops when a player turns his hips while moving
+        const fd = this.fwdDot == null ? 1 : this.fwdDot;
+        const back = U.smooth((-fd - 0.15) / 0.3);
+        const lat = this.latK || 0;
+        const kT = this.gaitK * U.lerp(U.lerp(st.gaitTorso, 1, U.smooth((this.speed - 6) / 6)), st.slide ? 0.25 : 0.35, lat);
+        const kA = this.gaitK * U.lerp(U.lerp(st.gaitArms, 1, U.smooth((this.speed - 7) / 6)), st.slide ? 0.1 : 0.16, Math.max(lat, back * 0.6));
         A.applyGait(p, this.phase, this.speed, kT, back, kA);
-        if (slideStance) A.applySlide(p, this.phase, this.gaitK);
-        if (back) { p[CH.spFlex] -= 6 * D * this.gaitK; p[CH.pelPitch] -= 4 * D * this.gaitK; }
+        if (lat > 0.001) A.applySlide(p, this.phase, this.gaitK * lat);
+        if (back > 0.001) { p[CH.spFlex] -= 6 * D * this.gaitK * back; p[CH.pelPitch] -= 4 * D * this.gaitK * back; }
       }
       // lean from acceleration and turns
       if (!this.clip) {

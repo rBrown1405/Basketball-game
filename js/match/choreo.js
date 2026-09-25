@@ -397,6 +397,18 @@
             tx = this.X(nu); ty = nv;
           }
         }
+        // never crowd the ball: an off-ball spot whose target sits on top of the handler moves out to ~14 ft
+        // (a pick-and-roll brings four players together; a fifth or sixth body there is broken spacing)
+        const bh = b.holder;
+        if (bh && bh !== a && bh.team === this.off && this.phase === 'front' && this.tempo !== 'push' && this.U_(bh.x) < 40) {
+          let dx = tx - bh.x, dy = ty - bh.y, dd = Math.hypot(dx, dy);
+          if (dd < 12) {
+            if (dd < 0.5) { dx = a.x - bh.x; dy = a.y - bh.y; dd = Math.hypot(dx, dy); }
+            if (dd < 0.5) { dx = this.X(this.U_(bh.x) + 1) - bh.x; dy = bh.y < 25 ? 1 : -1; dd = Math.hypot(dx, dy); }
+            const nu = U.clamp(this.U_(bh.x + dx / dd * 14), 2.2, 32), nv = U.clamp(bh.y + dy / dd * 14, 2.5, 47.5);
+            tx = this.X(nu); ty = nv;
+          }
+        }
         // fast break: wings run wide lanes along the sidelines, then fill the corners
         if (this.tempo === 'push') {
           const u = this.U_(a.x);
