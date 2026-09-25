@@ -341,15 +341,26 @@
         cur.give[salBad].pids.push(pick.id);
         continue;
       }
-      if (ev.sides.some(s => !s.rosterOk)) return null;
+      // the paying side taking in more bodies than it can roster can fix that by sending a player back
+      const pay = ev.sides[payIdx];
+      const payFull = !pay.rosterOk && pay.rosterAfter > pay.rosterNow;
+      if (ev.sides.some((s, i) => !s.rosterOk && !(i === payIdx && payFull))) return null;
       const ai = ev.sides[aiIdx];
-      if (ai.accept || added >= maxAdd) return null;
+      if ((ai.accept && !payFull) || added >= maxAdd) return null;
       const gap = ai.need - ai.net + 0.3;
       const c = candidates(S, cur, payIdx);
       const opts2 = [];
       const without = cur.give[aiIdx].pids;
       for (const p of c.players) opts2.push({ kind: 'p', id: p.id, v: Trade.playerValue(S, p, ai.tid, { receiving: true, without }), cost: Trade.playerValue(S, p, cur.tids[payIdx]) });
-      for (const pk of c.picks) opts2.push({ kind: 'k', id: Trade.pickKey(pk), v: Trade.pickValue(S, pk, ai.tid), cost: Trade.pickValue(S, pk, cur.tids[payIdx]) });
+      if (payFull && ai.accept) {
+        // already enough value: send the cheapest player the AI will take
+        const ok = opts2.filter(x => x.v > -0.5);
+        if (!ok.length) return null;
+        cur.give[payIdx].pids.push(U.minBy(ok, x => x.cost).id);
+        added++;
+        continue;
+      }
+      if (!payFull) for (const pk of c.picks) opts2.push({ kind: 'k', id: Trade.pickKey(pk), v: Trade.pickValue(S, pk, ai.tid), cost: Trade.pickValue(S, pk, cur.tids[payIdx]) });
       const useful = opts2.filter(x => x.v > 0.4);
       if (!useful.length) return null;
       const closers = useful.filter(x => x.v >= gap);
