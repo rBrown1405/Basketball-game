@@ -21,6 +21,7 @@
     layer.innerHTML = `
       <div class="bc-tag" id="bc-tag"></div>
       <div class="bc-run" id="bc-run"></div>
+      <div class="bc-tp" id="bc-tp"></div>
       <div class="bc-l3" id="bc-l3"></div>
       <div class="bc-cap" id="bc-cap"></div>
       <div class="bc-bug-wrap">
@@ -33,7 +34,7 @@
       <div class="bc-card" id="bc-card"></div>
       <div class="bc-replay" id="bc-replay"></div>`;
     const $ = id => layer.querySelector('#' + id);
-    const B = { last: {}, tagT: 0, runT: 0, l3T: 0, capT: 0, l3Queue: [], lastL3: -99, possN: 0, scored: {}, streak: {}, view: host.view, final: false };
+    const B = { last: {}, tagT: 0, runT: 0, tpT: 0, l3T: 0, capT: 0, l3Queue: [], lastL3: -99, possN: 0, scored: {}, streak: {}, view: host.view, final: false };
 
     // ---------------------------------------------------------- bug
     function setText(el, v) { if (el && el._v !== v) { el._v = v; el.textContent = v; } }
@@ -94,6 +95,24 @@
       B.l3T = secs || 5;
       B.lastL3 = B.possN;
     }
+    /** timeout graphic: team stat comparison while the teams huddle (stats only from plays already shown) */
+    function teamPanel(callIdx) {
+      if (!on()) return false;
+      const spd = host.speed ? host.speed() : 1;
+      if (spd > 4) return false;
+      const bx = (host.boxSnap && host.boxSnap()) || PBC.Sim.box(g);
+      if (!bx || !bx.teams) return false;
+      const s0 = teamStats(bx, 0), s1 = teamStats(bx, 1);
+      const rows = [['FG%', 'fg'], ['3PT', 'tp'], ['FT', 'ft'], ['REB', 'reb'], ['AST', 'ast'], ['TOV', 'tov']];
+      const el = $('bc-tp');
+      el.setAttribute('style', tcss(callIdx));
+      el.innerHTML = `<div class="tp-h"><span class="tp-ab">${esc(T[callIdx].abbr)}</span><span class="tp-t">TIMEOUT</span></div>
+        <div class="tp-grid"><span class="tp-team" style="${tcss(1)}">${esc(T[1].abbr)}</span><span class="tp-l">TEAM STATS</span><span class="tp-team" style="${tcss(0)}">${esc(T[0].abbr)}</span>
+        ${rows.map(([l, k]) => `<span class="tp-v">${s1[k]}</span><span class="tp-l">${l}</span><span class="tp-v">${s0[k]}</span>`).join('')}</div>`;
+      el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+      B.tpT = 6 / Math.sqrt(Math.max(1, spd));
+      return true;
+    }
     const pcOf = id => { for (const Tm of g.t) { const c = Tm.players.find(x => x.id === id); if (c) return { c, i: Tm.idx }; } return null; };
 
     // ---------------------------------------------------------- cards
@@ -114,7 +133,7 @@
       update(dt, s) {
         renderBug(s);
         const tick = (k, el) => { if (B[k] > 0) { B[k] -= dt; if (B[k] <= 0) { const e = $(el); if (e) e.classList.remove('on'); } } };
-        tick('tagT', 'bc-tag'); tick('runT', 'bc-run'); tick('l3T', 'bc-l3'); tick('capT', 'bc-cap');
+        tick('tagT', 'bc-tag'); tick('runT', 'bc-run'); tick('tpT', 'bc-tp'); tick('l3T', 'bc-l3'); tick('capT', 'bc-cap');
         const rp = $('bc-replay');
         if (rp && rp.classList.contains('on') && B.view && B.view.replayProgress) {
           const bar = rp.querySelector('.rp-bar i'); if (bar) bar.style.width = Math.round(B.view.replayProgress() * 100) + '%';
@@ -150,7 +169,7 @@
           const run = g.run || {};
           if (run.pts >= 8 && run.team === ev.team && (run.pts === 8 || run.pts % 4 === 0)) showRun(ev.team, run.pts);
         } else if (ev.type === 'timeout') {
-          tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">TIMEOUT</span>`, ev.team, 3.5);
+          if (!teamPanel(ev.team)) tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">TIMEOUT</span>`, ev.team, 3.5);
         } else if (ev.type === 'shot' && ev.blocked) {
           const x = pcOf(ev.blocker);
           if (x && x.c.st.blk >= 3 && B.possN - B.lastL3 >= 2) lowerThird(x.c, x.i, x.c.st.blk + ' BLOCKS', 4.5);
