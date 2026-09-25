@@ -179,7 +179,7 @@
             <div class="in-head">${UI.teamBadge(T[i], 64)}<div><div class="in-city">${esc(T[i].city)}</div><div class="in-name">${esc(T[i].name)}</div><div class="in-rec">${rec(i)}${i === 0 ? ' · HOME' : ' · AWAY'}</div></div></div>
             <div class="in-five">${five(i).map(p => `<div class="in-p">${UI.avatar(p, 72)}<div class="in-pn">${esc(p.last).toUpperCase()}</div><div class="in-pi">${p.pos} · #${p.num}</div></div>`).join('')}</div></div>`;
         card(`<div class="in-live"><span class="dot"></span>LIVE</div>
-          ${stk.playoff ? `<div class="in-po">${esc(stk.label)}</div>` : `<div class="in-po reg">${esc(T[0].arena || T[0].city)}</div>`}
+          ${stk.playoff ? `<div class="in-po">${esc(stk.label)}</div>` : `<div class="in-po reg">${esc((PBC.UI && PBC.UI.teamArena ? PBC.UI.teamArena(T[0]) : T[0].arena) || T[0].city)}</div>`}
           <div class="in-title">STARTING LINEUPS</div>
           <div class="in-teams">${side(1)}<div class="in-vs">AT</div>${side(0)}</div>`, 'intro');
       },

@@ -15,10 +15,11 @@
     const p = t.colors.primary, s = t.colors.secondary;
     return home ? { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' } : { jersey: p, number: U.textOn(p) === '#ffffff' ? '#ffffff' : s, trim: s, shorts: p };
   }
+  const arenaName = t => (UI.teamArena ? UI.teamArena(t) : t.arena || '');
   function teamLook(t, home) {
-    const ct = t.court || {};
+    const ct = UI.teamCourt ? UI.teamCourt(t) : (t.court || {}); // Team Editor court, or the same defaults it shows
     return {
-      id: t.id, abbr: t.abbr, city: t.city, name: t.name, arena: t.arena || '', colors: Object.assign({}, t.colors), uniform: uniformFor(t, home),
+      id: t.id, abbr: t.abbr, city: t.city, name: t.name, arena: arenaName(t), colors: Object.assign({}, t.colors), uniform: uniformFor(t, home),
       court: { paint: ct.paint || t.colors.primary, logoText: ct.logoText || t.abbr, wood: ct.wood || t.wood || 'light', apron: ct.apron || null },
     };
   }
@@ -137,7 +138,7 @@
       const vs = viewSettings(S);
       root.innerHTML = `<div class="page pregame ${stakes.playoff ? 'po-pregame' : ''}">
         <div class="hero"><div class="hero-in">
-          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game${(home ? me : opp).arena ? ' · ' + U.esc((home ? me : opp).arena) : ''}</span><div class="spacer"></div>${series ? `<span class="tag gold">${U.esc(series)}</span>` : ''}</div>
+          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game${arenaName(home ? me : opp) ? ' · ' + U.esc(arenaName(home ? me : opp)) : ''}</span><div class="spacer"></div>${series ? `<span class="tag gold">${U.esc(series)}</span>` : ''}</div>
           ${stakes.elimination ? `<div class="po-stakes">${stakes.game7 ? '🔥 GAME 7. WINNER TAKES ALL.' : stakes.clinch[home ? 0 : 1] && stakes.clinch[home ? 1 : 0] ? '🔥 DECIDING GAME' : stakes.clinch[home ? 1 : 0] ? '⚠️ ELIMINATION GAME: lose and your season is over' : '🏆 CLOSEOUT GAME: win and you advance'}</div>` : ''}
           <div class="vs-card" style="margin:14px 0">
             <div class="vs-team">${UI.teamBadge(home ? opp : me, 92)}<div class="nm">${U.esc((home ? opp : me).city)}<br>${U.esc((home ? opp : me).name)}</div><div class="small muted">${st[(home ? opp : me).id].w}-${st[(home ? opp : me).id].l} · ${pg((home ? opp : me).id, 'pts')} ppg</div></div>
@@ -306,7 +307,7 @@
     renderBug();
     renderPanel(true);
     renderOnCourt();
-    pushLine({ q: 1, clock: g.clock, text: `Welcome to ${teams[0].arena || teams[0].city}! ${teams[1].name} at ${teams[0].name}.${stakes.playoff ? ' ' + (stakes.label || '') : ''}`, type: 'note' });
+    pushLine({ q: 1, clock: g.clock, text: `Welcome to ${arenaName(teams[0]) || teams[0].city}! ${teams[1].name} at ${teams[0].name}.${stakes.playoff ? ' ' + (stakes.label || '') : ''}`, type: 'note' });
     // opening: broadcast intro (starting lineups) while the booth sets the scene
     const introSecs = S.settings.gameIntro === false ? 0 : 7.5;
     if (introSecs > 0 && LG.bc && LG.bc.showIntro) {

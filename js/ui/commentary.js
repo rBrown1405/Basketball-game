@@ -115,6 +115,7 @@
     // ---------------------------------------------------------- helpers
     const T = teams, nick = i => T[i].name, city = i => T[i].city;
     const full = i => `${city(i)} ${nick(i)}`;
+    const arena = i => (PBC.UI && PBC.UI.teamArena ? PBC.UI.teamArena(T[i]) : T[i].arena || '');
     const pc = id => { for (const Tm of g.t) { const c = Tm.players.find(x => x.id === id); if (c) return c; } return null; };
     const pl = id => (id != null && S.players[id]) || null;
     const last = id => { const p = pl(id); return p ? p.last : 'he'; };
@@ -389,7 +390,8 @@
         const i0 = 0, i1 = 1;
         const stn = PBC.League.standings(S);
         const rec = i => { const r = stn[T[i].id]; return r && r.gp ? `${r.w} and ${r.l}` : ''; };
-        const where = T[i0].arena ? `${T[i0].arena} in ${city(i0)}` : city(i0);
+        const an = arena(i0);
+        const where = an ? (an.toLowerCase().includes(String(city(i0)).toLowerCase()) ? an : `${an} in ${city(i0)}`) : city(i0);
         if (silent) return;
         say('pbp', pick([`Good evening everybody, and welcome to ${where}.`, `Hello again everyone, we are live from ${where}.`, `Welcome in to ${where}, what a night for basketball.`]), { pri: 9, ttl: 12 });
         if (stakes.playoff) {
@@ -537,7 +539,7 @@
         const bx = PBC.Sim.box(g);
         const top = U.maxBy(bx.teams.flatMap(t => t.players), x => x.pts);
         if (per === 2) {
-          say('pbp', `That's halftime here${T[0].arena ? ' at ' + T[0].arena : ''}. ${lead(sc)}.`, { pri: 9, ttl: 8 });
+          say('pbp', `That's halftime here${arena(0) ? ' at ' + arena(0) : ''}. ${lead(sc)}.`, { pri: 9, ttl: 8 });
           const t0 = bx.teams[0], t1 = bx.teams[1];
           const fg = t => (t.fga ? Math.round(t.fgm / t.fga * 100) : 0);
           const diff = Math.abs(fg(t0) - fg(t1));
