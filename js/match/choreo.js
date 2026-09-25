@@ -653,7 +653,12 @@
       let ix = +ev.x, iy = +ev.y;
       if (!isFinite(ix)) ix = baseline ? this.X(95) : 47;
       if (!isFinite(iy)) iy = baseline ? 25 : -1;
-      if (baseline) { ix = ix < 47 ? -1.2 : 95.2; iy = U.clamp(iy, 12, 38); }
+      if (baseline) {
+        ix = ix < 47 ? -1.2 : 95.2;
+        iy = U.clamp(iy, 12, 38);
+        // step out beside the lane, not straight behind the backboard (the stanchion and the glass are in the way)
+        if (Math.abs(iy - 25) < 7) iy = 25 + (iy < 25 ? -7 : 7);
+      }
       else { iy = iy < 25 ? -1.4 : 51.4; ix = U.clamp(ix, 3, 91); }
       const dead = gap < 0.01 || start === 'dead_ball' || start === 'period_start';
       beat.dead = dead && gap < 0.01;
@@ -662,11 +667,19 @@
       const pickup = baseline && (start === 'made_basket' || start === 'ft_made') && ballFree;
       // receiver spot: step toward the ball
       const inDir = baseline ? (ix < 47 ? 1 : -1) : 0;
-      const rcv = baseline ? { x: ix + inDir * 13, y: U.clamp(iy + (Math.random() - 0.5) * 12, 8, 42) } : { x: ix + (Math.random() - 0.5) * 8, y: iy < 25 ? 9 : 41 };
+      // receiver comes back to the ball on the same side, 15-20 ft away (near the free throw line extended)
+      const rcv = baseline
+        ? { x: ix + inDir * (15 + Math.random() * 5), y: U.clamp(iy + (iy < 25 ? -4 : 4) + (Math.random() - 0.5) * 6, 5, 45) }
+        : { x: ix + (Math.random() - 0.5) * 8, y: iy < 25 ? 9 : 41 };
       const tWalkBy = Math.hypot(by.x - ix, by.y - iy) / (dead ? 9 : 14);
       const tWalkTo = Math.hypot(to.x - rcv.x, to.y - rcv.y) / 14;
       const flight = Math.hypot(rcv.x - ix, rcv.y - iy) / 30;
-      let need = Math.max(tWalkBy + (pickup ? 1.0 : 0.6), tWalkTo) + 0.4;
+      // after a made basket the inbounder has to reach the ball, pick it up and step back out of bounds before
+      // the pass: budget each part (the pass used to fire from inside the court with the ball still loose)
+      const ballSpot = { x: U.clamp(b.x, 1, 93), y: U.clamp(b.y, 2, 48) };
+      const tToBall = pickup ? Math.hypot(by.x - ballSpot.x, by.y - ballSpot.y) / 13 + 0.1 : 0;
+      const tOut = pickup ? Math.hypot(ballSpot.x - ix, ballSpot.y - iy) / 8 + 0.2 : 0;
+      let need = pickup ? Math.max(tToBall + 0.55 + tOut + 0.35, tWalkTo + 0.4) : Math.max(tWalkBy + 0.6, tWalkTo) + 0.4;
       if (dead) need += 0.6;
       beat.onStart = (fireAt) => {
         this.unlockAll([by.id, to.id]);
@@ -674,15 +687,20 @@
         const rt = this.role[to.id]; if (rt) rt.until = fireAt + flight + 0.3;
         // inbounder: get the ball
         if (pickup && b.state !== 'held') {
-          const bx = U.clamp(b.x, 1, 93), byy = U.clamp(b.y, 2, 48);
+          const bx = ballSpot.x, byy = ballSpot.y;
           by.moveTo(bx, byy, { speed: 14, face: 'move' });
-          const tPick = this.T + Math.min(fireAt - this.T - 0.9, Math.hypot(by.x - bx, by.y - byy) / 13 + 0.1);
+          const tPick = this.T + Math.min(fireAt - this.T - 0.35 - tOut - 0.5, tToBall);
           this.at(tPick, () => {
             if (b.holder && b.holder.team === this.off) return;
             by.play('pickup', { onEvent: (n) => { if (n === 'grab') this.giveBall(by, 'chest'); } });
             this.at(this.T + 0.45, () => { if (b.holder !== by) this.giveBall(by, 'chest'); }, 'pickup safety');
           }, 'pickup');
-          this.at(Math.max(this.T + 0.2, fireAt - 0.55), () => { by.stopClip(); by.moveTo(ix, iy, { speed: 7, face: { x: rcv.x, y: rcv.y } }); }, 'step out');
+          // right after the pickup: back out of bounds facing the court, then set up to pass
+          this.at(Math.min(tPick + 0.5, fireAt - 0.35 - tOut), () => {
+            by.stopClip();
+            if (b.holder !== by) this.giveBall(by, 'chest');
+            by.moveTo(ix, iy, { speed: 8, by: fireAt - 0.3, face: { x: rcv.x, y: rcv.y } });
+          }, 'step out');
         } else {
           if (!b.holder || b.holder.team !== this.off) {
             // referee takes the ball to the spot and bounces it to the inbounder
@@ -706,6 +724,9 @@
         if (this.scheme === 'press') { for (const a of this.defActors()) this.dtask[a.id] = null; }
         v.camHint = { x: ix, hold: 1.2 };
       };
+      // the throw-in waits (up to 3 s) until the inbounder is really out of bounds with the ball in his hands
+      const outside = () => (baseline ? (ix < 47 ? by.x <= 0.2 : by.x >= 93.8) : (iy < 25 ? by.y <= 0.2 : by.y >= 49.8));
+      beat.waitFor = () => outside() && b.holder === by;
       beat.onFire = () => {
         if (b.holder !== by) this.giveBall(by, 'over');
         by.ballHold = 'chest';
@@ -1729,7 +1750,9 @@
         sh.moveTo(spot.x, spot.y, { by: tClip - routine + 0.3, speed: 12, face: facing, stance: 'stand' });
         // ref bounces the ball to the shooter
         if (lead) {
-          const rp = { x: this.rim.x - this.dir * 6, y: 19 };
+          // the official bounces the ball to the shooter from beside the lane, then steps out to the baseline so
+          // nobody but the lane players is near the lane when the ball is released
+          const rp = this.P(15.5, 25 + (lead.y < 25 ? -9.5 : 9.5));
           lead.moveTo(rp.x, rp.y, { speed: 9, face: { x: spot.x, y: spot.y } });
           this.at(tClip - routine + 0.1, () => {
             if (b.holder !== lead) this.giveBall(lead, 'chest');
@@ -1737,6 +1760,10 @@
             const d = Math.hypot(sh.x - lead.x, sh.y - lead.y);
             this.passBall(lead, sh, 'bounce', U.clamp(d / 26, 0.4, 0.9), () => { b.dribble(sh, sh.lefty ? 0 : 1, { period: 0.62 }); sh.setFace(facing); });
           }, 'ref bounce');
+          this.at(tClip - routine + 0.9, () => {
+            const out = this.P(1.5, 25 + (lead.y < 25 ? -14 : 14));
+            if (!lead.isBusy()) lead.moveTo(out.x, out.y, { speed: 8, face: { x: this.rim.x, y: 25 } });
+          }, 'ref steps out');
         }
         this.at(tClip - 0.35, () => { if (b.holder === sh) b.give(sh, 'pocket'); }, 'ft set');
         this.at(tClip - routine + 0.35, () => {
@@ -1799,6 +1826,16 @@
     }
     placeForFT(shooter) {
       const v = this.v;
+      // A missed shot before the whistle queued box-outs, crashes and get-backs, and set defenders to follow their
+      // man. Those orders would drag players off their lane spots (a defender boxing out the shooter ends up
+      // standing in front of him at the line), so the lineup replaces them all.
+      const STALE = { boxout: 1, crash: 1, 'get back': 1, 'leak out': 1, retreat: 1, recover: 1, 'def on': 1, contest: 1, 'closeout early': 1 };
+      this.jobs = this.jobs.filter((j) => !STALE[j.tag]);
+      for (const a of this.offActors().concat(this.defActors())) {
+        if (a === shooter) continue;
+        if (a.goal && a.goal.mode === 'track') a.stop();
+        a.setFace(() => Math.atan2(this.rim.y - a.y, this.rim.x - a.x));
+      }
       const offs = this.offActors().filter((a) => a !== shooter), defs = this.defActors();
       const lane = [[7.6, 15.6], [7.6, 34.4], [14.5, 34.4], [11.5, 15.6], [11.5, 34.4], [14.5, 15.6]];
       const slots = [];
@@ -1807,7 +1844,7 @@
       const bigD = defs.slice().sort((a, b) => b.H - a.H);
       const bigO = offs.slice().sort((a, b) => b.H - a.H);
       let maxT = 0;
-      const put = (a, u, vv, face) => {
+      const put = (a, u, vv, face, stance) => {
         if (!a) return;
         const p = this.P(u, vv);
         const d = Math.hypot(a.x - p.x, a.y - p.y);
@@ -1815,14 +1852,15 @@
         maxT = Math.max(maxT, d / (sp * 0.85));
         const r = this.role[a.id]; if (r) r.until = this.T + 60;
         this.dtask[a.id] = { until: this.T + 60 };
-        a.moveTo(p.x, p.y, { speed: sp, face: face || { x: this.rim.x, y: 25 }, stance: 'handsKnees' });
+        a.moveTo(p.x, p.y, { speed: sp, face: face || { x: this.rim.x, y: 25 }, stance: stance || 'handsKnees' });
       };
       bigD.slice(0, 3).forEach((a, i) => put(a, dSpots[i][0], dSpots[i][1], { x: this.X(dSpots[i][0]), y: 25 }));
       bigO.slice(0, 2).forEach((a, i) => put(a, oSpots[i][0], oSpots[i][1], { x: this.X(oSpots[i][0]), y: 25 }));
       // everyone else behind the arc
       const rest = bigD.slice(3).concat(bigO.slice(2));
       const perims = [[30, 14], [30, 36], [33, 25], [28, 8]];
-      rest.forEach((a, i) => put(a, perims[i % perims.length][0], perims[i % perims.length][1]));
+      // (NBA rule 9: players off the lane stay behind the 3-point line, above the free throw line extended)
+      rest.forEach((a, i) => put(a, perims[i % perims.length][0], perims[i % perims.length][1], null, 'stand'));
       void slots;
       const ds = Math.hypot(shooter.x - this.X(19.9), shooter.y - 25);
       maxT = Math.max(maxT, ds / 10);

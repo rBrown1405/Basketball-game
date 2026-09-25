@@ -337,10 +337,15 @@
           const lph = cph + gp.beta;
           let tooFar = false;
           if (f.state === 'plant') {
+            // A foot inside its own contact window is where the stride put it: it lifts at toe-off on schedule.
+            // Only a foot planted outside its window (after a stop, a turn or a clip) and left far behind gets a
+            // recovery step. (Measuring from the ankle here fired a panic step on almost every stride, which broke
+            // the rhythm into double plants and shuffles.)
+            const inWindow = frac(this.phase - cph) < gp.beta;
             const side = f.side ? 1 : -1;
             const hx = this.x + s * side * this.dims.hipX, hy = this.y - c * side * this.dims.hipX;
-            const an = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TC);
-            tooFar = Math.hypot(an[0] - hx, an[1] - hy) > 0.3 * H;
+            const d = Math.hypot(f.x - hx, f.y - hy);
+            tooFar = inWindow ? d > 0.5 * H : d > 0.3 * H;
           }
           if (f.state === 'plant' && tooFar && !crossed(ph0, ph1, lph)) {
             // recovery step: foot left too far behind (sharp speed change / turn)
@@ -766,9 +771,25 @@
         if (f.state !== 'plant') continue;
         const side = f.side ? 1 : -1;
         const hx = this.x + s * side * this.dims.hipX, hy = this.y - c * side * this.dims.hipX;
-        const dh = Math.hypot(ik.x - hx, ik.y - hy);
+        let dh = Math.hypot(ik.x - hx, ik.y - hy);
         const L = (this.dims.th + this.dims.sh) * 0.975;
-        const zmax = ik.z + Math.sqrt(Math.max(0.01, L * L - dh * dh));
+        let zmax = ik.z + Math.sqrt(Math.max(0.01, L * L - dh * dh));
+        // push-off: a stance foot behind the hip rolls onto the ball of the foot (heel rise) so the leg stays long,
+        // the way real runners and walkers do, instead of the pelvis sinking to reach a flat foot
+        const wantZ = this.dims.hipH + p[CH.rootZ] * H + this.jumpZ;
+        const behind = (f.x - hx) * c + (f.y - hy) * s < 0;
+        if (zmax < wantZ && behind && this.gaitOn && !this.clip) {
+          const maxPitch = (this.speed > 9 ? 68 : 45) * D;
+          let pitch = f.pitch;
+          while (zmax < wantZ && pitch < maxPitch) {
+            pitch = Math.min(maxPitch, pitch + 2 * D);
+            const a = this._ankleFromBall(f.x, f.y, f.yaw, pitch, TA);
+            dh = Math.hypot(a[0] - hx, a[1] - hy);
+            zmax = a[2] + Math.sqrt(Math.max(0.01, L * L - dh * dh));
+            ik.x = a[0]; ik.y = a[1]; ik.z = a[2];
+          }
+          f.pitch = pitch; ik.pitch = pitch;
+        }
         minRootZ = Math.min(minRootZ, zmax);
       }
       // pelvis height: pose + jump; clamp for reach when on the ground

@@ -40,7 +40,7 @@
     lKnee: opp([[0, 4], [0.15, 16], [0.4, 5], [0.6, 36], [0.72, 62], [0.9, 18]]),
   });
   const JOG = gaitSet({
-    pelPitch: 8, spFlex: 7, chFlex: 3, nkFlex: -9, hdFlex: 0,
+    pelPitch: 6, spFlex: 5, chFlex: 2, nkFlex: -7, hdFlex: 0, // ~9 deg forward lean (running studies)
     rootZ: [[0, -0.012], [0.17, -0.032], [0.36, -0.01], [0.43, 0.008], [0.5, -0.012], [0.67, -0.032], [0.86, -0.01], [0.93, 0.008]],
     pelTwist: [[0, 8], [0.25, 0], [0.5, -8], [0.75, 0]],
     pelRoll: [[0.1, -5], [0.35, 2], [0.6, 5], [0.85, -2]],
@@ -58,7 +58,7 @@
     lKnee: opp([[0, 20], [0.17, 40], [0.36, 18], [0.6, 88], [0.8, 50], [0.95, 20]]),
   });
   const SPRINT = gaitSet({
-    pelPitch: 12, spFlex: 11, chFlex: 4, nkFlex: -13, hdFlex: 0,
+    pelPitch: 9, spFlex: 8, chFlex: 3, nkFlex: -11, hdFlex: 0, // ~14 deg at top speed; more only while accelerating
     rootZ: [[0, -0.016], [0.13, -0.036], [0.26, -0.014], [0.38, 0.01], [0.5, -0.016], [0.63, -0.036], [0.76, -0.014], [0.88, 0.01]],
     pelTwist: [[0, 10], [0.25, 0], [0.5, -10], [0.75, 0]],
     pelRoll: [[0.08, -5], [0.3, 2], [0.58, 5], [0.8, -2]],
@@ -105,9 +105,11 @@
   /** gait parameters by speed (stance fraction, swing lift, reach, step half-width, crouch) all in H-fractions */
   function gaitParams(speed, out) {
     const gw = gaitWeights(speed, out.w || (out.w = {}));
-    out.beta = gw.walk * 0.6 + gw.jog * 0.37 + gw.sprint * 0.27;
+    // stance share of the stride (ground contact): walking ~60%, running ~31-33%, sprinting ~22-25% (gait studies)
+    out.beta = gw.walk * 0.6 + gw.jog * 0.33 + gw.sprint * 0.24;
     out.lift = gw.walk * 0.05 + gw.jog * 0.2 + gw.sprint * 0.29;
-    out.reach = gw.walk * 0.55 + gw.jog * 0.45 + gw.sprint * 0.42;
+    // share of the contact that happens ahead of the hip: runners land close under the body, not reaching out
+    out.reach = gw.walk * 0.5 + gw.jog * 0.4 + gw.sprint * 0.36;
     out.halfW = gw.walk * 0.032 + gw.jog * 0.022 + gw.sprint * 0.016;
     out.liftPow = gw.walk * 0.85 + gw.jog * 0.62 + gw.sprint * 0.58;
     out.drop = gw.walk * 0.006 + gw.jog * 0.02 + gw.sprint * 0.03;
