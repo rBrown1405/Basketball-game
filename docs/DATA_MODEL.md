@@ -2,7 +2,8 @@
 
 Browser game, plain JS, classic `<script>` tags, everything under `window.PBC`. Core logic lives in `js/core/*.js`
 and never touches the DOM (it runs in Node too — see `test/harness.js`, which loads every `js/core/*.js` it finds,
-in this order: util, names, config, player, league, stats, ai, sim, season, coach, draft, offseason, storage).
+in this order: util, names, config, player, persona, tendency, sliders, league, stats, ai, sim, season, coach, draft,
+offseason, trade, magazine, storage).
 
 Read the source for details — this is the map.
 
@@ -20,7 +21,8 @@ Read the source for details — this is the map.
 | `PBC.Sim` | sim.js | the possession engine (see `docs/MATCH_API.md`) |
 | `PBC.Season` | season.js | `news(S, text, type, tid)`, `startRegularSeason`, `simDay`, `endDay`, `advanceToUserGame`, `quickSim`, `completeGame`, practice (`practiceAvailable`, `applyPractice`), `endRegularSeason`, `finishPostseason`, `endSeason` |
 | `PBC.Coach` | coach.js | the user's career: `create`, `setExpectations`, `recordGame`, `unlock(S, achievementId)`, `endSeason` (review/firing), `jobOffers`, `acceptJob` |
-| `PBC.Store` | storage.js | `save(S)`, `load(id)`, `list()`, `remove(id)`, `exportString`, `importString` |
+| `PBC.Persona` | persona.js | player personality types (`TYPES`, `of(p)`, `info`, `face(p, { mood })`, `blurb`) used by portraits, the booth and the player card |
+| `PBC.Store` | storage.js | saves in IndexedDB (localStorage fallback). Latest save per career: `save(S, { backup, backupCount })`, `load(id)`, `list()`; named slots and rotating backups: `saveSlot`, `saveBackup`, `pruneBackups`, `listAll()`, `listCareer(id)`; `remove`, `removeCareer`, `rename`, `copy`; files: `exportString`, `importString` (new id). Each record is `{ id, data, meta }` plus a small index record `'#meta:' + id` so lists never load full saves. Ids: main = `S.saveId`, slot = `saveId::slot::<time>`, backup = `saveId::backup::<k>` |
 
 ## The state object `S` (one career = one save)
 
@@ -42,6 +44,7 @@ S = {
   news: [{ season, day, phase, text, type, tid }],
   history: [{ season, champion, runnerUp, fmvp, awards, standings }],
   records, settings, practice, teamSeason: { [tid]: totals }, flags, preseasonProj: { [tid]: winPct },
+  // settings.autosave: 'always' | 'game' | 'week' | 'phase' | 'off'; settings.backupCount 0-10 (default 3)
   regularAwards,              // computed at the end of the regular season
 }
 ```
@@ -51,7 +54,13 @@ S = {
 { id, abbr, city, name, conf, div, market (1-5), colors: { primary, secondary, trim }, wood,
   strat: { off, def, tempo, focus, crash, pressure, goTo1, goTo2 },
   rot: { starters: [5 ids], minutes: { id: minutes }, auto: bool },
-  owner: { patience, spend }, hype, history: [{ season, w, l, result, round, champ, seed }] }
+  owner: { patience, spend }, hype, history: [{ season, w, l, result, round, champ, seed }],
+  // Team Editor (all optional; UI.teamUniform / UI.teamCourt / UI.teamArena give the defaults when missing)
+  badge: { shape }, arena: 'name',
+  uniforms: { home: { jersey, number, trim, shorts }, away: { ... } },   // '#hex'
+  court: { wood: 'light'|'medium'|'dark', paint, logoText, apron },       // t.wood mirrors court.wood
+  defaultStrat,                // AI teams: keep these systems through the offseason
+  orig }                       // the league's original values (Reset in the Team Editor restores them)
 ```
 
 ### Player
@@ -62,7 +71,9 @@ S = {
   ovr, pot,                    // pot = true potential (hidden from the user for prospects / other teams unless scouted)
   tid,                         // team id, -1 free agent, -2 draft prospect, -3 retired
   contract: { amt, exp, rookie },   // amt per season; exp = last season covered (expiring when exp === S.season)
-  look: {...}, pers: { money, win, loyal, pt, market, ego, work },   // personality 1–99 (for free agency)
+  look: {...},                 // look.face: portrait expression override ('auto' or a PBC.Persona face key)
+  pers: { money, win, loyal, pt, market, ego, work, type },   // traits 1–99 (free agency, morale); type = personality
+                               // override (PBC.Persona type key), otherwise derived from the traits
   origin, draft: { year, round, pick, tid } | null,
   injury: { name, days, total } | null,
   stats: [{ season, tid, po, gp, gs, min, pts, fgm, fga, tpm, tpa, ftm, fta, orb, drb, ast, stl, blk, tov, pf, pm, dd, td, hiPts, hiReb, hiAst }],

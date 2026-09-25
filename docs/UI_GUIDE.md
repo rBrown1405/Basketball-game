@@ -51,7 +51,12 @@ UI.playerLink(p) / UI.teamLink(t)      // clickable names (open the player card 
 UI.openPlayer(pid), UI.openTeam(tid), UI.openBox(gid)
 UI.table(container, { columns: [{ key, label, num, fmt(row), sort(row), title }], rows, sort: 'key', desc: true,
                       rowClass(row), onRow(row, ev), compact })
-UI.save()                              // autosave (debounced) — call after changing S
+UI.save()                              // after changing S: writes when the autosave policy allows it, otherwise marks the career unsaved
+UI.saveNow({ silent })                 // always writes now (Save button, Ctrl/Cmd+S, new career)
+UI.backupNow(reason), UI.saveAs()      // rotating backup / named save slot
+UI.guardUnsaved(doing) -> Promise<bool>  // asks before leaving a career with unsaved changes
+UI.teamUniform(t, home), UI.teamCourt(t), UI.teamArena(t)   // Team Editor look with defaults
+UI.openTeamEditor(tid)
 UI.money = PBC.U.money
 ```
 
