@@ -20,6 +20,8 @@
       const home = gctx.home || {};
       const court = home.court || {};
       this.paint = court.paint || (home.colors && home.colors.primary) || '#1d4e89';
+      this.apron = court.apron || this.paint;
+      this.atm = gctx.atmosphere || {};
       this.logoText = String(court.logoText || home.abbr || 'PBC').toUpperCase();
       this.wood = WOOD[court.wood] || WOOD.medium;
       this.colors = home.colors || { primary: this.paint, secondary: '#f2c14e', trim: '#ffffff' };
@@ -112,7 +114,7 @@
       const B = 4.6;
       g.save();
       g.globalAlpha = 0.9;
-      g.fillStyle = paint;
+      g.fillStyle = this.apron;
       g.beginPath();
       g.rect(tx(-B), ty(50 + B), (94 + 2 * B) * p, (50 + 2 * B) * p);
       g.rect(tx(0), ty(50), 94 * p, 50 * p);
@@ -156,7 +158,7 @@
         g.fillText(s, 0, 0);
         g.restore();
       };
-      const textCol = U.contrast(paint, '#ffffff', '#101010');
+      const textCol = U.contrast(this.apron, '#ffffff', '#101010');
       if (far) {
         txt(far, 23.5, 52.3, 2.9, 0, textCol);
         txt(far, 70.5, 52.3, 2.9, 0, textCol);
@@ -167,8 +169,29 @@
         txt(this.name, -2.3, 25, 2.8, -Math.PI / 2, textCol);
         txt(this.name, 96.3, 25, 2.8, Math.PI / 2, textCol);
       }
-      txt('PRO BBALL COACH', 47, -2.4, 2.4, 0, U.rgba(textCol, 0.85));
+      const atm = this.atm || {};
+      txt(atm.playoff ? String(atm.finals ? 'THE FINALS' : (atm.label || 'PLAYOFFS')).split('·')[0].trim() : 'PRO BBALL COACH', 47, -2.4, 2.4, 0, atm.playoff ? '#f2c14e' : U.rgba(textCol, 0.85));
       g.restore();
+      // playoff floor decals on both sides of half court
+      if (atm.playoff) {
+        for (const [x, rot] of [[33, -Math.PI / 2], [61, Math.PI / 2]]) {
+          g.save();
+          g.translate(tx(x), ty(8.5));
+          g.rotate(0);
+          g.globalAlpha = 0.5;
+          g.font = '900 ' + Math.round(1.7 * p) + 'px ' + FONT;
+          g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.lineWidth = 0.25 * p; g.strokeStyle = 'rgba(40,25,5,0.9)';
+          const word = atm.finals ? 'FINALS' : 'PLAYOFFS';
+          g.strokeText(word, 0, 0);
+          g.fillStyle = '#f2c14e';
+          g.fillText(word, 0, 0);
+          g.globalAlpha = 0.45;
+          g.beginPath(); g.moveTo(-3.8 * p, 1.35 * p); g.lineTo(3.8 * p, 1.35 * p); g.lineWidth = 0.18 * p; g.strokeStyle = '#f2c14e'; g.stroke();
+          g.restore();
+          void rot;
+        }
+      }
 
       // gloss/finish: very subtle overall lift and edge wear
       g.save();

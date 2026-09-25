@@ -1,4 +1,6 @@
-/* Pro BBALL Coach — pregame + live game screen (engine ⇄ court view ⇄ coach controls ⇄ Game Impact Moments). */
+/* Pro BBALL Coach — pregame + live game screen.
+ * Engine ⇄ pixel-art broadcast court view ⇄ TV graphics (broadcast.js) ⇄ two-voice commentary (commentary.js)
+ * ⇄ arena audio (arenaaudio.js) ⇄ coach controls ⇄ Game Impact Moments. */
 (function () {
   'use strict';
   const PBC = window.PBC;
@@ -8,11 +10,17 @@
   // Helpers shared with the view
   // ---------------------------------------------------------------------------
   function uniformFor(t, home) {
+    const u = t.uniforms && t.uniforms[home ? 'home' : 'away'];
+    if (u && u.jersey) return Object.assign({ number: u.trim || '#111111', trim: u.number || '#111111', shorts: u.jersey }, u);
     const p = t.colors.primary, s = t.colors.secondary;
     return home ? { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' } : { jersey: p, number: U.textOn(p) === '#ffffff' ? '#ffffff' : s, trim: s, shorts: p };
   }
   function teamLook(t, home) {
-    return { id: t.id, abbr: t.abbr, city: t.city, name: t.name, colors: Object.assign({}, t.colors), uniform: uniformFor(t, home), court: { paint: t.colors.primary, logoText: t.abbr, wood: t.wood || 'light' } };
+    const ct = t.court || {};
+    return {
+      id: t.id, abbr: t.abbr, city: t.city, name: t.name, arena: t.arena || '', colors: Object.assign({}, t.colors), uniform: uniformFor(t, home),
+      court: { paint: ct.paint || t.colors.primary, logoText: ct.logoText || t.abbr, wood: ct.wood || t.wood || 'light', apron: ct.apron || null },
+    };
   }
   function playerLook(p, teamIdx) {
     return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle };
@@ -29,19 +37,66 @@
     };
   };
 
-  // Court view factory: retro 2D pixel court (Hoop Land style) is the default
-  // sim gameplay look. Falls back to the broadcast View if it is loaded, else null (text mode).
+  /** Presentation stakes of a scheduled game: playoff round, series score, elimination, Game 7. */
+  UI.gameStakes = function (S, sg) {
+    const out = { playoff: !!(sg && sg.playoff), playIn: !!(sg && sg.playIn), level: 0, round: 0, roundName: '', gameNum: 0, len: 0, seriesW: [0, 0], elimination: false, decisive: false, game7: false, clinch: [false, false], label: '', short: '' };
+    if (!sg || !sg.playoff || !S.playoffs) return out;
+    const P = S.playoffs, L = PBC.League.cfg(S);
+    if (sg.playIn) {
+      const x = (P.playIn || []).find(y => y.id === sg.playIn);
+      out.level = 0.55; out.roundName = 'Play-In Tournament'; out.elimination = !!(x && x.stage !== 'A');
+      out.label = 'PLAY-IN TOURNAMENT' + (out.elimination ? ' · WIN OR GO HOME' : ' · WINNER IS IN');
+      out.short = 'PLAY-IN';
+      return out;
+    }
+    const s = (P.series || []).find(y => y.id === sg.series);
+    if (!s) return out;
+    const need = Math.ceil(s.len / 2);
+    const hw = s.hi === sg.h ? s.w[0] : s.w[1], aw = s.hi === sg.h ? s.w[1] : s.w[0];
+    out.round = s.round; out.len = s.len; out.gameNum = sg.gameNum || (s.w[0] + s.w[1] + 1); out.seriesW = [hw, aw];
+    const base = PBC.League.roundName(S, s.round);
+    out.roundName = (L.playoffFormat === 'conference' && s.conf != null && base !== 'Finals') ? `${L.confs[s.conf]} ${base.replace('Conference ', '')}` : base;
+    out.clinch = [hw === need - 1, aw === need - 1];
+    out.elimination = out.clinch[0] || out.clinch[1];
+    out.decisive = out.clinch[0] && out.clinch[1];
+    out.game7 = out.decisive && s.len === 7;
+    const fromEnd = P.rounds - s.round;
+    out.level = fromEnd <= 0 ? 1 : fromEnd === 1 ? 0.9 : fromEnd === 2 ? 0.75 : 0.6;
+    if (out.elimination) out.level += 0.15;
+    if (out.decisive) out.level += 0.1;
+    out.level = Math.min(1.25, out.level);
+    const T = [S.teams[sg.h], S.teams[sg.a]];
+    const sw = hw === aw ? `SERIES TIED ${hw}-${aw}` : `${T[hw > aw ? 0 : 1].abbr} LEADS ${Math.max(hw, aw)}-${Math.min(hw, aw)}`;
+    out.label = `${out.roundName.toUpperCase()} · GAME ${out.gameNum}${out.game7 ? ' (WINNER TAKES ALL)' : ''} · ${sw}`;
+    out.short = `${out.roundName.toUpperCase()} · G${out.gameNum}`;
+    return out;
+  };
+
+  function viewSettings(S) {
+    const st = S.settings || {};
+    return {
+      style: st.courtStyle === 'retro' ? 'retro' : 'broadcast',
+      pixel: st.pixelArt !== false,
+      pixelSize: st.pixelSize || 'normal',
+      camera: ['fixed', 'wide', 'close'].includes(st.camera) ? st.camera : 'auto',
+      showNames: !!st.showNames,
+    };
+  }
+
+  // Court view factory: the pixel-art broadcast court (skeletal animation, broadcast camera) is the default.
+  // The old chibi retro court is still available (Settings or the live view menu). Returns null for text mode.
   UI.makeCourtView = function (canvas, S, g) {
     const ctx = UI.matchContext(S, g);
-    const retro = S.settings.retroCourt !== false;
-    if (retro && PBC.Match && PBC.Match.RetroView) {
-      try { return new PBC.Match.RetroView(canvas, ctx, { quality: 'high', showNames: false }); } catch (e) { console.error('RetroView failed', e); }
+    const vs = viewSettings(S);
+    if (vs.style !== 'retro' && PBC.Match && PBC.Match.View) {
+      try { return new PBC.Match.View(canvas, ctx, { quality: S.settings.lowQuality ? 'low' : 'high', pixelMode: vs.pixel, pixelSize: vs.pixelSize, camera: vs.camera === 'fixed' ? 'broadcast' : vs.camera, showNames: vs.showNames }); } catch (e) { console.error('Match view failed', e); }
     }
-    if (PBC.Match && PBC.Match.View) {
-      try { return new PBC.Match.View(canvas, ctx, { quality: 'high', pixelMode: !!S.settings.pixelMode, camera: S.settings.camera || 'broadcast' }); } catch (e) { console.error('Match view failed', e); }
+    if (PBC.Match && PBC.Match.RetroView) {
+      try { return new PBC.Match.RetroView(canvas, ctx, { quality: 'high', showNames: false }); } catch (e) { console.error('RetroView failed', e); }
     }
     return null;
   };
+
   // ---------------------------------------------------------------------------
   // Pregame
   // ---------------------------------------------------------------------------
@@ -63,44 +118,55 @@
         return five;
       };
       const ts = tid => S.teamSeason[tid] || { gp: 0 };
-      const pg = (tid, k) => (ts(tid).gp ? (ts(tid)[k] / ts(tid).gp).toFixed(1) : '—');
+      const pg = (tid, k) => (ts(tid).gp ? (ts(tid)[k] / ts(tid).gp).toFixed(1) : '-');
       const oppStar = PBC.League.roster(S, opp.id).filter(p => !p.injury)[0];
       const oppStarS = oppStar ? PBC.Stats.season(oppStar, S.season, false) : null;
       const keys = [];
-      if (oppStar) keys.push(`Contain <b>${U.esc(PBC.Player.name(oppStar))}</b>${oppStarS && oppStarS.gp ? ` (${(oppStarS.pts / oppStarS.gp).toFixed(1)} ppg)` : ''} — Box-and-One or an aggressive scheme can slow him down.`);
+      if (oppStar) keys.push(`Contain <b>${U.esc(PBC.Player.name(oppStar))}</b>${oppStarS && oppStarS.gp ? ` (${(oppStarS.pts / oppStarS.gp).toFixed(1)} ppg)` : ''}. Box-and-One or an aggressive scheme can slow ${oppStar.gender === 'f' ? 'her' : 'him'} down.`);
       const prof = UI.teamProfile(S, opp.id), mine = UI.teamProfile(S, S.userTid);
-      if (prof.Shooting > mine.Shooting + 3) keys.push('They shoot it better than you — run them off the three-point line.');
-      if (mine.Inside > prof.Inside + 3) keys.push('You have the edge inside — feed the post and attack the rim.');
+      if (prof.Shooting > mine.Shooting + 3) keys.push('They shoot it better than you. Run them off the three-point line.');
+      if (mine.Inside > prof.Inside + 3) keys.push('You have the edge inside. Feed the post and attack the rim.');
       if (prof.Rebounding > mine.Rebounding + 3) keys.push('They crash the glass hard. Consider "Get Back" and gang rebounding.');
-      if (mine.Athleticism > prof.Athleticism + 3) keys.push('You are the more athletic team — push the tempo.');
+      if (mine.Athleticism > prof.Athleticism + 3) keys.push('You are the more athletic team. Push the tempo.');
       if (keys.length < 3) keys.push('Win the turnover battle and get to the free-throw line.');
+      const stakes = UI.gameStakes(S, sg);
       let series = '';
-      if (sg.playoff && S.playoffs) {
-        const s = S.playoffs.series.find(x => x.id === sg.series);
-        if (s) { const mw = s.hi === S.userTid ? s.w[0] : s.w[1], tw = s.hi === S.userTid ? s.w[1] : s.w[0]; series = `${PBC.League.roundName(S, s.round)} · Game ${sg.gameNum} · ${mw > tw ? 'You lead' : mw < tw ? 'You trail' : 'Series tied'} ${mw}-${tw}`; }
-        else series = 'Play-In Tournament';
-      }
+      if (sg.playoff && S.playoffs) series = stakes.label || 'Playoffs';
       const strat = me.strat;
       const sel = (key, obj) => `<select class="inp" data-strat="${key}" style="width:100%">${Object.keys(obj).map(k => `<option value="${k}" ${strat[key] === k ? 'selected' : ''}>${obj[k].label}</option>`).join('')}</select>`;
-      root.innerHTML = `<div class="page pregame">
+      const vs = viewSettings(S);
+      root.innerHTML = `<div class="page pregame ${stakes.playoff ? 'po-pregame' : ''}">
         <div class="hero"><div class="hero-in">
-          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game</span><div class="spacer"></div>${series ? `<span class="tag gold">${series}</span>` : ''}</div>
+          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game${(home ? me : opp).arena ? ' · ' + U.esc((home ? me : opp).arena) : ''}</span><div class="spacer"></div>${series ? `<span class="tag gold">${U.esc(series)}</span>` : ''}</div>
+          ${stakes.elimination ? `<div class="po-stakes">${stakes.game7 ? '🔥 GAME 7. WINNER TAKES ALL.' : stakes.clinch[home ? 0 : 1] && stakes.clinch[home ? 1 : 0] ? '🔥 DECIDING GAME' : stakes.clinch[home ? 1 : 0] ? '⚠️ ELIMINATION GAME: lose and your season is over' : '🏆 CLOSEOUT GAME: win and you advance'}</div>` : ''}
           <div class="vs-card" style="margin:14px 0">
             <div class="vs-team">${UI.teamBadge(home ? opp : me, 92)}<div class="nm">${U.esc((home ? opp : me).city)}<br>${U.esc((home ? opp : me).name)}</div><div class="small muted">${st[(home ? opp : me).id].w}-${st[(home ? opp : me).id].l} · ${pg((home ? opp : me).id, 'pts')} ppg</div></div>
             <div class="vs-at">@</div>
             <div class="vs-team">${UI.teamBadge(home ? me : opp, 92)}<div class="nm">${U.esc((home ? me : opp).city)}<br>${U.esc((home ? me : opp).name)}</div><div class="small muted">${st[(home ? me : opp).id].w}-${st[(home ? me : opp).id].l} · ${pg((home ? me : opp).id, 'pts')} ppg</div></div>
           </div>
           <div class="row" style="justify-content:center"><button class="btn primary xl" data-act="live">▶ Watch Live</button><button class="btn lg" data-act="quick">⏩ Quick Sim</button><button class="btn lg ghost" data-act="back">Back</button></div>
+          <div class="row pg-bcast" style="justify-content:center;margin-top:12px">
+            <label class="chk"><input type="checkbox" data-set="commentary" ${S.settings.commentary !== false ? 'checked' : ''}> 🎙️ Commentary</label>
+            <label class="chk"><input type="checkbox" data-set="voice" ${S.settings.voice !== false ? 'checked' : ''}> 🗣️ Announcer voices</label>
+            <label class="chk"><input type="checkbox" data-set="arenaSound" ${S.settings.arenaSound !== false ? 'checked' : ''}> 🔊 Arena sound</label>
+            <label class="chk"><input type="checkbox" data-set="replays" ${S.settings.replays !== false ? 'checked' : ''}> 🎬 Replays</label>
+            <label class="chk"><input type="checkbox" data-set="pixelArt" ${vs.pixel ? 'checked' : ''}> 👾 Pixel art</label>
+          </div>
         </div></div>
         <div class="grid g3" style="margin-top:16px">
           ${[S.userTid, opp.id].map(tid => `<div class="card"><div class="card-h">${UI.teamBadge(S.teams[tid], 24)}<h3>${S.teams[tid].abbr} starters</h3></div><div class="card-b flush"><div class="list">${lineup(tid).map(p => `
-            <div class="li">${UI.avatar(p, 30)}<div style="flex:1;min-width:0" class="ellip">${UI.playerLink(p)}<div class="tiny dim">${p.pos} · ${U.height(p.hgt)}</div></div>${UI.ovr(p.ovr)}</div>`).join('')}</div></div></div>`).join('')}
+            <div class="li">${UI.avatar(p, 34)}<div style="flex:1;min-width:0" class="ellip">${UI.playerLink(p)}<div class="tiny dim">${p.pos} · ${U.height(p.hgt)}${PBC.Persona ? ' · ' + PBC.Persona.info(p).icon + ' ' + PBC.Persona.info(p).label : ''}</div></div>${UI.ovr(p.ovr)}</div>`).join('')}</div></div></div>`).join('')}
           <div class="card accent"><div class="card-h"><h3>Game plan</h3><div class="actions"><button class="btn sm ghost" data-nav="lineup">Lineup ›</button></div></div><div class="card-b col">
             <label class="small muted">Offense</label>${sel('off', C.OFFENSES)}<label class="small muted">Defense</label>${sel('def', C.DEFENSES)}
             <label class="small muted">Tempo</label>${sel('tempo', C.TEMPOS)}
             <div class="divider"></div><div class="small up muted">Keys to the game</div><ul class="keys small" style="margin:0;padding-left:18px">${keys.slice(0, 3).map(k => `<li>${k}</li>`).join('')}</ul></div></div>
         </div></div>`;
       UI.on(root, 'change', '[data-strat]', (e, el) => { strat[el.dataset.strat] = el.value; UI.save(); });
+      UI.on(root, 'change', '[data-set]', (e, el) => {
+        const k = el.dataset.set;
+        S.settings[k] = el.checked;
+        UI.save();
+      });
       UI.on(root, 'click', '[data-act]', (e, el) => {
         const a = el.dataset.act;
         if (a === 'live') UI.go('live', { gid: sg.gid });
@@ -133,19 +199,21 @@
     cancelAnimationFrame(LG.raf);
     window.removeEventListener('resize', LG.onResize);
     document.removeEventListener('keydown', LG.onKey);
+    if (LG.ro) { try { LG.ro.disconnect(); } catch (e) { /* ignore */ } }
+    for (const k of ['bc', 'cm', 'au']) if (LG[k] && LG[k].destroy) { try { LG[k].destroy(); } catch (e) { console.error(e); } }
     if (LG.view && LG.view.destroy) { try { LG.view.destroy(); } catch (e) { console.error(e); } }
     LG = null;
   }
 
   function startLive(root, S, sg) {
     stopLive();
-    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff });
+    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff, sg });
     const uIdx = g.userIdx;
     const teams = [S.teams[sg.h], S.teams[sg.a]];
-    // Gameplay presentation is intentionally play-by-play only for now. The
-    // simulation still generates every action, score, substitution and foul.
-    const useVisual = false;
-    root.innerHTML = `<div class="live playbyplay-only">
+    const stakes = UI.gameStakes(S, sg);
+    const useVisual = S.settings.showVisuals !== false;
+    const side = S.settings.liveSidePanel !== false;
+    root.innerHTML = `<div class="live ${useVisual ? '' : 'playbyplay-only'} ${side ? '' : 'no-side'} ${stakes.playoff ? 'is-playoff' : ''}">
       <div class="lv-top">
         <button class="btn ghost sm" data-act="leave">‹ Leave</button>
         <div class="bug" id="bug"></div>
@@ -155,10 +223,14 @@
           <div class="seg" id="speeds">${[1, 2, 4, 8, 16].map(s => `<button data-speed="${s}">${s}×</button>`).join('')}</div>
           <button class="btn sm" data-act="clutch" title="Skip ahead to crunch time">⏭ Crunch time</button>
           <button class="btn sm" data-act="end" title="Simulate to the final buzzer">⏩ End</button>
+          <button class="btn sm ${S.settings.commentary !== false ? 'on' : ''}" data-act="booth" id="btn-booth" title="Commentary (C)">🎙️</button>
+          <button class="btn sm" data-act="bmenu" title="Broadcast settings">📺</button>
+          <button class="btn sm" data-act="side" title="Show / hide the side panel (P)">▤</button>
         </div>
       </div>
       <div class="lv-main">
-        <div class="lv-stage" id="stage">${useVisual ? '<canvas id="court"></canvas>' : ''}
+        <div class="lv-stage" id="stage">${useVisual ? '<canvas id="court"></canvas>' : '<div class="lv-text" id="lvtext"></div>'}
+          <div class="bc-layer" id="bc"></div>
           <div class="lv-play" id="playlabel"></div><div class="lv-overlay" id="overlay"></div></div>
         <div class="lv-side">
           <div class="tabs lv-tabs"><button class="tab active" data-tab="pbp">Play-by-play</button><button class="tab" data-tab="coach">Coach</button><button class="tab" data-tab="box">Box score</button></div>
@@ -168,10 +240,10 @@
       <div class="lv-bottom" id="oncourt"></div>
     </div>`;
     LG = {
-      alive: true, S, sg, g, uIdx, teams, root, useVisual, speed: S.settings.simSpeed || 2, paused: false, busy: false,
+      alive: true, S, sg, g, uIdx, teams, root, useVisual, stakes, speed: S.settings.simSpeed || 2, paused: false, busy: false,
       P: null, possDone: true, dispScore: [0, 0], lines: [], tab: 'pbp', text: null, view: null, raf: 0, last: 0,
       gimQueue: null, finished: false, subPick: null, lastPanelRender: 0, playLabelT: 0, clockShow: g.clock, scShow: 24,
-      voice: false, lastVoiceAt: 0,
+      hold: null, highlight: null, started: false, lastPeriod: 1, bc: null, cm: null, au: null, styleShown: viewSettings(S).style,
     };
     if (![1, 2, 4, 8, 16].includes(LG.speed)) LG.speed = 2;
     // view
@@ -180,7 +252,7 @@
         const canvas = root.querySelector('#court');
         LG.view = UI.makeCourtView(canvas, S, g);
         if (!LG.view) throw new Error('no court view');
-        LG.onResize = () => { const st = root.querySelector('#stage'); if (LG && LG.view && LG.view.resize) LG.view.resize(st.clientWidth, st.clientHeight); };
+        LG.onResize = () => { const st = root.querySelector('#stage'); if (LG && LG.view && LG.view.resize && st) LG.view.resize(st.clientWidth, st.clientHeight); };
         LG.onResize();
       } catch (e) {
         console.error('Match view failed, falling back to text mode', e);
@@ -192,14 +264,30 @@
     }
     if (!LG.view) { LG.onResize = () => {}; buildTextStage(); }
     window.addEventListener('resize', LG.onResize);
+    if (window.ResizeObserver && LG.view) { LG.ro = new ResizeObserver(() => LG && LG.onResize()); LG.ro.observe(root.querySelector('#stage')); }
+    // broadcast package: audio, commentary booth, TV graphics
+    const host = { S, g, sg, teams, uIdx, stakes, stage: root.querySelector('#stage'), layer: root.querySelector('#bc'), view: LG.view, speed: () => (LG ? LG.speed : 1) };
+    try { if (PBC.ArenaAudio) { LG.au = PBC.ArenaAudio.create(host); host.au = LG.au; } } catch (e) { console.error('audio', e); }
+    try { if (PBC.Broadcast) { LG.bc = PBC.Broadcast.create(host); host.bc = LG.bc; } } catch (e) { console.error('broadcast', e); }
+    try { if (PBC.Commentary) { LG.cm = PBC.Commentary.create(host); host.cm = LG.cm; } } catch (e) { console.error('commentary', e); }
+    if (LG.view) {
+      if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: stakes.playoff, level: stakes.level, label: stakes.short, finals: stakes.playoff && stakes.roundName === 'Finals' });
+      LG.view.onSound = (name, v) => { if (LG && LG.au) LG.au.play(name, v); };
+    }
     LG.onKey = e => {
       if (e.target.closest && e.target.closest('input,select,textarea')) return;
+      if (LG.hold && LG.hold.skippable && (e.code === 'Space' || e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); skipHold(); return; }
       if (LG.busy) return;
       if (e.code === 'Space') { e.preventDefault(); togglePause(); }
       if (e.key === 't' || e.key === 'T') callTimeout();
+      if (e.key === 'c' || e.key === 'C') toggleBooth();
+      if (e.key === 'p' || e.key === 'P') toggleSide();
+      if (e.key === 'm' || e.key === 'M') { if (LG.au) { LG.au.toggleMute(); UI.toast(LG.au.muted ? '🔇 Arena sound off' : '🔊 Arena sound on', 'info'); } }
       if (['1', '2', '3', '4', '5'].includes(e.key)) setSpeed([1, 2, 4, 8, 16][+e.key - 1]);
     };
     document.addEventListener('keydown', LG.onKey);
+    // first user gesture unlocks audio (browser autoplay rules)
+    root.addEventListener('pointerdown', () => { if (LG) { if (LG.au) LG.au.unlock(); if (LG.cm) LG.cm.unlock(); } }, { once: false });
     UI.on(root, 'click', '[data-speed]', (e, el) => setSpeed(+el.dataset.speed));
     UI.on(root, 'click', '[data-tab]', (e, el) => { LG.tab = el.dataset.tab; root.querySelectorAll('.lv-tabs .tab').forEach(b => b.classList.toggle('active', b === el)); renderPanel(true); });
     UI.on(root, 'click', '[data-act]', (e, el) => {
@@ -207,15 +295,25 @@
       if (a === 'leave') leaveGame();
       if (a === 'pause') togglePause();
       if (a === 'timeout') callTimeout();
-      if (a === 'voice') toggleArenaVoice();
       if (a === 'clutch') skipToClutch();
       if (a === 'end') simToEnd();
+      if (a === 'booth') toggleBooth();
+      if (a === 'side') toggleSide();
+      if (a === 'bmenu') broadcastMenu();
     });
+    UI.on(root, 'click', '.bc-skip', () => skipHold());
     setSpeed(LG.speed);
     renderBug();
     renderPanel(true);
     renderOnCourt();
-    pushLine({ q: 1, clock: g.clock, text: `Welcome to ${teams[0].city}! ${teams[1].name} at ${teams[0].name}.`, type: 'note' });
+    pushLine({ q: 1, clock: g.clock, text: `Welcome to ${teams[0].arena || teams[0].city}! ${teams[1].name} at ${teams[0].name}.${stakes.playoff ? ' ' + (stakes.label || '') : ''}`, type: 'note' });
+    // opening: broadcast intro (starting lineups) while the booth sets the scene
+    const introSecs = S.settings.gameIntro === false ? 0 : 7.5;
+    if (introSecs > 0 && LG.bc && LG.bc.showIntro) {
+      LG.bc.showIntro(g, stakes);
+      if (LG.cm) LG.cm.intro();
+      holdFor(introSecs, () => { if (LG && LG.bc) LG.bc.hideIntro(); });
+    } else if (LG.cm) LG.cm.intro(true);
     LG.last = performance.now();
     LG.raf = requestAnimationFrame(loop);
   }
@@ -233,6 +331,7 @@
       LG.dispScore = g.score.slice(); LG.possDone = true; LG.text = null; LG.clockShow = g.clock;
       return true;
     },
+    skip() { skipHold(); },
   };
 
   function setSpeed(s) {
@@ -240,40 +339,93 @@
     LG.speed = s;
     LG.S.settings.simSpeed = s;
     LG.root.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === s));
+    if (LG.cm && LG.cm.setSpeed) LG.cm.setSpeed(s);
+    if (LG.view && LG.view.opts) LG.view.opts.record = s <= 4 && LG.S.settings.replays !== false;
   }
   function togglePause(force) {
     if (!LG) return;
     LG.paused = force != null ? force : !LG.paused;
     const b = LG.root.querySelector('#btn-pause'); if (b) b.textContent = LG.paused ? '▶' : '⏸';
+    if (LG.au) LG.au.setPaused(LG.paused);
+    if (LG.cm) LG.cm.setPaused(LG.paused);
+  }
+  function toggleBooth() {
+    if (!LG) return;
+    const on = LG.S.settings.commentary === false;
+    LG.S.settings.commentary = on;
+    if (LG.cm) LG.cm.setEnabled(on);
+    const b = LG.root.querySelector('#btn-booth'); if (b) b.classList.toggle('on', on);
+    UI.toast(on ? '🎙️ Commentary on' : '🎙️ Commentary off', 'info');
+    UI.save();
+  }
+  function toggleSide() {
+    if (!LG) return;
+    const live = LG.root.querySelector('.live');
+    const hidden = !live.classList.contains('no-side');
+    live.classList.toggle('no-side', hidden);
+    LG.S.settings.liveSidePanel = !hidden;
+    setTimeout(() => LG && LG.onResize(), 30);
+  }
+  function broadcastMenu() {
+    const S = LG.S, st = S.settings;
+    const vs = viewSettings(S);
+    const voices = LG.cm && LG.cm.voiceOptions ? LG.cm.voiceOptions() : [];
+    const vsel = (key, cur) => `<select class="inp" data-voice="${key}">${['<option value="">Auto (best available)</option>'].concat(voices.map(v => `<option value="${U.esc(v.id)}" ${cur === v.id ? 'selected' : ''}>${U.esc(v.label)}</option>`)).join('')}</select>`;
+    const body = `<div class="bm">
+      <div class="bm-sec"><div class="bm-h">Picture</div>
+        <label class="chk"><input type="checkbox" data-b="pixelArt" ${vs.pixel ? 'checked' : ''}> 👾 Pixel-art look</label>
+        <div class="row"><span class="small muted" style="min-width:90px">Court style</span><div class="seg" data-bseg="courtStyle">${[['broadcast', 'Broadcast'], ['retro', 'Retro chibi']].map(([k, l]) => `<button data-v="${k}" class="${vs.style === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <div class="row"><span class="small muted" style="min-width:90px">Pixel size</span><div class="seg" data-bseg="pixelSize">${[['chunky', 'Chunky'], ['normal', 'Normal'], ['fine', 'Fine']].map(([k, l]) => `<button data-v="${k}" class="${vs.pixelSize === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <div class="row"><span class="small muted" style="min-width:90px">Camera</span><div class="seg" data-bseg="camera">${[['auto', 'Auto'], ['fixed', 'Broadcast'], ['wide', 'Wide'], ['close', 'Close']].map(([k, l]) => `<button data-v="${k}" class="${vs.camera === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <label class="chk"><input type="checkbox" data-b="showNames" ${st.showNames ? 'checked' : ''}> Player names on court</label>
+        <label class="chk"><input type="checkbox" data-b="replays" ${st.replays !== false ? 'checked' : ''}> 🎬 Instant replays of big plays</label>
+        <label class="chk"><input type="checkbox" data-b="tvGraphics" ${st.tvGraphics !== false ? 'checked' : ''}> 📺 TV graphics (player stats, runs, quarter recaps)</label>
+      </div>
+      <div class="bm-sec"><div class="bm-h">Sound & booth</div>
+        <label class="chk"><input type="checkbox" data-b="arenaSound" ${st.arenaSound !== false ? 'checked' : ''}> 🔊 Arena sound (crowd, sneakers, swishes)</label>
+        <div class="row"><span class="small muted" style="min-width:90px">Volume</span><input type="range" min="0" max="100" value="${Math.round((st.volume == null ? 0.7 : st.volume) * 100)}" data-range="volume" style="flex:1"></div>
+        <label class="chk"><input type="checkbox" data-b="commentary" ${st.commentary !== false ? 'checked' : ''}> 🎙️ Commentary captions</label>
+        <label class="chk"><input type="checkbox" data-b="voice" ${st.voice !== false ? 'checked' : ''}> 🗣️ Announcer voices (text to speech)</label>
+        <div class="row"><span class="small muted" style="min-width:90px">Play-by-play</span>${vsel('voicePbp', st.voicePbp || '')}</div>
+        <div class="row"><span class="small muted" style="min-width:90px">Analyst</span>${vsel('voiceColor', st.voiceColor || '')}</div>
+        <div class="row"><span class="small muted" style="min-width:90px">Chatter</span><div class="seg" data-bseg="booth">${[['light', 'Light'], ['normal', 'Normal'], ['full', 'Full']].map(([k, l]) => `<button data-v="${k}" class="${(st.booth || 'normal') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <p class="tiny muted">${LG.cm && LG.cm.voiceHint ? U.esc(LG.cm.voiceHint()) : ''}</p>
+        <button class="btn sm" data-test-voice>▶ Test the booth</button>
+      </div></div>`;
+    const m = UI.modal({ title: '📺 Broadcast settings', body, wide: true, actions: [{ label: 'Done', cls: 'primary' }] });
+    const apply = () => {
+      if (!LG) return;
+      const v = LG.view, vs2 = viewSettings(S);
+      if (v && v.setOption) { v.setOption('pixelMode', vs2.pixel); v.setOption('pixelSize', vs2.pixelSize); v.setOption('camera', vs2.camera === 'fixed' ? 'broadcast' : vs2.camera); v.setOption('showNames', !!S.settings.showNames); }
+      if (LG.styleShown !== vs2.style) { LG.styleShown = vs2.style; resetViewAfterJump(); }
+      if (LG.au) { LG.au.setEnabled(S.settings.arenaSound !== false); LG.au.setVolume(S.settings.volume == null ? 0.7 : S.settings.volume); }
+      if (LG.cm) { LG.cm.setEnabled(S.settings.commentary !== false); LG.cm.setVoiceEnabled(S.settings.voice !== false); LG.cm.refreshVoices(); }
+      const b = LG.root.querySelector('#btn-booth'); if (b) b.classList.toggle('on', S.settings.commentary !== false);
+      UI.save();
+    };
+    UI.on(m.body, 'change', '[data-b]', (e, el) => { S.settings[el.dataset.b] = el.checked; apply(); });
+    UI.on(m.body, 'input', '[data-range]', (e, el) => { S.settings[el.dataset.range] = (+el.value) / 100; apply(); });
+    UI.on(m.body, 'change', '[data-voice]', (e, el) => { S.settings[el.dataset.voice] = el.value || null; apply(); });
+    UI.on(m.body, 'click', '[data-bseg] button', (e, el) => {
+      const key = el.closest('[data-bseg]').dataset.bseg;
+      S.settings[key] = el.dataset.v;
+      el.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === el));
+      apply();
+    });
+    UI.on(m.body, 'click', '[data-test-voice]', () => { if (LG && LG.cm) { LG.cm.unlock(); LG.cm.test(); } });
   }
 
-  // Uses the device's installed speech voices only—no recording or remote
-  // service. It stays off until the player explicitly enables it.
-  function toggleArenaVoice() {
-    if (!LG) return;
-    if (!('speechSynthesis' in window)) { UI.toast('This browser does not provide a local announcer voice.', 'info'); return; }
-    LG.voice = !LG.voice;
-    if (!LG.voice) window.speechSynthesis.cancel();
-    const b = LG.root.querySelector('#btn-voice');
-    if (b) { b.classList.toggle('on', LG.voice); b.textContent = LG.voice ? '🔊 Arena voice' : '🔈 Arena voice'; }
-    if (LG.voice) announce(`Welcome to ${LG.teams[0].city}. ${LG.teams[1].name} at ${LG.teams[0].name}.`);
+  // ---------------------------------------------------------------------------
+  // Holds (intro, quarter breaks, replays): the court keeps living, the game waits
+  // ---------------------------------------------------------------------------
+  function holdFor(secs, onDone, opts) {
+    LG.hold = Object.assign({ until: performance.now() + secs * 1000, onDone, skippable: true }, opts || {});
   }
-  function announceScore(ev) {
-    const shot = ev.shotEvent || {};
-    announce(shot.text || `${ev.pts === 3 ? 'Three pointer' : 'Basket'} for ${LG.teams[ev.team].name}.`);
-  }
-  function announce(text) {
-    if (!LG || !LG.voice || !text || !('speechSynthesis' in window)) return;
-    const now = performance.now();
-    if (now - LG.lastVoiceAt < 1150) return;
-    LG.lastVoiceAt = now;
-    const msg = new SpeechSynthesisUtterance(String(text).replace(/[🎯🏀]/g, ''));
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => /^en(-|_)/i.test(v.lang) && /Samantha|Ava|Zoe|Alex|Daniel/i.test(v.name)) || voices.find(v => /^en/i.test(v.lang));
-    if (preferred) msg.voice = preferred;
-    msg.rate = 1.08; msg.pitch = .94; msg.volume = .9;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(msg);
+  function skipHold() {
+    if (!LG || !LG.hold) return;
+    const h = LG.hold; LG.hold = null;
+    if (h.onSkip) { try { h.onSkip(); } catch (e) { console.error(e); } }
+    if (h.onDone) { try { h.onDone(); } catch (e) { console.error(e); } }
   }
 
   // ---------------------------------------------------------------------------
@@ -284,17 +436,29 @@
     const dtReal = Math.min(0.1, (ts - LG.last) / 1000);
     LG.last = ts;
     try {
-      if (!LG.paused && !LG.busy && !LG.finished) {
+      if (LG.hold) {
+        const h = LG.hold;
+        if (h.replay && LG.view && LG.view.isReplaying) {
+          if (!LG.paused) LG.view.update(dtReal);
+          if (!LG.view.isReplaying()) { LG.hold = null; if (h.onDone) h.onDone(); }
+        } else {
+          if (LG.view) LG.view.update(0);
+          if (ts >= h.until) { LG.hold = null; if (h.onDone) h.onDone(); }
+        }
+      } else if (!LG.paused && !LG.busy && !LG.finished) {
         if (LG.possDone) nextPossession();
         else if (LG.view) LG.view.update(dtReal * LG.speed);
         else textTick(dtReal * LG.speed);
-      } else if (LG.view && LG.view.update && LG.busy) {
+      } else if (LG.view && LG.view.update && (LG.busy || LG.paused || LG.finished)) {
         LG.view.update(0);
       }
       if (LG && LG.view) LG.view.render();
       if (LG) {
         if (LG.view) { LG.clockShow = LG.view.clock(); LG.scShow = LG.view.shotClock ? LG.view.shotClock() : LG.scShow; }
         renderBug();
+        if (LG.bc) LG.bc.update(dtReal, bugState());
+        if (LG.au) LG.au.update(dtReal, audioState());
+        if (LG.cm) LG.cm.update(dtReal);
         if (ts - LG.lastPanelRender > 700) { renderPanel(false); renderOnCourt(); LG.lastPanelRender = ts; }
       }
     } catch (e) {
@@ -304,46 +468,144 @@
     if (LG && LG.alive) LG.raf = requestAnimationFrame(loop);
   }
 
+  function bugState() {
+    const g = LG.g;
+    return {
+      score: LG.dispScore, period: LG.P ? LG.P.period : g.period, clock: LG.view ? LG.clockShow : (LG.text ? LG.clockShow : g.clock),
+      shotClock: LG.view && LG.scShow != null ? LG.scShow : null, timeouts: [g.t[0].timeouts, g.t[1].timeouts],
+      bonus: [g.t[1].fouls >= g.L.bonus, g.t[0].fouls >= g.L.bonus], fouls: [g.t[0].fouls, g.t[1].fouls],
+      final: g.final && LG.finished, off: LG.P ? LG.P.off : -1, paused: LG.paused, speed: LG.speed,
+    };
+  }
+  function audioState() {
+    const g = LG.g;
+    const lead = LG.dispScore[0] - LG.dispScore[1];
+    const late = (LG.P ? LG.P.period : g.period) >= g.L.periods && LG.clockShow < 180;
+    return { lead, close: Math.abs(lead) <= 6, late, stakes: LG.stakes.level, playing: !LG.paused && !LG.finished && !LG.busy, speed: LG.speed, off: LG.P ? LG.P.off : -1 };
+  }
+
+  /** what the panels show while a possession is on screen: the state after the previous one (no spoilers) */
+  function snapStats() {
+    const g = LG.g;
+    LG.snap = {};
+    for (const T of g.t) for (const c of T.players) LG.snap[c.id] = { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy };
+    LG.boxSnap = PBC.Sim.box(g);
+  }
+
   async function nextPossession() {
     const g = LG.g;
     if (g.final) { finishGame(); return; }
     LG.possDone = false;
+    snapStats();
     // Game Impact Moment?
     const gimCtx = PBC.Sim.gimCheck(g);
     let P;
     if (gimCtx) {
       LG.busy = true;
+      if (LG.cm) LG.cm.gimSetup(gimCtx);
       const choice = await gimChoose(gimCtx);
       if (!LG) return;
       LG.busy = false;
       const opt = gimCtx.options[choice] || gimCtx.options[0];
       P = PBC.Sim.startGimPossession(g, opt);
-      pushLine({ q: g.period, clock: g.clock, text: `🎯 GAME IMPACT MOMENT — ${opt.label} for ${opt.player}`, type: 'gim', team: LG.uIdx });
+      pushLine({ q: g.period, clock: g.clock, text: `🎯 GAME IMPACT MOMENT: ${opt.label} for ${opt.player}`, type: 'gim', team: LG.uIdx });
     } else {
       P = PBC.Sim.nextPossession(g);
     }
     LG.P = P;
     if (!P) { finishGame(); return; }
     showPlayLabel(P);
+    if (LG.bc) LG.bc.onPossession(P);
+    if (LG.cm) LG.cm.onPossession(P);
     if (LG.view) {
       if (P.defScheme && LG.view.setDefScheme) LG.view.setDefScheme(1 - P.off, P.defScheme);
-      LG.view.play(P, { onEvent: onViewEvent, onDone: () => { if (LG) { syncScore(P); LG.possDone = true; } } });
+      LG.view.play(P, { onEvent: onViewEvent, onDone: () => { if (LG) { syncScore(P); afterPossession(P); } } });
     } else {
       startText(P);
     }
   }
 
+  /** after a possession is fully shown: quarter breaks, replays of big plays, then the next trip */
+  function afterPossession(P) {
+    if (!LG) return;
+    const last = P.events[P.events.length - 1];
+    const hl = LG.highlight; LG.highlight = null;
+    const periodEnd = last && last.type === 'period_end';
+    const canReplay = hl && LG.view && LG.view.startReplay && LG.S.settings.replays !== false && LG.speed <= 4 && !LG.g.final;
+    const next = () => {
+      if (!LG) return;
+      if (periodEnd && !LG.g.final) quarterBreak(P);
+      else LG.possDone = true;
+    };
+    if (canReplay) {
+      const ok = LG.view.startReplay({ t: hl.t, before: hl.before || 2.6, after: hl.after || 1.1, speed: hl.speed || 0.45, focus: hl.focus });
+      if (ok) {
+        if (LG.bc) LG.bc.replayOn(hl);
+        if (LG.cm) LG.cm.onReplay(hl);
+        LG.hold = { replay: true, skippable: true, onSkip: () => { if (LG && LG.view && LG.view.stopReplay) LG.view.stopReplay(); }, onDone: () => { if (LG && LG.bc) LG.bc.replayOff(); next(); } };
+        return;
+      }
+    }
+    next();
+  }
+
+  function quarterBreak(P) {
+    const g = LG.g;
+    const per = P.period;
+    const final = g.final;
+    if (final) { LG.possDone = true; return; }
+    const secs = LG.S.settings.tvGraphics === false ? 0 : (per === 2 ? 7 : 5) / Math.sqrt(Math.max(1, LG.speed / 2));
+    if (LG.bc) LG.bc.showPeriodCard(per, PBC.Sim.box(g));
+    if (LG.cm) LG.cm.onBreak(per);
+    if (secs <= 0.2) { if (LG.bc) LG.bc.hidePeriodCard(); LG.possDone = true; return; }
+    holdFor(secs, () => { if (LG) { if (LG.bc) LG.bc.hidePeriodCard(); LG.possDone = true; } });
+  }
+
   // events from the court view (fired when they visibly happen)
   function onViewEvent(ev) {
     if (!LG) return;
-    if (ev.type === 'score') { LG.dispScore[ev.team] += ev.pts; flashScore(ev.team); announceScore(ev); return; }
+    if (ev.type === 'score') {
+      LG.dispScore[ev.team] += ev.pts; flashScore(ev.team);
+      noteHighlight(ev.shotEvent || {}, true);
+      if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+      if (LG.cm) LG.cm.onEvent(ev, LG.P, LG.dispScore);
+      if (LG.au) LG.au.onEvent(ev, LG.P);
+      return;
+    }
     handleEvent(ev);
+    if (ev.type === 'shot' && ev.blocked) noteHighlight(ev, false);
+    if (ev.type === 'turnover' && ev.stealer && LG.P && LG.P.events.some(e => e.type === 'shot' && e.made && (e.kind === 'dunk' || e.kind === 'layup'))) { /* steal & score handled on score */ }
+    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+    if (LG.cm) LG.cm.onEvent(ev, LG.P, LG.dispScore);
+    if (LG.au) LG.au.onEvent(ev, LG.P);
     if (ev.type === 'shot' && ev.pending) resolveGimShot(ev);
+  }
+
+  /** remember replay-worthy moments of this possession */
+  function noteHighlight(shot, made) {
+    if (!LG.view || !LG.view.time) return;
+    const g = LG.g;
+    const lateClose = (LG.P && LG.P.period >= g.L.periods) && Math.abs(LG.dispScore[0] - LG.dispScore[1]) <= 3 && LG.clockShow <= 24;
+    let score = 0, label = '';
+    if (made) {
+      if (shot.kind === 'dunk' || shot.kind === 'alley') { score = shot.kind === 'alley' ? 3 : 2; label = shot.kind === 'alley' ? 'ALLEY-OOP' : 'SLAM DUNK'; }
+      if (shot.andOne) { score += 1.5; label = label || 'AND ONE'; }
+      if (shot.kind === 'heave') { score = 5; label = 'FROM WAY DOWNTOWN'; }
+      if (shot.pts === 3 && lateClose) { score = Math.max(score, 3); label = 'CLUTCH THREE'; }
+      if (lateClose && LG.clockShow <= 6) { score = 5; label = 'BUZZER BEATER'; }
+      if (shot.gim) { score = Math.max(score, 3); label = label || 'GAME IMPACT MOMENT'; }
+      if (shot.kind === 'stepback' && shot.pts === 3 && Math.random() < 0.3) { score = Math.max(score, 1.2); label = label || 'STEP-BACK THREE'; }
+    } else if (shot.blocked) { score = 2.2; label = 'REJECTED'; }
+    if (!score) return;
+    if (!LG.highlight || score > LG.highlight.score) {
+      const focus = { x: shot.x, y: shot.y };
+      LG.highlight = { t: LG.view.time, score, label, shot, focus, team: shot.team, before: shot.kind === 'dunk' || shot.kind === 'alley' ? 2.4 : 2.1, after: made ? 1.3 : 1.0 };
+    }
   }
 
   function handleEvent(ev) {
     const g = LG.g;
-    if (ev.type === 'ft' && ev.made) { LG.dispScore[ev.team] += 1; flashScore(ev.team); announce(ev.text); }
+    if (ev.type === 'ft' && ev.made) { LG.dispScore[ev.team] += 1; flashScore(ev.team); }
     if (!LG.view && ev.type === 'shot' && ev.made) { LG.dispScore[ev.team] += ev.pts; flashScore(ev.team); }
     if (ev.text) pushLine({ q: LG.P.period, clock: Math.max(0, LG.P.clockStart - ev.t), text: ev.text, type: ev.type, team: ev.team, made: ev.made });
     if (!LG.view && LG.textStage) textVisual(ev);
@@ -419,7 +681,7 @@
   }
   function fallbackMeter(overlay, opts) {
     return new Promise(resolve => {
-      overlay.innerHTML = `<div class="gim-fb"><div class="gim-t">${U.esc(opts.player)} — ${U.esc(opts.label)}</div><div class="gim-s">Hold SPACE (or press and hold) and release in the green</div>
+      overlay.innerHTML = `<div class="gim-fb"><div class="gim-t">${U.esc(opts.player)}: ${U.esc(opts.label)}</div><div class="gim-s">Hold SPACE (or press and hold) and release in the green</div>
         <div class="fb-meter"><div class="fb-win" style="bottom:${(0.9 - opts.windowSize) * 100}%;height:${opts.windowSize * 100}%"></div><div class="fb-fill"></div></div></div>`;
       const fill = overlay.querySelector('.fb-fill');
       let start = 0, raf = 0, holding = false, done = false;
@@ -498,12 +760,15 @@
     while (tx.idx < tx.P.events.length && tx.times[tx.idx] <= tx.t) {
       const ev = tx.P.events[tx.idx++];
       handleEvent(ev);
+      if (LG.bc) LG.bc.onEvent(ev, tx.P, LG.dispScore);
+      if (LG.cm) LG.cm.onEvent(ev, tx.P, LG.dispScore);
+      if (LG.au) LG.au.onEvent(ev, tx.P);
       if (ev.type === 'shot' && ev.pending) { tx.waiting = true; resolveGimShot(ev); return; }
     }
     if (tx.idx >= tx.P.events.length && tx.t >= tx.end) {
       LG.clockShow = tx.P.clockEnd != null ? tx.P.clockEnd : LG.g.clock;
       syncScore(tx.P);
-      LG.possDone = true;
+      afterPossession(tx.P);
     }
   }
 
@@ -520,16 +785,21 @@
     const bonus = i => (g.t[1 - i].fouls >= L.bonus ? '<span class="bonus">BONUS</span>' : '');
     const tos = i => `<span class="tos">${'•'.repeat(Math.max(0, g.t[i].timeouts))}</span>`;
     const side = (i) => `<div class="bug-team" style="--c:${T[i].colors.primary}">${UI.teamBadge(T[i], 30)}<span class="ab">${T[i].abbr}</span><span class="sc" id="sc${i}">${LG.dispScore[i]}</span><div class="bug-sub">${tos(i)}${bonus(i)}</div></div>`;
-    el.innerHTML = `${side(1)}<div class="bug-mid"><div class="per">${g.final && LG.finished ? 'FINAL' : U.periodName(per, true)}</div><div class="clk">${U.clock(clock, true)}</div>${LG.view && LG.scShow != null ? `<div class="shc">${Math.ceil(Math.max(0, LG.scShow))}</div>` : ''}</div>${side(0)}`;
+    const key = `${LG.dispScore[0]}|${LG.dispScore[1]}|${per}|${U.clock(clock, true)}|${Math.ceil(Math.max(0, LG.scShow || 0))}|${g.t[0].timeouts}${g.t[1].timeouts}|${g.t[0].fouls >= L.bonus}${g.t[1].fouls >= L.bonus}|${LG.finished}`;
+    if (el && el._key !== key) {
+      el._key = key;
+      el.innerHTML = `${side(1)}<div class="bug-mid"><div class="per">${g.final && LG.finished ? 'FINAL' : U.periodName(per, true)}</div><div class="clk">${U.clock(clock, true)}</div>${LG.view && LG.scShow != null ? `<div class="shc">${Math.ceil(Math.max(0, LG.scShow))}</div>` : ''}</div>${side(0)}`;
+    }
     const tl = LG.root.querySelector('#to-left'); if (tl) tl.textContent = g.t[LG.uIdx].timeouts;
   }
   function flashScore(i) {
     const el = LG.root.querySelector('#sc' + i);
-    if (!el) return;
-    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+    if (LG.bc && LG.bc.flash) LG.bc.flash(i);
   }
   function showPlayLabel(P) {
     const el = LG.root.querySelector('#playlabel');
+    if (LG.bc) { if (el) el.classList.remove('on'); return; } // the TV graphics package shows the set name
     if (!el || !P.setName) { if (el) el.classList.remove('on'); return; }
     const t = LG.teams[P.off];
     el.innerHTML = `<span style="background:${t.colors.primary};color:${U.textOn(t.colors.primary)}">${t.abbr}</span>${U.esc(P.setName)}`;
@@ -552,12 +822,16 @@
       if (!force) return;
       panel.innerHTML = `<div class="lv-pbp">${LG.lines.slice(0, 120).map(l => {
         const t = l.team != null ? LG.teams[l.team] : null;
-        const cls = l.type === 'gim' ? 'gim' : l.type === 'period_end' ? 'q' : l.made ? 'made' : l.type === 'injury' ? 'inj' : '';
+        const cls = l.type === 'gim' ? 'gim' : l.type === 'period_end' ? 'q' : l.made ? 'made' : l.type === 'injury' ? 'inj' : l.type === 'booth' ? 'booth' : '';
         return `<div class="lv-li ${cls}"><span class="c">${U.periodName(l.q, true)} ${U.clock(l.clock, true)}</span><span>${t ? `<b style="color:${U.shade(t.colors.primary, 0.4)}">${t.abbr}</b> ` : ''}${U.esc(l.text)}</span></div>`;
       }).join('')}</div>`;
     } else if (LG.tab === 'box') {
       if (!force && LG.busy) return;
-      panel.innerHTML = `<div class="lv-box">${UI.boxScoreHtml(LG.S, PBC.Sim.box(LG.g), { noPbp: true })}</div>`;
+      const bx = LG.possDone || !LG.boxSnap ? PBC.Sim.box(LG.g) : LG.boxSnap;
+      const key = JSON.stringify([bx.hs, bx.as, bx.teams.map(t => t.players.map(x => x.pts + x.min))]);
+      if (!force && panel._boxKey === key) return;
+      panel._boxKey = key;
+      panel.innerHTML = `<div class="lv-box">${UI.boxScoreHtml(LG.S, bx, { noPbp: true })}</div>`;
     } else if (LG.tab === 'coach') {
       if (!force) return;
       renderCoach(panel);
@@ -576,7 +850,7 @@
     const queued = T.manualSubs.map(m => `${T.players.find(c => c.id === m.in).last} for ${T.players.find(c => c.id === m.out).last}`);
     panel.innerHTML = `<div class="lv-coach">
       <div class="small up muted">On the floor ${LG.subPick ? '<span class="tag accent">pick who comes out</span>' : ''}</div>${T.on.map(row).join('')}
-      <div class="small up muted" style="margin-top:10px">Bench <span class="tiny dim">— tap a bench player, then the player to replace</span></div>${bench.map(row).join('')}
+      <div class="small up muted" style="margin-top:10px">Bench <span class="tiny dim">(tap a bench player, then the player to replace)</span></div>${bench.map(row).join('')}
       ${queued.length ? `<div class="tag warn" style="margin-top:6px">Queued at next dead ball: ${U.esc(queued.join(', '))}</div>` : ''}
       <label class="chk" style="margin:10px 0"><input type="checkbox" id="auto-subs" ${T.autoSubs ? 'checked' : ''}> Auto substitutions</label>
       <div class="cp-grid"><label>Offense</label>${sel('off', C.OFFENSES)}<label>Defense</label>${sel('def', C.DEFENSES)}<label>Tempo</label>${sel('tempo', C.TEMPOS)}
@@ -586,7 +860,8 @@
       s.onchange = () => {
         PBC.Sim.setStrategy(g, LG.uIdx, { [s.dataset.cs]: s.value });
         if (s.dataset.cs === 'def' && LG.view && LG.view.setDefScheme) LG.view.setDefScheme(LG.uIdx, s.value);
-        UI.toast(`${s.options[s.selectedIndex].text} — coming up`, 'info');
+        UI.toast(`${s.options[s.selectedIndex].text}: coming up`, 'info');
+        if (LG.cm && LG.cm.onAdjust) LG.cm.onAdjust(s.dataset.cs, s.value);
       };
     });
     panel.querySelector('#auto-subs').onchange = e => PBC.Sim.setAutoSubs(g, LG.uIdx, e.target.checked);
@@ -611,12 +886,16 @@
     const el = LG.root.querySelector('#oncourt');
     if (!el) return;
     const g = LG.g;
-    el.innerHTML = [LG.uIdx, 1 - LG.uIdx].map(i => {
+    const html = [LG.uIdx, 1 - LG.uIdx].map(i => {
       const T = g.t[i];
-      return `<div class="oc-team"><span class="oc-ab" style="background:${LG.teams[i].colors.primary};color:${U.textOn(LG.teams[i].colors.primary)}">${LG.teams[i].abbr}</span>${T.on.map(c => `
-        <div class="oc-p" title="${U.esc(c.name)}">${UI.avatar(c.p, 28)}<div class="oc-i"><div class="ellip"><b>${U.esc(c.last)}</b></div><div class="tiny dim">${c.st.pts} pts · ${c.st.orb + c.st.drb} reb · ${c.st.ast} ast · ${c.pf} PF</div>
-        <span class="en"><i style="width:${Math.round(c.energy)}%;background:${c.energy > 70 ? 'var(--good)' : c.energy > 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span></div></div>`).join('')}</div>`;
+      const sn = c => (!LG.possDone && LG.snap && LG.snap[c.id]) || { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy };
+      const onIds = LG.view && LG.view.onCourt ? LG.view.onCourt[i] : null;
+      const on = onIds && onIds.length === 5 ? onIds.map(id => T.players.find(c => c.id === id)).filter(Boolean) : T.on;
+      return `<div class="oc-team"><span class="oc-ab" style="background:${LG.teams[i].colors.primary};color:${U.textOn(LG.teams[i].colors.primary)}">${LG.teams[i].abbr}</span>${on.map(c => { const x = sn(c); return `
+        <div class="oc-p" title="${U.esc(c.name)}">${UI.avatar(c.p, 30)}<div class="oc-i"><div class="ellip"><b>${U.esc(c.last)}</b></div><div class="tiny dim">${x.pts} pts · ${x.reb} reb · ${x.ast} ast · ${x.pf} PF</div>
+        <span class="en"><i style="width:${Math.round(x.energy)}%;background:${x.energy > 70 ? 'var(--good)' : x.energy > 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span></div></div>`; }).join('')}</div>`;
     }).join('');
+    if (el._html !== html) { el._html = html; el.innerHTML = html; }
   }
 
   // ---------------------------------------------------------------------------
@@ -627,9 +906,10 @@
     if (g.t[LG.uIdx].timeouts <= 0) { UI.toast('No timeouts left', 'bad'); return; }
     if (g.t[LG.uIdx].toRequest) { UI.toast('Timeout already requested', 'info'); return; }
     PBC.Sim.callTimeout(g, LG.uIdx);
-    UI.toast('⏱ Timeout requested — it will be called at the next dead ball. Adjust your lineup in the Coach tab.', 'info');
+    UI.toast('⏱ Timeout requested. It will be called at the next dead ball. Adjust your lineup in the Coach tab.', 'info');
     LG.tab = 'coach';
     LG.root.querySelectorAll('.lv-tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'coach'));
+    const live = LG.root.querySelector('.live'); if (live && live.classList.contains('no-side')) toggleSide();
     renderPanel(true);
   }
 
@@ -652,6 +932,7 @@
   function resetViewAfterJump() {
     LG.possDone = true;
     LG.text = null;
+    LG.hold = null; LG.highlight = null;
     if (LG.view && LG.view.destroy) {
       try { LG.view.destroy(); } catch (e) { console.error(e); }
       const stage = LG.root.querySelector('#stage');
@@ -659,7 +940,12 @@
       stage.insertAdjacentHTML('afterbegin', '<canvas id="court"></canvas>');
       try {
         LG.view = UI.makeCourtView(stage.querySelector('#court'), LG.S, LG.g);
-        if (LG.view) { LG.view.period = LG.g.period; }
+        if (LG.view) {
+          LG.view.period = LG.g.period;
+          if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: LG.stakes.playoff, level: LG.stakes.level, label: LG.stakes.short, finals: LG.stakes.playoff && LG.stakes.roundName === 'Finals' });
+          LG.view.onSound = (name, v) => { if (LG && LG.au) LG.au.play(name, v); };
+          if (LG.bc) LG.bc.setView(LG.view);
+        }
         LG.onResize();
       } catch (e) { console.error(e); LG.view = null; }
     }
@@ -668,13 +954,13 @@
   }
 
   async function skipToClutch() {
-    if (LG.busy || !LG.possDone && LG.view && !LG.view.isIdle()) { /* allow anyway */ }
     const L = LG.g.L;
     LG.busy = true;
     await new Promise(r => setTimeout(r, 20));
     fastForward(g => (g.period >= L.periods && g.clock <= 150) || g.period > L.periods || !!PBC.Sim.gimCheck(g));
     LG.busy = false;
     resetViewAfterJump();
+    if (LG.cm) LG.cm.onJump();
     if (LG.g.final) finishGame();
     else UI.toast('⏭ Crunch time!', 'info');
   }
@@ -704,6 +990,7 @@
   function finishGame(silent) {
     if (!LG || LG.finished) return;
     LG.finished = true;
+    LG.hold = null;
     const S = LG.S, g = LG.g, sg = LG.sg;
     const box = PBC.Sim.finalize(g);
     PBC.Season.completeGame(S, sg, box);
@@ -711,23 +998,41 @@
     UI.save();
     LG.dispScore = [box.hs, box.as];
     renderBug();
-    if (LG.view && LG.view.celebrate) { try { LG.view.celebrate(box.hs > box.as ? 0 : 1); } catch (e) { /* ignore */ } }
+    const winner = box.hs > box.as ? 0 : 1;
+    if (LG.view && LG.view.celebrate) { try { LG.view.celebrate(winner); } catch (e) { /* ignore */ } }
+    if (LG.au) LG.au.onFinal(winner, LG.uIdx);
+    if (LG.cm) LG.cm.onFinal(box);
+    if (LG.bc) LG.bc.onFinal(box);
     if (silent) { closeGame(); PBC.App.resultToast(box); return; }
     const u = LG.uIdx;
     const my = u === 0 ? box.hs : box.as, th = u === 0 ? box.as : box.hs;
     const pog = box.pog != null ? S.players[box.pog] : null;
     const pl = pog ? box.teams.flatMap(t => t.players).find(x => x.pid === pog.id) : null;
     const overlay = LG.root.querySelector('#overlay');
-    overlay.classList.add('on');
-    overlay.innerHTML = `<div class="final-card ${my > th ? 'win' : 'loss'}">
-      <div class="fc-res">${my > th ? 'VICTORY' : 'DEFEAT'}</div>
-      <div class="fc-score">${UI.teamBadge(LG.teams[1], 54)}<span>${box.as}</span><span class="dim">–</span><span>${box.hs}</span>${UI.teamBadge(LG.teams[0], 54)}</div>
-      <div class="small muted">${box.ot ? (box.ot > 1 ? box.ot : '') + 'OT · ' : ''}${S.teams[S.userTid].name} ${my > th ? 'win' : 'lose'} by ${Math.abs(my - th)}</div>
-      ${pog ? `<div class="fc-pog">${UI.avatar(pog, 48)}<div><div class="tiny up gold-t">Player of the game</div><div class="bold">${U.esc(PBC.Player.name(pog))}</div><div class="small muted">${pl.pts} pts · ${pl.orb + pl.drb} reb · ${pl.ast} ast · ${pl.fgm}-${pl.fga} FG</div></div></div>` : ''}
-      ${box.gims && box.gims.length ? `<div class="small">🎯 Game Impact Moments: ${box.gims.filter(x => x.made).length}/${box.gims.length} made</div>` : ''}
-      <div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary lg" data-fin="home">Continue ▸</button><button class="btn lg" data-fin="box">Box score</button></div></div>`;
-    overlay.querySelector('[data-fin="home"]').onclick = () => closeGame();
-    overlay.querySelector('[data-fin="box"]').onclick = () => { closeGame(); UI.openBox(sg.gid); };
+    const stakes = LG.stakes;
+    let seriesLine = '';
+    if (stakes.playoff && S.playoffs && sg.series) {
+      const s = S.playoffs.series.find(x => x.id === sg.series);
+      if (s) {
+        const mw = s.hi === S.userTid ? s.w[0] : s.w[1], tw = s.hi === S.userTid ? s.w[1] : s.w[0];
+        seriesLine = s.done ? (s.winner === S.userTid ? `🏆 You win the series ${mw}-${tw}!` : `Season over. Series lost ${mw}-${tw}.`) : `Series: ${mw > tw ? 'you lead' : mw < tw ? 'you trail' : 'tied'} ${mw}-${tw}`;
+      }
+    }
+    setTimeout(() => {
+      if (!LG || !overlay) return;
+      overlay.classList.add('on');
+      overlay.innerHTML = `<div class="final-card ${my > th ? 'win' : 'loss'} ${stakes.playoff ? 'po' : ''}">
+        ${stakes.playoff ? `<div class="fc-po">${U.esc(stakes.roundName || 'Playoffs')}${stakes.gameNum ? ' · Game ' + stakes.gameNum : ''}</div>` : ''}
+        <div class="fc-res">${my > th ? 'VICTORY' : 'DEFEAT'}</div>
+        <div class="fc-score">${UI.teamBadge(LG.teams[1], 54)}<span>${box.as}</span><span class="dim">-</span><span>${box.hs}</span>${UI.teamBadge(LG.teams[0], 54)}</div>
+        <div class="small muted">${box.ot ? (box.ot > 1 ? box.ot : '') + 'OT · ' : ''}${S.teams[S.userTid].name} ${my > th ? 'win' : 'lose'} by ${Math.abs(my - th)}</div>
+        ${seriesLine ? `<div class="fc-series">${U.esc(seriesLine)}</div>` : ''}
+        ${pog ? `<div class="fc-pog">${UI.avatar(pog, 64)}<div><div class="tiny up gold-t">Player of the game</div><div class="bold">${U.esc(PBC.Player.name(pog))}</div><div class="small muted">${pl.pts} pts · ${pl.orb + pl.drb} reb · ${pl.ast} ast · ${pl.fgm}-${pl.fga} FG</div></div></div>` : ''}
+        ${box.gims && box.gims.length ? `<div class="small">🎯 Game Impact Moments: ${box.gims.filter(x => x.made).length}/${box.gims.length} made</div>` : ''}
+        <div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary lg" data-fin="home">Continue ▸</button><button class="btn lg" data-fin="box">Box score</button></div></div>`;
+      overlay.querySelector('[data-fin="home"]').onclick = () => closeGame();
+      overlay.querySelector('[data-fin="box"]').onclick = () => { closeGame(); UI.openBox(sg.gid); };
+    }, LG.view ? 2600 : 200);
   }
 
   function closeGame() {

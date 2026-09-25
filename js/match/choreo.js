@@ -206,6 +206,9 @@
       this.finish();
     }
 
+    /** 0 in a regular-season game, up to ~1.25 in a Game 7: players go harder, defense locks in */
+    intensity() { const a = this.v.atm; return a && a.playoff ? U.clamp(+a.level || 0.6, 0, 1.25) : 0; }
+
     // ============================================================ geometry helpers
     X(u) { return this.dir > 0 ? 94 - u : u; }
     U_(x) { return this.dir > 0 ? 94 - x : x; }
@@ -355,7 +358,8 @@
           } else if (sn.indexOf('block') === 0 && u > 12) { tx = this.X(Math.max(4, u - 18)); ty = U.lerp(a.y, 25, 0.35); }
         }
         const d = Math.hypot(tx - a.x, ty - a.y);
-        const sp = this.tempo === 'push' ? a.maxSpeed * 0.95 : d > 12 ? 17 : d > 4 ? 11 : 6;
+        const eff = 1 + this.intensity() * 0.14;
+        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, 0.95 * eff) : (d > 12 ? 17 : d > 4 ? 11 : 6) * eff;
         a.moveTo(tx, ty, { speed: sp, face: d > 3 ? 'move' : { x: b.x, y: b.y }, stance: d > 5 ? 'stand' : 'ready' });
         a.lookAt({ x: b.x, y: b.y });
       }
@@ -462,8 +466,9 @@
       const mu = this.U_(m.x);
       const hasBall = b.holder === m;
       let px, py;
+      const hype = this.intensity();
       if (hasBall) {
-        let gap = scheme === 'pressure' ? 2.6 : scheme === 'packline' ? 4.5 : 3.4;
+        let gap = (scheme === 'pressure' ? 2.6 : scheme === 'packline' ? 4.5 : 3.4) - hype * 0.5;
         if (mu > 32 && scheme !== 'press') gap += U.clamp((mu - 32) * 0.35, 0, 8);
         const dx = rim.x - m.x, dy = rim.y - m.y, dl = Math.hypot(dx, dy) || 1;
         px = m.x + dx / dl * gap; py = m.y + dy / dl * gap;
@@ -481,7 +486,7 @@
           px = U.lerp(px, m.x + dx / dl * 3.2, 0.45); py = U.lerp(py, m.y + dy / dl * 3.2, 0.45);
         }
         if (mu > 48 && scheme !== 'press') { px = this.X(Math.min(40, mu)); } // don't chase into the backcourt
-        a.setStance(dBall < 18 ? 'defense' : 'ready');
+        a.setStance(dBall < 18 + hype * 10 ? 'defense' : 'ready');
       }
       out.x = U.clamp(px, 0.5, 93.5); out.y = U.clamp(py, 0.5, 49.5);
       out.vx = m.vx * 0.6; out.vy = m.vy * 0.6;
@@ -1279,6 +1284,7 @@
         b.passTarget = pr && pr.actor ? pr.actor : null;
         if (pr) this.scheduleRebounder(pr, b.time + 0.16 + T2);
         v.arena.cheer(this.def, 0.9, 2.2);
+        if (v.sound) v.sound('block', 1);
         this.crashBoards(sh);
         return;
       }
@@ -1312,6 +1318,7 @@
         this.hoop.hang(1);
         if (!result.made) { /* dunk miss: treat as rim miss */ }
         v.arena.cheer(this.off, 1, 3);
+        if (v.sound) v.sound('dunk', 1);
         this.at(this.T + 0.35, () => { this.hoop.hitRim(2); }, 'rim shake');
         this.crashBoards(sh, true);
         return;
@@ -1342,7 +1349,12 @@
       }
       this.crashBoards(sh);
       // shooter reaction after landing
-      this.at(this.T + 1.0, () => { if (result.made && !sh.isBusy() && Math.random() < 0.4) sh.play((+ev.pts === 3) ? 'threeFingers' : 'fistPump', { mirror: false }); }, 'celebrate');
+      const hype = this.intensity();
+      this.at(this.T + 1.0, () => {
+        if (!result.made || sh.isBusy() || Math.random() >= 0.4 + hype * 0.4) return;
+        const big = hype > 0.55 && Math.random() < 0.5;
+        sh.play((+ev.pts === 3) ? 'threeFingers' : big ? 'flex' : 'fistPump', { mirror: false });
+      }, 'celebrate');
     }
     caromTime(pr, tToContact) {
       const want = pr.gapG > 0 ? pr.gapG - tToContact : 0.9;

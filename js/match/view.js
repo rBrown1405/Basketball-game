@@ -75,14 +75,19 @@
       dt = +dt;
       if (!(dt > 0)) dt = 0;
       dt = Math.min(dt, 2); // hard cap per call (16x at ~8 fps)
-      let left = dt;
-      let guard = 0;
-      while (left > 1e-7 && guard++ < 200) {
-        const h = Math.min(STEP, left);
-        left -= h;
-        U.safe(() => this.step(h), this, 'step');
+      if (this.replay) {
+        U.safe(() => this.updateReplay(dt), this, 'replay');
+      } else {
+        let left = dt;
+        let guard = 0;
+        while (left > 1e-7 && guard++ < 200) {
+          const h = Math.min(STEP, left);
+          left -= h;
+          U.safe(() => this.step(h), this, 'step');
+          if (h > 0 && this.opts.record !== false) U.safe(() => this.recordFrame(), this, 'record');
+        }
+        U.safe(() => this.updateCamera(dt), this, 'camera');
       }
-      U.safe(() => this.updateCamera(dt), this, 'camera');
       // crowd, LED and jumbotron run on wall-clock time: they keep moving during a GIM freeze
       // (the host calls update(0) while the shot meter is up) and stay calm at 16x
       const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -101,8 +106,20 @@
     setOption(k, v) {
       this.opts[k] = v;
       if (k === 'camera') this.camRig.setPreset(v);
-      if (k === 'quality') { this.court = new M.Court(this.ctx, this.opts); this.arena = new M.Arena(this.ctx, this.opts); this.arena.setState({ score: this.score, period: this.period }); }
-      if (k === 'pixelMode') this._pix = null;
+      if (k === 'quality') { this.court = new M.Court(this.ctx, this.opts); this.arena = new M.Arena(this.ctx, this.opts); this.arena.setState({ score: this.score, period: this.period }); if (this.atm) this.arena.setAtmosphere(this.atm); }
+      if (k === 'pixelMode' || k === 'pixelSize') this._pix = null;
+    }
+    /** game atmosphere: { playoff, level 0..1.25, label ('WEST FINALS · G7'), finals } → crowd, towels, boards, court decals */
+    setAtmosphere(atm) {
+      this.atm = Object.assign({}, atm || {});
+      this.ctx.atmosphere = this.atm;
+      U.safe(() => { this.court = new M.Court(this.ctx, this.opts); }, this, 'court atmosphere');
+      if (this.arena.setAtmosphere) this.arena.setAtmosphere(this.atm);
+    }
+    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk' */
+    sound(name, v) {
+      if (!this.onSound || this.replay) return;
+      try { this.onSound(name, v == null ? 1 : v); } catch (e) { /* audio must never break the view */ }
     }
     setDefScheme(team, scheme) {
       if (team !== 0 && team !== 1) return;
@@ -170,8 +187,8 @@
       for (const r of this.refs) { const d = Math.hypot(r.x - x, r.y - y); if (d < bd) { bd = d; best = r; } }
       return best;
     }
-    whistle() { this.whistleT = this.time; }
-    horn() { this.hornT = this.time; }
+    whistle() { this.whistleT = this.time; this.sound('whistle', 1); }
+    horn() { this.hornT = this.time; this.sound('horn', 1); }
     onEmit(ev) {
       if (!ev) return;
       if (ev.type === 'score') { const t = ev.team === 1 ? 1 : 0; this.score[t] += +ev.pts || 0; this.updateBoards(); }
@@ -338,6 +355,11 @@
       let fx = this.focus ? this.focus.x : 47, vx = this.focus ? this.focus.vx : 0;
       if (hint && hint.x != null) { fx = hint.x; vx = 0; }
       this.camRig.tightTarget = hint && hint.tight ? 1 : 0;
+      // auto broadcast camera: push in on half-court sets, pull back for transition and dead balls
+      const dr = this.director;
+      let zt = 0;
+      if (dr.active && dr.tempo !== 'push' && dr.U_) { const u = dr.U_(this.ball.x); if (u < 44) zt = 1; }
+      this.camRig.zoomTarget = zt;
       // sub-step so the camera keeps up at high playback speeds
       let left = Math.min(dt, 2);
       const f = { x: fx, vx: vx * 0.6 };
@@ -345,14 +367,209 @@
     }
 
     // ============================================================ rendering
+    /** integer pixel scale for the pixel-art mode: the scene renders at roughly TARGET px wide, then scales up crisply */
+    pixelScale() {
+      const target = { chunky: 360, normal: 440, fine: 600 }[this.opts.pixelSize] || 440;
+      return Math.max(2, Math.round(this.canvas.width / target));
+    }
+    /**
+     * Pixel-art person: the vector figure is drawn into a small scratch sprite at the low-res scale, its alpha is
+     * thresholded (hard edges, no anti-aliasing), shading is posterized into a few bands and a 1 px dark outline is
+     * added around the silhouette, then the sprite is stamped into the frame in its depth-sorted slot.
+     */
+    drawPixelPerson(g, cam, sk, style, o, ballFn) {
+      const P = sk.P, pt = this._pt;
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (let j = 0; j < 27; j++) {
+        cam.project(P[j * 3], P[j * 3 + 1], P[j * 3 + 2], pt);
+        if (pt.x < x0) x0 = pt.x; if (pt.x > x1) x1 = pt.x;
+        if (pt.y < y0) y0 = pt.y; if (pt.y > y1) y1 = pt.y;
+      }
+      if (o.extra) { const b = this.ball; cam.project(b.x, b.y, b.z, pt); x0 = Math.min(x0, pt.x); x1 = Math.max(x1, pt.x); y0 = Math.min(y0, pt.y); y1 = Math.max(y1, pt.y); }
+      if (x1 < -20 || x0 > cam.W + 20) return;
+      const s = cam.scaleAt(P[1], 3);
+      const m = Math.ceil(s * 0.75) + 3;
+      const X0 = Math.floor(x0 - m), Y0 = Math.floor(y0 - m);
+      const w = Math.min(360, Math.ceil(x1 - x0 + 2 * m)), h = Math.min(360, Math.ceil(y1 - y0 + 2 * m));
+      if (w <= 2 || h <= 2) return;
+      let sc = this._spr;
+      if (!sc || sc.width < w || sc.height < h) {
+        sc = this._spr = U.makeCanvas(Math.max(w, sc ? sc.width : 0, 96), Math.max(h, sc ? sc.height : 0, 160));
+        this._sprG = sc.getContext('2d', { willReadFrequently: true });
+      }
+      const sg = this._sprG;
+      sg.setTransform(1, 0, 0, 1, 0, 0);
+      sg.clearRect(0, 0, w + 2, h + 2);
+      const ox = cam.ox, oy = cam.oy;
+      cam.ox = ox - X0; cam.oy = oy - Y0;
+      // a ball held in the hands belongs to the sprite (drawn into the scratch canvas at its depth slot)
+      const oo = o.extra ? Object.assign({}, o, { extra: { d: o.extra.d, fn: () => (ballFn ? ballFn(sg) : this.ball.draw(sg, cam)) } }) : o;
+      try { this.fr.draw(sg, cam, sk, style, oo); } finally { cam.ox = ox; cam.oy = oy; }
+      sg.setTransform(1, 0, 0, 1, 0, 0);
+      const img = sg.getImageData(0, 0, w, h), d = img.data;
+      const n = w * h;
+      const mask = this._mask && this._mask.length >= n ? this._mask : (this._mask = new Uint8Array(Math.max(n, 96 * 160)));
+      const band = this.opts.pixelBands || 20;
+      for (let i = 0, q = 0; i < n; i++, q += 4) {
+        if (d[q + 3] >= 120) {
+          mask[i] = 1; d[q + 3] = 255;
+          // posterize into shading bands (keeps the palette tight, like hand-shaded sprites)
+          d[q] = Math.min(255, Math.round(d[q] / band) * band);
+          d[q + 1] = Math.min(255, Math.round(d[q + 1] / band) * band);
+          d[q + 2] = Math.min(255, Math.round(d[q + 2] / band) * band);
+        } else { mask[i] = 0; d[q + 3] = 0; }
+      }
+      // 1 px outline: transparent pixels touching the silhouette take a dark tint of the neighbouring colour
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = y * w + x;
+          if (mask[i]) continue;
+          let nb = -1;
+          if (x > 0 && mask[i - 1]) nb = i - 1;
+          else if (x < w - 1 && mask[i + 1]) nb = i + 1;
+          else if (y > 0 && mask[i - w]) nb = i - w;
+          else if (y < h - 1 && mask[i + w]) nb = i + w;
+          if (nb < 0) continue;
+          const q = i * 4, r = nb * 4;
+          d[q] = 10 + d[r] * 0.18; d[q + 1] = 8 + d[r + 1] * 0.16; d[q + 2] = 14 + d[r + 2] * 0.2; d[q + 3] = 255;
+        }
+      }
+      sg.putImageData(img, 0, 0);
+      g.drawImage(this._spr, 0, 0, w, h, X0, Y0, w, h);
+    }
+    /** crisp pixel-art contact shadow (hard ellipse instead of a soft blob) */
+    drawPixelShadow(g, cam, sk) {
+      const P = sk.P;
+      const cx = (P[19 * 3] + P[25 * 3] + P[0] * 2) * 0.25, cy = (P[19 * 3 + 1] + P[25 * 3 + 1] + P[1] * 2) * 0.25;
+      const air = Math.max(0, Math.min(P[19 * 3 + 2], P[25 * 3 + 2]) - 0.05);
+      const p = cam.project(cx, cy, 0, this._pt);
+      const w = sk.dims.H * 0.3 * p.s * (1 + air * 0.06), h = Math.max(1, w * 0.3 * Math.max(0.35, cam.sp * 1.6));
+      g.fillStyle = 'rgba(12,6,4,' + (0.34 * U.clamp(1 - air * 0.2, 0.3, 1)).toFixed(3) + ')';
+      g.beginPath(); g.ellipse(Math.round(p.x), Math.round(p.y), Math.max(1, w), h, 0, 0, U.TAU); g.fill();
+    }
+
+    // ============================================================ instant replay
+    makeRec(cap, maxP) {
+      const frames = [];
+      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), ball: new Float32Array(16), net: new Float32Array(64), pan: 47 });
+      return { cap, maxP, frames, head: 0, count: 0, lastT: -1e9, tmp: [] };
+    }
+    /** snapshot everything a frame needs (30 Hz of presentation time, ring buffer of the last ~7 s) */
+    recordFrame() {
+      if (this.opts.record === false || this.replay) return;
+      const R = this._rec || (this._rec = this.makeRec(215, 18));
+      if (this.time - R.lastT < 1 / 30 - 1e-6) return;
+      R.lastT = this.time;
+      const people = R.tmp; people.length = 0;
+      for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) people.push(a); }
+      for (const r of this.refs) people.push(r);
+      const f = R.frames[R.head];
+      const n = Math.min(people.length, R.maxP);
+      f.t = this.time; f.n = n;
+      for (let i = 0; i < n; i++) {
+        const a = people[i];
+        a.solve();
+        f.who[i] = a;
+        f.P.set(a.sk.P, i * 81);
+        f.R.set(a.sk.R, i * 153);
+      }
+      const b = this.ball;
+      f.ball[0] = b.x; f.ball[1] = b.y; f.ball[2] = b.z; f.ball[3] = b.squash; f.ball[4] = b.hidden ? 1 : 0;
+      for (let k = 0; k < 9; k++) f.ball[5 + k] = b.rot[k];
+      let o = 0;
+      for (const ho of this.hoops) {
+        for (const L of ho.lv) { f.net[o++] = L.dr; f.net[o++] = L.dz; f.net[o++] = L.ox; f.net[o++] = L.oy; }
+        f.net[o++] = ho.rimShake; f.net[o++] = ho.boardShake;
+      }
+      f.pan = this.camRig.pan.x;
+      R.head = (R.head + 1) % R.cap; R.count = Math.min(R.cap, R.count + 1);
+    }
+    /** play back the recorded window [t - before, t + after] in slow motion with the replay camera. Returns false if not enough footage. */
+    startReplay(o) {
+      const R = this._rec;
+      if (!R || !R.count || this.replay) return false;
+      o = o || {};
+      const t = o.t != null ? o.t : this.time, t0 = t - (o.before || 2.5), t1 = t + (o.after || 1);
+      const list = [];
+      for (let k = 0; k < R.count; k++) {
+        const f = R.frames[(R.head - R.count + k + R.cap * 2) % R.cap];
+        if (f.t >= t0 && f.t <= t1) list.push(f);
+      }
+      if (list.length < 20) return false;
+      const rig = this.camRig;
+      this.replay = {
+        list, rt: list[0].t, t0: list[0].t, t1: list[list.length - 1].t, speed: o.speed || 0.45, hold: 0.5,
+        cam: { preset: rig.preset, auto: rig.auto, p: Object.assign({}, rig.p), pan: Object.assign({}, rig.pan), zoom: rig.zoom, tight: rig.tight },
+        ghosts: [], focus: o.focus || null, i: 0,
+      };
+      rig.setPreset('replay');
+      rig.p = Object.assign({}, M.CAMERA_PRESETS.replay);
+      rig.pan.x = list[0].ball[0]; rig.pan.v = 0;
+      rig.apply();
+      return true;
+    }
+    stopReplay() {
+      const r = this.replay;
+      if (!r) return;
+      const rig = this.camRig;
+      rig.preset = r.cam.preset; rig.auto = r.cam.auto; rig.p = r.cam.p; rig.pan = r.cam.pan; rig.zoom = r.cam.zoom; rig.tight = r.cam.tight;
+      rig.apply();
+      this.replay = null;
+    }
+    isReplaying() { return !!this.replay; }
+    replayProgress() { const r = this.replay; return r ? U.clamp((r.rt - r.t0) / Math.max(0.01, r.t1 - r.t0), 0, 1) : 0; }
+    updateReplay(dt) {
+      const r = this.replay;
+      r.rt += dt * r.speed;
+      // replay camera: follow the ball closely
+      const fr = this.replayFrame();
+      if (fr) {
+        const lim = this.camRig.panLimits();
+        const fx = U.clamp(fr.bx, lim[0], lim[1]);
+        let left = Math.min(dt, 0.5);
+        do { const h = Math.min(0.05, left); U.spring(this.camRig.pan, fx, 3.2, h); left -= h; } while (left > 1e-6);
+        this.camRig.apply();
+      }
+      if (r.rt > r.t1 + r.hold) this.stopReplay();
+    }
+    /** interpolated ghost skeletons of the replay moment */
+    replayFrame() {
+      const r = this.replay;
+      const L = r.list;
+      while (r.i < L.length - 2 && L[r.i + 1].t <= r.rt) r.i++;
+      const a = L[r.i], b = L[Math.min(L.length - 1, r.i + 1)];
+      const u = b.t > a.t ? U.clamp((r.rt - a.t) / (b.t - a.t), 0, 1) : 0;
+      const ghosts = r.ghosts;
+      let gi = 0;
+      for (let i = 0; i < a.n; i++) {
+        const who = a.who[i];
+        let j = -1;
+        for (let k = 0; k < b.n; k++) if (b.who[k] === who) { j = k; break; }
+        const gh = ghosts[gi] || (ghosts[gi] = { P: new Float64Array(81), R: new Float64Array(153), dims: null, style: null, who: null });
+        gh.dims = who.sk.dims; gh.style = who.style; gh.who = who;
+        for (let k = 0; k < 81; k++) { const va = a.P[i * 81 + k]; gh.P[k] = j >= 0 ? va + (b.P[j * 81 + k] - va) * u : va; }
+        for (let k = 0; k < 153; k++) { const va = a.R[i * 153 + k]; gh.R[k] = j >= 0 ? va + (b.R[j * 153 + k] - va) * u : va; }
+        gi++;
+      }
+      ghosts.length = gi;
+      const lerp = (k) => a.ball[k] + (b.ball[k] - a.ball[k]) * u;
+      const out = this._rf || (this._rf = { ghosts: null, bx: 0, by: 0, bz: 0, sq: 0, hidden: 0, rot: new Float64Array(9), net: new Float32Array(64) });
+      out.ghosts = ghosts; out.bx = lerp(0); out.by = lerp(1); out.bz = lerp(2); out.sq = lerp(3); out.hidden = a.ball[4];
+      for (let k = 0; k < 9; k++) out.rot[k] = u < 0.5 ? a.ball[5 + k] : b.ball[5 + k];
+      for (let k = 0; k < 64; k++) out.net[k] = a.net[k] + (b.net[k] - a.net[k]) * u;
+      return out;
+    }
+
+    // ============================================================ frame
     _render() {
       let g = this.g, cam = this.cam;
       const pix = !!this.opts.pixelMode;
       let W = this.cssW, H = this.cssH, dpr = this.dpr;
       if (pix) {
-        const k = 3;
-        const pw = Math.max(64, Math.round(W / k)), ph = Math.max(36, Math.round(H / k));
+        const k = this.pixelScale();
+        const pw = Math.max(64, Math.ceil(this.canvas.width / k)), ph = Math.max(36, Math.ceil(this.canvas.height / k));
         if (!this._pix || this._pix.width !== pw || this._pix.height !== ph) { this._pix = U.makeCanvas(pw, ph); this._pixG = this._pix.getContext('2d'); }
+        this._pixK = k;
         g = this._pixG; dpr = 1;
         cam.setSize(pw, ph); this.camRig.apply();
       }
@@ -369,55 +586,88 @@
       arena.drawCourtside(g, cam);
       arena.drawJumbotron(g, cam);
       for (const ho of this.hoops) ho.drawStanchion(g, cam);
-      // solve all visible people once
-      const people = [];
-      for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) people.push(a); }
-      for (const r of this.refs) people.push(r);
-      for (const a of people) a.solve();
-      if (q !== 'low') for (const a of people) this.fr.drawReflection(g, cam, a.sk, a.style, 0.11);
-      for (const a of people) this.fr.drawShadow(g, cam, a.sk, 1);
       const b = this.ball;
-      b.drawShadow(g, cam);
-      // depth-sorted drawables
-      const items = this.items; items.length = 0;
-      const heldBy = (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : null;
-      let ballInHoop = null;
-      for (const ho of this.hoops) {
-        const dx = b.x - ho.rx, dy = b.y - ho.ry;
-        if (!heldBy && Math.hypot(dx, dy) < 1.25 && b.z > 7.8 && b.z < 11.2) ballInHoop = ho;
-        items.push({ k: 1, o: ho, d: cam.depth(ho.ry, 10) });
+      const rp = this.replay ? this.replayFrame() : null;
+      // people to draw: live actors (solved now) or interpolated replay ghosts
+      const people = this._people || (this._people = []);
+      people.length = 0;
+      if (rp) {
+        for (const gh of rp.ghosts) people.push({ sk: gh, style: gh.style, y: gh.P[1], a: gh.who });
+      } else {
+        for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) { a.solve(); people.push({ sk: a.sk, style: a.style, y: a.y, a }); } }
+        for (const r of this.refs) { r.solve(); people.push({ sk: r.sk, style: r.style, y: r.y, a: r }); }
       }
-      for (const a of people) items.push({ k: 0, o: a, d: cam.depth(a.y, 3) });
-      if (!heldBy && !ballInHoop) items.push({ k: 2, o: b, d: cam.depth(b.y, b.z) });
-      items.sort((p1, p2) => p2.d - p1.d);
-      const ballFn = () => b.draw(g, cam);
-      for (const it of items) {
-        if (it.k === 0) {
-          const a = it.o;
-          const o = { dpr };
-          if (heldBy === a) o.extra = { d: cam.depth(b.y, b.z) + 0.05, fn: ballFn };
-          else if (a.dribble && b.state === 'dribble' && b.dr && b.dr.actor === a) { /* dribbled ball sorted separately */ }
-          this.fr.draw(g, cam, a.sk, a.style, o);
-        } else if (it.k === 1) {
-          const ho = it.o;
-          ho.drawBoard(g, cam);
-          ho.drawRim(g, cam, 1);
-          ho.drawNet(g, cam, 1);
-          if (ballInHoop === ho) b.draw(g, cam);
-          ho.drawNet(g, cam, -1);
-          ho.drawRim(g, cam, -1);
-        } else b.draw(g, cam);
+      // replay: apply the recorded ball and net state for this frame (restored after drawing)
+      let saved = null;
+      if (rp) {
+        saved = { x: b.x, y: b.y, z: b.z, sq: b.squash, hidden: b.hidden, rot: Float64Array.from(b.rot), state: b.state, holder: b.holder, nets: this.hoops.map(ho => ({ lv: ho.lv.map(L => [L.dr, L.dz, L.ox, L.oy]), rs: ho.rimShake, bs: ho.boardShake })) };
+        b.x = rp.bx; b.y = rp.by; b.z = rp.bz; b.squash = rp.sq; b.hidden = !!rp.hidden; b.rot.set(rp.rot); b.state = 'flight'; b.holder = null;
+        let o = 0;
+        for (const ho of this.hoops) { for (const L of ho.lv) { L.dr = rp.net[o++]; L.dz = rp.net[o++]; L.ox = rp.net[o++]; L.oy = rp.net[o++]; } ho.rimShake = rp.net[o++]; ho.boardShake = rp.net[o++]; }
       }
-      if (this.opts.showNames) this.drawNames(g, cam, people);
+      try {
+        if (q !== 'low') for (const pp of people) this.fr.drawReflection(g, cam, pp.sk, pp.style, pix ? 0.08 : 0.11);
+        if (pix) for (const pp of people) this.drawPixelShadow(g, cam, pp.sk);
+        else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, 1);
+        b.drawShadow(g, cam);
+        // depth-sorted drawables
+        const items = this.items; items.length = 0;
+        const heldBy = !rp && (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : null;
+        let ballInHoop = null;
+        for (const ho of this.hoops) {
+          const dx = b.x - ho.rx, dy = b.y - ho.ry;
+          if (!heldBy && Math.hypot(dx, dy) < 1.25 && b.z > 7.8 && b.z < 11.2) ballInHoop = ho;
+          items.push({ k: 1, o: ho, d: cam.depth(ho.ry, 10) });
+        }
+        for (const pp of people) items.push({ k: 0, o: pp, d: cam.depth(pp.y, 3) });
+        if (!heldBy && !ballInHoop) items.push({ k: 2, o: b, d: cam.depth(b.y, b.z) });
+        items.sort((p1, p2) => p2.d - p1.d);
+        const ballFn = () => b.draw(g, cam);
+        for (const it of items) {
+          if (it.k === 0) {
+            const pp = it.o;
+            const o = { dpr };
+            if (heldBy && heldBy === pp.a) o.extra = { d: cam.depth(b.y, b.z) + 0.05, fn: ballFn };
+            if (pix) this.drawPixelPerson(g, cam, pp.sk, pp.style, o);
+            else this.fr.draw(g, cam, pp.sk, pp.style, o);
+          } else if (it.k === 1) {
+            const ho = it.o;
+            ho.drawBoard(g, cam);
+            ho.drawRim(g, cam, 1);
+            ho.drawNet(g, cam, 1);
+            if (ballInHoop === ho) b.draw(g, cam);
+            ho.drawNet(g, cam, -1);
+            ho.drawRim(g, cam, -1);
+          } else b.draw(g, cam);
+        }
+        if (this.opts.showNames && !rp) this.drawNames(g, cam, people.map(pp => pp.a).filter(Boolean));
+      } finally {
+        if (saved) {
+          b.x = saved.x; b.y = saved.y; b.z = saved.z; b.squash = saved.sq; b.hidden = saved.hidden; b.rot.set(saved.rot); b.state = saved.state; b.holder = saved.holder;
+          this.hoops.forEach((ho, i) => { ho.lv.forEach((L, k) => { const v = saved.nets[i].lv[k]; L.dr = v[0]; L.dz = v[1]; L.ox = v[2]; L.oy = v[3]; }); ho.rimShake = saved.nets[i].rs; ho.boardShake = saved.nets[i].bs; });
+        }
+      }
       arena.drawOverlay(g, cam);
+      if (rp) this.drawReplayFrame(g, cam);
       if (pix) {
         cam.setSize(this.cssW, this.cssH); this.camRig.apply();
-        const mg = this.g;
+        const mg = this.g, k = this._pixK || 3;
         mg.setTransform(1, 0, 0, 1, 0, 0);
         mg.imageSmoothingEnabled = false;
-        mg.drawImage(this._pix, 0, 0, this.canvas.width, this.canvas.height);
+        // whole-pixel upscale (uniform square pixels); the buffer is sized to cover the canvas
+        mg.drawImage(this._pix, 0, 0, this._pix.width * k, this._pix.height * k);
         mg.imageSmoothingEnabled = true;
       }
+      void W; void H;
+    }
+    /** replay look: letterbox bars + a slight film tint */
+    drawReplayFrame(g, cam) {
+      const bar = Math.round(cam.H * 0.075);
+      g.fillStyle = 'rgba(0,0,0,0.92)';
+      g.fillRect(0, 0, cam.W, bar);
+      g.fillRect(0, cam.H - bar, cam.W, bar);
+      g.fillStyle = 'rgba(40,60,110,0.10)';
+      g.fillRect(0, bar, cam.W, cam.H - bar * 2);
     }
     drawNames(g, cam, people) {
       g.font = '700 11px "Helvetica Neue", Arial, sans-serif';

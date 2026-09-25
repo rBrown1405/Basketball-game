@@ -67,6 +67,10 @@
     wide:      { y: -86, z: 46, lookY: 29, lookZ: 0, fH: 1.42, lead: 0.4 },
     close:     { y: -50, z: 25, lookY: 27, lookZ: 2, fH: 2.55, lead: 1 },
     ft:        { y: -58, z: 30, lookY: 29, lookZ: 1, fH: 2.95, lead: 0.5 },
+    // half-court sets: the broadcast camera pushes in a little, like a TV crew framing the offense
+    half:      { y: -58, z: 33, lookY: 28, lookZ: 1, fH: 2.78, lead: 0.7 },
+    // replays: tight, low and dramatic
+    replay:    { y: -44, z: 20, lookY: 26, lookZ: 3, fH: 3.4, lead: 0.2 },
   };
 
   class CameraRig {
@@ -77,13 +81,26 @@
       this.pan = { x: 47, v: 0 };
       this.tight = 0; // 0..1 blend toward the free-throw framing
       this.tightTarget = 0;
+      this.zoom = 0; // 0..1 blend toward the half-court framing ('auto' broadcast camera)
+      this.zoomTarget = 0;
+      this.auto = false;
       this.shake = 0;
       this.apply();
     }
-    setPreset(name) { if (PRESETS[name]) this.preset = name; }
+    setPreset(name) {
+      if (name === 'auto') { this.auto = true; this.preset = 'broadcast'; return; }
+      this.auto = false;
+      if (PRESETS[name]) this.preset = name;
+    }
     target() {
-      const base = PRESETS[this.preset] || PRESETS.broadcast;
-      if (this.preset !== 'broadcast' || this.tight <= 0.001) return base;
+      let base = PRESETS[this.preset] || PRESETS.broadcast;
+      if (this.preset !== 'broadcast') return base;
+      if (this.auto && this.zoom > 0.001) {
+        const h = PRESETS.half, z = U.smooth(this.zoom), o = {};
+        for (const k in base) o[k] = U.lerp(base[k], h[k], z);
+        base = o;
+      }
+      if (this.tight <= 0.001) return base;
       const ft = PRESETS.ft, t = U.smooth(this.tight), o = {};
       for (const k in base) o[k] = U.lerp(base[k], ft[k], t);
       return o;
@@ -104,6 +121,7 @@
     /** focus: {x, vx, snap} ; dt in presentation seconds */
     update(dt, focus) {
       this.tight = U.approach(this.tight, this.tightTarget, dt * 0.9);
+      this.zoom = U.approach(this.zoom, this.auto ? this.zoomTarget : 0, dt * 0.45);
       const tgt = this.target();
       const lam = 3.0;
       for (const k in tgt) this.p[k] = U.damp(this.p[k], tgt[k], lam, dt);

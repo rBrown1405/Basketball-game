@@ -387,15 +387,17 @@
       }
     }
     _enterSeg(s) {
-      if (s.bounce && !s.roll) { this.squash = 1; this.onBounce && this.onBounce(this); }
-      if (s.rim && this.shotHoop) { this.shotHoop.hitRim(1); this.onRim && U.safe(() => this.onRim(this), null, 'onRim'); this.spin[2] += (Math.random() - 0.5) * 20; }
-      if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); }
+      const v = this.view;
+      if (s.bounce && !s.roll) { this.squash = 1; this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1)); }
+      if (s.rim && this.shotHoop) { this.shotHoop.hitRim(1); this.onRim && U.safe(() => this.onRim(this), null, 'onRim'); this.spin[2] += (Math.random() - 0.5) * 20; if (v && v.sound) v.sound('rim', 1); }
+      if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); if (v && v.sound) v.sound('board', 1); }
     }
     _fireSeg(s) {
       if (s.fired) return;
       s.fired = true;
       if (s.score) {
         if (s.swish && this.shotHoop) this.shotHoop.swish(1);
+        if (this.view && this.view.sound) this.view.sound(s.swish ? 'swish' : 'net', 1);
         const cb = this.onScore; this.onScore = null;
         if (cb) U.safe(() => cb(this), null, 'onScore');
       }
@@ -452,7 +454,7 @@
       this.x = U.lerp(top[0], d.cx, k);
       this.y = U.lerp(top[1], d.cy, k);
       this.z = R + (zTop - R) * (1 - k);
-      if (u0 < 0.5 && d.u >= 0.5) { this.squash = 1; if (this.onBounce) this.onBounce(this); }
+      if (u0 < 0.5 && d.u >= 0.5) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1)); }
       // forward roll spin
       this.setSpinAlong(a.vx || 0.01, a.vy || 0, -(a.speed + 3) / R * 0.4);
       a.dribble = { hand: d.u > 0.5 ? endHand : d.hand, w: 1, u: d.u };

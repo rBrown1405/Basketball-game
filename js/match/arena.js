@@ -137,14 +137,22 @@
       g.fillStyle = skin;
       g.beginPath(); g.arc(hd[0], hd[1], 0.12 * APX, 0, U.TAU); g.fill();
     }
-    if (look.finger && pose >= 4) { // foam finger
+    if (look.towel && pose >= 4) { // rally towel twirled overhead
+      const hd = P(hands[1][0], hands[1][1]);
+      g.fillStyle = look.towel;
+      g.save(); g.translate(hd[0], hd[1]); g.rotate(pose === 4 ? -0.5 : 0.35);
+      g.fillRect(-0.05 * APX, -1.05 * APX, 0.62 * APX, 0.95 * APX);
+      g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(-0.05 * APX, -0.2 * APX, 0.62 * APX, 0.1 * APX);
+      g.restore();
+    } else if (look.finger && pose >= 4) { // foam finger
       const hd = P(hands[1][0], hands[1][1]);
       g.fillStyle = look.finger;
       g.fillRect(hd[0] - 0.14 * APX, hd[1] - 0.95 * APX, 0.28 * APX, 0.95 * APX);
     }
   }
 
-  function buildAtlas(teams) {
+  function buildAtlas(teams, atm) {
+    atm = atm || {};
     const cv = U.makeCanvas(CELL_W * NVAR, CELL_H * NPOSE);
     const g = cv.getContext('2d');
     const rnd = U.rng(1234567);
@@ -174,7 +182,13 @@
         shoe: rnd() < 0.5 ? '#f0f0f0' : '#1a1a1a',
         wide: rnd() < 0.25,
         finger: rnd() < 0.08 ? (fanTeam === 1 ? ac.secondary : hc.secondary) : null,
+        towel: null,
       };
+      // playoff nights: the home crowd wears the giveaway shirt and waves rally towels
+      if (atm.playoff && fanTeam === 0) {
+        if (rnd() < 0.7) { look.shirt = atm.shirt || hc.primary; look.stripe = null; }
+        if (rnd() < 0.85) look.towel = rnd() < 0.8 ? (atm.towel || '#f7f7f2') : (hc.secondary || '#ffffff');
+      } else if (atm.playoff && fanTeam < 0 && rnd() < 0.5) { look.shirt = atm.shirt || hc.primary; look.towel = rnd() < 0.6 ? (atm.towel || '#f7f7f2') : null; look.fanTeam = 0; }
       looks.push(look);
       for (let p = 0; p < NPOSE; p++) {
         g.save();
@@ -204,6 +218,8 @@
       this.hc = hc; this.ac = ac;
       this.home = gctx.home || {}; this.away = gctx.away || {};
       this.atlas = buildAtlas([hc, ac]);
+      this.atm = {};
+      this.baseExcite = 0.08;
       this.excite = [0, 0];
       this.exciteT = [0, 0];
       this.time = 0;
@@ -275,6 +291,22 @@
       };
     }
 
+    /** playoff atmosphere: towel-waving home crowd in the giveaway shirt, a louder building, playoff boards */
+    setAtmosphere(atm) {
+      this.atm = Object.assign({}, atm || {});
+      if (this.atm.playoff) {
+        const lvl = U.clamp(+this.atm.level || 0.6, 0, 1.25);
+        this.baseExcite = 0.18 + lvl * 0.2;
+        this.atm.shirt = this.atm.shirt || (U.lum(this.hc.primary) < 0.12 ? '#f4f4f4' : this.hc.primary);
+        this.atm.towel = this.atm.towel || (U.lum(this.atm.shirt) > 0.8 ? this.hc.primary : '#f7f7f2');
+        this.atlas = buildAtlas([this.hc, this.ac], this.atm);
+        // re-roll which fans belong to which variant so the look spreads through the building
+        for (const row of this.farRows) for (const f of row.fans) f.team = this.atlas.looks[f.v].fanTeam;
+        for (const row of this.endRows) for (const f of row.fans) f.team = this.atlas.looks[f.v].fanTeam;
+        for (const f of this.courtside) f.team = this.atlas.looks[f.v].fanTeam;
+        this.excite = [this.baseExcite, this.baseExcite * 0.6];
+      } else this.baseExcite = 0.08;
+    }
     cheer(team, level, dur) {
       if (team !== 0 && team !== 1) return;
       this.excite[team] = Math.max(this.excite[team], level);
@@ -292,7 +324,7 @@
       this.time += dt;
       for (let t = 0; t < 2; t++) {
         if (this.exciteT[t] > 0) this.exciteT[t] -= dt;
-        else this.excite[t] = U.damp(this.excite[t], 0.08, 0.9, dt);
+        else this.excite[t] = U.damp(this.excite[t], t === 0 ? this.baseExcite : Math.min(this.baseExcite, 0.2), 0.9, dt);
       }
       this.led.t += dt;
       if (this.led.msgT > 0) this.led.msgT -= dt; else this.led.msg = null;
@@ -312,6 +344,10 @@
       const t = this.time;
       let e = f.team >= 0 ? this.excite[f.team] : Math.max(this.excite[0], this.excite[1]) * 0.45;
       const cycle = (t * 0.9 + f.ph) % 9;
+      // playoff nights: the towel crowd is on its feet twirling towels
+      if (this.atm && this.atm.playoff && f.team === 0 && this.atlas.looks[f.v].towel && e >= f.thr * 0.75) {
+        return ((t * (1.4 + f.fidget) + f.ph) | 0) % 2 ? 4 : 5;
+      }
       if (e < 0.25) {
         if (f.alt && cycle < 3) return 1;
         return e > 0.15 && f.fidget < 0.4 ? 2 : 0;
@@ -508,8 +544,11 @@
           g.fillText(this.score[0] + ' - ' + this.score[1], X(x + 11), Yt + H / 2);
         }
       } else {
-        // generic arena boards
-        const words = ['PRO BBALL COACH', 'MAKE SOME NOISE', 'COURTSIDE CLUB', 'HOOPS ALL NIGHT', 'FAN ZONE', 'GAME NIGHT'];
+        // generic arena boards (playoff nights get their own)
+        const a = this.atm || {};
+        const words = a.playoff
+          ? ['PLAYOFFS', String(a.label || 'PLAYOFF BASKETBALL'), 'LET\'S GO ' + String(home.abbr || ''), 'MAKE SOME NOISE', a.finals ? 'THE FINALS' : 'DEFENSE', 'EVERY POSSESSION']
+          : ['PRO BBALL COACH', 'MAKE SOME NOISE', 'COURTSIDE CLUB', 'HOOPS ALL NIGHT', 'FAN ZONE', 'GAME NIGHT'];
         let i = 0;
         for (let x = xa; x < xb; x += seg, i++) {
           const col = i % 2 ? hc.primary : '#101422';
