@@ -21,6 +21,8 @@ Read the source for details — this is the map.
 | `PBC.Sim` | sim.js | the possession engine (see `docs/MATCH_API.md`) |
 | `PBC.Season` | season.js | `news(S, text, type, tid)`, `startRegularSeason`, `simDay`, `endDay`, `advanceToUserGame`, `quickSim`, `completeGame`, practice (`practiceAvailable`, `applyPractice`), `endRegularSeason`, `finishPostseason`, `endSeason` |
 | `PBC.Coach` | coach.js | the user's career: `create`, `setExpectations`, `recordGame`, `unlock(S, achievementId)`, `endSeason` (review/firing), `jobOffers`, `acceptJob` |
+| `PBC.Tendency` | tendency.js | player tendencies (`KEYS`, `GROUPS`, `get(p)`, `generate`, `refresh`, `reset`, `sim`), generated from ratings, position, archetype and personality; the engine uses them for shot selection, play types, passing, crashing, gambling and fouling |
+| `PBC.Sliders` | sliders.js | gameplay sliders and league behaviour (`GROUPS`, `DEFS`, `PRESETS`, `get(S)`, `set`, `applyPreset`, `reset`, `simMods(S)` for the engine, `league(S)` for progression, aging, morale, trade requests, contracts, loyalty and AI trades) |
 | `PBC.Persona` | persona.js | player personality types (`TYPES`, `of(p)`, `info`, `face(p, { mood })`, `blurb`) used by portraits, the booth and the player card |
 | `PBC.Store` | storage.js | saves in IndexedDB (localStorage fallback). Latest save per career: `save(S, { backup, backupCount })`, `load(id)`, `list()`; named slots and rotating backups: `saveSlot`, `saveBackup`, `pruneBackups`, `listAll()`, `listCareer(id)`; `remove`, `removeCareer`, `rename`, `copy`; files: `exportString`, `importString` (new id). Each record is `{ id, data, meta }` plus a small index record `'#meta:' + id` so lists never load full saves. Ids: main = `S.saveId`, slot = `saveId::slot::<time>`, backup = `saveId::backup::<k>` |
 
@@ -45,6 +47,7 @@ S = {
   history: [{ season, champion, runnerUp, fmvp, awards, standings }],
   records, settings, practice, teamSeason: { [tid]: totals }, flags, preseasonProj: { [tid]: winPct },
   // settings.autosave: 'always' | 'game' | 'week' | 'phase' | 'off'; settings.backupCount 0-10 (default 3)
+  sliders: { v, preset, <slider key>: 0-100, tradeRequests: bool },   // created lazily by PBC.Sliders.get(S)
   regularAwards,              // computed at the end of the regular season
 }
 ```
@@ -79,6 +82,9 @@ S = {
   stats: [{ season, tid, po, gp, gs, min, pts, fgm, fga, tpm, tpa, ftm, fta, orb, drb, ast, stl, blk, tov, pf, pm, dd, td, hiPts, hiReb, hiAst }],
   awards: [{ season, type, detail }], hist: [{ season, ovr, pot, tid, age }],
   morale (0–100), train, yearsPro, promise: null | { type:'starter'|'minutes', min, season },
+  tend: { three, mid, rim, dunk, pullup, stepback, drawFoul, iso, pnr, post, pass, push, crash, gamble, block, foul },  // 0–100
+  tendCustom,                  // true once tendencies were edited (they then stop following rating changes)
+  tradeReq: null | { season, day, reason: 'minutes'|'losing'|'promise'|'unhappy', text }, lowWeeks, nickname,
   scout: { pts, known }        // prospects only: scouting knowledge 0–100 for the user
 }
 ```

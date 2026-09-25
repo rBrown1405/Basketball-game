@@ -203,3 +203,24 @@ the shooter reaches the gather/set point of that shot it **freezes the action** 
 keeps moving), fires `onEvent(shotEvent)` and waits. The host shows the shot-meter mini-game, then calls
 `PBC.Sim.resolvePending(game, possession, quality)`, which fills in the shot result and appends the remaining
 events (rebound / fouls / free throws) to `possession.events`, and finally calls `view.resume()`.
+
+## 7. Game-level context from the engine (stakes, form, sliders)
+
+`PBC.Sim.createGame(S, homeTid, awayTid, { gid, playoff, sg, lite, noInjuries })` also sets (see its header comment):
+
+* `g.sl`: slider multipliers from `PBC.Sliders.simMods(S)` (pace, shooting by zone, fouls, turnovers, fatigue,
+  injuries, star usage, clutch, home court, upsets, playoff intensity and the user-team handles).
+* `g.stakes` (0 in the regular season, up to 1.25 in a Finals Game 7) and `g.intensity` (stakes × the Playoff
+  Intensity slider). Rounds count back from the Finals: 1.0 / 0.9 / 0.75 / 0.6, plus elimination and deciding games.
+  Higher intensity means tighter rotations, stars playing through fatigue, closers earlier, slower pace and
+  better defense.
+* `g.stakesInfo`: `{ round, roundName, gameNum, seriesW: [home, away], elimination, game7, clinch: [home, away],
+  decider, len, playIn }` or null.
+* `g.form` (hidden per-game shooting form per team, logit), `g.formTo` (turnover multipliers), `g.magic` (null or
+  the team having a "can't miss" night, usually an underdog) and `g.offNight` (null or a favorite having an off
+  night). These make rare upsets possible without changing league averages.
+* A team with a lead that is already safe for the time left coasts a little (shot focus, glass, pressure) and the
+  bench comes in, so runaway games end in believable margins. `Sim.K.coast` scales it (0 = off).
+
+The live screen's presentation (`UI.gameStakes` in `js/ui/live.js`) builds the TV labels (series score,
+elimination, Game 7) from the same schedule entry.
