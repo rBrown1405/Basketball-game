@@ -74,7 +74,9 @@ js/core/              simulation (no DOM): ratings, personalities, tendencies, s
                       season, coach, draft, offseason, trades, magazine content, storage
 js/match/             fake-3D broadcast court view (Canvas 2D) with the pixel-art renderer and replays
 js/mini/              Game Impact Moment shot meter and practice drills
+js/lib/procanim.js    standalone procedural animation module (dribble, crossover, chest pass, layup, two-bone IK);
+                      no dependencies, works with Three.js or any engine. Demo: procanim_demo.html
 js/ui/                screens, portraits, TV graphics, arena audio and the commentary booth
 docs/                 engine ⇄ view contract, data model, UI guide
-test/                 Node test scripts (node test/calibrate.js men …)
+test/                 Node test scripts (node test/calibrate.js men, node test/procanim.js …)
 ```
