@@ -18,7 +18,7 @@
     { key: 'players', label: 'Players', icon: '🏃', desc: 'Fatigue, injuries, stars and clutch play.' },
     { key: 'game', label: 'Game', icon: '🏟️', desc: 'Home court, upsets and how hard teams go in the playoffs.' },
     { key: 'user', label: 'User Team Difficulty', icon: '🎮', desc: 'Handicaps that only apply to your team (50 = fair).' },
-    { key: 'league', label: 'League Behaviour', icon: '🏛️', desc: 'How players and front offices react to the league.' },
+    { key: 'league', label: 'League Behaviour', icon: '🏛️', desc: 'How players and front offices react to the league. (Injury frequency and severity are under Players.)' },
   ];
 
   // map: [kind, lo, hi]

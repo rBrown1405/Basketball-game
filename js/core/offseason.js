@@ -309,6 +309,7 @@
     Off.removeFromTeam(S, p);
     p.tid = -3;
     p.tradeReq = null;
+    if (!p.tendCustom) delete p.tend;             // generated tendencies regenerate on demand (smaller saves)
     p.retired = { season: S.season, age: p.age, tid, reason: reason || 'retired' };
     p.contract = { amt: 0, exp: S.season, rookie: false };
     p.injury = null;
