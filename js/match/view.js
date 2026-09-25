@@ -360,6 +360,23 @@
       let zt = 0;
       if (dr.active && dr.tempo !== 'push' && dr.U_) { const u = dr.U_(this.ball.x); if (u < 44) zt = 1; }
       this.camRig.zoomTarget = zt;
+      // Broadcast operators frame the formation, not just the ball (Disney Research's learned camera predicted the
+      // pan from player positions): aim at a blend of the ten players' centroid and the ball, lead with the
+      // group's velocity, and hold still inside a dead zone so a swing pass does not drag the shot around.
+      if (!(hint && hint.x != null) && dr.active) {
+        let sx = 0, svx = 0, n = 0;
+        for (const id in this.actors) { const a = this.actors[id]; if (a.hidden || a.kind !== 'player') continue; sx += a.x; svx += a.vx || 0; n++; }
+        if (n >= 6) {
+          const w = dr.tempo === 'push' ? 0.3 : 0.55;
+          let aim = w * (sx / n) + (1 - w) * fx, vaim = w * (svx / n) + (1 - w) * vx;
+          // half-court sets: keep the basket in the shot (TV frames half court to the baseline)
+          if (zt && dr.dir) { const hoopX = dr.dir > 0 ? 88.75 : 5.25; aim = aim * 0.65 + (hoopX - dr.dir * 16) * 0.35; }
+          if (this._camAim == null || Math.abs(this._camAim - aim) > 30) this._camAim = aim;
+          const dz = dr.tempo === 'push' ? 1.5 : 3.5;
+          if (aim > this._camAim + dz) this._camAim = aim - dz; else if (aim < this._camAim - dz) this._camAim = aim + dz;
+          fx = this._camAim; vx = vaim;
+        }
+      } else this._camAim = null;
       // sub-step so the camera keeps up at high playback speeds
       let left = Math.min(dt, 2);
       const f = { x: fx, vx: vx * 0.6 };
@@ -409,7 +426,7 @@
         if (R3 && R3.cells.has(sk)) {
           // the 3D cell was rendered at this (pixel) camera: shift it into the sprite canvas
           const c = R3.cells.get(sk);
-          const exb = oo.extra, behind = exb && exb.d > cam.depth(sk.P[1], 3) + 0.25;
+          const exb = oo.extra && !c.hasBall ? oo.extra : null, behind = exb && exb.d > cam.depth(sk.P[1], 3) + 0.25;
           if (exb && behind) exb.fn();
           sg.drawImage(R3.cv, c.cx, c.cy, c.cw, c.ch, c.x0 - X0, c.y0 - Y0, c.x1 - c.x0, c.y1 - c.y0);
           if (exb && !behind) exb.fn();
@@ -450,7 +467,7 @@
     /** composite a 3D person's cell; a held ball goes in front of or behind the body by depth */
     blit3d(g, cam, R3, pp, o) {
       if (!R3.cells.has(pp.sk)) return false;
-      const ex = o && o.extra;
+      const ex = o && o.extra && !R3.cells.get(pp.sk).hasBall ? o.extra : null;
       const behind = ex && ex.d > cam.depth(pp.sk.P[1], 3) + 0.25;
       if (ex && behind) ex.fn();
       R3.blit(g, pp.sk);
@@ -629,7 +646,13 @@
       let R3 = null;
       if (this.opts.models !== '2d' && q !== 'low' && M.GL3D && M.Human) {
         R3 = M.GL3D.get();
-        if (R3) { const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr }), this, '3d players'); if (!n3) R3 = R3 && R3.cells.size ? R3 : null; }
+        if (R3) {
+          // the ball in someone's hands (held, or dribbled) is rendered inside that person's 3D cell
+          const hb = rp || b.hidden ? null : (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : b.state === 'dribble' && b.dr && b.dr.actor ? b.dr.actor : null;
+          const ball = hb ? { sk: hb.sk, x: b.x, y: b.y, z: b.z, R: M.Ball.R, rot: b.rot, squash: b.squash } : null;
+          const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr, ball }), this, '3d players');
+          if (!n3) R3 = R3 && R3.cells.size ? R3 : null;
+        }
       }
       this._r3 = R3;
       try {
@@ -647,7 +670,8 @@
           items.push({ k: 1, o: ho, d: cam.depth(ho.ry, 10) });
         }
         for (const pp of people) items.push({ k: 0, o: pp, d: cam.depth(pp.y, 3) });
-        if (!heldBy && !ballInHoop) items.push({ k: 2, o: b, d: cam.depth(b.y, b.z) });
+        const ballIn3d = R3 && [...R3.cells.values()].some(c => c.hasBall);
+        if (!heldBy && !ballInHoop && !ballIn3d) items.push({ k: 2, o: b, d: cam.depth(b.y, b.z) });
         items.sort((p1, p2) => p2.d - p1.d);
         const ballFn = () => b.draw(g, cam);
         for (const it of items) {

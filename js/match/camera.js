@@ -116,7 +116,16 @@
     apply() {
       const c = this.cam, p = this.p;
       const pitch = Math.atan2(p.z - p.lookZ, p.lookY - p.y);
-      c.setPose(this.pan.x, p.y, p.z, pitch, p.fH * c.H);
+      let f = p.fH * c.H;
+      // the half-court push-in must still show half the court on narrower screens (TV frames the arc to the
+      // baseline): at least ~52 ft across at the court's mid-depth
+      const zk = this.auto && this.preset === 'broadcast' ? U.smooth(this.zoom) : 0;
+      if (zk > 0.001) {
+        const d = (25 - p.y) * Math.cos(pitch) + p.z * Math.sin(pitch);
+        const fMax = c.W * d / (2 * 26);
+        if (f > fMax) f = U.lerp(f, fMax, zk);
+      }
+      c.setPose(this.pan.x, p.y, p.z, pitch, f);
     }
     /** focus: {x, vx, snap} ; dt in presentation seconds */
     update(dt, focus) {
@@ -131,7 +140,12 @@
       if (focus && focus.vx) fx += U.clamp(focus.vx * 0.55 * this.p.lead, -14, 14);
       fx = U.clamp(fx, lim[0], lim[1]);
       if (focus && focus.snap) { this.pan.x = fx; this.pan.v = 0; }
-      else U.spring(this.pan, fx, 2.6, Math.min(dt, 0.1));
+      else {
+        U.spring(this.pan, fx, 2.6, Math.min(dt, 0.1));
+        // smooth and purposeful: cap the pan rate (~15 deg/s at broadcast distance)
+        const vmax = 22;
+        if (this.pan.v > vmax) this.pan.v = vmax; else if (this.pan.v < -vmax) this.pan.v = -vmax;
+      }
       this.pan.x = U.clamp(this.pan.x, lim[0] - 2, lim[1] + 2);
       this.apply();
     }

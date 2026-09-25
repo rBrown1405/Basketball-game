@@ -333,6 +333,66 @@ void main() {
   oCol = vec4(toSRGB(col), 1.0);
 }`;
 
+  const BALL_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+uniform mat4 uVP;
+uniform vec4 uBall;      // centre (world, feet) + radius
+uniform mat3 uRot;       // ball rotation (local -> world)
+uniform vec2 uSquash;    // horizontal stretch, vertical squash
+out vec3 vL; out vec3 vW; out vec3 vN;
+void main() {
+  vec3 w = uRot * aPos;
+  vN = w;
+  vec3 p = w * uBall.w;
+  p.xy *= uSquash.x; p.z *= uSquash.y;
+  vW = uBall.xyz + p; vL = aPos;
+  gl_Position = uVP * vec4(vW, 1.0);
+}`;
+  const BALL_FS = `#version 300 es
+precision highp float;
+in vec3 vL; in vec3 vW; in vec3 vN;
+uniform vec3 uCam;
+uniform vec3 uL0, uC0, uL1, uC1, uL2, uC2;
+uniform vec3 uSky, uGround;
+out vec4 oCol;
+float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float noise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z); }
+vec3 pbrNeutral(vec3 color) {
+  const float start = 0.76, desat = 0.15;
+  float x = min(color.r, min(color.g, color.b)); float off = x < 0.08 ? x - 6.25 * x * x : 0.04; color -= off;
+  float peak = max(color.r, max(color.g, color.b)); if (peak < start) return color;
+  float d = 1.0 - start; float np = 1.0 - d * d / (peak + d - start); color *= np / peak;
+  float g = 1.0 - 1.0 / (desat * (peak - np) + 1.0); return mix(color, vec3(np), g); }
+vec3 toSRGB(vec3 c) { c = max(c, vec3(0.0)); return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+void main() {
+  vec3 d = normalize(vL);
+  // seams: equator, meridian and the two curved seams of a basketball
+  float s = min(abs(d.z), abs(d.x));
+  float t = atan(d.y, d.x);
+  for (int k = 0; k < 2; k++) {
+    vec3 c = vec3(0.62 * cos(t), 0.62 * sin(t), (0.39 * cos(2.0 * t) + 0.55) * (k == 0 ? 1.0 : -1.0));
+    s = min(s, acos(clamp(dot(d, normalize(c)), -1.0, 1.0)));
+  }
+  float seam = 1.0 - smoothstep(0.022, 0.04, s);
+  float peb = noise(d * 90.0);
+  vec3 N = normalize(normalize(vN) + (peb - 0.5) * 0.08 * (1.0 - seam));
+  vec3 V = normalize(uCam - vW);
+  vec3 alb = mix(vec3(0.42, 0.12, 0.035) * (0.9 + 0.15 * peb), vec3(0.018, 0.012, 0.01), seam);
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0, uC1, uC2);
+  vec3 dif = vec3(0.0), spc = vec3(0.0);
+  for (int i = 0; i < 3; i++) {
+    float ndl = max(dot(N, Ls[i]), 0.0);
+    dif += Cs[i] * ndl;
+    vec3 H = normalize(Ls[i] + V);
+    spc += Cs[i] * pow(max(dot(N, H), 0.0), 28.0) * 0.08 * ndl;
+  }
+  vec3 col = alb * (dif + mix(uGround, uSky, 0.5 + 0.5 * N.z)) + spc;
+  oCol = vec4(toSRGB(pbrNeutral(col)), 1.0);
+}`;
+
   function compile(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src); gl.compileShader(s);
@@ -376,6 +436,21 @@ void main() {
       if (!gl) throw new Error('no webgl2');
       this.cv = cv; this.gl = gl;
       this.prog = program(gl, VS, FS);
+      this.bprog = program(gl, BALL_VS, BALL_FS);
+      this.bu = {};
+      const nb = gl.getProgramParameter(this.bprog, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < nb; i++) { const info = gl.getActiveUniform(this.bprog, i); this.bu[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(this.bprog, info.name); }
+      {
+        const nt = 32, nu = 20, P = [], I = [];
+        for (let j = 0; j <= nu; j++) { const ph = j / nu * Math.PI; for (let i = 0; i <= nt; i++) { const t = i / nt * Math.PI * 2; P.push(Math.sin(ph) * Math.cos(t), Math.sin(ph) * Math.sin(t), Math.cos(ph)); } }
+        for (let j = 0; j < nu; j++) for (let i = 0; i < nt; i++) { const a = j * (nt + 1) + i, b = a + 1, c = a + nt + 1, d = c + 1; I.push(a, c, d, a, d, b); }
+        this.bvao = gl.createVertexArray(); gl.bindVertexArray(this.bvao);
+        const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(P), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
+        const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(I), gl.STATIC_DRAW);
+        gl.bindVertexArray(null);
+        this.bcount = I.length;
+      }
       const u = this.u = {};
       const n = gl.getProgramParameter(this.prog, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(this.prog, i); u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(this.prog, info.name); }
@@ -521,13 +596,20 @@ void main() {
         const s = cam.scaleAt(P[1], 3);
         const big = pp.style.hair === 'afro' || pp.style.hair === 'hightop' || pp.style.hair === 'puffs' ? 0.75 : 0.4;
         x0 -= s * 0.55; x1 += s * 0.55; y0 -= s * big; y1 += s * 0.3;
+        const ball = opts.ball && opts.ball.sk === sk ? opts.ball : null;
+        if (ball) {
+          cam.project(ball.x, ball.y, ball.z, pt);
+          const r = ball.R * pt.s * 1.3;
+          x0 = Math.min(x0, pt.x - r); x1 = Math.max(x1, pt.x + r); y0 = Math.min(y0, pt.y - r); y1 = Math.max(y1, pt.y + r);
+          dmin = Math.min(dmin, pt.d - 1); dmax = Math.max(dmax, pt.d + 1);
+        }
         if (x1 < 0 || x0 > cam.W || y1 < 0 || y0 > cam.H) continue;
         const heightPx = (y1 - y0);
         const detail = heightPx * dpr > 190 || opts.detail === 'high' ? 'high' : 'low';
         let m = this.mesh(pp.style, sk.dims, detail, !!opts.sync);
         if (!m && detail === 'high') m = this.mesh(pp.style, sk.dims, 'low', !!opts.sync);
         if (!m) continue;
-        list.push({ pp, m, x0, y0, x1, y1, dmin: dmin - 3, dmax: dmax + 3 });
+        list.push({ pp, m, x0, y0, x1, y1, dmin: dmin - 3, dmax: dmax + 3, ball, hasBall: false });
       }
       if (!opts.sync) this.pump();
       if (!list.length) return 0;
@@ -589,6 +671,25 @@ void main() {
         gl.bindVertexArray(c.m.vao);
         gl.drawElements(gl.TRIANGLES, c.m.n, gl.UNSIGNED_INT, 0);
         cells.set(c.pp.sk, c);
+      }
+      // the ball in its holder's hands, in the same cell (so fingers and body occlude it correctly)
+      for (let r = 0; r < rows; r++) {
+        const c = list[r];
+        if (!c.ball) continue;
+        const b = c.ball, bu = this.bu;
+        gl.useProgram(this.bprog);
+        gl.viewport(c.cx, CH - c.cy - c.ch, c.cw, c.ch);
+        this._vp(cam, c);
+        gl.uniformMatrix4fv(bu.uVP, false, this.VP);
+        gl.uniform4f(bu.uBall, b.x, b.y, b.z, b.R);
+        const m = b.rot;
+        gl.uniformMatrix3fv(bu.uRot, false, [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]);
+        gl.uniform2f(bu.uSquash, 1 + 0.12 * (b.squash || 0), 1 - 0.16 * (b.squash || 0));
+        this._lightsTo(bu, cam);
+        gl.bindVertexArray(this.bvao);
+        gl.drawElements(gl.TRIANGLES, this.bcount, gl.UNSIGNED_SHORT, 0);
+        c.hasBall = true;
+        gl.useProgram(this.prog);
       }
       gl.bindVertexArray(null);
       this.CH = CH;
@@ -658,8 +759,9 @@ void main() {
       row(3, 0, cp, -sp, tZ);
       void r0;
     }
-    _lights(cam) {
-      const gl = this.gl, u = this.u;
+    _lights(cam) { this._lightsTo(this.u, cam); }
+    _lightsTo(u, cam) {
+      const gl = this.gl;
       const n = v => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
       gl.uniform3f(u.uCam, cam.x, cam.y, cam.z);
       const L0 = n([0.18, -0.42, 1]), L1 = n([-0.35, 0.8, 0.75]), L2 = n([0.05, -1, 0.3]);
@@ -670,7 +772,7 @@ void main() {
       gl.uniform3fv(u.uL2, L2); gl.uniform3f(u.uC2, 0.5, 0.5, 0.52);
       gl.uniform3f(u.uSky, 0.26, 0.27, 0.3);
       gl.uniform3f(u.uGround, 0.2, 0.15, 0.1);
-      gl.uniform1f(u.uExpo, 1.0);
+      if (u.uExpo) gl.uniform1f(u.uExpo, 1.0);
     }
     _bones(c, row) {
       const sk = c.pp.sk, m = c.m;
