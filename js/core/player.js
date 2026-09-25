@@ -166,6 +166,8 @@
     p.yearsPro = Math.max(0, age - (college ? 22 : 20) + U.int(-1, 1));
     if (opts.prospect) p.yearsPro = 0;
     delete p.born2;
+    // play-style tendencies (hash-based, does not touch the seeded RNG)
+    if (PBC.Tendency && PBC.Tendency.generate) p.tend = PBC.Tendency.generate(p);
     return p;
   }
 
@@ -211,9 +213,11 @@
     { name: 'Torn ACL', days: [240, 330], w: 0.5 }, { name: 'Torn Achilles', days: [270, 360], w: 0.35 },
   ];
 
-  function genInjury() {
+  /** severity: optional multiplier on the layoff (League Settings → Injury Severity). */
+  function genInjury(severity) {
     const inj = U.pickW(INJURIES, INJURIES.map(i => i.w));
-    const days = U.int(inj.days[0], inj.days[1]);
+    let days = U.int(inj.days[0], inj.days[1]);
+    if (severity != null && severity !== 1 && severity > 0) days = Math.max(1, Math.round(days * severity));
     return { name: inj.name, days, total: days };
   }
 

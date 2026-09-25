@@ -637,3 +637,12 @@
   .mg-reader { transition: none; }
   .mg-th-page, .mg-shelf-cover .mg-mini, .mg-shelf-p .mg-mini { transition: none; }
 }
+
+/* =============================== portraits (js/ui/magazine.js) ===============================
+   UI.avatar / UI.portrait return <img class="av pixel-av pxp …"> (or any other markup): every portrait fills its
+   .mg-face box and drops the app's avatar chrome (.av circle, .pxp panel), which other stylesheets style with more
+   specific selectors, hence !important. .mg-framed = a cut-out was asked for (cover, No. 1) but the portrait came
+   with its own background, so its edges are softened into the page instead. */
+.mg-face > * { display: block; width: 100% !important; height: 100% !important; max-width: none; margin: 0; border-radius: 0 !important; box-shadow: none !important; background: none !important; }
+.mg-face > img { object-fit: cover; }
+.mg-face.mg-framed > * { -webkit-mask-image: radial-gradient(closest-side, #000 74%, transparent 100%); mask-image: radial-gradient(closest-side, #000 74%, transparent 100%); }

@@ -144,14 +144,14 @@
         if (!(await UI.confirm(`Take the ${S.teams[o.tid].city} ${S.teams[o.tid].name} job?`, { ok: 'Take the job' }))) return;
         PBC.Coach.acceptJob(S, o);
         UI.setState(S);
-        UI.save(true);
+        UI.save(true); // a new job counts as a phase change for the autosave policies
         UI.go('home');
         UI.toast(`Welcome to ${S.teams[o.tid].city}!`, 'good');
       });
       UI.on(root, 'click', '[data-act="retire"]', async () => {
         if (!(await UI.confirm('Retire and end this career? Your save stays so you can look back at it.', { ok: 'Retire', danger: true }))) return;
         c.status = 'retired';
-        UI.save(true);
+        await UI.saveNow({ silent: true }); // the career ends: always write it
         UI.modal({ title: 'A career to remember', body: `<p>${U.esc(c.name)} retires with a ${c.totals.w}-${c.totals.l} record, ${c.titles} championship${c.titles === 1 ? '' : 's'} and ${Math.round(c.hof)} Hall of Fame points.</p>`, actions: [{ label: 'Back to title', cls: 'primary', onClick: cl => { cl(); UI.setState(null); UI.go('title'); } }] });
       });
     },
@@ -161,12 +161,27 @@
   // ---------------------------------------------------------------------------
   // Settings
   // ---------------------------------------------------------------------------
+  function saveStatusTag() {
+    const i = UI.saveInfo();
+    if (i.error) return '<span class="tag bad">Save failed</span>';
+    if (i.writing || i.pending) return '<span class="tag info">Saving…</span>';
+    if (i.dirty) return '<span class="tag warn">Unsaved changes</span>';
+    return i.lastSavedAt ? `<span class="tag good">Saved ${U.esc(UI.timeLabel(i.lastSavedAt))}</span>` : '<span class="tag">Not saved yet</span>';
+  }
+  // keep the Settings status chip live while autosaves happen
+  const liveTag = () => { const el = document.getElementById('set-save-tag'); if (el) el.innerHTML = saveStatusTag(); };
+  document.addEventListener('pbc:saved', liveTag);
+  document.addEventListener('pbc:savestate', liveTag);
+
   UI.register('settings', {
     title: 'Settings',
     render(root) {
       const S = UI.S;
       const st = S.settings;
       const tog = (key, label, hint) => `<label class="li chk" style="cursor:pointer"><input type="checkbox" data-set="${key}" ${st[key] !== false ? 'checked' : ''}><div><div class="bold">${label}</div><div class="tiny muted">${hint}</div></div></label>`;
+      const pol = UI.autosavePolicy();
+      const polDef = UI.AUTOSAVE.find(p => p.key === pol);
+      const nb = UI.backupCount();
       root.innerHTML = `<div class="page"><div class="page-h"><h1>Settings</h1></div>
         <div class="grid g2">
           <div class="card"><div class="card-h"><h3>Gameplay</h3></div><div class="card-b flush"><div class="list">
@@ -176,13 +191,23 @@
             ${tog('retroCourt', 'Retro pixel court', 'Watch live games on a Hoop Land-style 2D pixel court with chibi sprites.')}
             ${tog('pixelMode', 'Retro pixel filter', 'Chunky pixel-art filter for the broadcast 3D court (when loaded).')}
           </div></div></div>
-          <div class="card"><div class="card-h"><h3>Save data</h3></div><div class="card-b col">
-            <p class="small muted" style="margin:0">Your career saves automatically in this browser. Export a file to back it up or move it to another computer.</p>
-            <div class="row"><button class="btn primary" data-act="save">💾 Save now</button><button class="btn" data-act="export">⬇️ Export save file</button></div>
-            <div class="divider"></div>
+          <div class="card set-save"><div class="card-h"><h3>Save data</h3><div class="actions" id="set-save-tag">${saveStatusTag()}</div></div><div class="card-b col">
+            <div class="set-lbl">Autosave</div>
+            <div class="seg set-seg">${UI.AUTOSAVE.map(p => `<button class="${pol === p.key ? 'on' : ''}" data-autosave="${p.key}" title="${U.esc(p.desc)}">${U.esc(p.label)}</button>`).join('')}</div>
+            <div class="small muted">${U.esc(polDef.desc)}</div>
+            <div class="row set-bk"><div><div class="set-lbl">Automatic backups</div><div class="tiny muted">Taken every in-season week, every playoff day, at each new phase and right before the offseason.</div></div>
+              <div class="spacer"></div><select class="inp" data-backups>${Array.from({ length: 11 }, (_, n) => `<option value="${n}" ${n === nb ? 'selected' : ''}>${n ? 'Keep last ' + n : 'Off'}</option>`).join('')}</select></div>
+            <div class="row"><button class="btn primary" data-act="save">💾 Save now <span class="k">${UI.saveKeyLabel()}</span></button><button class="btn" data-save-as>📑 Save as new slot</button><button class="btn" data-nav="saves">🗂️ Manage saves</button></div>
+            <div class="row"><button class="btn" data-act="export">⬇️ Export save file</button><button class="btn" data-act="import">⬆️ Import save file</button></div>
+            <p class="tiny muted" style="margin:0">Saves live in this browser. Export a file to back up your career or move it to another computer; importing a file adds it as a new career.</p>
+            <div class="divider" style="margin:4px 0"></div>
             <div class="row"><button class="btn" data-act="title">↩︎ Back to title screen</button><div class="spacer"></div><button class="btn danger" data-act="delete">Delete this career</button></div>
+            <input type="file" id="set-import" accept=".json,application/json" hidden>
           </div></div>
         </div>
+        <div class="card" style="margin-top:16px"><div class="card-h"><h3>Customize the league</h3></div><div class="card-b row">
+          <div style="flex:1;min-width:220px" class="small muted">Rename franchises and pick their colors, badge, arena, court and uniforms, or edit any player's ratings and looks.</div>
+          <button class="btn" data-nav="teamedit">🎨 Team Editor</button><button class="btn" data-nav="editor">✏️ Player Editor</button></div></div>
         <div class="card" style="margin-top:16px"><div class="card-h"><h3>How to play</h3></div><div class="card-b small" style="line-height:1.6">
           <ol style="margin:0;padding-left:18px">
             <li><b>Set up your team</b> in <i>Lineup & Minutes</i> (starters, rotation minutes, go-to players) and <i>Strategy</i> (offense, defense, tempo). The fit tags tell you what your roster can run.</li>
@@ -195,22 +220,34 @@
         <div class="card" style="margin-top:16px"><div class="card-h"><h3>About</h3></div><div class="card-b small muted">
           Pro BBALL Coach — an NBA-style head coach simulation. All teams and players are fictional. Stats engine calibrated to modern pro averages (about 115 points, 100 possessions and 37 three-point attempts per team per game).</div></div></div>`;
       UI.on(root, 'change', '[data-set]', (e, el) => { st[el.dataset.set] = el.checked; UI.save(); });
+      // save settings are written right away so the choice itself is never "unsaved"
+      UI.on(root, 'click', '[data-autosave]', async (e, el) => {
+        st.autosave = el.dataset.autosave;
+        await UI.saveNow({ silent: true });
+        UI.toast(`Autosave: ${U.esc(UI.policyLabel(st.autosave))}`, 'good', 1800);
+        UI.refresh();
+      });
+      UI.on(root, 'change', '[data-backups]', async (e, el) => {
+        const n = +el.value;
+        const have = (await PBC.Store.listCareer(S.saveId)).backups.length;
+        if (have > n && !(await UI.confirm(n ? `Keep only the newest ${n} backup${n === 1 ? '' : 's'}? The ${have - n} oldest will be deleted.` : `Turn off automatic backups and delete the ${have} existing backup${have === 1 ? '' : 's'}?`, { ok: n ? 'Keep ' + n : 'Turn off', danger: true, title: 'Automatic backups' }))) { el.value = String(UI.backupCount()); return; }
+        st.backupCount = n;
+        if (have > n) await PBC.Store.pruneBackups(S.saveId, n);
+        await UI.saveNow({ silent: true });
+        UI.toast(n ? `Keeping the last ${n} backup${n === 1 ? '' : 's'}` : 'Automatic backups are off', 'good', 1800);
+      });
+      root.querySelector('#set-import').onchange = e => { if (PBC.Saves) PBC.Saves.importFile(e.target.files[0]); };
       UI.on(root, 'click', '[data-act]', async (e, el) => {
         const a = el.dataset.act;
-        if (a === 'save') { await UI.save(true); UI.toast('Saved', 'good'); }
-        if (a === 'export') {
-          const blob = new Blob([PBC.Store.exportString(S)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const t = S.teams[S.userTid];
-          const link = document.createElement('a');
-          link.href = url; link.download = `pro-bball-coach_${(t ? t.abbr : 'career')}_${S.season}.json`;
-          document.body.appendChild(link); link.click(); link.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 2000);
-        }
-        if (a === 'title') { await UI.save(true); UI.setState(null); UI.go('title'); }
+        if (a === 'save') await UI.saveNow();
+        if (a === 'export') UI.exportCareer(S);
+        if (a === 'import') { const f = root.querySelector('#set-import'); f.value = ''; f.click(); }
+        if (a === 'title') { if (!(await UI.guardUnsaved('going back to the title screen'))) return; UI.setState(null); UI.go('title'); }
         if (a === 'delete') {
-          if (!(await UI.confirm('Delete this career permanently? This cannot be undone.', { ok: 'Delete', danger: true }))) return;
-          await PBC.Store.remove(S.saveId); UI.setState(null); UI.go('title');
+          const n = (await PBC.Store.listCareer(S.saveId));
+          const extra = n.slots.length + n.backups.length;
+          if (!(await UI.confirm(`Delete this career permanently?${extra ? ` Its ${extra} save slot${extra === 1 ? '' : 's'} and backup${extra === 1 ? '' : 's'} are deleted too.` : ''} This cannot be undone.`, { ok: 'Delete', danger: true }))) return;
+          await PBC.Store.removeCareer(S.saveId); UI.setState(null); UI.go('title');
         }
       });
     },

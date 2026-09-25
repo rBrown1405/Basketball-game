@@ -68,6 +68,7 @@
       const target = Math.round(U.clamp(peak - gap, 42, peak));
       const p = PBC.Player.create(S, { league: L, age: draftAge - 1, talent: target - 1, tid: -2, prospect: true });
       shiftTo(p, target);
+      if (PBC.Tendency && PBC.Tendency.refresh) PBC.Tendency.refresh(p);   // tendencies follow the shifted ratings
       p.born = year - draftAge;
       p.yearsPro = 0;
       p.pot = Math.max(p.ovr, peak);

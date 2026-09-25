@@ -25,6 +25,7 @@
       { key: 'teams', label: 'Teams', icon: '🏟️', group: 'League' },
       { key: 'records', label: 'Records & History', icon: '📜', group: 'League' },
       { key: 'career', label: 'My Career', icon: '🎖️', group: 'Career' },
+      { key: 'saves', label: 'Saves', icon: '💾', group: 'Career', dot: () => UI.saveInfo().unsaved },
       { key: 'settings', label: 'Settings', icon: '⚙️', group: 'Career' },
     ];
     nav.forEach(n => UI.addNav(n));
@@ -56,6 +57,7 @@
   App.beginOffseason = async function (S) {
     if (S.coach && S.coach.status === 'unemployed') { UI.go('jobs'); return; }
     if (PBC.Offseason && PBC.Offseason.begin) {
+      await UI.backupNow('Before the offseason'); // rotating backup of the finished season, so it can be rolled back
       await UI.busy('The offseason begins…', () => PBC.Offseason.begin(S));
       UI.save();
       const ph = UI.phaseDef(S.phase);
@@ -63,6 +65,7 @@
       return;
     }
     if (!(await UI.confirm('Run the offseason automatically? Aging, development, retirements, re-signings, the draft and free agency are handled by your front office.', { ok: 'Run offseason' }))) return;
+    await UI.backupNow('Before the offseason');
     await UI.busy('Running the offseason…', () => PBC.fallbackOffseason(S));
     UI.save();
     UI.go('home'); // the home screen opens the new season's preview magazine
@@ -217,27 +220,19 @@
         const a = el.dataset.act;
         if (a === 'new') UI.go('newgame');
         if (a === 'load') App.loadDialog();
-        if (a === 'import') root.querySelector('#import-file').click();
+        if (a === 'import') { const f = root.querySelector('#import-file'); f.value = ''; f.click(); }
         if (a === 'continue') App.loadCareer(el.dataset.id);
       });
-      root.querySelector('#import-file').onchange = async e => {
-        const f = e.target.files[0];
-        if (!f) return;
-        try {
-          const S = PBC.Store.importString(await f.text());
-          UI.setState(S);
-          await UI.save(true);
-          UI.toast('Save imported!', 'good');
-          UI.go('home');
-        } catch (err) { UI.toast('Could not import: ' + err.message, 'bad'); }
-      };
+      root.querySelector('#import-file').onchange = e => { if (PBC.Saves) PBC.Saves.importFile(e.target.files[0]); };
+      // "Continue" = the most recently saved career (its latest save)
       const list = await PBC.Store.list();
       const cont = root.querySelector('#ts-continue');
-      if (list.length && cont) {
+      if (list.length && cont && cont.isConnected) {
         const m = list[0];
-        cont.innerHTML = `<button class="btn lg block ts-cont" data-act="continue" data-id="${m.id}">
-          <span style="width:12px;height:12px;border-radius:3px;background:${m.color};display:inline-block"></span>
-          Continue — ${U.esc(m.coach)} · ${U.esc(m.team)} · ${U.seasonLabel(m.season)} ${m.record ? '(' + m.record + ')' : ''}</button>`;
+        const t = { id: 'ts_' + m.id, abbr: m.abbr || '?', city: '', name: m.team || '', colors: m.colors || { primary: m.color, secondary: '#ffffff', trim: '#ffffff' }, badge: { shape: m.badge || 'shield' } };
+        cont.innerHTML = `<button class="btn lg block ts-cont" data-act="continue" data-id="${U.esc(m.id)}">
+          ${UI.teamBadge(t, 30)}<span class="ts-cont-t"><span>Continue: ${U.esc(m.coach)} · ${U.esc(m.team)} · ${U.seasonLabel(m.season)} ${m.record ? '(' + U.esc(m.record) + ')' : ''}</span>
+          <small>${U.esc(m.phaseLabel || '')}${m.updated ? ' · saved ' + U.esc(UI.timeLabel(m.updated)) : ''}</small></span></button>`;
       }
     },
   });
@@ -250,27 +245,22 @@
       <circle cx="62" cy="250" r="8"/><circle cx="878" cy="250" r="8"/></g></svg>`;
   }
 
-  App.loadDialog = async function () {
-    const list = await PBC.Store.list();
-    const body = list.length ? `<div class="list">${list.map(m => `
-      <div class="li"><span style="width:10px;height:36px;border-radius:4px;background:${m.color}"></span>
-        <div style="flex:1;min-width:0"><div class="bold">${U.esc(m.coach)} — ${U.esc(m.team)}</div>
-        <div class="small muted">${U.seasonLabel(m.season)} · ${U.esc(m.phase)} · ${m.record || ''} · Career ${m.career || ''}${m.titles ? ' · 🏆×' + m.titles : ''} · ${m.leagueKey === 'women' ? "Women's" : "Men's"} · ${new Date(m.updated).toLocaleString()}</div></div>
-        <button class="btn sm primary" data-load="${m.id}">Load</button><button class="btn sm danger" data-del="${m.id}">Delete</button></div>`).join('')}</div>` : '<div class="empty">No saved careers yet.</div>';
-    const m = UI.modal({ title: 'Load Career', body, wide: true });
-    UI.on(m.body, 'click', '[data-load]', (e, el) => { m.close(); App.loadCareer(el.dataset.load); });
-    UI.on(m.body, 'click', '[data-del]', async (e, el) => {
-      if (!(await UI.confirm('Delete this career permanently?', { ok: 'Delete', danger: true }))) return;
-      await PBC.Store.remove(el.dataset.del);
-      m.close(); App.loadDialog();
-    });
+  /** The save manager (careers, save slots, backups) as a modal; replaces the old load list. */
+  App.loadDialog = function () {
+    if (PBC.Saves) return PBC.Saves.open();
+    UI.toast('The save manager is not available.', 'bad');
+    return null;
   };
 
-  App.loadCareer = async function (id) {
+  /** Loads a career's latest save. opts.force skips the unsaved-changes check (the caller already asked). */
+  App.loadCareer = async function (id, opts) {
+    opts = opts || {};
+    if (UI.S && !opts.force && !(await UI.guardUnsaved('loading another career'))) return false;
     const S = await UI.busy('Loading career…', () => PBC.Store.load(id));
-    if (!S) { UI.toast('Could not load that save.', 'bad'); return; }
+    if (!S) { UI.toast('Could not load that save.', 'bad'); return false; }
     UI.setState(S);
     UI.go('home');
+    return true;
   };
 
   // ---------------------------------------------------------------------------
@@ -422,7 +412,7 @@
     PBC.Season.news(S, `👋 ${wiz.coachName} is introduced as the new head coach of the ${S.teams[tid].city} ${S.teams[tid].name}.`, 'career', tid);
     UI.setState(S);
     wiz.S = null; wiz.step = 1; wiz.sel = null;
-    UI.save(true);
+    UI.saveNow({ silent: true }); // a new career is always written right away, whatever the autosave policy
     UI.go('home');
   };
 

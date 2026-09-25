@@ -9,14 +9,17 @@
   const navItems = [];
   const phases = {};
   let current = { key: null, params: null };
-  let saveTimer = null;
   let svgSeq = 0;
+  // save tracker: dirty = changes not yet written to the career's main record
+  const sv = { dirty: false, gen: 0, savedGen: 0, lastKeys: null, lastSavedAt: 0, writing: 0, error: null, bytes: 0, local: false, timer: null, errToastAt: 0 };
 
   Object.defineProperty(UI, 'S', { get: () => S });
   UI.setState = function (state) {
+    if (state !== S) resetSaveTracker(state);
     S = state;
     PBC.S = state;
     UI.applyTeamColors();
+    updateSaveUI();
   };
   UI.money = U.money;
   UI.esc = U.esc;
@@ -105,6 +108,24 @@
     return L < 0.22 ? U.shade(hex, 0.35) : hex;
   }
 
+  // Team look (Team Editor fields, with the defaults used when a team was never customized):
+  //   t.uniforms = { home: { jersey, number, trim, shorts }, away: {...} }, t.court = { wood, paint, logoText, apron },
+  //   t.arena = 'name', t.badge = { shape }
+  /** Default uniform sets derived from team colors (the same rule the live game view uses). */
+  UI.defaultUniforms = function (colors) {
+    const p = colors.primary, s = colors.secondary;
+    return {
+      home: { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' },
+      away: { jersey: p, number: U.textOn(p) === '#ffffff' ? '#ffffff' : s, trim: s, shorts: p },
+    };
+  };
+  UI.teamUniform = (t, home) => (t.uniforms && t.uniforms[home ? 'home' : 'away']) || UI.defaultUniforms(t.colors)[home ? 'home' : 'away'];
+  UI.defaultCourt = t => ({ wood: t.wood || 'light', paint: t.colors.primary, logoText: String(t.abbr || '').slice(0, 4), apron: U.shade(t.colors.primary, -0.18) });
+  UI.teamCourt = t => Object.assign(UI.defaultCourt(t), t.court || {});
+  const ARENA_SUFFIX = ['Arena', 'Center', 'Garden', 'Fieldhouse', 'Coliseum', 'Pavilion', 'Dome', 'Forum'];
+  UI.defaultArena = t => `${t.city} ${ARENA_SUFFIX[U.hash(String(t.city) + '|' + t.name) % ARENA_SUFFIX.length]}`;
+  UI.teamArena = t => t.arena || UI.defaultArena(t);
+
   // ---------------------------------------------------------------------------
   // Shell: nav + top bar
   // ---------------------------------------------------------------------------
@@ -122,7 +143,7 @@
       <div class="brand" data-nav="home">${UI.logo(34)}<div class="brand-t">Pro BBALL<small>COACH</small></div></div>
       ${gkeys.map(g => `<div class="nav-group"><div class="nav-group-t">${g}</div>${groups[g].map(n => `
         <a class="nav-a ${current.key === n.key ? 'active' : ''}" data-nav="${n.key}"><span class="nav-ico">${n.icon || '•'}</span><span>${n.label}</span>${n.dot && S && n.dot(S) ? '<i class="badge-dot"></i>' : ''}</a>`).join('')}</div>`).join('')}
-      <div class="nav-foot"><div id="save-status">${UI.saveStatus || ''}</div><div>${S ? U.esc(PBC.Config.LEAGUES[S.leagueKey].label) : ''}</div></div>`;
+      <div class="nav-foot">${S ? `<div id="save-status">${saveFootHtml()}</div>` : ''}<div>${S ? U.esc(PBC.Config.LEAGUES[S.leagueKey].label) : ''}</div></div>`;
   };
 
   UI.continueInfo = function () {
@@ -165,6 +186,7 @@
         ${S.phase === 'regular' || S.phase === 'playoffs' || S.phase === 'playin' ? `<div class="tb-item hide-sm"><span class="l">Next game</span><span class="v">${nextTxt}</span></div>` : ''}
         ${S.coach ? `<div class="tb-item hide-sm"><span class="l">Owner</span><span class="v">${U.esc(S.coach.mood || '')}</span></div>` : ''}
       </div>
+      ${topSaveHtml()}
       ${cont ? `<button class="btn primary cont-btn" id="cont-btn">${U.esc(cont.label)} ▸</button>` : ''}`;
     const b = UI.$('#cont-btn');
     if (b) b.onclick = () => { const c2 = UI.continueInfo(); if (c2) c2.run(); };
@@ -228,10 +250,72 @@
     });
   };
 
-  UI.toast = function (msg, kind) {
+  UI.toast = function (msg, kind, ms) {
     const el = UI.h(`<div class="toast ${kind || ''}">${msg}</div>`);
     UI.$('#toasts').appendChild(el);
-    setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, 3200);
+    setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, ms || 3200);
+    return el;
+  };
+
+  /** Text input dialog. Resolves with the trimmed value, or null when cancelled.
+   *  o: { label, value, placeholder, ok, maxLength, validate(v) -> error message or '' } */
+  UI.prompt = function (title, o) {
+    o = o || {};
+    return new Promise(resolve => {
+      let done = false;
+      const body = UI.h(`<div class="col">${o.label ? `<label class="small muted">${o.label}</label>` : ''}
+        <input class="inp" maxlength="${o.maxLength || 60}" value="${U.esc(o.value || '')}" placeholder="${U.esc(o.placeholder || '')}" style="width:100%">
+        <div class="small bad-t" data-err></div></div>`);
+      const inp = body.querySelector('input'), err = body.querySelector('[data-err]');
+      const submit = close => {
+        const v = inp.value.trim();
+        const msg = o.validate ? o.validate(v) : (v ? '' : 'Please enter a name.');
+        if (msg) { err.textContent = msg; inp.focus(); return; }
+        done = true; resolve(v); close();
+      };
+      const m = UI.modal({
+        title, body,
+        actions: [{ label: 'Cancel', cls: 'ghost', onClick: c => { done = true; resolve(null); c(); } }, { label: o.ok || 'OK', cls: 'primary', onClick: submit }],
+        onClose: () => { if (!done) resolve(null); },
+      });
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(m.close); } });
+      setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    });
+  };
+
+  /** Several-way choice. buttons: [{ key, label, cls }]. Resolves with the key, or null when dismissed. */
+  UI.choose = function (message, o) {
+    o = o || {};
+    return new Promise(resolve => {
+      let done = false;
+      UI.modal({
+        title: o.title || 'Choose', body: `<div style="font-size:14.5px">${message}</div>`,
+        actions: (o.buttons || []).map(b => ({ label: b.label, cls: b.cls || '', onClick: c => { done = true; resolve(b.key); c(); } })),
+        onClose: () => { if (!done) resolve(null); },
+      });
+    });
+  };
+
+  /** Downloads a text file (JSON saves). */
+  UI.download = function (filename, text, type) {
+    const blob = new Blob([text], { type: type || 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = filename;
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+  UI.saveFileName = function (abbr, season, extra) {
+    const clean = s => String(s || '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    return `pro-bball-coach_${clean(abbr) || 'career'}_${season || ''}${extra ? '_' + clean(extra) : ''}.json`;
+  };
+  /** Exports the career that is loaded right now (including unsaved changes). */
+  UI.exportCareer = function (state) {
+    state = state || S;
+    if (!state) return;
+    const t = state.teams[state.userTid];
+    UI.download(UI.saveFileName(t ? t.abbr : 'career', state.season), PBC.Store.exportString(state));
+    UI.toast('⬇️ Save file exported', 'good');
   };
 
   UI.busy = function (label, fn) {
@@ -247,21 +331,292 @@
   };
 
   // ---------------------------------------------------------------------------
-  // Save
+  // Save: autosave policy, dirty tracking, manual saves, rotating backups
   // ---------------------------------------------------------------------------
-  UI.save = function (immediate) {
-    if (!S) return;
-    clearTimeout(saveTimer);
-    const run = async () => {
-      const res = await PBC.Store.save(S);
-      const d = new Date();
-      UI.saveStatus = res.ok ? `💾 Saved ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}` : '⚠️ Save failed';
-      const el = UI.$('#save-status'); if (el) el.textContent = UI.saveStatus;
-      if (!res.ok) UI.toast(res.error, 'bad');
-    };
-    if (immediate) return run();
-    saveTimer = setTimeout(run, 700);
+  // S.settings.autosave decides when UI.save() really writes:
+  //   'always' every call (debounced) · 'game' after games / sim days · 'week' once per in-season week
+  //   'phase' on phase changes only · 'off' never (manual saves only). Phase changes always count for
+  //   'game' and 'week'. Calls that do not write just mark the career dirty (unsaved-changes dot).
+  UI.AUTOSAVE = [
+    { key: 'always', label: 'Every change', short: 'every change', desc: 'Saves a moment after anything changes (recommended).' },
+    { key: 'game', label: 'After games', short: 'after games', desc: 'Saves after every game or sim day, and when the phase changes.' },
+    { key: 'week', label: 'Weekly', short: 'weekly', desc: 'Saves once per in-season week, and when the phase changes.' },
+    { key: 'phase', label: 'Phase changes', short: 'phase changes', desc: 'Saves only when the season moves on (tip-off, playoffs, awards, draft, free agency...).' },
+    { key: 'off', label: 'Off (manual)', short: 'off', desc: 'Nothing is written until you press Save or Ctrl+S. Automatic backups pause too.' },
+  ];
+  UI.autosavePolicy = function () {
+    const p = S && S.settings ? S.settings.autosave : null;
+    return UI.AUTOSAVE.some(x => x.key === p) ? p : 'always';
   };
+  UI.backupCount = function () {
+    const n = S && S.settings ? S.settings.backupCount : null;
+    return n == null || isNaN(n) ? 3 : Math.max(0, Math.min(10, n | 0));
+  };
+  UI.isDirty = () => !!S && (sv.dirty || !!sv.timer);
+  UI.saveInfo = () => ({
+    dirty: UI.isDirty(), unsaved: !!S && sv.dirty && !sv.timer && !sv.writing, lastSavedAt: sv.lastSavedAt, policy: UI.autosavePolicy(),
+    backups: UI.backupCount(), writing: sv.writing > 0, pending: !!sv.timer, error: sv.error, bytes: sv.bytes, local: sv.local,
+  });
+
+  function resetSaveTracker(state) {
+    clearTimeout(sv.timer); sv.timer = null;
+    sv.dirty = false; sv.gen = 0; sv.savedGen = 0; sv.error = null; sv.bytes = 0; sv.local = false;
+    sv.lastKeys = state ? PBC.Store.progressKeys(state) : null;
+    sv.lastSavedAt = state && state.updated ? state.updated : 0;
+  }
+
+  function writeDue(policy) {
+    if (policy === 'off') return false;
+    if (policy === 'always' || !sv.lastKeys) return true;
+    const k = PBC.Store.progressKeys(S), l = sv.lastKeys;
+    if (k.phase !== l.phase) return true;
+    if (policy === 'game') return k.day !== l.day;
+    if (policy === 'week') return k.week !== l.week;
+    return false;
+  }
+
+  /**
+   * Call after changing S. Writes according to the autosave policy (debounced), otherwise marks the career dirty.
+   * immediate = true skips the debounce when a write is due. Explicit saves use UI.saveNow().
+   */
+  UI.save = function (immediate) {
+    if (!S) return Promise.resolve(null);
+    const was = sv.dirty;
+    sv.gen++;
+    sv.dirty = true;
+    if (!writeDue(UI.autosavePolicy())) { if (!was && !sv.timer) updateSaveUI(); return Promise.resolve({ ok: true, deferred: true }); }
+    clearTimeout(sv.timer); sv.timer = null;
+    if (immediate) return writeMain('auto');
+    sv.timer = setTimeout(() => { sv.timer = null; writeMain('auto'); }, 700);
+    updateSaveUI();
+    return Promise.resolve({ ok: true, queued: true });
+  };
+
+  /** Explicit save of the career's main record, whatever the autosave policy. opts: { silent } */
+  UI.saveNow = async function (opts) {
+    opts = opts || {};
+    if (!S) return { ok: false, error: 'No career loaded.' };
+    clearTimeout(sv.timer); sv.timer = null;
+    const res = await writeMain(opts.source || 'manual');
+    if (res.ok && !opts.silent) UI.toast('💾 Saved', 'good', 1800);
+    return res;
+  };
+
+  /** Marks S as changed without autosaving (e.g. edits you want to keep manual). */
+  UI.markDirty = function () { if (!S) return; sv.gen++; sv.dirty = true; updateSaveUI(); };
+
+  /** After a slot / backup is loaded: the main record is older than S, so the next allowed write must happen. */
+  UI.markLoadedSnapshot = function () { if (!S) return; sv.lastKeys = null; sv.gen++; sv.dirty = true; updateSaveUI(); };
+
+  /** Starts a pending debounced write right away (tab hidden, leaving the career...). */
+  UI.flushSave = function () {
+    if (!S || !sv.timer) return Promise.resolve(null);
+    clearTimeout(sv.timer); sv.timer = null;
+    return writeMain('auto');
+  };
+
+  /** Resolves true when the loaded career can be dropped: nothing unsaved, or the player saved / discarded. */
+  UI.guardUnsaved = async function (doing) {
+    if (!S) return true;
+    if (sv.timer) await UI.flushSave();
+    if (!UI.isDirty()) return true;
+    const since = sv.lastSavedAt ? ` since ${timeLabel(sv.lastSavedAt)}` : '';
+    const r = await UI.choose(`You have unsaved changes${since}. Save them before ${doing || 'leaving'}?`, {
+      title: 'Unsaved changes',
+      buttons: [{ key: 'cancel', label: 'Cancel', cls: 'ghost' }, { key: 'discard', label: 'Discard changes', cls: 'danger' }, { key: 'save', label: '💾 Save', cls: 'primary' }],
+    });
+    if (r === 'save') { const res = await UI.saveNow({ silent: true }); return !!res.ok; }
+    return r === 'discard';
+  };
+
+  /** Writes a rotating backup of the current state now (e.g. right before the offseason). */
+  UI.backupNow = async function (reason, opts) {
+    if (!S) return null;
+    const n = UI.backupCount();
+    if (n <= 0 || (UI.autosavePolicy() === 'off' && !(opts && opts.force))) return { ok: false, skipped: true };
+    const prev = S.lastBackupKey;
+    S.lastBackupKey = PBC.Store.progressKeys(S).backup;
+    let res;
+    try { res = await PBC.Store.saveBackup(S, { reason: reason || 'Backup', backupCount: n }); } catch (e) { res = { ok: false, error: e.message }; }
+    if (!res.ok) { S.lastBackupKey = prev; backupWarn(res); }
+    announce(res, 'backup');
+    return res;
+  };
+
+  async function writeMain(source) {
+    const st = S;
+    if (!st) return { ok: false };
+    const gen = sv.gen;
+    const keys = PBC.Store.progressKeys(st);
+    const n = UI.backupCount();
+    const prevBK = st.lastBackupKey;
+    let backup = null;
+    if (n > 0 && keys.backup !== prevBK && !(source === 'auto' && UI.autosavePolicy() === 'off')) {
+      const prevPhase = String(prevBK || '').split('|').slice(0, 4).join('|');
+      backup = { reason: prevPhase !== keys.phase ? 'New phase' : st.phase === 'regular' ? 'New week' : 'New day' };
+      st.lastBackupKey = keys.backup;
+    }
+    sv.writing++;
+    updateSaveUI();
+    let res;
+    try { res = await PBC.Store.save(st, { backup, backupCount: n }); } catch (e) { res = { ok: false, error: String((e && e.message) || e) }; }
+    sv.writing = Math.max(0, sv.writing - 1);
+    if (st !== S) { updateSaveUI(); return res; } // a different career was loaded meanwhile
+    if (res.ok) {
+      sv.lastKeys = keys;
+      sv.savedGen = Math.max(sv.savedGen, gen);
+      sv.dirty = sv.gen > sv.savedGen;
+      sv.lastSavedAt = st.updated || Date.now();
+      sv.error = null; sv.bytes = res.bytes || sv.bytes; sv.local = !!res.local;
+      if (backup && res.backup && !res.backup.ok) { st.lastBackupKey = prevBK; backupWarn(res.backup); }
+    } else {
+      if (backup) st.lastBackupKey = prevBK;
+      sv.dirty = true;
+      sv.error = res.error || 'Save failed';
+      saveErrorToast(res);
+    }
+    updateSaveUI();
+    announce(res, source);
+    return res;
+  }
+
+  function announce(res, source) {
+    try { document.dispatchEvent(new CustomEvent('pbc:saved', { detail: { ok: !!(res && res.ok), source } })); } catch (e) { /* ignore */ }
+  }
+  function saveErrorToast(res) {
+    const now = Date.now();
+    if (now - sv.errToastAt < 6000) return;
+    sv.errToastAt = now;
+    UI.toast(`⚠️ ${U.esc(res.error || 'The game could not be saved.')}<div class="row" style="margin-top:8px"><button class="btn sm toast-act" data-export-career>⬇️ Export save file</button><button class="btn sm ghost toast-act" data-nav="saves">Manage saves</button></div>`, 'bad', 9000);
+  }
+  function backupWarn(res) {
+    if (!res || res.skipped) return;
+    const now = Date.now();
+    if (now - sv.errToastAt < 6000) return;
+    sv.errToastAt = now;
+    UI.toast(`⚠️ Automatic backup failed: ${U.esc(res.error || 'unknown error')}${res.quota ? '<div class="row" style="margin-top:8px"><button class="btn sm toast-act" data-nav="saves">Free up space</button></div>' : ''}`, 'bad', 7000);
+  }
+
+  function timeLabel(ts) {
+    const d = new Date(ts), now = new Date();
+    const t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return d.toDateString() === now.toDateString() ? t : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + t;
+  }
+  UI.timeLabel = timeLabel;
+  UI.bytesLabel = b => (b >= 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b >= 1024 ? Math.round(b / 1024) + ' KB' : Math.max(0, Math.round(b || 0)) + ' B');
+  UI.policyLabel = key => (UI.AUTOSAVE.find(x => x.key === key) || UI.AUTOSAVE[0]).label;
+  const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+  UI.saveKeyLabel = shift => (isMac() ? (shift ? '⇧⌘S' : '⌘S') : (shift ? 'Ctrl+Shift+S' : 'Ctrl+S'));
+
+  function statusText() {
+    if (!S) return '';
+    if (sv.writing || sv.timer) return 'Saving…';
+    if (sv.error) return 'Save failed';
+    if (sv.dirty) return 'Unsaved changes';
+    return sv.lastSavedAt ? 'Saved ' + timeLabel(sv.lastSavedAt) : 'Not saved yet';
+  }
+  function saveCls() { return sv.error ? 'err' : sv.writing || sv.timer ? 'busy' : sv.dirty ? 'dirty' : ''; }
+  function saveTitle() {
+    const pol = UI.policyLabel(UI.autosavePolicy());
+    return `${statusText()} · Autosave: ${pol} · ${UI.saveKeyLabel()} to save`;
+  }
+  function saveFootHtml() {
+    return `<div class="sv-foot ${saveCls()}">
+      <button class="btn sm sv-btn" data-save-now title="${U.esc(saveTitle())}">💾 Save<i class="sv-dot"></i></button>
+      <div class="sv-meta"><div class="sv-st">${U.esc(statusText())}</div><div class="sv-pol">Autosave: <a class="link" data-nav="settings">${U.esc(UI.policyLabel(UI.autosavePolicy()).toLowerCase())}</a></div></div></div>`;
+  }
+  function topSaveHtml() {
+    if (!S) return '';
+    return `<div class="tb-save ${saveCls()}" id="tb-save"><button class="tb-save-b" data-save-now title="${U.esc(saveTitle())}" aria-label="Save game">
+      <span class="tb-save-i">💾</span><span class="tb-save-t">${U.esc(statusText())}</span><i class="sv-dot"></i></button><button class="tb-save-m" data-save-menu title="Save options" aria-label="Save options">▾</button></div>`;
+  }
+  function updateSaveUI() {
+    UI.saveStatus = statusText();
+    if (typeof document === 'undefined') return;
+    // update in place (never replace the buttons: a click in progress would be lost)
+    const txt = statusText(), cls = saveCls(), title = saveTitle(), pol = UI.policyLabel(UI.autosavePolicy()).toLowerCase();
+    const foot = document.getElementById('save-status');
+    if (foot) {
+      const box = foot.querySelector('.sv-foot');
+      if (!S) foot.innerHTML = '';
+      else if (!box) foot.innerHTML = saveFootHtml();
+      else {
+        box.className = 'sv-foot ' + cls;
+        box.querySelector('.sv-st').textContent = txt;
+        box.querySelector('.sv-pol a').textContent = pol;
+        box.querySelector('.sv-btn').title = title;
+      }
+    }
+    const tb = document.getElementById('tb-save');
+    if (tb) {
+      if (!S) tb.remove();
+      else {
+        tb.className = 'tb-save ' + cls;
+        tb.querySelector('.tb-save-t').textContent = txt;
+        tb.querySelector('.tb-save-b').title = title;
+      }
+    }
+    const na = document.querySelector('#nav .nav-a[data-nav="saves"]');
+    if (na) {
+      const want = UI.saveInfo().unsaved, dot = na.querySelector('.badge-dot');
+      if (want && !dot) na.insertAdjacentHTML('beforeend', '<i class="badge-dot"></i>'); else if (!want && dot) dot.remove();
+    }
+    try { document.dispatchEvent(new CustomEvent('pbc:savestate', { detail: UI.saveInfo() })); } catch (e) { /* ignore */ }
+  }
+  UI.updateSaveUI = updateSaveUI;
+
+  /** Small dropdown next to the top-bar save button. */
+  UI.saveMenu = function (anchor) {
+    const old = document.querySelector('.sv-menu');
+    if (old) { if (old._close) old._close(); else old.remove(); return; }
+    if (!S) return;
+    const r = anchor.getBoundingClientRect();
+    const menu = UI.h(`<div class="sv-menu" role="menu">
+      <button data-save-now><span>💾 Save now</span><span class="kbd">${UI.saveKeyLabel()}</span></button>
+      <button data-save-as><span>📑 Save As new slot…</span><span class="kbd">${UI.saveKeyLabel(true)}</span></button>
+      <button data-nav="saves"><span>🗂️ Manage saves & backups</span></button>
+      <div class="sv-menu-f">${U.esc(statusText())}<br>Autosave: <b>${U.esc(UI.policyLabel(UI.autosavePolicy()))}</b> · <a class="link" data-nav="settings">change</a></div></div>`);
+    menu.style.top = Math.round(r.bottom + 6) + 'px';
+    menu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+    document.body.appendChild(menu);
+    const close = () => { menu.remove(); document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', esc, true); };
+    menu._close = close;
+    const outside = e => { if (!menu.contains(e.target) && !anchor.contains(e.target)) close(); };
+    const esc = e => { if (e.key === 'Escape') close(); };
+    menu.addEventListener('click', () => setTimeout(close, 0));
+    document.addEventListener('mousedown', outside, true);
+    document.addEventListener('keydown', esc, true);
+  };
+
+  function isTyping(el) {
+    if (!el || !el.tagName) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag !== 'INPUT') return false;
+    return !['checkbox', 'radio', 'range', 'color', 'button', 'submit', 'reset', 'file', 'image'].includes((el.type || 'text').toLowerCase());
+  }
+
+  function bootSaving() {
+    document.addEventListener('keydown', e => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key || '').toLowerCase() !== 's') return;
+      if (!S) return;
+      e.preventDefault(); // never the browser's "Save page as" dialog while a career is open
+      if (e.repeat || isTyping(e.target)) return; // no game save while typing in a field
+      if (e.shiftKey) { if (UI.saveAs) UI.saveAs(); } else UI.saveNow();
+    });
+    window.addEventListener('beforeunload', e => {
+      if (!S) return undefined;
+      if (sv.timer) UI.flushSave();
+      if (!UI.isDirty()) return undefined;
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    });
+    const flush = () => { if (sv.timer) UI.flushSave(); };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+    window.addEventListener('pagehide', flush);
+  }
 
   // ---------------------------------------------------------------------------
   // Badges & portraits
@@ -272,19 +627,47 @@
       <circle cx="14" cy="12" r="4" fill="#fff" opacity=".25"/></svg>`;
   };
 
+  // Badge outlines in a 40x40 box: outer fill, inner trim line, secondary-color swoosh. t.badge = { shape }.
+  const BADGE_SHAPES = {
+    shield: {
+      outer: 'M20 1.5 L36.5 7.5 V19.5 C36.5 29.5 29.5 36 20 38.8 C10.5 36 3.5 29.5 3.5 19.5 V7.5 Z',
+      inner: 'M20 5.5 L33 10.2 V19.6 C33 27.6 27.6 32.8 20 35.2 C12.4 32.8 7 27.6 7 19.6 V10.2 Z', swoosh: 'M7 24 Q20 17 33 24',
+    },
+    circle: {
+      outer: 'M1.8 20 A18.2 18.2 0 1 1 38.2 20 A18.2 18.2 0 1 1 1.8 20 Z',
+      inner: 'M5.6 20 A14.4 14.4 0 1 1 34.4 20 A14.4 14.4 0 1 1 5.6 20 Z', swoosh: 'M5.5 24.5 Q20 16.5 34.5 24.5',
+    },
+    diamond: {
+      outer: 'M20 1.2 L38.8 20 L20 38.8 L1.2 20 Z',
+      inner: 'M20 5.8 L34.2 20 L20 34.2 L5.8 20 Z', swoosh: 'M8.5 25 Q20 18.5 31.5 25',
+    },
+    hexagon: {
+      outer: 'M20 1.2 L36.6 10.6 V29.4 L20 38.8 L3.4 29.4 V10.6 Z',
+      inner: 'M20 5.2 L33.1 12.6 V27.4 L20 34.8 L6.9 27.4 V12.6 Z', swoosh: 'M5.5 24.5 Q20 17 34.5 24.5',
+    },
+    rounded: {
+      outer: 'M9.5 2.5 H30.5 A7 7 0 0 1 37.5 9.5 V30.5 A7 7 0 0 1 30.5 37.5 H9.5 A7 7 0 0 1 2.5 30.5 V9.5 A7 7 0 0 1 9.5 2.5 Z',
+      inner: 'M10.5 6 H29.5 A4.5 4.5 0 0 1 34 10.5 V29.5 A4.5 4.5 0 0 1 29.5 34 H10.5 A4.5 4.5 0 0 1 6 29.5 V10.5 A4.5 4.5 0 0 1 10.5 6 Z', swoosh: 'M4.5 24.5 Q20 17 35.5 24.5',
+    },
+  };
+  UI.BADGE_SHAPES = Object.keys(BADGE_SHAPES);
+
   UI.teamBadge = function (t, size) {
     size = size || 28;
     if (!t) return '';
     const p = t.colors.primary, s = t.colors.secondary, tr = t.colors.trim;
     const txt = U.textOn(p);
-    const fs = t.abbr.length >= 3 ? 13 : 16;
-    const gid = 'tbg' + t.id + '_' + (++svgSeq); // unique per copy: shared ids break when an earlier copy is hidden
+    const abbr = String(t.abbr || '');
+    const fs = abbr.length >= 4 ? 10.5 : abbr.length >= 3 ? 13 : 16;
+    const ty = fs === 16 ? 25 : fs === 13 ? 23.5 : 23;
+    const shape = BADGE_SHAPES[t.badge && t.badge.shape] || BADGE_SHAPES.shield;
+    const gid = 'tbg' + String(t.id).replace(/[^\w-]/g, '_') + '_' + (++svgSeq); // unique per copy: shared ids break when an earlier copy is hidden
     return `<svg class="badge-svg" width="${size}" height="${size}" viewBox="0 0 40 40" aria-label="${U.esc(t.city + ' ' + t.name)}">
       <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${U.shade(p, 0.18)}"/><stop offset="1" stop-color="${U.shade(p, -0.38)}"/></linearGradient></defs>
-      <path d="M20 1.5 L36.5 7.5 V19.5 C36.5 29.5 29.5 36 20 38.8 C10.5 36 3.5 29.5 3.5 19.5 V7.5 Z" fill="url(#${gid})" stroke="${s}" stroke-width="2.2"/>
-      <path d="M20 5.5 L33 10.2 V19.6 C33 27.6 27.6 32.8 20 35.2 C12.4 32.8 7 27.6 7 19.6 V10.2 Z" fill="none" stroke="${tr}" stroke-opacity=".28" stroke-width="1"/>
-      <path d="M7 24 Q20 17 33 24" fill="none" stroke="${s}" stroke-opacity=".55" stroke-width="1.4"/>
-      <text x="20" y="${fs === 13 ? 23.5 : 25}" text-anchor="middle" font-family="Avenir Next Condensed, Barlow Condensed, Arial Narrow, sans-serif" font-weight="900" font-size="${fs}" letter-spacing=".3" fill="${txt}" stroke="${U.shade(p, -0.5)}" stroke-width=".6" paint-order="stroke">${U.esc(t.abbr)}</text></svg>`;
+      <path d="${shape.outer}" fill="url(#${gid})" stroke="${s}" stroke-width="2.2"/>
+      <path d="${shape.inner}" fill="none" stroke="${tr}" stroke-opacity=".28" stroke-width="1"/>
+      <path d="${shape.swoosh}" fill="none" stroke="${s}" stroke-opacity=".55" stroke-width="1.4"/>
+      <text x="20" y="${ty}" text-anchor="middle" font-family="Avenir Next Condensed, Barlow Condensed, Arial Narrow, sans-serif" font-weight="900" font-size="${fs}" letter-spacing=".3" fill="${txt}" stroke="${U.shade(p, -0.5)}" stroke-width=".6" paint-order="stroke">${U.esc(abbr)}</text></svg>`;
   };
 
   const SKIN = () => PBC.Config.SKIN_TONES;
@@ -296,7 +679,10 @@
     const PX = PBC.Match && PBC.Match.Pixel;
     if (PX && PX.portrait) {
       const team = S && p.tid >= 0 && S.teams[p.tid] ? S.teams[p.tid] : null;
-      const uniform = team ? { jersey: team.colors.primary, trim: team.colors.secondary, number: team.colors.trim, shorts: team.colors.primary } : { jersey: '#3b475f', trim: '#8d99b0', number: '#eef3ff', shorts: '#3b475f' };
+      // customized teams (Team Editor) show their colored road uniform; others keep the classic derivation
+      const custom = team && team.uniforms && team.uniforms.away && team.uniforms.away.jersey ? team.uniforms.away : null;
+      const uniform = custom ? { jersey: custom.jersey, trim: custom.trim, number: custom.number, shorts: custom.shorts }
+        : team ? { jersey: team.colors.primary, trim: team.colors.secondary, number: team.colors.trim, shorts: team.colors.primary } : { jersey: '#3b475f', trim: '#8d99b0', number: '#eef3ff', shorts: '#3b475f' };
       return `<img class="av pixel-av" width="${size}" height="${size}" alt="" src="${PX.portrait(p, { uniform }, size)}">`;
     }
     const lk = p.look;
@@ -425,7 +811,16 @@
   // Global link handling
   // ---------------------------------------------------------------------------
   UI.boot = function () {
+    bootSaving();
     document.addEventListener('click', ev => {
+      const sn = ev.target.closest('[data-save-now]');
+      if (sn) { ev.preventDefault(); UI.saveNow(); return; }
+      const sm = ev.target.closest('[data-save-menu]');
+      if (sm) { ev.preventDefault(); UI.saveMenu(sm.closest('.tb-save') || sm); return; }
+      const sa = ev.target.closest('[data-save-as]');
+      if (sa) { ev.preventDefault(); if (UI.saveAs) UI.saveAs(); return; }
+      const ex = ev.target.closest('[data-export-career]');
+      if (ex) { ev.preventDefault(); UI.exportCareer(); return; }
       const n = ev.target.closest('[data-nav]');
       if (n) { ev.preventDefault(); UI.go(n.dataset.nav); return; }
       const pl = ev.target.closest('[data-open-player]');

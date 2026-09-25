@@ -149,6 +149,7 @@
   AI.release = function (S, p) {
     const tid = p.tid;
     p.tid = -1;
+    p.tradeReq = null;
     p.contract = { amt: PBC.Player.marketValue(p, PBC.League.cfg(S)), exp: S.season, rookie: false };
     if (tid >= 0) {
       const team = S.teams[tid];

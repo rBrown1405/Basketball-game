@@ -20,6 +20,8 @@
   Off.AI_EXTRA = 2;              // AI teams may carry +2 during the offseason for clear upgrades (trimmed at finish)
   const DIFF_ASK = { easy: 0.95, normal: 1, hard: 1.05, legend: 1.1 };          // what players ask from the user
   const DIFF_APPEAL = { easy: 6, normal: 0, hard: -4, legend: -8 };             // how much they like the user's pitch
+  /** League Settings (PBC.Sliders): contract demands, loyalty, AI trade frequency. */
+  const LB = S => (PBC.Sliders && PBC.Sliders.league ? PBC.Sliders.league(S) : { contractDemands: 1, loyalty: 1, aiTrades: 1 });
 
   /** The team the user runs (-1 while unemployed: every team is AI-run). */
   const userTid = S => (S.coach && S.coach.status === 'unemployed') ? -1 : (S.userTid == null ? -1 : S.userTid);
@@ -139,14 +141,16 @@
     s += add(t.market >= 3 ? 'Big market' : 'Small market', (t.market - 3) * 3.2 * (0.3 + pe.market / 70));
     const rep = tid === userTid(S) ? (S.coach ? S.coach.rep : 50) : (t.coachRating || 60);
     s += add('Head coach', (rep - 50) * 0.14);
+    const loyal = LB(S).loyalty;
     if (opts.own) {
       const last = PBC.Stats.season(p, S.season, false);
       if (last && last.gp >= 10) s += add('Playing time', U.clamp((last.min / last.gp - role.min) * 0.3, -8, 6) * (0.4 + pe.pt / 83));
       const tenure = p.stats.filter(x => x.tid === tid && !x.po).length;
-      s += add('Loyalty', (pe.loyal - 45) * 0.16 + Math.min(tenure, 5) * 1.2);
+      s += add('Loyalty', ((pe.loyal - 45) * 0.16 + Math.min(tenure, 5) * 1.2) * loyal);
       s += add('Morale', ((p.morale == null ? 70 : p.morale) - 62) * 0.3);
+      if (p.tradeReq) s += add('Asked for a trade', -12);
     } else if (opts.former) {
-      s += add('Former team', (pe.loyal - 50) * 0.12);
+      s += add('Former team', (pe.loyal - 50) * 0.12 * loyal);
     }
     if (tid === userTid(S)) s += DIFF_APPEAL[S.difficulty] || 0;
     else s += ((U.hash(p.id + ':' + tid) % 1000) / 1000 - 0.5) * 8;   // relationships the user can't see
@@ -161,7 +165,7 @@
     const L = cfg(S);
     const mv = PBC.Player.marketValue(p, L);
     const f = 1 + ((p.pers ? p.pers.money : 50) - 50) / 300;
-    return Off.fitAmt(S, p, mv * f);
+    return Off.fitAmt(S, p, mv * f * LB(S).contractDemands);
   };
 
   /** Contract length the player wants. */
@@ -231,13 +235,25 @@
       } else p.dv = p.ovr - cumDrift(p.age);
     }
   };
-  /** Target OVR change this offseason (age already incremented). */
-  Off.devTarget = function (p) {
+  /**
+   * Target OVR change this offseason (age already incremented).
+   * mods (League Settings, optional): { grow: growth-speed multiplier toward the peak, age: aging/decline multiplier }.
+   */
+  Off.devTarget = function (p, mods) {
     const a = p.age, D = Off.DEV;
+    const grow = mods && mods.grow != null ? mods.grow : 1, ageM = mods && mods.age != null ? mods.age : 1;
     const peak = Off.truePeak(p, a - 1);
-    if (a <= 26) return driftAt(a) + D.gapRate(a) * (peak - p.ovr);
-    const expectedPrev = peak + (a - 1 >= 27 ? cumDrift(a - 1) : 0);
-    return driftAt(a) + (a === 27 ? D.gapRate(a) : D.revert) * (expectedPrev - p.ovr);
+    if (a <= 26) return driftAt(a) + D.gapRate(a) * grow * (peak - p.ovr);
+    const expectedPrev = peak + (a - 1 >= 27 ? cumDrift(a - 1) * ageM : 0);
+    const drift = driftAt(a) < 0 ? driftAt(a) * ageM : driftAt(a);
+    return drift + (a === 27 ? D.gapRate(a) * grow : D.revert) * (expectedPrev - p.ovr);
+  };
+  /** League Settings multipliers for one player's development: progression (+ rookie development) and aging. */
+  Off.devMods = function (S, p) {
+    const lb = PBC.Sliders && PBC.Sliders.league ? PBC.Sliders.league(S) : null;
+    if (!lb) return null;
+    const rookie = (p.yearsPro || 0) <= 2;                     // his first three pro seasons
+    return { grow: lb.progression * (rookie ? lb.rookieDev : 1), age: lb.aging };
   };
   /** One offseason of development for a player (call after age++). extra: coaching bonus (rating points). */
   Off.develop = function (S, p, extra) {
@@ -247,10 +263,11 @@
     if (a <= 24) p.dv = U.clamp(p.dv + U.gauss(0, Off.DEV.peakWalk), 40, 99);
     const gap = p.pot - p.ovr;
     const slope = p.ovr >= 64 ? 1.0 : 0.75;                      // OVR per point of rating growth
-    const dev = Off.devTarget(p) / slope - PROGRESS_BASE(a) - (a <= 26 ? gap * 0.16 : 0) + (extra || 0);
+    const dev = Off.devTarget(p, Off.devMods(S, p)) / slope - PROGRESS_BASE(a) - (a <= 26 ? gap * 0.16 : 0) + (extra || 0);
     const d = PBC.Player.progress(p, dev);
     p.pot = a <= 26 ? Math.round(U.clamp(Math.max(p.ovr, p.dv), p.ovr, 99)) : p.ovr;
     p.seasonStart = { ovr: p.ovr, tid: p.tid };
+    if (PBC.Tendency && PBC.Tendency.refresh) PBC.Tendency.refresh(p);   // habits follow the new ratings (unless customized)
     return d;
   };
 
@@ -291,6 +308,7 @@
     const tid = lastTeam(p);
     Off.removeFromTeam(S, p);
     p.tid = -3;
+    p.tradeReq = null;
     p.retired = { season: S.season, age: p.age, tid, reason: reason || 'retired' };
     p.contract = { amt: 0, exp: S.season, rookie: false };
     p.injury = null;
@@ -409,7 +427,8 @@
     d.revealed = true;
     PBC.Draft.lotteryNews(S);
     S.phase = 'draft';
-    if (PBC.Trade && PBC.Trade.aiTradeTick) for (let i = 0; i < 2; i++) if (U.chance(0.45)) PBC.Trade.aiTradeTick(S);
+    const aiT = LB(S).aiTrades;
+    if (PBC.Trade && PBC.Trade.aiTradeTick && aiT > 0) for (let i = 0; i < Math.max(1, Math.round(2 * aiT)); i++) if (U.chance(Math.min(0.9, 0.45 * Math.min(1, aiT)))) PBC.Trade.aiTradeTick(S);
     return true;
   };
 
@@ -422,7 +441,9 @@
     const ap = Off.appeal(S, p, p.tid, { own: true });
     const mood = ap.score;
     const base = Off.baseAsk(S, p) * (forUser ? DIFF_ASK[S.difficulty] || 1 : 1);
-    const f = mood >= 72 ? 0.93 : mood >= 58 ? 0.98 : mood >= 45 ? 1.05 : 1.12;
+    let f = mood >= 72 ? 0.93 : mood >= 58 ? 0.98 : mood >= 45 ? 1.05 : 1.12;
+    const loyal = LB(S).loyalty;
+    if (f < 1 && loyal !== 1) f = Math.max(0.75, 1 - (1 - f) * loyal);   // hometown discount (Loyalty setting)
     const ask = Off.fitAmt(S, p, base * f);
     const willing = mood >= 38 || !!(p.contract && p.contract.rookie);
     return { pid: p.id, ask, years: Off.prefYears(p), mood: Math.round(mood), willing, factors: ap.factors, label: Off.moodLabel(mood), status: 'pending', tries: 0 };
@@ -576,6 +597,7 @@
     Off.removeFromTeam(S, p);
     p.tid = -1;
     p.promise = null;
+    p.tradeReq = null;
     p.contract = { amt: Off.baseAsk(S, p), exp: S.season, rookie: false };
     bump(S);
   }
@@ -963,7 +985,8 @@
       }
       aiOffers(S);
       fa.ap = fa.apMax;
-      if (PBC.Trade && PBC.Trade.aiTradeTick && U.chance(0.25)) PBC.Trade.aiTradeTick(S);
+      const aiT = LB(S).aiTrades;
+      if (PBC.Trade && PBC.Trade.aiTradeTick && aiT > 0 && U.chance(Math.min(0.9, 0.25 * aiT))) PBC.Trade.aiTradeTick(S);
     }
     return { signed, mine: mineSigned, lost, log: fa.log.slice(0, fa.log.length - before) };
   };
@@ -1021,6 +1044,7 @@
     p.lastTid = u;
     p.tid = -1;
     p.promise = null;
+    p.tradeReq = null;
     p.contract = { amt: Off.baseAsk(S, p), exp: S.season, rookie: false };
     if (S.fa && S.phase === 'freeagency' && !S.fa.done) { faEntry(S, p); S.fa.pl[p.id].boost = -15; }
     if (S.offseason && OFF[S.phase]) S.offseason.released.push(p.id);

@@ -22,6 +22,12 @@
     PBC.League.preseasonProjections(S);
     S.weekSnap = Season.snapshot(S);
     S.practice = { week: 0, done: false, log: S.practice && S.practice.log ? S.practice.log : [] };
+    // trade requests don't survive a move or a happy summer
+    for (const id in S.players) {
+      const p = S.players[id];
+      if (p.tid < 0) { if (p.tradeReq) p.tradeReq = null; p.lowWeeks = 0; }
+      else if (p.tradeReq && (p.morale == null ? 70 : p.morale) >= 55) Season.rescindTradeRequest(S, p, true);
+    }
     for (const t of S.teams) if (t.id !== S.userTid) PBC.AI.fillRoster(S, t.id, { quiet: true });
     Season.news(S, `The ${U.seasonLabel(S.season)} season tips off!`, 'league');
   };
@@ -50,7 +56,7 @@
   /** Quick-simulate one scheduled game (not live). */
   Season.quickSim = function (S, sg) {
     const user = sg.h === S.userTid || sg.a === S.userTid;
-    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff, lite: !user });
+    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff, lite: !user, sg });
     PBC.Sim.simulate(g);
     const box = PBC.Sim.finalize(g);
     Season.completeGame(S, sg, box);
@@ -196,24 +202,101 @@
       b.p.awards.push({ season: S.season, type: 'potw', detail: '' });
     });
     S.weekSnap = Season.snapshot(S);
-    // morale drift for the user's team
-    if (S.userTid >= 0) Season.updateMorale(S);
+    // morale drift (every team: the user's players and the AI's), then unhappy players may ask out
+    Season.updateMorale(S);
+    Season.checkTradeRequests(S);
     if (PBC.Coach) PBC.Coach.weekly(S);
   };
 
-  Season.updateMorale = function (S) {
-    const roster = PBC.League.roster(S, S.userTid);
-    const rec = PBC.League.teamRecord(S, S.userTid);
-    const winning = rec.w + rec.l ? rec.w / (rec.w + rec.l) : 0.5;
-    roster.forEach((p, rank) => {
-      const s = PBC.Stats.season(p, S.season, false);
-      const mpg = s && s.gp ? s.min / s.gp : 0;
-      const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
-      let d = (mpg - expected) * 0.25 * ((p.pers ? p.pers.pt : 50) / 50) + (winning - 0.5) * 6 * ((p.pers ? p.pers.win : 50) / 50);
-      if (p.promise && p.promise.type === 'starter' && s && s.gp >= 5 && s.gs / s.gp < 0.6) d -= 3;
-      if (p.promise && p.promise.type === 'minutes' && s && s.gp >= 5 && mpg < p.promise.min - 2) d -= 3;
-      p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) + d * 0.5 + (70 - (p.morale || 70)) * 0.05, 5, 100));
-    });
+  /** League behaviour settings (League Settings screen), or defaults when js/core/sliders.js is missing. */
+  const LB = S => (PBC.Sliders && PBC.Sliders.league ? PBC.Sliders.league(S) : { morale: 1, tradeRequests: true, tradeRequestFreq: 1 });
+
+  /** Weekly morale drift from minutes and winning (scaled by the Morale Sensitivity setting). tid: one team, default all. */
+  Season.updateMorale = function (S, tid) {
+    const sens = LB(S).morale;
+    const standings = PBC.League.standings(S);
+    for (const t of S.teams) {
+      if (tid != null && t.id !== tid) continue;
+      const roster = PBC.League.roster(S, t.id);
+      const rec = standings[t.id];
+      const winning = rec.w + rec.l ? rec.w / (rec.w + rec.l) : 0.5;
+      roster.forEach((p, rank) => {
+        const s = PBC.Stats.season(p, S.season, false);
+        const mpg = s && s.gp ? s.min / s.gp : 0;
+        const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
+        let d = (mpg - expected) * 0.25 * ((p.pers ? p.pers.pt : 50) / 50) + (winning - 0.5) * 6 * ((p.pers ? p.pers.win : 50) / 50);
+        if (p.promise && p.promise.type === 'starter' && s && s.gp >= 5 && s.gs / s.gp < 0.6) d -= 3;
+        if (p.promise && p.promise.type === 'minutes' && s && s.gp >= 5 && mpg < p.promise.min - 2) d -= 3;
+        if (p.tradeReq) d -= 1;                                   // still waiting to be moved
+        p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) + d * 0.5 * sens + (70 - (p.morale || 70)) * 0.05, 5, 100));
+      });
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Trade requests: players unhappy for weeks go public (League Settings → Trade Requests)
+  // p.tradeReq = { season, day, reason, text } while active; p.lowWeeks counts consecutive unhappy weeks.
+  // ---------------------------------------------------------------------------
+  const REQ_TYPE = { diva: 1.5, hothead: 1.4, cocky: 1.3, showman: 1.15, competitor: 1.1, humble: 0.55, quiet: 0.6, leader: 0.7, easygoing: 0.75 };
+  Season.tradeRequestReason = function (S, p) {
+    const s = PBC.Stats.season(p, S.season, false);
+    const mpg = s && s.gp ? s.min / s.gp : 0;
+    const roster = PBC.League.roster(S, p.tid);
+    const rank = roster.indexOf(p);
+    const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
+    const rec = PBC.League.standings(S)[p.tid];
+    const pct = rec.w + rec.l ? rec.w / (rec.w + rec.l) : 0.5;
+    const pr = p.promise;
+    const broken = pr && s && s.gp >= 5 && (pr.type === 'starter' ? s.gs / s.gp < 0.6 : mpg < (pr.min || 20) - 2);
+    if (broken) return { reason: 'promise', text: 'says the team broke its promise to him' };
+    if (mpg < expected - 5) return { reason: 'minutes', text: `wants a bigger role (${mpg.toFixed(1)} minutes a night)` };
+    if (pct < 0.42) return { reason: 'losing', text: 'is tired of losing and wants to play for a contender' };
+    return { reason: 'unhappy', text: 'is unhappy with his situation' };
+  };
+
+  Season.checkTradeRequests = function (S) {
+    const lb = LB(S);
+    for (const id in S.players) {
+      const p = S.players[id];
+      if (p.tid < 0) continue;
+      const m = p.morale == null ? 70 : p.morale;
+      p.lowWeeks = m < 40 ? (p.lowWeeks || 0) + 1 : m >= 48 ? 0 : p.lowWeeks || 0;
+      if (p.tradeReq) {
+        if (m >= 60) Season.rescindTradeRequest(S, p);
+        continue;
+      }
+      if (!lb.tradeRequests || S.phase !== 'regular' || p.lowWeeks < 3) continue;
+      const user = p.tid === S.userTid;
+      if (!user && p.ovr < 70) continue;                          // only notable players on AI teams make noise
+      const pe = p.pers || {};
+      const type = PBC.Persona ? PBC.Persona.of(p) : null;
+      let ch = 0.1 * lb.tradeRequestFreq * (0.6 + (pe.ego != null ? pe.ego : 50) / 100) * (1.3 - (pe.loyal != null ? pe.loyal : 50) / 100);
+      ch *= 1 + (40 - m) / 40 + Math.min(4, p.lowWeeks - 3) * 0.15;
+      ch *= (type && REQ_TYPE[type]) || 1;
+      if (U.chance(U.clamp(ch, 0, 0.8))) Season.makeTradeRequest(S, p);
+    }
+  };
+
+  Season.makeTradeRequest = function (S, p, why) {
+    if (!p || p.tid < 0 || p.tradeReq) return null;
+    const r = why || Season.tradeRequestReason(S, p);
+    const t = S.teams[p.tid];
+    p.tradeReq = { season: S.season, day: S.day, reason: r.reason, text: r.text };
+    const sens = LB(S).morale;
+    p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) - 5 * sens, 5, 100));
+    // a public request is a locker-room distraction
+    for (const q of PBC.League.roster(S, p.tid)) if (q !== p) q.morale = Math.round(U.clamp((q.morale == null ? 70 : q.morale) - 2 * sens, 5, 100));
+    const he = p.gender === 'f' ? 'She' : 'He';
+    const txt = r.text.replace(/\bhis\b/g, p.gender === 'f' ? 'her' : 'his').replace(/\bhim\b/g, p.gender === 'f' ? 'her' : 'him');
+    Season.news(S, `📣 ${PBC.Player.name(p)} (${t.abbr}) has requested a trade. ${he} ${txt}.`, 'trade', p.tid);
+    return p.tradeReq;
+  };
+
+  Season.rescindTradeRequest = function (S, p, quiet) {
+    if (!p || !p.tradeReq) return;
+    p.tradeReq = null;
+    p.lowWeeks = 0;
+    if (!quiet && p.tid >= 0 && (p.tid === S.userTid || p.ovr >= 78)) Season.news(S, `🤝 ${PBC.Player.name(p)} (${S.teams[p.tid].abbr}) has taken back his trade request.`.replace(' his ', p.gender === 'f' ? ' her ' : ' his '), 'trade', p.tid);
   };
 
   Season.allStar = function (S) {

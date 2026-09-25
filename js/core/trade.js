@@ -19,6 +19,9 @@
   Trade.MARGIN = { easy: -0.06, normal: 0.05, hard: 0.12, legend: 0.2 };   // extra value the AI wants from the user
   Trade.AI_MARGIN = 0.03;                                                   // AI-to-AI deals
   Trade.MATCH = 1.25;                                                       // over-the-cap salary matching
+  Trade.REQUEST_DISCOUNT = 0.8;                                             // a team values its own player who asked out this much
+  /** League Settings (PBC.Sliders): trade difficulty offset, AI-to-AI trade frequency. */
+  const LB = S => (PBC.Sliders && PBC.Sliders.league ? PBC.Sliders.league(S) : { tradeDifficulty: 0, aiTrades: 1 });
 
   Trade.buffer = S => Math.round(cfg(S).minSalary * 0.25);
   Trade.empty = (a, b) => ({ tids: [a, b], give: [{ pids: [], picks: [] }, { pids: [], picks: [] }] });
@@ -86,6 +89,8 @@
     const surplus = (PBC.Player.marketValue(p, L) - c.amt) / L.cap;
     v += surplus * 28 * Math.min(yrs, 4) * (mode === 'rebuild' ? 1.15 : 1);
     if (p.injury && p.injury.days > 25) v *= p.injury.days > 150 ? 0.45 : p.injury.days > 60 ? 0.7 : 0.85;
+    // he asked out publicly: his own team is ready to move him for less
+    if (p.tradeReq && p.tid === tid && v > 0) v *= Trade.REQUEST_DISCOUNT;
     if (opts && opts.receiving && v > 0) {
       const without = new Set((opts.without) || []);
       let better = 0;
@@ -112,7 +117,7 @@
 
   /** Franchise cornerstones need a premium to pry loose. */
   Trade.isCornerstone = function (S, p) {
-    if (!p || p.tid < 0) return false;
+    if (!p || p.tid < 0 || p.tradeReq) return false;
     const best = PBC.League.roster(S, p.tid)[0];
     if (best && best.id === p.id && p.ovr >= 84) return true;
     return p.age <= 23 && p.pot >= 88;
@@ -179,7 +184,7 @@
       const s = sides[i];
       if (s.isUser) continue;
       const vsUser = sides[1 - i].isUser;
-      const margin = vsUser ? (Trade.MARGIN[S.difficulty] != null ? Trade.MARGIN[S.difficulty] : 0.05) : Trade.AI_MARGIN;
+      const margin = vsUser ? (Trade.MARGIN[S.difficulty] != null ? Trade.MARGIN[S.difficulty] : 0.05) + (LB(S).tradeDifficulty || 0) : Trade.AI_MARGIN;
       const mood = ((U.hash(S.season + ':' + S.day + ':' + S.phase + ':' + s.tid) % 100) / 100 - 0.5) * 0.06;
       let need = s.give * (margin + mood) + 0.5;
       const outP = offer.give[i].pids.map(id => S.players[id]).filter(Boolean);
@@ -266,6 +271,11 @@
         PBC.Player.assignNumber(S, p);
         p.morale = Math.max(20, (p.morale == null ? 70 : p.morale) - 4);
         p.promise = null;
+        if (p.tradeReq) {                                 // he got his wish: a fresh start
+          p.tradeReq = null;
+          p.lowWeeks = 0;
+          p.morale = Math.max(p.morale, 68);
+        }
         names.push(nm(p));
       }
       for (const key of offer.give[i].picks) {
@@ -408,6 +418,21 @@
     if (!Trade.status(S).open) return null;
     const u = userTid(S);
     const ai = S.teams.map(t => t.id).filter(tid => tid !== u);
+    // players who asked out are shopped first
+    const req = [];
+    for (const id in S.players) { const p = S.players[id]; if (p.tradeReq && p.tid >= 0 && p.tid !== u && !Trade.playerBlock(S, p)) req.push(p); }
+    if (req.length && U.chance(0.6)) {
+      const target = U.pick(req);
+      const bidders = U.shuffle(ai.filter(tid => tid !== target.tid && Trade.teamMode(S, tid) !== 'rebuild')).slice(0, 3);
+      for (const buyer of bidders) {
+        const offer = Trade.empty(buyer, target.tid);
+        offer.give[1].pids.push(target.id);
+        const res = Trade.balance(S, offer, 0, { maxAdd: 3 });
+        if (!res || !res.ev.ok) continue;
+        const r = Trade.execute(S, res.offer);
+        if (r.ok) return r;
+      }
+    }
     const sellers = ai.filter(tid => Trade.teamMode(S, tid) === 'rebuild');
     const buyers = ai.filter(tid => Trade.teamMode(S, tid) === 'contend');
     if (!sellers.length || !buyers.length) return null;
@@ -429,9 +454,11 @@
   /** Hook for the daily tick (Season.endDay): a few AI-to-AI deals before the deadline. */
   Trade.daily = function (S) {
     if (S.phase !== 'regular' || !Trade.status(S).open) return null;
+    const f = LB(S).aiTrades;                              // League Settings → AI-to-AI Trades (0 = none)
+    if (!(f > 0)) return null;
     const done = (S.trades || []).filter(r => r.season === S.season && !r.user && r.phase === 'regular').length;
-    if (done >= 8) return null;
-    if (!U.chance(5 / Math.max(20, S.tradeDeadlineDay || 100))) return null;
+    if (done >= Math.round(8 * f)) return null;
+    if (!U.chance(Math.min(0.9, 5 * f / Math.max(20, S.tradeDeadlineDay || 100)))) return null;
     return Trade.aiTradeTick(S);
   };
 
