@@ -21,22 +21,22 @@
   const C = PBC.Config;
 
   const LIST = [
-    { key: 'three', label: 'Three-Point Shots', short: '3PT', group: 'Shooting', desc: 'How often he hunts threes.' },
-    { key: 'mid', label: 'Mid-Range Shots', short: 'MID', group: 'Shooting', desc: 'Jumpers and pull-ups inside the arc.' },
-    { key: 'rim', label: 'Attack the Rim', short: 'RIM', group: 'Shooting', desc: 'Drives, cuts and finishes at the basket.' },
-    { key: 'dunk', label: 'Dunk vs Layup', short: 'DNK', group: 'Shooting', desc: 'Throws it down whenever he can.' },
-    { key: 'pullup', label: 'Pull-Up Jumpers', short: 'PUL', group: 'Shooting', desc: 'Shoots off the dribble instead of waiting for the catch.' },
-    { key: 'stepback', label: 'Step-Backs & Fadeaways', short: 'STB', group: 'Shooting', desc: 'Creates space with step-backs and fadeaways.' },
-    { key: 'drawFoul', label: 'Seek Contact', short: 'CON', group: 'Shooting', desc: 'Initiates contact to get to the line.' },
-    { key: 'iso', label: 'Isolation', short: 'ISO', group: 'Playmaking', desc: 'Wants the ball to go one-on-one.' },
-    { key: 'pnr', label: 'Pick & Roll Ball Handler', short: 'P&R', group: 'Playmaking', desc: 'Calls for ball screens and runs the pick-and-roll.' },
-    { key: 'post', label: 'Post-Ups', short: 'PST', group: 'Playmaking', desc: 'Calls for the ball on the block.' },
-    { key: 'pass', label: 'Pass First', short: 'PAS', group: 'Playmaking', desc: 'Looks for teammates before his own shot (low = shoot first).' },
-    { key: 'push', label: 'Push in Transition', short: 'PSH', group: 'Hustle', desc: 'Runs the floor and leaks out for easy baskets.' },
-    { key: 'crash', label: 'Crash the Offensive Glass', short: 'CRS', group: 'Hustle', desc: 'Goes after offensive rebounds instead of getting back.' },
-    { key: 'gamble', label: 'Gamble for Steals', short: 'GMB', group: 'Defense', desc: 'Jumps passing lanes and reaches. More steals, more open looks allowed.' },
-    { key: 'block', label: 'Go for Blocks', short: 'BLK', group: 'Defense', desc: 'Contests everything at the rim. More blocks, a few more fouls.' },
-    { key: 'foul', label: 'Foul Tendency', short: 'FOU', group: 'Defense', desc: 'Plays physical and fouls more.' },
+    { key: 'three', label: 'Three-Point Shots', short: '3PT', group: 'Shooting', desc: 'How often he hunts threes.', hi: 'lets it fly from deep', lo: 'rarely shoots threes' },
+    { key: 'mid', label: 'Mid-Range Shots', short: 'MID', group: 'Shooting', desc: 'Jumpers and pull-ups inside the arc.', hi: 'lives in the mid-range', lo: 'skips the mid-range' },
+    { key: 'rim', label: 'Attack the Rim', short: 'RIM', group: 'Shooting', desc: 'Drives, cuts and finishes at the basket.', hi: 'attacks the rim', lo: 'stays on the perimeter' },
+    { key: 'dunk', label: 'Dunk vs Layup', short: 'DNK', group: 'Shooting', desc: 'Throws it down whenever he can.', hi: 'throws it down every chance he gets', lo: 'lays it in instead of dunking' },
+    { key: 'pullup', label: 'Pull-Up Jumpers', short: 'PUL', group: 'Shooting', desc: 'Shoots off the dribble instead of waiting for the catch.', hi: 'pulls up off the dribble', lo: 'waits for catch-and-shoot looks' },
+    { key: 'stepback', label: 'Step-Backs & Fadeaways', short: 'STB', group: 'Shooting', desc: 'Creates space with step-backs and fadeaways.', hi: 'loves the step-back', lo: 'keeps his jumpers simple' },
+    { key: 'drawFoul', label: 'Seek Contact', short: 'CON', group: 'Shooting', desc: 'Initiates contact to get to the line.', hi: 'hunts contact and free throws', lo: 'avoids contact' },
+    { key: 'iso', label: 'Isolation', short: 'ISO', group: 'Playmaking', desc: 'Wants the ball to go one-on-one.', hi: 'wants the ball in isolation', lo: 'rarely goes one-on-one' },
+    { key: 'pnr', label: 'Pick & Roll Ball Handler', short: 'P&R', group: 'Playmaking', desc: 'Calls for ball screens and runs the pick-and-roll.', hi: 'runs pick-and-roll all night', lo: 'stays off the ball' },
+    { key: 'post', label: 'Post-Ups', short: 'PST', group: 'Playmaking', desc: 'Calls for the ball on the block.', hi: 'backs defenders down in the post', lo: 'never posts up' },
+    { key: 'pass', label: 'Pass First', short: 'PAS', group: 'Playmaking', desc: 'Looks for teammates before his own shot (low = shoot first).', hi: 'looks to pass first', lo: 'is a shoot-first player' },
+    { key: 'push', label: 'Push in Transition', short: 'PSH', group: 'Hustle', desc: 'Runs the floor and leaks out for easy baskets.', hi: 'pushes the pace in transition', lo: 'walks it up the floor' },
+    { key: 'crash', label: 'Crash the Glass', short: 'CRS', group: 'Hustle', desc: 'Goes after offensive rebounds instead of getting back.', hi: 'crashes the offensive glass', lo: 'gets back on defense instead of crashing' },
+    { key: 'gamble', label: 'Gamble for Steals', short: 'GMB', group: 'Defense', desc: 'Jumps passing lanes and reaches. More steals, more open looks allowed.', hi: 'gambles for steals', lo: 'stays home on defense' },
+    { key: 'block', label: 'Go for Blocks', short: 'BLK', group: 'Defense', desc: 'Contests everything at the rim. More blocks, a few more fouls.', hi: 'goes for every block', lo: 'stays grounded on contests' },
+    { key: 'foul', label: 'Foul Tendency', short: 'FOU', group: 'Defense', desc: 'Plays physical and fouls more.', hi: 'plays physical and fouls a lot', lo: 'rarely fouls' },
   ];
   const KEYS = LIST.map(x => x.key);
   const BY_KEY = {};
@@ -211,11 +211,11 @@
     return v >= 85 ? 'Always' : v >= 68 ? 'Often' : v >= 45 ? 'Sometimes' : v >= 25 ? 'Rarely' : 'Almost never';
   }
 
-  /** The strongest habits of a player, for flavour text: [{ key, label, v }] (top n by distance from 50). */
+  /** The strongest habits of a player, for flavour text: [{ key, label, v, text }] (top n by distance from 50). */
   function signature(p, n) {
     const t = get(p);
     if (!t) return [];
-    return KEYS.map(k => ({ key: k, label: BY_KEY[k].label, v: t[k] }))
+    return KEYS.map(k => ({ key: k, label: BY_KEY[k].label, v: t[k], text: t[k] >= 50 ? BY_KEY[k].hi : BY_KEY[k].lo }))
       .sort((a, b) => Math.abs(b.v - 50) - Math.abs(a.v - 50)).slice(0, n || 3);
   }
 

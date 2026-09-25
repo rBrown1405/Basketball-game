@@ -36,14 +36,19 @@
     const yrsLeft = p.contract ? Math.max(0, p.contract.exp - S.season + (S.phase === 'regular' || S.phase === 'preseason' || S.phase === 'playin' || S.phase === 'playoffs' ? 1 : 0)) : 0;
     const contract = p.contract && p.tid >= 0 ? `${U.money(p.contract.amt)}/yr · ${yrsLeft} yr${yrsLeft === 1 ? '' : 's'} left${p.contract.rookie ? ' · rookie deal' : ''}` : p.tid === -1 ? `Asking ~${U.money(PBC.Player.marketValue(p, L))}` : '—';
     const strengths = PBC.Player.strengths(p), weaks = PBC.Player.weaknesses(p);
+    const ptype = PBC.Persona ? PBC.Persona.TYPES[PBC.Persona.of(p)] : null;
+    const req = p.tradeReq && p.tid >= 0 ? p.tradeReq : null;
     const body = UI.h(`<div>
       <div class="pc-head">${UI.avatar(p, 92)}
         <div style="flex:1;min-width:0">
           <div class="pc-name">${U.esc(p.first)} ${U.esc(p.last)}</div>
+          ${p.nickname ? `<div class="pc-nick">"${U.esc(p.nickname)}"</div>` : ''}
           <div class="pc-meta">#${p.num} · ${C.POS_NAME[p.pos]} · ${U.esc(p.arch || '')} ${t ? '· ' + UI.teamBadge(t, 18) + ' ' + UI.teamLink(t) : ''} ${status}</div>
           <div class="pc-meta">${p.age} yrs · ${U.height(p.hgt)} · ${p.wgt} lbs · wingspan ${U.height(p.wing)} · ${p.hand === 'L' ? 'Left' : 'Right'}-handed · ${U.esc(p.origin || '')}</div>
+          ${ptype ? `<div class="pc-pers" title="Personality"><span class="pi">${ptype.icon}</span><b>${U.esc(ptype.label)}</b><span class="pd">${U.esc(ptype.desc)}</span></div>` : ''}
           <div class="row" style="margin-top:8px">${strengths.map(s => `<span class="tag good">${s}</span>`).join('')}${weaks.map(s => `<span class="tag bad">${s}</span>`).join('')}
-            ${p.injury ? `<span class="tag bad">🚑 ${U.esc(PBC.Player.injuryLabel(p.injury))}</span>` : ''}</div>
+            ${p.injury ? `<span class="tag bad">🚑 ${U.esc(PBC.Player.injuryLabel(p.injury))}</span>` : ''}
+            ${req ? `<span class="tag warn" title="${U.esc(PBC.Player.name(p) + ' ' + (req.text || 'wants out'))}">📣 Trade request</span>` : ''}</div>
         </div>
         <div class="center"><div class="tiny dim up">OVR</div>${UI.ovr(p.ovr, 'lg')}<div class="tiny dim up" style="margin-top:6px">POT</div><div class="bold">${UI.potLabel(p)}</div></div>
       </div>
@@ -51,19 +56,20 @@
         <span>Contract</span><span>${contract}</span><span>Draft</span><span>${draft}</span>
         ${mine ? `<span>Morale</span><span>${p.morale != null ? p.morale : 70}/100</span><span>Promise</span><span>${p.promise ? U.esc(p.promise.type === 'starter' ? 'Starting role' : p.promise.min + '+ minutes') : '—'}</span>` : ''}
       </div>
-      <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button><button class="tab" data-t="stats">Stats</button>
+      <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button>${PBC.Tendency ? '<button class="tab" data-t="tend">Tendencies</button>' : ''}<button class="tab" data-t="stats">Stats</button>
         ${mine ? '<button class="tab" data-t="log">Game Log</button>' : ''}<button class="tab" data-t="awards">Awards</button><button class="tab" data-t="prog">Progression</button></div>
       <div id="pc-tab"></div>
       ${mine ? `<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
         <button class="btn sm" data-a="goto1">⭐ Go-to #1</button><button class="btn sm" data-a="goto2">Go-to #2</button>
         ${PBC.Trade ? '<button class="btn sm" data-a="trade">🔁 Shop in trade</button>' : ''}<button class="btn sm" data-a="edit">✏️ Edit</button><div class="spacer"></div><button class="btn sm danger" data-a="release">Release</button></div>` : ''}
-      ${!mine && p.tid !== -3 ? `<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><span class="small muted">Commissioner edit: tweak ratings, looks or number.</span><div class="spacer"></div><button class="btn sm" data-a="edit">✏️ Edit player</button></div>` : ''}
+      ${!mine && p.tid !== -3 ? `<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><span class="small muted">Commissioner edit: ratings, tendencies, personality, looks and more.</span><div class="spacer"></div><button class="btn sm" data-a="edit">✏️ Edit player</button></div>` : ''}
       ${p.tid === -1 && S.phase === 'regular' ? `<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><span class="small muted">Sign for the rest of the season at ${U.money(Math.max(L.minSalary, Math.min(PBC.Player.marketValue(p, L), capRoom(S))))}.</span><div class="spacer"></div><button class="btn sm primary" data-a="sign">Sign player</button></div>` : ''}
     </div>`);
     const tabEl = body.querySelector('#pc-tab');
     const showTab = key => {
       body.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.t === key));
       if (key === 'ratings') tabEl.innerHTML = ratingsHtml(S, p);
+      if (key === 'tend') tabEl.innerHTML = tendenciesHtml(S, p);
       if (key === 'stats') statsTab(S, p, tabEl);
       if (key === 'log') gameLog(S, p, tabEl);
       if (key === 'awards') tabEl.innerHTML = awardsHtml(S, p);
@@ -123,6 +129,17 @@
       const v = Math.round(U.clamp(p.r[r.key] + noise, 25, 99));
       return `<div class="rbar"><span class="lab">${r.label}</span><span class="val">${Math.max(25, v - err)}–${Math.min(99, v + err)}</span><div class="meter"><div class="meter-fill" style="width:${v}%;opacity:.6"></div></div></div>`;
     }).join('')}</div>`).join('')}</div>${prospect ? `<p class="small muted">Scouting knowledge: ${known}%. Scout this prospect to narrow the ranges.</p>` : ''}`;
+  }
+
+  function tendenciesHtml(S, p) {
+    const TD = PBC.Tendency;
+    const t = TD.get(p);
+    if (!t) return '<div class="empty">No tendencies.</div>';
+    const sig = TD.signature(p, 3).filter(x => Math.abs(x.v - 50) >= 15);
+    return `<div class="pc-ratings pc-tend">${TD.GROUPS.map(g => `<div><h4>${g}</h4>${TD.LIST.filter(x => x.group === g).map(x =>
+      `<div class="rbar" title="${U.esc(x.desc)}"><span class="lab">${U.esc(x.label)}</span><span class="val">${t[x.key]}<small>${TD.word(t[x.key])}</small></span><div class="meter"><div class="meter-fill" style="width:${t[x.key]}%"></div></div></div>`
+    ).join('')}</div>`).join('')}</div>
+      <p class="small muted" style="margin:12px 0 0">${sig.length ? `<b class="pc-sig">${U.esc(p.last)} ${sig.map(x => U.esc(x.text)).join(', ')}.</b> ` : ''}Tendencies decide what he looks for on the floor; ratings decide how well it works.${p.tendCustom ? ' <span class="tag warn">Custom</span>' : ''}</p>`;
   }
 
   function statsTab(S, p, el) {

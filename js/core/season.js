@@ -276,6 +276,10 @@
       let ch = 0.07 * lb.tradeRequestFreq * (0.6 + (pe.ego != null ? pe.ego : 50) / 100) * (1.3 - (pe.loyal != null ? pe.loyal : 50) / 100);
       ch *= 1 + (52 - m) / 20 + Math.min(4, p.lowWeeks - 3) * 0.15;
       ch *= (type && REQ_TYPE[type]) || 1;
+      // one public request per locker room is usually enough drama
+      let mates = 0;
+      for (const q of PBC.League.roster(S, p.tid)) if (q.tradeReq) mates++;
+      ch *= Math.pow(0.35, mates);
       if (U.chance(U.clamp(ch, 0, 0.8))) Season.makeTradeRequest(S, p);
     }
   };
