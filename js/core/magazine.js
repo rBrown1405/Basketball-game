@@ -440,7 +440,7 @@
       'Solid, unspectacular and dangerous if {star} catches fire in April.',
       'Good enough to make you believe. Not quite good enough to make you book the parade.',
       'The {def} defense will keep them in games. The offense is a coin flip.',
-      'Nobody is sure what they are — including, we suspect, the front office.',
+      'Nobody is sure what they are. That includes, we suspect, the front office.',
       '{star} can carry them for stretches. The question is whether {he} can carry them for {g} games.',
       'Playoff team on a good night. Play-in team on a Tuesday in February.',
       'Built to win now, priced to win now. Needs to actually win now.',
@@ -467,7 +467,7 @@
 
   // quips for top-10 blurbs keyed by Player.strengths tags
   const TAG_QUIPS = {
-    'Elite shooter': ['Range starts at the logo and ends somewhere in the parking lot.', 'Closeouts on {him} are optional — and pointless.', 'Leave {him} open once. Only once.'],
+    'Elite shooter': ['Range starts at the logo and ends somewhere in the parking lot.', 'Closeouts on {him} are optional, and pointless.', 'Leave {him} open once. Only once.'],
     'Mid-range assassin': ['Keeps the lost art of the 17-footer on life support, and it\'s thriving.', 'Two dribbles, one pull-up, zero doubt.', 'The elbow jumper is {his} home address.'],
     'Rim finisher': ['Gets to the rim like it owes {him} money.', 'Contact is a suggestion. The basket is a guarantee.', 'Lives in the paint and pays no rent.'],
     'Post scorer': ['A back-to-the-basket bully in a pace-and-space world.', 'Footwork so clean you could eat off it.', 'Throw it in. Walk away. Two points.'],
@@ -482,7 +482,7 @@
     'Free throw ace': ['Foul {him} and apologize to your coach.', 'The line is the most automatic place in the building when {he} is on it.', 'Money from the stripe, every time.'],
     'Iron man': ['Never misses games. Never misses minutes.', 'Built like a tank, plays like one.', 'Load management is a rumor {he} has heard about.'],
   };
-  const GENERIC_QUIPS = ['Does a little bit of everything and a lot of winning.', 'No glaring weakness, plenty of strengths.', 'The kind of player coaches draw up plays for — and opponents draw up plays against.', 'Quietly one of the most complete players in the league.'];
+  const GENERIC_QUIPS = ['Does a little bit of everything and a lot of winning.', 'No glaring weakness, plenty of strengths.', 'The kind of player coaches draw up plays for, and opponents draw up plays against.', 'Quietly one of the most complete players in the league.'];
 
   const HEAT_TEXT = {
     'Ice cold': 'bulletproof', 'Cool': 'comfortable', 'Lukewarm': 'stable, for now', 'Warm': 'getting toasty',
@@ -555,12 +555,13 @@
     const teasers = [];
     teasers.push({ big: `1–${C.n}`, text: C.women ? 'Power rankings: every team, ranked & roasted' : 'Power rankings: all 30 teams, ranked & roasted' });
     teasers.push({ big: up(fw.nick), text: `…over the ${fl.nick} in ${C.finals.games}. Our Finals pick, explained` });
-    if (user) teasers.push({ big: up(user.nick), text: `Inside the ${user.nick}: can ${user.coach.name} deliver?` });
+    // the Finals pick may be the user's team: then this teaser leads with the city so the cover doesn't repeat a nickname
+    if (user) teasers.push({ big: up(user.nick === fw.nick ? user.city : user.nick), text: `Inside the ${user.nick}: can ${user.coach.name} deliver?` });
     const extra = [];
     if (C.rookies.length) extra.push({ big: up(C.rookies[0].last), text: 'Rookie of the Year? The case for the kid' });
     extra.push({ big: 'HOT SEAT', text: 'The coaches who need a fast start' });
     extra.push({ big: 'TOP 10', text: 'The best players in the league, ranked' });
-    if (!C.first) extra.push({ big: 'GRADES', text: 'Who won the summer — and who flunked' });
+    if (!C.first) extra.push({ big: 'GRADES', text: 'Who won the summer, and who flunked' });
     extra.push({ big: 'BOLD', text: 'Predictions we\'ll regret by the All-Star break' });
     const more = rng.shuffle(extra).slice(0, 4 - teasers.length);
     teasers.push(...more);
@@ -616,7 +617,7 @@
       ]), Object.assign({ champ: champ.nick }, v));
     } else {
       p2 = W.say([
-        'There\'s no defending champion and no history — just {nWord} rosters and a blank page. Our pick: the {fav}, led by {favStar}.',
+        'There\'s no defending champion and no history, just {nWord} rosters and a blank page. Our pick: the {fav}, led by {favStar}.',
         'Year one. No banners, no grudges, no dynasties. Yet. We like the {fav} and {favStar} to write the first chapter.',
       ], v);
     }
@@ -631,7 +632,7 @@
       ], { city: user.city, coach: user.coach.name, yp, exp: lowerFirst(exp.label), expLow: lowerFirst(exp.label), rec: user.rec, heat: user.coach.label.toLowerCase(), nick: user.nick });
     }
     const p4 = W.pick([
-      'Enjoy the issue. Argue with us. We\'ll be wrong about something — we just don\'t know what yet.',
+      'Enjoy the issue. Argue with us. We\'ll be wrong about something. We just don\'t know what yet.',
       'Read it, save it, and bring it up in April when we turn out to be geniuses. Or don\'t.',
       'As always: the predictions are bold, the grades are final and the complaints department is closed.',
     ]);
@@ -775,7 +776,7 @@
       const v = { nick: x.nick, NICK: up(x.nick), rec: x.last ? `${x.last.w}-${x.last.l}` : x.rec, retText, rank: x.rank, verdict, star: pName(x.star) };
       const hl = streak >= 3 ? 'DYNASTY WATCH' : streak === 2 ? 'THREE-PEAT WATCH' : W.pick(['CAN THE {NICK} REPEAT?', 'UNEASY LIES THE CROWN', 'THE HUNTED', 'DEFEND THE BELT']);
       cand.push({ pri: 95, kicker: 'The champs', headline: W.fill(hl, v),
-        body: W.fill('The {nick} won it all last season ({rec}) and {retText}. We have them No. {rank} in our power rankings — {verdict}.', v) + (streak >= 2 ? ` That would make ${streak + 1} straight.` : ''),
+        body: W.fill('The {nick} won it all last season ({rec}) and {retText}. We have them No. {rank} in our power rankings: {verdict}.', v) + (streak >= 2 ? ` That would make ${streak + 1} straight.` : ''),
         tid: x.tid, stat: { v: `No. ${x.rank}`, l: 'Our ranking' } });
     } else {
       const top = C.ranked.slice(0, 3);
@@ -795,7 +796,7 @@
       v.money = mv0 > amt0 * 1.1 ? W.fill('could command {v1} next summer', v) : mv0 < amt0 * 0.9 ? W.fill('the market may only pay {him} {v1} next summer', v) : W.fill('should land a similar deal (around {v1}) next summer', v);
       const tail = exp[2] ? W.fill('{p2} ({o2}) and {p3} ({o3}) are also playing for new deals.', v) : W.fill('{p2} ({o2}) is also playing for a new deal.', v);
       cand.push({ pri: 80, kicker: 'Contract year', headline: W.pick(['PLAYING FOR A PAYDAY', 'CONTRACT YEAR FEVER', 'MONEY ON THE LINE', 'SHOW ME THE MONEY']),
-        body: W.fill('{p1} ({o1} OVR) makes {a1} this season, and {money}. ', v) + tail + ' Expect career years — or awkward exits.',
+        body: W.fill('{p1} ({o1} OVR) makes {a1} this season, and {money}. ', v) + tail + ' Expect career years, or awkward exits.',
         pid: exp[0].id, tid: exp[0].tid, stat: { v: String(C.active.filter(p => p.contract && p.contract.exp === S.season).length), l: 'expiring deals' } });
     }
     // hot seat
@@ -803,7 +804,7 @@
     if (hotX) {
       const c = hotX.coach, e = expectationFor(C, hotX);
       const v = { COACH: up(coachLast(c.name)), COACHS: poss(up(coachLast(c.name))), coach: c.name, HEAT: up(c.label || heatLabel(c.heat)), CITY: up(hotX.city), nick: hotX.nick, exp: lowerFirst(e.label), rec: hotX.rec, seedText: hotX.seedText, heat: c.heat, heatText: HEAT_TEXT[c.label || heatLabel(c.heat)] || 'warm' };
-      let body = W.fill('The {nick} owner wants the team to {exp}. We project {rec}, {seedText}. Heat index: {heat}/100 — {heatText}.', v);
+      let body = W.fill('The {nick} owner wants the team to {exp}. We project {rec}, {seedText}. Heat index: {heat}/100, {heatText}.', v);
       if (c.isUser && c.year <= 1) body += ' The honeymoon starts now. It never lasts long.';
       cand.push({ pri: 85, kicker: 'Hot seat', headline: W.say(['{COACHS} SEAT: {HEAT}', 'ALL EYES ON {COACH}', 'PRESSURE CHECK: {CITY}', 'THE HOT SEAT'], v), body, tid: hotX.tid, stat: { v: String(c.heat), l: 'Heat index' }, coach: true });
     }
@@ -907,8 +908,8 @@
     const loss = x.losses.find(l => l.to !== x.tid && l.ovr >= C.q(0.14));
     if (loss) facts.push(W.fill('Losing {loss} hurts. {star} has to carry more than ever.', Object.assign({ loss: pName(loss.p) }, v)));
     if (x.injured.length && x.injured[0] === star) facts.push(W.fill('{star} starts the year sidelined ({inj}). Survive that stretch and they\'re fine.', Object.assign({ inj: injText(star) }, v)));
-    if (x.age >= 29.5) facts.push(W.fill(band <= 2 ? 'Average age {age}. The window is open — and closing.' : 'Old and not especially good: the worst combination in sports (avg. age {age}).', v));
-    if (x.age <= 24.8) facts.push(W.fill(band <= 1 ? 'One of the youngest cores in the league (avg. age {age}) — and already this good. Scary.' : 'One of the youngest cores in the league (avg. age {age}). Growing pains included.', v));
+    if (x.age >= 29.5) facts.push(W.fill(band <= 2 ? 'Average age {age}. The window is open, and closing.' : 'Old and not especially good: the worst combination in sports (avg. age {age}).', v));
+    if (x.age <= 24.8) facts.push(W.fill(band <= 1 ? 'One of the youngest cores in the league (avg. age {age}), and already this good. Scary.' : 'One of the youngest cores in the league (avg. age {age}). Growing pains included.', v));
     if (x.last) {
       const mv = x.last.rank - x.rank;
       if (mv >= 8) facts.push(W.fill('Up {mv} spots from last season\'s finish. Believe it.', Object.assign({ mv }, v)));
@@ -965,7 +966,7 @@
     const lead = list[0];
     const rows = list.map((x, i) => ({
       seed: i + 1, lgSeed: x.lgSeed, tid: x.tid, abbr: x.abbr, team: x.full, nick: x.nick, w: x.w, l: x.l, rec: x.rec,
-      gb: i === 0 ? '—' : f1(((lead.w - x.w) + (x.l - lead.l)) / 2).replace(/\.0$/, ''), line: x.line,
+      gb: i === 0 ? '-' : f1(((lead.w - x.w) + (x.l - lead.l)) / 2).replace(/\.0$/, ''), line: x.line,
       key: x.star ? `${shortName(x.star)} ${x.star.ovr}` : '', last: x.last ? `${x.last.w}-${x.last.l}` : '',
     }));
     const v = { CONF: up(cname), conf: cname, NICK: up(lead.nick), NICKS: poss(up(lead.nick)), nick: lead.nick };
@@ -974,8 +975,8 @@
     // sidebars
     const side = [];
     side.push({ label: 'Team to beat', tid: lead.tid, title: lead.full,
-      text: W.fill(W.pick(['The {nick} ({rec}) have the {conf}\'s best roster and {star} ({sOvr} OVR). Everyone else is playing for second.', '{star} ({sOvr}) and a deep rotation make the {nick} the {conf} favorite. Anything less than the conference finals is a disappointment.']),
-        { nick: lead.nick, rec: lead.rec, conf: cname, star: pName(lead.star), sOvr: lead.star ? lead.star.ovr : 0 }) });
+      text: W.fill(W.pick(['The {nick} ({rec}) have the {conf}\'s best roster and {star} ({sOvr} OVR). Everyone else is playing for second.', '{star} ({sOvr}) and a deep rotation make the {nick} the {conf} favorite. Anything less than the {deep} is a disappointment.']),
+        { nick: lead.nick, rec: lead.rec, conf: cname, star: pName(lead.star), sOvr: lead.star ? lead.star.ovr : 0, deep: C.women ? 'Finals' : 'conference finals' }) });
     const sleeperPool = list.slice(C.women ? 2 : 5, C.women ? 5 : 11);
     const sleeper = U.maxBy(sleeperPool, x => (x.young ? (x.young.pot || x.young.ovr) - x.young.ovr : 0) + (x.last ? (x.last.rank - x.rank) * 0.3 : 0) + rng() * 3);
     if (sleeper) {
@@ -1007,7 +1008,7 @@
       dek: C.conf
         ? `Predicted order of finish. Seeds 1–6 are in; ${L.playIn ? '7–10 fight it out in the play-in.' : '7–8 grab the last spots.'}`
         : `Predicted order of finish in the ${cname}. The top ${L.playoffTeams} teams league-wide make the playoffs, regardless of conference.`,
-      rows, side, quote: { text: quote, by: W.pick([`— Rival ${cname} scout`, '— Anonymous executive', '— Longtime league scout']) },
+      rows, side, quote: { text: quote, by: W.pick([`Rival ${cname} scout`, 'Anonymous executive', 'Longtime league scout']) },
       mvp: mvp ? pRef(C, mvp, { team: C.tn(mvp.tid) }) : null, leagueFormat: !C.conf, playoffTeams: L.playoffTeams,
     };
   }
@@ -1020,7 +1021,7 @@
   };
   const WEAK_LINES = {
     shoot: 'Defenses will pack the paint and dare them to shoot.', finish: 'Too many tough twos.', play: 'Possessions stall late in the clock.', perD: 'Guards will get downhill.',
-    rim: 'Opponents will attack the rim all night.', reb: 'Expect a lot of second chances — for the other team.', ath: 'Transition defense could be a problem.',
+    rim: 'Opponents will attack the rim all night.', reb: 'Expect a lot of second chances. For the other team.', ath: 'Transition defense could be a problem.',
     clutch: 'Close games could get ugly.', depth: 'One injury away from real trouble.', stars: 'Who gets a bucket when it matters most?',
   };
 
@@ -1053,7 +1054,7 @@
     const lineWord = x.line === 'po' ? (x.seed <= 2 ? 'with home court for a while' : 'safely in the playoff field') : x.line === 'pi' ? 'which means a trip to the play-in' : 'outside the playoff picture';
     const intro = W.fill('The {full} enter {sname} with the league\'s {sr} roster on paper ({str} team rating) and an owner who wants them to {exp}. ', {
       full: x.full, sname: C.sname, sr: x.strRank === 1 ? 'best' : `${U.ordinal(x.strRank)}-best`, str: f1(x.strF), exp: lowerFirst(e.label),
-    }) + coachSentence + ' ' + starSentence + ' ' + W.fill('Our projection: {rec}, {seed} — {lw}.', { rec: x.rec, seed: x.seedText, lw: lineWord });
+    }) + coachSentence + ' ' + starSentence + ' ' + W.fill('Our projection: {rec}, {seed}, {lw}.', { rec: x.rec, seed: x.seedText, lw: lineWord });
 
     const st5 = starters(C, x);
     const key = x.roster.slice(0, 5).map(p => {
@@ -1105,7 +1106,7 @@
     const payNote = x.payroll > L.tax ? 'Over the luxury tax' : x.payroll > L.cap ? 'Over the cap, under the tax' : `${U.money(L.cap - x.payroll)} under the cap`;
     const verdict = W.say([
       ['A top-two seed and a long, loud run in the playoffs.', 'Nothing short of the Finals will do.', 'Title contender. Full stop.'],
-      ['A top-four seed and a real shot at the conference finals.', 'Home court in round one and a puncher\'s chance after that.'],
+      [C.women ? 'A top-four seed and a real shot at the semifinals.' : 'A top-four seed and a real shot at the conference finals.', 'Home court in round one and a puncher\'s chance after that.'],
       ['Playoff team, first-round coin flip.', 'In the field, but nobody will be afraid of them yet.'],
       ['Play-in bubble. Every February game matters.', 'Fighting for the play-in until the final week.'],
       ['Lottery odds and a lot of minutes for the kids.', 'A development year. Wins are a bonus.'],
@@ -1192,7 +1193,7 @@
     }).sort((a, b) => b.score - a.score).slice(0, 10);
     awards.push({ key: 'dpoy', label: 'Defensive Player of the Year', short: 'DPOY', favs: mk(dPool, 4, 0.24, o => o.l && o.l.spg + o.l.bpg >= 1.5
       ? W.fill(W.pick(['{bpg} blocks and {spg} steals a night last season. Opponents noticed.', 'Led the {nick} with {stocks} stocks per game. The film is terrifying.']), pv(C, o.p, { bpg: f1(o.l.bpg), spg: f1(o.l.spg), stocks: f1(o.l.bpg + o.l.spg) }))
-      : W.fill(W.pick(['Perimeter D {perD}, interior D {intD}. Pick your poison.', 'Help-defense IQ of {helpD} — {he} is always in the right spot.', 'Block rating {block}. Drive at your own risk.']), pv(C, o.p, { perD: o.p.r.perD, intD: o.p.r.intD, helpD: o.p.r.helpD, block: o.p.r.block }))) });
+      : W.fill(W.pick(['Perimeter D {perD}, interior D {intD}. Pick your poison.', 'Help-defense IQ of {helpD}. {He} is always in the right spot.', 'Block rating {block}. Drive at your own risk.']), pv(C, o.p, { perD: o.p.r.perD, intD: o.p.r.intD, helpD: o.p.r.helpD, block: o.p.r.block }))) });
 
     // ROY
     const rPool = C.rookies.slice(0, 10).map(p => {
@@ -1238,7 +1239,7 @@
       ? W.fill('Takes the {nick} from {lw} wins to a projected {w}. Voters love a turnaround.', { nick: o.x.nick, lw: o.x.last.w, w: o.x.w })
       : W.fill('{coach} ({rating} coach rating) has the {nick} projected for {w} wins. The system works.', { coach: o.x.coach.name, rating: o.x.coach.rating, nick: o.x.nick, w: o.x.w })) });
 
-    return { kind: 'awards', title: 'Award Predictions', headline: W.pick(['THE ENVELOPE, PLEASE', 'HARDWARE WATCH', 'PLACE YOUR BETS', 'AWARD SEASON STARTS NOW']), dek: 'Our favorites for every major award, with odds. For entertainment purposes only — do not bet the house on our MIP pick.', awards };
+    return { kind: 'awards', title: 'Award Predictions', headline: W.pick(['THE ENVELOPE, PLEASE', 'HARDWARE WATCH', 'PLACE YOUR BETS', 'AWARD SEASON STARTS NOW']), dek: 'Our favorites for every major award, with odds. For entertainment purposes only. Do not bet the house on our MIP pick.', awards };
   }
 
   // ---- 11. Rookie class ----
@@ -1401,7 +1402,7 @@
       '"We\'re going to play fast, defend and share the ball."', '"Health is the biggest thing for us."', '"I don\'t look at predictions. Somebody told me we\'re {rankOrd}. I don\'t look at predictions."',
       '"Our young players had great summers. Everybody had great summers."', '"I love this group\'s chemistry. We haven\'t practiced yet, but I love it."',
       '"We\'re not rebuilding. We\'re retooling. It\'s different. Trust me."', '"Our identity? Toughness. And shooting. And toughness."', '"I\'ve never seen {star} in better shape."',
-      '"{Games} games is a marathon. Well — it\'s a lot of games."', '"We\'ll figure out the rotation. I have a spreadsheet."',
+      '"{Games} games is a marathon. Well, it\'s a lot of games."', '"We\'ll figure out the rotation. I have a spreadsheet."',
     ];
     const Games = C.G === 82 ? 'Eighty-two' : C.G === 44 ? 'Forty-four' : cap1(numWord(C.G));
     const quotes = qTeams.map(c => ({ text: W.fill(W.pick(QUOTES), { rankOrd: U.ordinal(c.x.rank), star: c.x.star ? c.x.star.last : 'our star', Games }), by: c.name, tid: c.x.tid, team: c.x.full }));
@@ -1533,7 +1534,7 @@
     if (user) { const e = expectationFor(C, user); items.push({ headline: `Your ${user.nick}`, body: W.fill('{coach} and the owner agree on one thing: {exp}. We project {rec}, {seed}.', { coach: user.coach.name, exp: lowerFirst(e.label), rec: user.rec, seed: user.seedText }), tid: user.tid }); }
     const sleeper = C.ranked.slice(Math.floor(C.n / 3), Math.floor(C.n * 0.6)).find(x => x.young);
     if (items.length < 5 && sleeper) items.push({ headline: 'The sleeper', body: W.fill('Keep an eye on the {nick}. {young} ({age}) could turn {aRec} projection into a playoff run.', { nick: sleeper.nick, young: pName(sleeper.young), age: sleeper.young.age, aRec: withAn(sleeper.rec) }), tid: sleeper.tid });
-    return { kind: 'watch', title: 'Five Things to Watch', kicker: 'Year one', headline: W.pick(['FIVE THINGS TO WATCH', 'WHAT TO WATCH FOR', 'CIRCLE THESE']), dek: 'No history yet — so here is what we will be watching from the opening tip.', items: items.slice(0, 5).map((it, i) => Object.assign({ n: i + 1 }, it)), dates: keyDates(C) };
+    return { kind: 'watch', title: 'Five Things to Watch', kicker: 'Year one', headline: W.pick(['FIVE THINGS TO WATCH', 'WHAT TO WATCH FOR', 'CIRCLE THESE']), dek: 'No history yet, so here is what we will be watching from the opening tip.', items: items.slice(0, 5).map((it, i) => Object.assign({ n: i + 1 }, it)), dates: keyDates(C) };
   }
 
   // ---- 15. Bold predictions, Finals pick, back-cover ad ----
@@ -1541,7 +1542,7 @@
     { kind: 'shoe', brand: 'LOFTWORKS', product: 'HANGTIME 9', tagline: 'Gravity is optional.', copy: 'Engineered with 40% more bounce than you need and 100% more swagger than you deserve.', fine: 'Loftworks is not responsible for dunks attempted on regulation rims. Hangtime not guaranteed. Neither is dignity.' },
     { kind: 'drink', brand: 'SWISHADE', product: 'Electro-Lyte Surge', tagline: 'Tastes like a fourth-quarter comeback.', copy: 'Now in Blue Raspberry Buzzer-Beater and Lemon-Lime Overtime.', fine: 'Contains 0% actual comeback. Do not pour on coach. Seriously, he hates that.' },
     { kind: 'gum', brand: 'CLUTCH', product: 'Ice Mint Gum', tagline: 'Chew it in the fourth.', copy: 'Trusted by closers, free-throw shooters and people who say "that\'s game" way too early.', fine: 'May cause spontaneous shimmy. Not a substitute for actually making free throws.' },
-    { kind: 'recovery', brand: 'COLDTUB', product: 'Recovery Pod', tagline: 'Your knees called. They\'re begging.', copy: 'Twelve minutes at 39°F and you will forget your own name — and your hamstring.', fine: 'Side effects include shivering, regret and an irrational fear of ice cubes.' },
+    { kind: 'recovery', brand: 'COLDTUB', product: 'Recovery Pod', tagline: 'Your knees called. They\'re begging.', copy: 'Twelve minutes at 39°F and you will forget your own name, and your hamstring.', fine: 'Side effects include shivering, regret and an irrational fear of ice cubes.' },
     { kind: 'band', brand: 'BANDWIDTH', product: 'Pro Headband', tagline: 'Keep the sweat out. Keep the swagger in.', copy: 'Adds +2 to confidence. Scientists are baffled. Coaches are thrilled.', fine: '+2 confidence not reflected in actual player ratings. Batteries not included. There are no batteries.' },
   ];
 
@@ -1606,7 +1607,7 @@
   // ---------------------------------------------------------------------------
   const DEKS = {
     storylines: 'Five stories that will define the season', power: 'Every team, ranked and roasted', positions: 'The best at every spot on the floor',
-    conf: 'Predicted order of finish', team: 'Your team, under the microscope', top10: 'The best players in the league', awards: 'MVP, DPOY and more — with odds',
+    conf: 'Predicted order of finish', team: 'Your team, under the microscope', top10: 'The best players in the league', awards: 'MVP, DPOY and more, with odds',
     rookies: 'The newcomers to know', grades: 'Who won the summer?', coaches: 'Rankings, hot seats and media-day wisdom', review: 'Champions, awards and records',
     watch: 'What we will be watching from the tip', back: 'Our Finals pick and the takes we will regret',
   };
@@ -1627,7 +1628,7 @@
     pages.forEach((p, i) => { p.num = i + 1; });
     return {
       v: M.VERSION, season: S.season, leagueKey: S.leagueKey, userTid: S.userTid, mast: M.MAST,
-      title: `${M.MAST} — ${C.women ? C.league + ' ' : ''}Season Preview ${C.sname}`, seasonName: C.sname, league: C.league, built: Date.now(),
+      title: `${M.MAST}: ${C.women ? C.league + ' ' : ''}Season Preview ${C.sname}`, seasonName: C.sname, league: C.league, built: Date.now(),
       pages,
     };
   };
