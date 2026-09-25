@@ -1313,6 +1313,14 @@
         const arrive = contest === 'open' ? fireAt + 0.35 : fireAt - 0.3;
         this.dtask[df.id] = { until: fireAt + 1.4 };
         df.moveTo(cp.x, cp.y, { by: arrive, speed: df.maxSpeed, face: { x: spot.x, y: spot.y }, stance: 'defense' });
+        // closeout: sprint the first part, then short chop steps under control over the last ~8 ft, hand up
+        const chop = () => {
+          if (df.isBusy() || df.goal.mode !== 'move') return;
+          const dd = Math.hypot(df.goal.x - df.x, df.goal.y - df.y);
+          if (dd < 8 && df.speed > 8) { df.goal.speed = 9; df.goal.by = null; df.setStance('defense'); if (!df.upper) df.play('contestUp', { mirror: false }); return; }
+          if (this.T < arrive + 0.3) this.at(this.T + 0.08, chop, 'chop');
+        };
+        this.at(this.T + 0.15, chop, 'chop');
         this.at(fireAt - (contest === 'tight' ? 0.22 : 0.3), () => {
           if (df.isBusy()) return;
           if (contest === 'tight' && Math.hypot(df.x - spot.x, df.y - spot.y) < 5) df.play('contestJump', { mirror: df.lefty, facing: Math.atan2(spot.y - df.y, spot.x - df.x) });

@@ -34,16 +34,18 @@
     both: { ShF: 28, ShA: 18, ShT: 22, ElF: 62, Pro: 60, WrF: 10, Fing: 0.25, HipF: 30, HipA: 9, HipT: -8, Knee: 38, Ank: 12 },
   });
   // defensive stance: low hips, flat back ~35 deg, head up, active hands (right high, left low in the lane)
+  // defensive stance (coaching consensus): knees ~120 deg included, hips back, chest up over the knees,
+  // weight on the balls of the feet, one hand high on the shooter's strong side and one low
   def('defense', {
-    rootZ: -0.115, pelPitch: 36, spFlex: 3, chFlex: -8, nkFlex: -36, hdFlex: -6,
+    rootZ: -0.09, pelPitch: 30, spFlex: 2, chFlex: -8, nkFlex: -30, hdFlex: -6,
     lShF: 28, lShA: 62, lShT: 32, lElF: 36, lPro: 40, lWrF: -12, lFing: 0.08,
     rShF: 112, rShA: 46, rShT: 34, rElF: 64, rPro: 78, rWrF: -18, rFing: 0.05,
-    both: { HipF: 64, HipA: 20, HipT: -14, Knee: 74, Ank: 20 },
+    both: { HipF: 54, HipA: 20, HipT: -14, Knee: 60, Ank: 18 },
   });
   // defensive stance with both hands wide (mirroring the ball)
   def('defenseWide', {
-    rootZ: -0.11, pelPitch: 34, spFlex: 3, chFlex: -8, nkFlex: -34, hdFlex: -6,
-    both: { ShF: 32, ShA: 74, ShT: 12, ElF: 42, Pro: 45, WrF: -12, Fing: 0.08, HipF: 62, HipA: 20, HipT: -14, Knee: 72, Ank: 20 },
+    rootZ: -0.085, pelPitch: 28, spFlex: 2, chFlex: -8, nkFlex: -28, hdFlex: -6,
+    both: { ShF: 32, ShA: 74, ShT: 12, ElF: 42, Pro: 45, WrF: -12, Fing: 0.08, HipF: 52, HipA: 20, HipT: -14, Knee: 58, Ank: 18 },
   });
   // closeout: high hand, chopping feet (upper body)
   def('contest', {

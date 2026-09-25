@@ -267,19 +267,21 @@
 
   // ---- jump shot (catch-and-shoot / pull-up). Release near the apex, gooseneck follow-through.
   clip('jumpshot', {
-    dur: 1.4, events: { set: 0.4, release: 0.56 },
+    dur: 1.5, events: { set: 0.4, release: 0.56 },
     jump: { t0: 0.4, t1: 0.86, h: 0.13 },
     feet: [[0, 'plant'], [0.4, 'air'], [0.86, 'plant']],
     keys: [
       { t: 0.0, p: 'shotPocket', ball: [0.07, 0.14, 0.53], grip: 'hold' },
-      { t: 0.16, p: { rootZ: -0.085, pelPitch: 22, spFlex: 8, chFlex: 4, nkFlex: -16, lShF: 36, lShA: 22, lShT: 20, lElF: 100, lPro: 0, lWrF: -20, rShF: 24, rShA: 14, rShT: 10, rElF: 122, rPro: 0, rWrF: -58, both: { HipF: 34, Knee: 50, Ank: 16 } }, ball: [0.07, 0.15, 0.5], grip: 'shoot' },
+      // bottom of the dip: knees ~100 deg included, ball at the hip (research: elite shooters dip to the hip, +7-9% accuracy)
+      { t: 0.16, p: { rootZ: -0.12, pelPitch: 24, spFlex: 8, chFlex: 4, nkFlex: -16, lShF: 30, lShA: 22, lShT: 20, lElF: 100, lPro: 0, lWrF: -20, rShF: 18, rShA: 14, rShT: 10, rElF: 118, rPro: 0, rWrF: -58, both: { HipF: 46, Knee: 72, Ank: 20 } }, ball: [0.07, 0.15, 0.44], grip: 'shoot' },
       { t: 0.3, p: { rootZ: -0.035, pelPitch: 10, spFlex: 3, chFlex: -2, nkFlex: -10, lShF: 88, lShA: 36, lShT: 0, lElF: 108, lPro: 0, lWrF: -15, rShF: 96, rShA: 18, rShT: 0, rElF: 118, rPro: 0, rWrF: -62, both: { HipF: 16, Knee: 22, Ank: 0 } }, ball: [0.05, 0.15, 0.8], grip: 'shoot' },
       { t: 0.4, p: 'shotSet', ball: [0.045, 0.14, 1.0], grip: 'shoot' },
       { t: 0.5, p: { rootZ: 0, pelPitch: 1, spFlex: -3, chFlex: -6, nkFlex: -9, hdFlex: -4, lShF: 132, lShA: 38, lShT: -10, lElF: 76, lPro: 0, lWrF: -6, rShF: 150, rShA: 13, rShT: -3, rElF: 58, rPro: 5, rWrF: -40, both: { HipF: 6, HipA: 4, Knee: 12, Ank: -34 } }, ball: [0.042, 0.19, 1.09], grip: 'shootRel' },
       { t: 0.58, p: 'shotFollow', ball: [0.04, 0.26, 1.18] },
       { t: 0.86, p: { rootZ: -0.02, pelPitch: 6, spFlex: 0, chFlex: -4, nkFlex: -8, lShF: 110, lShA: 40, lShT: -10, lElF: 50, lPro: 10, rShF: 140, rShA: 10, rShT: -4, rElF: 8, rPro: 10, rWrF: 80, rFing: 0.4, both: { HipF: 18, HipA: 5, Knee: 28, Ank: 0 } } },
-      { t: 1.05, p: { rootZ: -0.04, pelPitch: 12, spFlex: 4, chFlex: 0, nkFlex: -8, lShF: 40, lShA: 20, lElF: 60, rShF: 90, rShA: 14, rElF: 40, rWrF: 40, both: { HipF: 24, Knee: 30, Ank: 8 } } },
-      { t: 1.4, p: 'ready' },
+      // the follow-through is held (gooseneck up) until the ball reaches the rim, ~1 s after the release
+      { t: 1.15, p: { rootZ: -0.04, pelPitch: 12, spFlex: 4, chFlex: 0, nkFlex: -8, lShF: 40, lShA: 20, lElF: 60, rShF: 132, rShA: 12, rElF: 10, rWrF: 78, rFing: 0.4, both: { HipF: 24, Knee: 30, Ank: 8 } } },
+      { t: 1.5, p: 'ready' },
     ],
   });
   // ---- free throw: small dip, rise onto toes (no jump), release, hold the follow-through

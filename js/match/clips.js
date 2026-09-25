@@ -11,21 +11,21 @@
   // ------------------------------------------------------------ shots off the dribble
   // pull-up: gather from the dribble into the pocket, plant, rise
   clip('pullup', {
-    dur: 1.46, events: { gather: 0.08, set: 0.46, release: 0.62 },
-    jump: { t0: 0.46, t1: 0.92, h: 0.13 },
-    feet: [[0, 'plant'], [0.46, 'air'], [0.92, 'plant']],
-    root: [[0, 0, 0], [0.12, 0.7, 0], [0.26, 0.95, 0], [0.46, 1.0, 0], [0.92, 1.25, 0], [1.46, 1.3, 0]],
+    dur: 1.78, events: { gather: 0.1, set: 0.56, release: 0.76 },
+    jump: { t0: 0.56, t1: 1.12, h: 0.13 },
+    feet: [[0, 'plant'], [0.56, 'air'], [1.12, 'plant']],
+    root: [[0, 0, 0], [0.15, 0.7, 0], [0.32, 0.95, 0], [0.56, 1.0, 0], [1.12, 1.25, 0], [1.78, 1.3, 0]],
     keys: [
       { t: 0.0, p: { base: 'ready', rootZ: -0.06, pelPitch: 20, spFlex: 8, rShF: 30, rShA: 20, rElF: 60, rPro: 60, lShF: 45, lShA: 30, lElF: 85, lPro: 20 }, ball: [0.14, 0.14, 0.38], grip: 'right' },
-      { t: 0.1, p: 'shotPocket', ball: [0.07, 0.15, 0.52], grip: 'hold' },
-      { t: 0.24, p: { rootZ: -0.09, pelPitch: 22, spFlex: 8, chFlex: 4, nkFlex: -16, lShF: 36, lShA: 22, lShT: 20, lElF: 100, lPro: 0, lWrF: -20, rShF: 24, rShA: 14, rShT: 10, rElF: 122, rPro: 0, rWrF: -58, both: { HipF: 36, Knee: 54, Ank: 16 } }, ball: [0.07, 0.15, 0.5], grip: 'shoot' },
-      { t: 0.37, p: { rootZ: -0.035, pelPitch: 10, spFlex: 3, chFlex: -2, nkFlex: -10, lShF: 88, lShA: 36, lShT: 0, lElF: 108, lPro: 0, lWrF: -15, rShF: 96, rShA: 18, rShT: 0, rElF: 118, rPro: 0, rWrF: -62, both: { HipF: 16, Knee: 22, Ank: 0 } }, ball: [0.05, 0.15, 0.8], grip: 'shoot' },
-      { t: 0.46, p: 'shotSet', ball: [0.045, 0.14, 1.0], grip: 'shoot' },
-      { t: 0.56, p: { rootZ: 0, pelPitch: 1, spFlex: -3, chFlex: -6, nkFlex: -9, hdFlex: -4, lShF: 132, lShA: 38, lShT: -10, lElF: 76, lPro: 0, lWrF: -6, rShF: 146, rShA: 13, rShT: -3, rElF: 58, rPro: 5, rWrF: -40, both: { HipF: 6, HipA: 4, Knee: 12, Ank: -34 } }, ball: [0.042, 0.19, 1.09], grip: 'shootRel' },
-      { t: 0.64, p: 'shotFollow', ball: [0.04, 0.26, 1.18] },
-      { t: 0.92, p: { rootZ: -0.02, pelPitch: 6, chFlex: -4, nkFlex: -8, lShF: 108, lShA: 40, lElF: 50, rShF: 140, rShA: 10, rElF: 8, rWrF: 76, rFing: 0.35, both: { HipF: 18, HipA: 5, Knee: 28 } } },
-      { t: 1.12, p: { rootZ: -0.04, pelPitch: 12, spFlex: 4, lShF: 40, lShA: 20, lElF: 60, rShF: 80, rShA: 14, rElF: 40, rWrF: 40, both: { HipF: 24, Knee: 30, Ank: 8 } } },
-      { t: 1.46, p: 'ready' },
+      { t: 0.12, p: 'shotPocket', ball: [0.07, 0.15, 0.52], grip: 'hold' },
+      { t: 0.29, p: { rootZ: -0.09, pelPitch: 22, spFlex: 8, chFlex: 4, nkFlex: -16, lShF: 36, lShA: 22, lShT: 20, lElF: 100, lPro: 0, lWrF: -20, rShF: 24, rShA: 14, rShT: 10, rElF: 122, rPro: 0, rWrF: -58, both: { HipF: 36, Knee: 54, Ank: 16 } }, ball: [0.07, 0.15, 0.5], grip: 'shoot' },
+      { t: 0.45, p: { rootZ: -0.035, pelPitch: 10, spFlex: 3, chFlex: -2, nkFlex: -10, lShF: 88, lShA: 36, lShT: 0, lElF: 108, lPro: 0, lWrF: -15, rShF: 96, rShA: 18, rShT: 0, rElF: 118, rPro: 0, rWrF: -62, both: { HipF: 16, Knee: 22, Ank: 0 } }, ball: [0.05, 0.15, 0.8], grip: 'shoot' },
+      { t: 0.56, p: 'shotSet', ball: [0.045, 0.14, 1.0], grip: 'shoot' },
+      { t: 0.68, p: { rootZ: 0, pelPitch: 1, spFlex: -3, chFlex: -6, nkFlex: -9, hdFlex: -4, lShF: 132, lShA: 38, lShT: -10, lElF: 76, lPro: 0, lWrF: -6, rShF: 146, rShA: 13, rShT: -3, rElF: 58, rPro: 5, rWrF: -40, both: { HipF: 6, HipA: 4, Knee: 12, Ank: -34 } }, ball: [0.042, 0.19, 1.09], grip: 'shootRel' },
+      { t: 0.78, p: 'shotFollow', ball: [0.04, 0.26, 1.18] },
+      { t: 1.12, p: { rootZ: -0.02, pelPitch: 6, chFlex: -4, nkFlex: -8, lShF: 108, lShA: 40, lElF: 50, rShF: 140, rShA: 10, rElF: 8, rWrF: 76, rFing: 0.35, both: { HipF: 18, HipA: 5, Knee: 28 } } },
+      { t: 1.37, p: { rootZ: -0.04, pelPitch: 12, spFlex: 4, lShF: 40, lShA: 20, lElF: 60, rShF: 80, rShA: 14, rElF: 40, rWrF: 40, both: { HipF: 24, Knee: 30, Ank: 8 } } },
+      { t: 1.78, p: 'ready' },
     ],
   });
   // step-back: plant, push back to create space, then rise
