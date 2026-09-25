@@ -31,7 +31,8 @@
   const mq = q => { try { return !!(window.matchMedia && window.matchMedia(q).matches); } catch (e) { return false; } };
   /** Primary input is a finger (phones / tablets): show tap hints instead of key hints. */
   U.isTouch = () => mq('(hover: none) and (pointer: coarse)');
-  U.reducedMotion = () => mq('(prefers-reduced-motion: reduce)');
+  let rmq = null; // one live MediaQueryList (checked every frame by the canvas effects)
+  U.reducedMotion = () => { try { if (!rmq && window.matchMedia) rmq = window.matchMedia('(prefers-reduced-motion: reduce)'); return !!(rmq && rmq.matches); } catch (e) { return false; } };
   U.lsGet = k => { try { return window.localStorage.getItem(k); } catch (e) { return null; } };
   U.lsSet = (k, v) => { try { window.localStorage.setItem(k, String(v)); } catch (e) { /* private mode / quota: not critical */ } };
 

@@ -105,7 +105,7 @@
       g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       g.clearRect(0, 0, w, h);
       const amp = this.contest === 'tight' ? 2.8 : this.contest === 'contested' ? 1.1 : 0;
-      if (amp && this.state !== 'released') {
+      if (amp && this.state !== 'released' && !U.reducedMotion()) { // the contest jitter is visual only
         const s = now / 1000, k = this.state === 'filling' ? 1 : 0.45;
         g.translate(amp * k * Math.sin(s * 61 + this.phase), amp * 0.6 * k * Math.sin(s * 47 + this.phase * 2));
       }

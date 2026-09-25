@@ -189,12 +189,17 @@
 
   Stats.leaders = function (S, catKey, n, po) {
     const cat = Stats.LEADER_CATS.find(c => c.k === catKey);
-    const teamGp = Math.max(1, U.avg(Object.values(S.teamSeason || {}), t => t.gp || 0));
-    const out = [];
+    let teamGp = Math.max(1, U.avg(Object.values(S.teamSeason || {}), t => t.gp || 0));
+    const rows = [];
     for (const p of Object.values(S.players)) {
       if (p.tid < -1 && p.tid !== -3) continue;
       const s = Stats.season(p, S.season, po);
-      if (!s || !s.gp) continue;
+      if (s && s.gp) rows.push({ p, s });
+    }
+    // playoff qualifiers scale with the playoff games actually played, not the regular-season schedule
+    if (po) teamGp = Math.max(1, rows.reduce((m, x) => Math.max(m, x.s.gp), 0));
+    const out = [];
+    for (const { p, s } of rows) {
       if (!po && s.gp < teamGp * 0.5) continue;
       if (cat.qual && !cat.qual(s, teamGp * 0.6)) continue;
       out.push({ p, s, val: cat.f(s) });

@@ -49,6 +49,57 @@
     women: { pbp: 'Ann Kessler', color: 'Tasha Monroe', gender: 'f' },
   };
 
+  // Premium voice catalogue (defaults first). OpenAI recommends marin and cedar for the best quality.
+  // ElevenLabs "default" voices are shared by every account; the settings screen can also load the account's own.
+  const CLOUD = {
+    openai: {
+      name: 'OpenAI',
+      models: [['gpt-4o-mini-tts', 'gpt-4o-mini-tts (steerable, recommended)']],
+      voices: [['cedar', 'Cedar ★', 'm'], ['marin', 'Marin ★', 'f'], ['ash', 'Ash', 'm'], ['onyx', 'Onyx', 'm'], ['echo', 'Echo', 'm'],
+        ['verse', 'Verse', 'm'], ['ballad', 'Ballad', 'm'], ['fable', 'Fable', 'm'], ['coral', 'Coral', 'f'], ['nova', 'Nova', 'f'],
+        ['shimmer', 'Shimmer', 'f'], ['sage', 'Sage', 'f'], ['alloy', 'Alloy', 'f']],
+      defaults: { m: ['cedar', 'ash'], f: ['marin', 'coral'] },
+      keyHint: 'sk-...',
+    },
+    elevenlabs: {
+      name: 'ElevenLabs',
+      models: [['eleven_flash_v2_5', 'Flash v2.5 (fastest, cheapest)'], ['eleven_multilingual_v2', 'Multilingual v2 (richest quality)'], ['eleven_v3', 'Eleven v3 (most expressive)']],
+      voices: [['nPczCjzI2devNBz1zQrb', 'Brian (deep, American)', 'm'], ['iP95p4xoKVk53GoZ742B', 'Chris (casual, American)', 'm'],
+        ['TX3LPaxmHKxFdv7VOQHJ', 'Liam (young, American)', 'm'], ['pNInz6obpgDQGcFmaJgB', 'Adam (deep, American)', 'm'],
+        ['TxGEqnHWrfWFTfGW9XjX', 'Josh (deep, American)', 'm'], ['29vD33N1CtxCmqQRPOHJ', 'Drew (American)', 'm'],
+        ['5Q0t7uMcjvnagumLfvZi', 'Paul (reporter, American)', 'm'], ['JBFqnCBsd6RMkjVDRZzb', 'George (warm, British)', 'm'],
+        ['cgSgspJ2msm6clMCkdW9', 'Jessica (lively, American)', 'f'], ['XrExE9yKIg1WjnnlVkGX', 'Matilda (warm, American)', 'f'],
+        ['EXAVITQu4vr4xnSDxMaL', 'Sarah (news, American)', 'f'], ['pMsXgVXv3BLzUgSXRplE', 'Serena (calm, American)', 'f'],
+        ['LcfcDJNUP1GQjkzn1xUU', 'Emily (clear, American)', 'f'], ['pFZP5JQG7iQjIQuC4Bku', 'Lily (British)', 'f']],
+      defaults: { m: ['nPczCjzI2devNBz1zQrb', 'iP95p4xoKVk53GoZ742B'], f: ['cgSgspJ2msm6clMCkdW9', 'XrExE9yKIg1WjnnlVkGX'] },
+      keyHint: 'xi-api-key',
+    },
+  };
+
+  /** read a failed response into a short message a player can act on */
+  function cloudErrorText(status, body) {
+    let msg = '';
+    try { const j = JSON.parse(body); msg = (j.error && (j.error.message || j.error)) || (j.detail && (j.detail.message || j.detail)) || j.message || ''; } catch (e) { msg = body || ''; }
+    msg = String(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 160);
+    if (status === 401 || status === 403) return 'The service did not accept that API key' + (msg ? ` (${msg})` : '.');
+    if (status === 429) return 'The service says you are over your rate or credit limit' + (msg ? ` (${msg})` : '.');
+    if (status === 402) return 'Your account is out of credit' + (msg ? ` (${msg})` : '.');
+    return `Voice request failed (${status})${msg ? ': ' + msg : ''}`;
+  }
+  function netErrorText(e) {
+    return e && /fetch|network|load/i.test(String(e.message || e)) ? 'Could not reach the voice service. Check your internet connection (some browsers block requests from pages opened as local files; if so, open the game from a local web server).' : String((e && e.message) || e);
+  }
+  /** the account's own ElevenLabs voices: [{ id, label, gender }] */
+  function listElevenVoices(key) {
+    return fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key, Accept: 'application/json' } })
+      .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(cloudErrorText(r.status, t)); }), e => { throw new Error(netErrorText(e)); })
+      .then(j => (j.voices || []).map(v => {
+        const lb = v.labels || {};
+        const bits = [lb.description || lb.descriptive, lb.accent].filter(Boolean).join(', ');
+        return { id: v.voice_id, label: `${v.name}${bits ? ' (' + bits + ')' : ''}${v.category && v.category !== 'premade' ? ' · ' + v.category : ''}`, gender: /female|woman/i.test(lb.gender || '') ? 'f' : /male|man/i.test(lb.gender || '') ? 'm' : '?' };
+      }));
+  }
+
   function create(host) {
     const S = host.S, g = host.g, teams = host.teams, stakes = host.stakes;
     const st = S.settings;
@@ -117,10 +168,6 @@
     }
 
     // ---------------------------------------------------------- premium cloud voices (optional)
-    const CLOUD_VOICES = {
-      openai: { m: ['onyx', 'ash', 'echo', 'verse', 'ballad', 'fable', 'cedar'], f: ['nova', 'coral', 'shimmer', 'sage', 'marin', 'alloy'] },
-      elevenlabs: { m: ['pNInz6obpgDQGcFmaJgB', 'TxGEqnHWrfWFTfGW9XjX', 'ErXwobaYiN019PkySvjV', 'VR6AewLTigWG4xSOukaG'], f: ['21m00Tcm4TlvDq8ikWAM', 'EXAVITQu4vr4xnSDxMaL'] },
-    };
     const INSTR = {
       pbp: 'You are an energetic, professional NBA play-by-play announcer calling a live game on national TV. Natural broadcast cadence, quick and crisp, excitement rising with the action. Never robotic.',
       color: 'You are the color analyst on a national NBA TV broadcast, a former player: conversational, confident, relaxed, a little funny, reacting like a real person watching the game.',
@@ -128,7 +175,7 @@
     };
     function cloudOn() { const c = B.cloud; return c && c.provider && c.provider !== 'off' && c.key; }
     function cloudVoice(speaker) {
-      const c = B.cloud, set = CLOUD_VOICES[c.provider] || CLOUD_VOICES.openai, gen = booth.gender;
+      const c = B.cloud, set = (CLOUD[c.provider] || CLOUD.openai).defaults, gen = booth.gender;
       const custom = speaker === 'pbp' ? c.voicePbp : c.voiceColor;
       if (custom) return custom;
       const list = set[gen] || set.m;
@@ -149,9 +196,13 @@
       if (!ctx) return null;
       let req;
       if (c.provider === 'elevenlabs') {
+        const model = c.model || 'eleven_flash_v2_5', v3 = /v3/.test(model);
+        // v3 takes audio tags for delivery and only the preset stability values (0 creative, 0.5 natural, 1 robust)
+        const text = v3 && line.hype ? '[excited] ' + line.text : line.text;
+        const vs = v3 ? { stability: line.hype ? 0 : 0.5, similarity_boost: 0.75 } : { stability: line.hype ? 0.25 : 0.4, similarity_boost: 0.75, style: line.hype ? 0.7 : 0.35, use_speaker_boost: true };
         req = fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(cloudVoice(line.who))}?output_format=mp3_44100_128`, {
           method: 'POST', headers: { 'xi-api-key': c.key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-          body: JSON.stringify({ text: line.text, model_id: c.model || 'eleven_flash_v2_5', voice_settings: { stability: line.hype ? 0.25 : 0.4, similarity_boost: 0.75, style: line.hype ? 0.7 : 0.35, use_speaker_boost: true } }),
+          body: JSON.stringify({ text, model_id: model, voice_settings: vs }),
         });
       } else {
         req = fetch('https://api.openai.com/v1/audio/speech', {
@@ -159,10 +210,10 @@
           body: JSON.stringify({ model: c.model || 'gpt-4o-mini-tts', voice: cloudVoice(line.who), input: line.text, instructions: INSTR[line.who] + (line.hype ? ' ' + INSTR.hype : ''), response_format: 'mp3' }),
         });
       }
-      const p = req.then(r => { if (!r.ok) throw new Error('TTS ' + r.status); return r.arrayBuffer(); })
+      const p = req.then(r => r.ok ? r.arrayBuffer() : r.text().then(t => { throw new Error(cloudErrorText(r.status, t)); }), e => { throw new Error(netErrorText(e)); })
         .then(buf => new Promise((res, rej) => ctx.decodeAudioData(buf, res, rej)))
         .then(ab => { entry.buf = ab; return ab; })
-        .catch(e => { entry.err = e; B.cloudErrors = (B.cloudErrors || 0) + 1; if (B.cloudErrors === 1) console.warn('Premium voice request failed, using browser voices', e); return null; });
+        .catch(e => { entry.err = e; B.lastCloudError = e.message || String(e); B.cloudErrors = (B.cloudErrors || 0) + 1; if (B.cloudErrors === 1) console.warn('Premium voice request failed, using browser voices:', B.lastCloudError); return null; });
       const entry = { p, buf: null, err: null };
       B.cache.set(key, entry);
       if (B.cache.size > 240) B.cache.delete(B.cache.keys().next().value);
@@ -179,7 +230,7 @@
       if (B.speed >= 8 && pri < 9) return;
       if (B.speed >= 4 && pri < 7) return;
       text = String(text).replace(/\s+/g, ' ').replace(/[🔥🎯🏀💥]/g, '').trim();
-      const line = { who, text, pri, hype: !!o.hype, at: performance.now(), ttl: (o.ttl || 6) * 1000, dur: estDur(text, who) };
+      const line = { who, text, pri, hype: !!o.hype, at: performance.now(), ttl: (o.ttl || 6) * 1000, dur: estDur(text, who), wait: o.wait || 1400 };
       if (cloudOn() && B.voice) line.cloud = fetchCloud(line);
       // keep the queue short: a new important call replaces stale filler
       B.queue = B.queue.filter(l => l.pri >= pri - 2 || performance.now() - l.at < 1200);
@@ -255,7 +306,7 @@
           // wait a moment for the audio; a late line falls back to the browser voice
           let settled = false;
           c.p.then(buf => { if (settled) return; settled = true; if (buf) playBuf(buf); else speakBrowser(); });
-          setTimeout(() => { if (!settled) { settled = true; speakBrowser(); } }, 1400);
+          setTimeout(() => { if (!settled) { settled = true; speakBrowser(); } }, line.wait);
         }
       } else speakBrowser();
     }
@@ -373,10 +424,10 @@
         if (P.play && P.play !== 'transition' && P.setName && chance(0.12 * chatty())) say('pbp', pick([`They'll run ${P.setName.toLowerCase()}.`, `${nick(P.off)} into their half-court set.`, `${P.setName.toLowerCase()} for ${nick(P.off)}.`]), { pri: 2, ttl: 4 });
         const per = periodOf(P);
         // late game situations
-        if (per >= L.periods && P.clockStart <= 130 && P.clockStart > 20 && !B.said['late' + per] && Math.abs(P.endScore[0] - P.endScore[1]) <= 12) {
+        // (a Game Impact Moment possession has no end score until the shot is taken)
+        const es = P.endScore || g.score;
+        if (per >= L.periods && P.clockStart <= 130 && P.clockStart > 20 && !B.said['late' + per] && Math.abs(es[0] - es[1]) <= 12) {
           B.said['late' + per] = 1;
-          const sc = [P.endScore[0], P.endScore[1]];
-          void sc;
           say('pbp', `Under ${P.clockStart > 60 ? 'two minutes' : 'a minute'} to go in ${per > L.periods ? 'overtime' : 'the fourth'}.`, { pri: 6, ttl: 5 });
         }
         // playoff stakes reminders in crunch time
@@ -545,18 +596,30 @@
       update() {
         if (!B.speaking && B.queue.length) pump();
       },
+      /** plays a short booth intro; resolves { cloud: bool, ok: bool, error } once any premium audio has loaded */
       test() {
         B.unlocked = true;
         refreshVoices();
-        say('pbp', `This is ${booth.pbp}, and it's a beautiful night for basketball.`, { pri: 10, ttl: 10 });
-        say('color', `And I'm ${booth.color}. Let's have some fun tonight.`, { pri: 10, ttl: 10 });
+        stopSpeaking(); B.queue = [];
+        const a = { pbp: `This is ${booth.pbp}, and it's a beautiful night for basketball.`, color: `And I'm ${booth.color}. Let's have some fun tonight.` };
+        const wasEnabled = B.enabled; B.enabled = true;
+        say('pbp', a.pbp, { pri: 10, ttl: 20, wait: 9000 });
+        say('color', a.color, { pri: 10, ttl: 30, wait: 9000 });
+        B.enabled = wasEnabled;
+        if (!(cloudOn() && B.voice)) return Promise.resolve({ cloud: false, ok: true });
+        const lines = B.queue.concat(B.speaking ? [B.speaking] : []).filter(l => l.cloud);
+        return Promise.all(lines.map(l => l.cloud.p)).then(() => {
+          const bad = lines.find(l => l.cloud.err);
+          return bad ? { cloud: true, ok: false, error: bad.cloud.err.message || String(bad.cloud.err) } : { cloud: true, ok: true };
+        });
       },
+      lastCloudError() { return B.lastCloudError || null; },
       voiceOptions() {
         refreshVoices();
         return B.voices.slice(0, 40).map(v => ({ id: v.voiceURI || v.name, label: `${v.name} (${v.lang})${voiceScore(v) >= 85 ? ' ★' : ''}` }));
       },
       voiceHint() {
-        if (cloudOn()) return `Premium AI voices are on (${B.cloud.provider}). Browser voices are used as a backup.`;
+        if (cloudOn()) return `Premium AI voices are on (${(CLOUD[B.cloud.provider] || {}).name || B.cloud.provider}). Browser voices are used as a backup.`;
         if (!('speechSynthesis' in window)) return 'This browser has no speech voices. Captions still show the commentary.';
         const best = B.voices[0];
         if (!best) return 'Voices are still loading...';
@@ -584,5 +647,5 @@
     return api;
   }
 
-  PBC.Commentary = { create, BOOTH, loadCloud, saveCloud };
+  PBC.Commentary = { create, BOOTH, CLOUD, loadCloud, saveCloud, listElevenVoices };
 })();

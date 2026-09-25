@@ -73,6 +73,7 @@
 .bc-cap.clr .cp-n { color: #ffd98a; }
 .bc-cap.clr .cp-t { color: #fff3d6; }
 .live.no-cap .bc-cap { display: none; }
+.live.meter-on .bc-cap { bottom: auto; top: 2.5cqh; }
 
 /* ---------- full cards: intro / period ---------- */
 .bc-card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqh; padding: 4cqh 3cqw 12cqh; background: radial-gradient(120% 90% at 50% 30%, rgba(10, 16, 30, .72), rgba(2, 4, 10, .92)); opacity: 0; visibility: hidden; transition: opacity .45s, visibility .45s; }
@@ -136,6 +137,19 @@
 .bm-sec { display: flex; flex-direction: column; gap: 10px; }
 .bm-h { font: 900 13px/1 var(--font-display); letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 .bm select { max-width: 100%; }
+.bm-wide { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 14px; }
+.bm-opt { font: 700 10px/1 var(--font-body, inherit); letter-spacing: .5px; text-transform: none; color: var(--muted); border: 1px solid var(--line2); border-radius: 99px; padding: 2px 7px; margin-left: 6px; vertical-align: 2px; }
+.bm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+@media (max-width: 640px) { .bm-grid { grid-template-columns: minmax(0, 1fr); } }
+.bm-sec > .btn { align-self: flex-start; }
+.bm-f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bm-f .inp { width: 100%; }
+.bm-key { display: flex; gap: 6px; align-items: center; }
+.bm-key .inp { flex: 1; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+.bm-actions { flex-wrap: wrap; gap: 8px; align-items: center; }
+.bm-status { color: var(--muted); }
+.bm-status.good { color: var(--good, #3ddc84); }
+.bm-status.bad { color: var(--bad, #ff4d5e); }
 .pg-bcast { gap: 16px; flex-wrap: wrap; }
 .pg-bcast .chk { font-size: 13px; color: var(--muted); }
 .po-stakes { margin: 12px 0 0; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, rgba(255, 201, 64, .18), rgba(255, 107, 26, .12)); border: 1px solid rgba(255, 201, 64, .45); font: 900 16px/1.2 var(--font-display); letter-spacing: 1px; text-align: center; }

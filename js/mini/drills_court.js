@@ -159,7 +159,7 @@
         if (!P) return;
         const g = st.cv.begin();
         const shake = U.sat(1 - (now - shakeAt) / 300);
-        if (shake) g.translate(Math.sin(now / 18) * 3 * shake, 0);
+        if (shake && !U.reducedMotion()) g.translate(Math.sin(now / 18) * 3 * shake, 0);
         st.cv.blit(st.layer);
         if (!R) { K.drawHoopFront(g, P, 0); return; }
         const L = R.L, pos = runnerPos(), jz = jumpZ();

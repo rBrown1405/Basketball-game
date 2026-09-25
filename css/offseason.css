@@ -219,3 +219,6 @@
   .fa-acts { grid-template-columns: minmax(0, 1fr); }
   .tr-sides { grid-template-columns: minmax(0, 1fr); }
 }
+/* the player line in re-sign cards may wrap on phones (.row.nowrap also sets white-space: nowrap) */
+.rs-card .row.nowrap > div[style*="flex:1"] { white-space: normal; }
+.rs-card .row.nowrap > div[style*="flex:1"] .small { overflow-wrap: anywhere; }

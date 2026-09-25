@@ -80,6 +80,7 @@
       cards.forEach((c, i) => {
         s.on(c, 'click', e => { e.preventDefault(); choose(i); });
         s.on(c, 'pointerenter', e => { if (e.pointerType === 'mouse' && !chosen) highlight(i); });
+        s.on(c, 'focus', () => { if (!chosen) highlight(i); });
       });
       s.key((e, k) => {
         if (chosen) return true;
@@ -87,7 +88,13 @@
         const d = U.dirOf(k);
         if (d === 'left' || d === 'up') { highlight(hi <= 0 ? opts.length - 1 : hi - 1); Mini.sfx('hover'); return true; }
         if (d === 'right' || d === 'down') { highlight(hi < 0 || hi >= opts.length - 1 ? 0 : hi + 1); Mini.sfx('hover'); return true; }
-        if ((k === 'enter' || k === 'space') && !e.repeat) { if (hi >= 0) choose(hi); return true; }
+        if ((k === 'enter' || k === 'space') && !e.repeat) {
+          // a card reached with Tab wins over the arrow/hover highlight
+          const f = cards.indexOf(document.activeElement);
+          const i = f >= 0 ? f : hi;
+          if (i >= 0) choose(i);
+          return true;
+        }
         return false;
       });
       s.loop((dt, now) => {

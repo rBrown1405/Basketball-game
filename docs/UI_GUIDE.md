@@ -44,7 +44,8 @@ UI.modal({ title, body, actions: [{ label, cls, onClick(close) }], wide, onClose
 UI.confirm(message, { ok: 'Yes', cancel: 'Cancel', danger }) -> Promise<boolean>
 UI.toast(message, 'good'|'bad'|'info')
 UI.teamBadge(team, size=28)            // SVG badge markup
-UI.avatar(player, size=36)             // SVG portrait markup (skin/hair/jersey)
+UI.avatar(player, size=36, opts)       // pixel-art portrait <img> (PBC.Portrait): face, hair, jersey, personality expression
+UI.portrait(player, size, opts)        // larger studio portrait for cards and the magazine (opts.bg, opts.face, opts.ctx.mood: 'win' | 'loss' | 'clutch')
 UI.ovr(value), UI.potLabel(p)          // chips; potLabel respects scouting knowledge
 UI.playerLink(p) / UI.teamLink(t)      // clickable names (open the player card / team page)
 UI.openPlayer(pid), UI.openTeam(tid), UI.openBox(gid)

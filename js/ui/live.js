@@ -389,9 +389,10 @@
         <div class="row"><span class="small muted" style="min-width:90px">Play-by-play</span>${vsel('voicePbp', st.voicePbp || '')}</div>
         <div class="row"><span class="small muted" style="min-width:90px">Analyst</span>${vsel('voiceColor', st.voiceColor || '')}</div>
         <div class="row"><span class="small muted" style="min-width:90px">Chatter</span><div class="seg" data-bseg="booth">${[['light', 'Light'], ['normal', 'Normal'], ['full', 'Full']].map(([k, l]) => `<button data-v="${k}" class="${(st.booth || 'normal') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-        <p class="tiny muted">${LG.cm && LG.cm.voiceHint ? U.esc(LG.cm.voiceHint()) : ''}</p>
+        <p class="tiny muted" data-voice-hint>${LG.cm && LG.cm.voiceHint ? U.esc(LG.cm.voiceHint()) : ''}</p>
         <button class="btn sm" data-test-voice>▶ Test the booth</button>
-      </div></div>`;
+      </div>
+      <div class="bm-sec bm-wide" data-cloud-sec>${cloudSection()}</div></div>`;
     const m = UI.modal({ title: '📺 Broadcast settings', body, wide: true, actions: [{ label: 'Done', cls: 'primary' }] });
     const apply = () => {
       if (!LG) return;
@@ -413,6 +414,98 @@
       apply();
     });
     UI.on(m.body, 'click', '[data-test-voice]', () => { if (LG && LG.cm) { LG.cm.unlock(); LG.cm.test(); } });
+
+    // ---- premium AI announcers: the key lives only in this browser's localStorage, never in a save file
+    const cloudSec = m.body.querySelector('[data-cloud-sec]');
+    const setCloud = patch => {
+      const c = Object.assign(getCloud(), patch);
+      if (LG && LG.cm) LG.cm.setCloud(c); else PBC.Commentary.saveCloud(c);
+      const h = m.body.querySelector('[data-voice-hint]'); if (h && LG && LG.cm) h.textContent = LG.cm.voiceHint();
+      return c;
+    };
+    const status = (msg, cls) => { const el = cloudSec.querySelector('[data-cloud-status]'); if (el) { el.textContent = msg || ''; el.className = 'tiny bm-status ' + (cls || ''); } };
+    const redraw = () => { cloudSec.innerHTML = cloudSection(); };
+    UI.on(cloudSec, 'click', '[data-cseg] button', (e, el) => {
+      const prov = el.dataset.v, cur = getCloud();
+      if (prov === cur.provider) return;
+      // each service keeps its own key and voices so switching back and forth loses nothing
+      const saved = Object.assign({}, cur.saved || {});
+      if (cur.provider && cur.provider !== 'off') saved[cur.provider] = { key: cur.key || '', voicePbp: cur.voicePbp || '', voiceColor: cur.voiceColor || '', model: cur.model || '', list: cur.list || null };
+      const back = saved[prov] || {};
+      setCloud({ provider: prov, key: back.key || '', voicePbp: back.voicePbp || '', voiceColor: back.voiceColor || '', model: back.model || '', saved, list: back.list || null });
+      redraw();
+    });
+    UI.on(cloudSec, 'change', '[data-cloud]', (e, el) => {
+      setCloud({ [el.dataset.cloud]: el.value.trim() });
+      if (el.dataset.cloud === 'key') status(el.value.trim() ? 'Key saved in this browser. Press Test to check it.' : 'No key: the booth uses browser voices.', '');
+    });
+    UI.on(cloudSec, 'click', '[data-cloud-show]', () => {
+      const k = cloudSec.querySelector('[data-cloud="key"]');
+      if (k) k.type = k.type === 'password' ? 'text' : 'password';
+    });
+    UI.on(cloudSec, 'click', '[data-cloud-forget]', () => { setCloud({ key: '' }); redraw(); status('Key removed from this browser.', ''); });
+    UI.on(cloudSec, 'click', '[data-cloud-load]', (e, el) => {
+      const c = getCloud();
+      if (!c.key) { status('Paste your ElevenLabs API key first.', 'bad'); return; }
+      el.disabled = true; status('Loading your voices...', '');
+      PBC.Commentary.listElevenVoices(c.key).then(list => {
+        setCloud({ list: list.slice(0, 120) });
+        redraw();
+        status(list.length ? `Loaded ${list.length} voice${list.length === 1 ? '' : 's'} from your account.` : 'Your account has no voices yet. The shared default voices still work.', list.length ? 'good' : '');
+      }).catch(err => { el.disabled = false; status(err.message || String(err), 'bad'); });
+    });
+    UI.on(cloudSec, 'click', '[data-cloud-test]', (e, el) => {
+      if (!LG || !LG.cm) return;
+      const c = getCloud();
+      if (!c.key) { status('Paste your API key first.', 'bad'); return; }
+      if (S.settings.voice === false) { status('Turn on "Announcer voices" above first.', 'bad'); return; }
+      LG.cm.unlock();
+      el.disabled = true; status('Asking ' + (PBC.Commentary.CLOUD[c.provider] || {}).name + ' for the booth intro...', '');
+      Promise.resolve(LG.cm.test()).then(r => {
+        el.disabled = false;
+        if (!r || !r.cloud) status('Premium voices are off.', '');
+        else if (r.ok) status('It works! You are hearing the AI announcers.', 'good');
+        else status(r.error + ' The booth will use browser voices until this is fixed.', 'bad');
+      }).catch(err => { el.disabled = false; status(String(err && err.message || err), 'bad'); });
+    });
+  }
+  function getCloud() {
+    return (LG && LG.cm && LG.cm.cloudConfig) ? LG.cm.cloudConfig() : PBC.Commentary.loadCloud();
+  }
+  /** premium voice settings (inner HTML of the section; re-rendered when the service changes) */
+  function cloudSection() {
+    const CM = PBC.Commentary;
+    if (!CM || !CM.CLOUD) return '';
+    const c = getCloud(), prov = c.provider && CM.CLOUD[c.provider] ? c.provider : 'off';
+    const gender = (CM.BOOTH[(LG && LG.g && LG.g.L && LG.g.L.key) || 'men'] || CM.BOOTH.men).gender;
+    const seg = `<div class="seg" data-cseg="provider">${[['off', 'Off'], ['openai', 'OpenAI'], ['elevenlabs', 'ElevenLabs']].map(([k, l]) => `<button data-v="${k}" class="${prov === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    const intro = `<p class="tiny muted">Studio-quality AI announcers with your own OpenAI or ElevenLabs account. Your key is stored only in this browser, never in your save files, and each game uses a little of your account's credit (OpenAI is the cheaper option, ElevenLabs Eleven v3 is the most expressive). If anything goes wrong the booth switches back to the browser voices.</p>`;
+    if (prov === 'off') return `<div class="bm-h">Premium AI announcers <span class="bm-opt">optional</span></div>${intro}<div class="row"><span class="small muted" style="min-width:90px">Service</span>${seg}</div>`;
+    const P = CM.CLOUD[prov];
+    let voices = P.voices.map(([id, label, gd]) => ({ id, label, gender: gd }));
+    if (prov === 'elevenlabs' && Array.isArray(c.list) && c.list.length) {
+      const known = new Set(voices.map(v => v.id));
+      voices = c.list.filter(v => !known.has(v.id)).concat(voices);
+    }
+    const def = P.defaults[gender] || P.defaults.m;
+    const vsel = (key, cur, dflt) => {
+      const inList = !cur || voices.some(v => v.id === cur);
+      const opts = voices.map(v => `<option value="${U.esc(v.id)}" ${cur === v.id ? 'selected' : ''}>${U.esc(v.label)}</option>`).join('');
+      const dl = (voices.find(v => v.id === dflt) || { label: dflt }).label;
+      return `<select class="inp" data-cloud="${key}"><option value="">Default: ${U.esc(dl)}</option>${inList ? '' : `<option value="${U.esc(cur)}" selected>${U.esc(cur)}</option>`}${opts}</select>`;
+    };
+    const models = P.models.map(([id, l]) => `<option value="${id}" ${(c.model || P.models[0][0]) === id ? 'selected' : ''}>${U.esc(l)}</option>`).join('');
+    return `<div class="bm-h">Premium AI announcers <span class="bm-opt">optional</span></div>${intro}
+      <div class="row"><span class="small muted" style="min-width:90px">Service</span>${seg}</div>
+      <div class="bm-grid">
+        <label class="bm-f"><span class="small muted">${P.name} API key</span>
+          <span class="bm-key"><input class="inp" type="password" data-cloud="key" value="${U.esc(c.key || '')}" placeholder="${U.esc(P.keyHint)}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn sm ghost" type="button" data-cloud-show title="Show or hide the key">👁</button>${c.key ? '<button class="btn sm ghost" type="button" data-cloud-forget title="Remove the key from this browser">✕</button>' : ''}</span></label>
+        <label class="bm-f"><span class="small muted">Model</span><select class="inp" data-cloud="model">${models}</select></label>
+        <label class="bm-f"><span class="small muted">Play-by-play voice</span>${vsel('voicePbp', c.voicePbp || '', def[0])}</label>
+        <label class="bm-f"><span class="small muted">Analyst voice</span>${vsel('voiceColor', c.voiceColor || '', def[1])}</label>
+      </div>
+      <div class="row bm-actions"><button class="btn sm" type="button" data-cloud-test>▶ Test AI voices</button>${prov === 'elevenlabs' ? '<button class="btn sm ghost" type="button" data-cloud-load>Load my voices</button>' : ''}<span class="tiny bm-status" data-cloud-status></span></div>
+      <p class="tiny muted">${prov === 'openai' ? 'Get a key at platform.openai.com (API keys). The announcers get directions for a real broadcast delivery, calm for the analyst and big energy on highlights.' : 'Get a key at elevenlabs.io (Developers, API keys). The shared default voices work on any account; press "Load my voices" to add voices from your own library.'}</p>`;
   }
 
   // ---------------------------------------------------------------------------
@@ -658,6 +751,8 @@
   async function shotMeter(opts) {
     const overlay = LG.root.querySelector('#overlay');
     overlay.classList.add('on', 'clear');
+    const liveEl = LG.root.querySelector('.live');
+    if (liveEl) liveEl.classList.add('meter-on'); // captions move out of the meter's way
     let res;
     try {
       if (PBC.Mini && PBC.Mini.shotMeter) res = await PBC.Mini.shotMeter(overlay, opts);
@@ -665,6 +760,7 @@
     } catch (e) { console.error(e); res = { quality: 'good', score: 0.6 }; }
     overlay.classList.remove('on', 'clear');
     overlay.innerHTML = '';
+    if (LG && liveEl) liveEl.classList.remove('meter-on');
     if (!res || res.cancelled) res = { quality: 'late', score: 0.3 };
     return res;
   }
