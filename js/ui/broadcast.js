@@ -228,6 +228,7 @@
       replayOff() { const el = $('bc-replay'); el.classList.remove('on'); el.classList.add('out'); setTimeout(() => { el.classList.remove('out'); if (!el.classList.contains('on')) el.innerHTML = ''; }, 500); },
       onFinal(box) {
         B.final = true;
+        B.l3T = 0.01; B.runT = Math.min(B.runT, 0.01); B.tpT = Math.min(B.tpT, 0.01); // clear leftover graphics
         const bug = $('bc-bug'); if (bug) bug.classList.add('final');
         const w = box.hs > box.as ? 0 : 1;
         tag(`<span class="tg-ab">FINAL</span><span class="tg-t">${esc(T[w].name).toUpperCase()} WIN</span>`, w, 30);

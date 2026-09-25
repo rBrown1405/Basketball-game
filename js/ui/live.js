@@ -1087,7 +1087,10 @@
   function finishGame(silent) {
     if (!LG || LG.finished) return;
     LG.finished = true;
-    LG.hold = null;
+    // a replay or quarter card still on screen (e.g. "End" pressed mid-replay) is cleared first
+    const h = LG.hold; LG.hold = null;
+    if (h && h.replay && LG.view && LG.view.stopReplay) { try { LG.view.stopReplay(); } catch (e) { /* ignore */ } }
+    if (LG.bc) { try { LG.bc.replayOff(); LG.bc.hidePeriodCard(); } catch (e) { /* ignore */ } }
     const S = LG.S, g = LG.g, sg = LG.sg;
     const box = PBC.Sim.finalize(g);
     PBC.Season.completeGame(S, sg, box);
