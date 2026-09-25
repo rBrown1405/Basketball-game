@@ -26,7 +26,9 @@
 
   const WALK = gaitSet({
     pelPitch: 4, spFlex: 3, chFlex: 2, nkFlex: -3, hdFlex: 2,
-    rootZ: [[0, -0.004], [0.25, 0.009], [0.5, -0.004], [0.75, 0.009]],
+    // pelvis: lowest just after heel strike (double support), highest in midstance (inverted pendulum); the
+    // reach limit keeps the stance knee near straight (~5 deg), the dip lets it flex ~15 deg in loading response
+    rootZ: [[0, -0.016], [0.08, -0.019], [0.3, 0.006], [0.5, -0.016], [0.58, -0.019], [0.8, 0.006]],
     pelTwist: [[0, 5], [0.25, 0], [0.5, -5], [0.75, 0]],
     pelRoll: [[0.1, -4], [0.32, 0], [0.6, 4], [0.82, 0]],
     chTwist: [[0, -7], [0.25, 0], [0.5, 7], [0.75, 0]],
@@ -82,23 +84,33 @@
     chTwist: [[0, -2], [0.5, 2]],
   });
 
+  // walk/run transition: people switch gaits at ~2.0-2.1 m/s (6.6-6.9 ft/s); the switch is quick, not a long blend
+  const WALK_MAX = 6.2, RUN_MIN = 7.4;
   /** cadence (steps per second) for a ground speed in ft/s, scaled by height */
   function stepsPerSec(speed, H) {
     const s = Math.abs(speed);
+    H = Math.max(5, H || 6.5);
+    // walking: the "walk ratio" (step length / cadence) stays nearly constant across speeds and scales with
+    // stature (~0.0039 x height per step/min), so cadence = sqrt(60 v / WR): ~103 steps/min for a 6'6" player
+    // at 1.37 m/s (step ~0.40 x height), ~84 at a stroll, ~120 walking briskly
+    const walk = Math.sqrt(60 * Math.max(0.6, s) / (0.0039 * H)) / 60;
+    // running: ~150-165 steps/min jogging, 170-185 running, 190+ sprinting (taller athletes a little lower)
     let c;
-    if (s < 4.5) c = U.lerp(1.6, 1.9, s / 4.5);
-    else if (s < 8) c = U.lerp(1.9, 2.5, (s - 4.5) / 3.5);
-    else if (s < 12) c = U.lerp(2.5, 2.8, (s - 8) / 4);
-    else if (s < 18) c = U.lerp(2.8, 3.3, (s - 12) / 6);
-    else c = U.lerp(3.3, 3.8, Math.min(1, (s - 18) / 7));
-    return c * Math.sqrt(6.6 / Math.max(5, H));
+    if (s < 8) c = U.lerp(2.45, 2.55, U.clamp((s - RUN_MIN) / (8 - RUN_MIN), 0, 1));
+    else if (s < 12) c = U.lerp(2.55, 2.8, (s - 8) / 4);
+    else if (s < 18) c = U.lerp(2.8, 3.25, (s - 12) / 6);
+    else c = U.lerp(3.25, 3.7, Math.min(1, (s - 18) / 7));
+    const run = c * Math.sqrt(6.6 / H);
+    if (s <= WALK_MAX) return walk;
+    if (s >= RUN_MIN) return run;
+    return U.lerp(walk, run, U.smooth((s - WALK_MAX) / (RUN_MIN - WALK_MAX)));
   }
   /** gait blend weights {walk, jog, sprint} */
   function gaitWeights(speed, out) {
     const s = Math.abs(speed);
     let w = 1, j = 0, r = 0;
-    if (s > 5.5) { const t = U.smooth((s - 5.5) / 3.5); w = 1 - t; j = t; }
-    if (s > 13) { const t = U.smooth((s - 13) / 7); j *= 1 - t; r = t; if (s > 9) w = 0; }
+    if (s > WALK_MAX) { const t = U.smooth((s - WALK_MAX) / (RUN_MIN - WALK_MAX)); w = 1 - t; j = t; }
+    if (s > 13) { const t = U.smooth((s - 13) / 7); j *= 1 - t; r = t; w = 0; }
     out.walk = w; out.jog = j; out.sprint = r;
     return out;
   }
@@ -108,13 +120,21 @@
     // stance share of the stride (ground contact): walking ~60%, running ~31-33%, sprinting ~22-25% (gait studies)
     out.beta = gw.walk * 0.6 + gw.jog * 0.33 + gw.sprint * 0.24;
     out.lift = gw.walk * 0.05 + gw.jog * 0.2 + gw.sprint * 0.29;
-    // share of the contact that happens ahead of the hip: runners land close under the body, not reaching out
-    out.reach = gw.walk * 0.5 + gw.jog * 0.4 + gw.sprint * 0.36;
-    out.halfW = gw.walk * 0.032 + gw.jog * 0.022 + gw.sprint * 0.016;
+    // how far ahead of the body the ankle lands, as a share of the contact length: a walker's heel strikes about
+    // 0.16 x height ahead of the hip (leg ~20 deg forward), runners land close under the body, not reaching out
+    out.reach = gw.walk * 0.37 + gw.jog * 0.4 + gw.sprint * 0.36;
+    // step width: ~8-10 cm between the feet when walking (a wide base is a toddler trait), narrower when running
+    out.halfW = gw.walk * 0.024 + gw.jog * 0.02 + gw.sprint * 0.016;
     out.liftPow = gw.walk * 0.85 + gw.jog * 0.62 + gw.sprint * 0.58;
     out.drop = gw.walk * 0.006 + gw.jog * 0.02 + gw.sprint * 0.03;
-    out.toePitch = (gw.walk * 32 + gw.jog * 48 + gw.sprint * 58) * D;
-    out.landPitch = (gw.walk * -10 + gw.jog * 2 + gw.sprint * 6) * D;
+    // foot angle at toe-off: ~55-60 deg walking (knee ~40 deg, ankle plantarflexed ~15-20 deg), steeper running
+    out.toePitch = (gw.walk * 56 + gw.jog * 52 + gw.sprint * 60) * D;
+    // heel off at ~30-35% of the walking cycle (terminal stance); runners roll up much sooner
+    out.heelOff = gw.walk * 0.5 + gw.jog * 0.35 + gw.sprint * 0.2;
+    // initial contact: heel strike with the toes ~20 deg up when walking, a flatter rearfoot/midfoot jogging
+    // strike, forefoot when sprinting; `roll` = share of the cycle it takes the forefoot to come down
+    out.landPitch = (gw.walk * -20 + gw.jog * -7 + gw.sprint * 6) * D;
+    out.roll = gw.walk * 0.1 + gw.jog * 0.05 + gw.sprint * 0.03;
     return out;
   }
 
@@ -156,14 +176,14 @@
   // ------------------------------------------------------------ stances
   // feet: [x (right, H-fraction), y (forward)] for L and R ball-of-foot positions; yaw offsets (deg, + = toes out)
   const STANCE = {
-    stand: { pose: 'stand', L: [-0.07, 0.005], R: [0.075, -0.01], yaw: 9, gaitArms: 1, gaitTorso: 1 },
-    ready: { pose: 'ready', L: [-0.1, 0.035], R: [0.1, -0.02], yaw: 12, gaitArms: 0.8, gaitTorso: 0.8 },
-    defense: { pose: 'defense', L: [-0.17, 0.03], R: [0.17, -0.02], yaw: 16, gaitArms: 0.15, gaitTorso: 0.3, slide: true },
-    defenseWide: { pose: 'defenseWide', L: [-0.17, 0.02], R: [0.17, 0.0], yaw: 16, gaitArms: 0.12, gaitTorso: 0.3, slide: true },
-    triple: { pose: 'triple', L: [-0.1, 0.07], R: [0.11, -0.06], yaw: 14, gaitArms: 0.3, gaitTorso: 0.6 },
-    holdChest: { pose: 'holdChest', L: [-0.09, 0.03], R: [0.09, -0.01], yaw: 12, gaitArms: 0.2, gaitTorso: 0.7 },
-    shotPocket: { pose: 'shotPocket', L: [-0.085, 0.03], R: [0.09, 0.0], yaw: 10, gaitArms: 0.2, gaitTorso: 0.7 },
-    handsHips: { pose: 'handsHips', L: [-0.08, 0.0], R: [0.08, 0.0], yaw: 10, gaitArms: 0.1, gaitTorso: 1 },
+    stand: { pose: 'stand', L: [-0.07, 0.09], R: [0.075, 0.075], yaw: 9, gaitArms: 1, gaitTorso: 1 },
+    ready: { pose: 'ready', L: [-0.1, 0.12], R: [0.1, 0.065], yaw: 12, gaitArms: 0.8, gaitTorso: 0.8 },
+    defense: { pose: 'defense', L: [-0.17, 0.115], R: [0.17, 0.065], yaw: 16, gaitArms: 0.15, gaitTorso: 0.3, slide: true },
+    defenseWide: { pose: 'defenseWide', L: [-0.17, 0.105], R: [0.17, 0.085], yaw: 16, gaitArms: 0.12, gaitTorso: 0.3, slide: true },
+    triple: { pose: 'triple', L: [-0.1, 0.155], R: [0.11, 0.025], yaw: 14, gaitArms: 0.3, gaitTorso: 0.6 },
+    holdChest: { pose: 'holdChest', L: [-0.09, 0.115], R: [0.09, 0.075], yaw: 12, gaitArms: 0.2, gaitTorso: 0.7 },
+    shotPocket: { pose: 'shotPocket', L: [-0.085, 0.115], R: [0.09, 0.085], yaw: 10, gaitArms: 0.2, gaitTorso: 0.7 },
+    handsHips: { pose: 'handsHips', L: [-0.08, 0.085], R: [0.08, 0.085], yaw: 10, gaitArms: 0.1, gaitTorso: 1 },
   };
 
   // ------------------------------------------------------------ clips

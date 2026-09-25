@@ -99,7 +99,8 @@
       this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur, drib: true };
       this.dr = {
         actor, hand: hand == null ? (actor.lefty ? 0 : 1) : hand,
-        u: prev ? prev.u : 0.02, period: o.period || 0.5, low: o.low || 0,
+        // a relaxed control dribble is ~1.4 bounces per second (0.70-0.74 s); players differ a little
+        u: prev ? prev.u : 0.02, period: o.period || 0.64 + ((actor.uid * 37) % 10) * 0.008, low: o.low || 0,
         move: o.move || null, // {type:'cross'|'btl'|'btb', toHand, t}
         cx: 0, cy: 0, planned: false, pickup: false,
         tx: 0, ty: 0,
@@ -403,19 +404,28 @@
       }
     }
 
+    /**
+     * Dribble cycle (u = 0..1), modelled on measured dribbling:
+     *  push   - the hand drives the ball down ~0.14 H from the top of the bounce (elbow extends, wrist snaps)
+     *  flight - release ~4 m/s, floor bounce (FIBA restitution ~0.77), rise to the waiting hand
+     *  ride   - the hand catches it below the waist and rides it up ~0.07 H to hip height (elbow flexes)
+     * Phase shares come from the ball's physics at real gravity, then the whole cycle is time-scaled to the
+     * cadence (bounce per step or per two steps when moving). Ball and hand paths are body-local so the
+     * ball stays in the hand at release and catch whatever the dribbler does.
+     */
     _dribble(dt) {
       const d = this.dr, a = d.actor;
       if (!a) return;
       const H = a.H;
-      // cadence: synced to the gait when moving
+      // cadence: control dribble ~0.64-0.72 s; when moving, a bounce every step or every other step
       let period = d.period;
       if (a.gaitOn && a.speed > 2) {
-        const cyc = 2 / M.Anims.stepsPerSec(a.speed, H);
-        period = a.speed > 13 ? cyc : cyc * 0.5;
-        period = U.clamp(period, 0.3, 0.8);
+        const sps = M.Anims.stepsPerSec(a.speed, H);
+        const n = U.clamp(Math.round(0.68 * sps), 1, 3);
+        period = U.clamp(n / sps, 0.42, 0.9);
       }
       if (d.pendingMove && d.u < 0.08) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = false; }
-      if (d.move && !d.moveStarted && d.u < 0.1) d.moveStarted = true;
+      if (d.move && !d.moveStarted && d.u < 0.1) { d.moveStarted = true; d.planned = false; }
       if (d.move && d.moveStarted) period = d.move.period;
       d.curPeriod = period;
       const u0 = d.u;
@@ -425,39 +435,151 @@
         if (d.move && d.moveStarted) {
           d.hand = d.move.toHand;
           const cb = d.move.onDone; d.move = null;
-          a.dribble = { hand: d.hand, w: 1 };
           if (cb) U.safe(cb, null, 'dribble move');
         }
         d.planned = false;
       }
-      // plan the floor contact at the start of each bounce
-      const topA = a.dribbleTop(d.hand, TA);
-      if (!d.planned) {
-        d.planned = true;
-        const lead = period * 0.5;
-        const c = Math.cos(a.facing), s = Math.sin(a.facing);
-        let cx = topA[0] + a.vx * lead + c * (0.08 * H), cy = topA[1] + a.vy * lead + s * (0.08 * H);
-        if (d.move) {
-          const mid = a.local(0, 0.14 * H, 0, TB);
-          if (d.move.type === 'cross') { cx = mid[0] + a.vx * lead; cy = mid[1] + a.vy * lead; }
-          else if (d.move.type === 'btl') { const m2 = a.local(0, 0.02 * H, 0, TB); cx = m2[0] + a.vx * lead; cy = m2[1] + a.vy * lead; }
-          else if (d.move.type === 'btb') { const m3 = a.local(0, -0.12 * H, 0, TB); cx = m3[0] + a.vx * lead; cy = m3[1] + a.vy * lead; }
-        }
-        d.cx = cx; d.cy = cy;
+      if (!d.planned) { this._planBounce(d, a); d.planned = true; }
+      const pl = d.plan;
+      const u = d.u;
+      const moving = d.move && d.moveStarted;
+      const endHand = moving ? d.move.toHand : d.hand;
+      // --- ball, body-local (x toward the dribble hand side of the body, y forward, z up; feet)
+      let lx, ly, lz, ph, s;
+      const uP = pl.uP, uB = pl.uB, uC = pl.uC;
+      if (u < uP) {
+        ph = 'push'; s = u / uP;
+        // starts where the last ride ended (no pop when the height changes between bounces)
+        lz = pl.top0 - (pl.top0 - pl.rel) * s * s;
+        lx = U.lerp(pl.tx0, pl.rx, s * s); ly = U.lerp(pl.ty0, pl.ry, s * s);
+      } else if (u < uB) {
+        ph = 'down'; s = (u - uP) / (uB - uP);
+        const t = s * pl.tD;
+        lz = Math.max(R, pl.rel - pl.vRel * t - 0.5 * pl.g * t * t);
+        const k0 = (pl.top - pl.rel) / Math.max(0.01, pl.top - R);
+        const k = U.lerp(k0, 1, s);
+        lx = U.lerp(pl.tx, pl.cx, k); ly = U.lerp(pl.ty, pl.cy, k);
+      } else if (u < uC) {
+        ph = 'up'; s = (u - uB) / (uC - uB);
+        const t = s * pl.tU;
+        lz = Math.min(pl.ctop, R + pl.vUp * t - 0.5 * pl.g * t * t);
+        lx = U.lerp(pl.cx, pl.qx, s); ly = U.lerp(pl.cy, pl.qy, s);
+      } else {
+        ph = 'ride'; s = (u - uC) / (1 - uC);
+        lz = pl.ctop - (pl.ctop - pl.ccatch) * (1 - s) * (1 - s);
+        lx = U.lerp(pl.qx, pl.qtx, s); ly = U.lerp(pl.qy, pl.qty, s);
       }
-      // hand for the second half of a move is the receiving hand
-      const endHand = d.move && d.moveStarted ? d.move.toHand : d.hand;
-      const topB = d.u > 0.5 ? a.dribbleTop(endHand, TB) : topA;
-      const top = d.u > 0.5 ? topB : topA;
-      const k = 1 - Math.abs(Math.cos(Math.PI * d.u)); // 0 at hand, 1 at floor
-      const zTop = top[2] - 0.02 * H;
-      this.x = U.lerp(top[0], d.cx, k);
-      this.y = U.lerp(top[1], d.cy, k);
-      this.z = R + (zTop - R) * (1 - k);
-      if (u0 < 0.5 && d.u >= 0.5) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1)); }
+      const sd = pl.side; // +1: right hand side of the body
+      const wp = a.local(sd * lx, ly, lz, TB);
+      this.x = wp[0]; this.y = wp[1]; this.z = wp[2];
+      if (u0 < uB && d.u >= uB) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1)); }
       // forward roll spin
       this.setSpinAlong(a.vx || 0.01, a.vy || 0, -(a.speed + 3) / R * 0.4);
-      a.dribble = { hand: d.u > 0.5 ? endHand : d.hand, w: 1, u: d.u };
+      // --- the dribbling hand (wrist IK target + wrist angle); the other hand takes over on a crossover
+      const pr = R + 0.01 * H;
+      const handOn = (bx, by, bz, handSign, o) => {
+        // palm (finger pads) on the top-back-outside of the ball; the actor corrects its wrist so the hand
+        // lands exactly here (bx is the signed body-local x of the ball centre)
+        o.x = bx + handSign * 0.3 * pr; o.y = by - 0.28 * pr; o.z = bz + 0.91 * pr;
+        return o;
+      };
+      const hd = a.dribble && a.dribble.ball === this ? a.dribble : (a.dribble = { ball: this, w: 1 });
+      hd.ball = this; hd.w = 1; hd.u = u; hd.ph = ph; hd.s = s;
+      const ACT = HO1, RCV = HO2;
+      let wr; // wrist flexion (deg; + = flexed / fingers down, - = cocked back)
+      if (ph === 'push') {
+        handOn(sd * lx, ly, lz, sd, ACT);
+        wr = U.lerp(-32, 26, U.smooth(s));
+        hd.hand = d.hand; hd.act = 1;
+      } else if (ph === 'ride') {
+        handOn(sd * lx, ly, lz, pl.rside, ACT);
+        wr = U.lerp(-18, -34, U.smooth(s));
+        hd.hand = endHand; hd.act = 1;
+      } else {
+        // free flight: the hand follows through a little, then waits low and rises to meet the ball
+        const f = (u - uP) / (uC - uP);
+        const rel = handOn(sd * pl.rx, pl.ry, pl.rel, sd, RCV);
+        const rx0 = rel.x, ry0 = rel.y, rz0 = rel.z;
+        const cat = handOn(sd * pl.qx, pl.qy, pl.ccatch, pl.rside, ACT);
+        if (moving && d.move.toHand !== d.hand) {
+          // crossover / between the legs / behind the back: the old hand lets go, the new hand meets the ball
+          hd.hand = f < 0.5 ? d.hand : endHand;
+          const e = U.smooth((f - 0.25) / 0.65);
+          ACT.x = cat.x; ACT.y = cat.y; ACT.z = cat.z - 0.04 * H * (1 - e);
+          hd.act = f < 0.5 ? 1 - U.smooth(f / 0.5) * 0.9 : 0.1 + 0.9 * U.smooth((f - 0.5) / 0.4);
+          if (f < 0.5) { ACT.x = rx0; ACT.y = ry0; ACT.z = rz0 - 0.03 * H * Math.sin(Math.PI * Math.min(1, f * 2)); }
+        } else {
+          const e = U.smooth(U.clamp((f - 0.12) / 0.78, 0, 1));
+          const dip = 0.035 * H * Math.sin(Math.PI * U.clamp(f / 0.3, 0, 1));
+          ACT.x = U.lerp(rx0, cat.x, e); ACT.y = U.lerp(ry0, cat.y, e); ACT.z = U.lerp(rz0, cat.z, e) - dip;
+          hd.hand = d.hand; hd.act = 1;
+        }
+        wr = f < 0.3 ? U.lerp(26, 8, f / 0.3) : U.lerp(8, -18, U.smooth((f - 0.3) / 0.7));
+      }
+      const w = a.local(ACT.x, ACT.y, ACT.z, TC);
+      hd.wx = w[0]; hd.wy = w[1]; hd.wz = w[2]; hd.wrF = wr; hd.palm = 1;
+    }
+    /** geometry and physics of the next bounce (heights in feet, body-local) */
+    _planBounce(d, a) {
+      const H = a.H;
+      const moving = d.move && (d.move.type === 'cross' || d.move.type === 'btl' || d.move.type === 'btb');
+      const side = d.hand ? 1 : -1;
+      const recv = moving ? d.move.toHand : d.hand;
+      const rside = recv ? 1 : -1;
+      const low = U.clamp(Math.max(d.low || 0, a.dribbleLow || 0), 0, 1);
+      const spK = U.smooth((a.speed - 6) / 12);
+      // heights of the ball centre: top of the ride ~hip height (0.52 H), catch ~0.07 H lower, release
+      // ~0.14 H below the top; low/protect dribble at the knees; speed dribble waist to chest
+      let top = (0.5 - 0.2 * low + 0.09 * spK) * H;
+      let ride = (0.07 - 0.035 * low) * H;
+      let push = (0.14 - 0.06 * low + 0.02 * spK) * H;
+      // ball placement: outside the dribble-side foot (>= 0.2 H from the midline), a little in front;
+      // pushed out ahead of the body when running
+      const tx = 0.2 * H, ty = (0.13 + 0.14 * spK) * H;
+      let cx = 0.21 * H, cy = ty + (0.05 + 0.22 * spK) * H;
+      let qx = 0.2 * H, qy = (0.13 + 0.14 * spK) * H; // catch point (receiving hand side)
+      let ctop = top;
+      if (moving) {
+        // crossovers stay low (a sharp "V" below the knees): the new hand catches the ball at the knees and
+        // rides it up to the thigh, then the dribble climbs back to its normal height
+        push = Math.max(push, (0.2 - 0.05 * low) * H);
+        ctop = (0.4 - 0.12 * low) * H;
+        ride = ctop - (0.28 - 0.06 * low) * H;
+        // the ball crosses the midline: in front (crossover), under the body (between the legs), behind the back
+        cx = 0;
+        cy = d.move.type === 'cross' ? ty + 0.06 * H : d.move.type === 'btl' ? 0.06 * H : -0.14 * H;
+      }
+      const rel = Math.max(R + 0.05 * H, top - push);
+      const ccatch = ctop - ride;
+      const pl = d.plan || (d.plan = {});
+      // where the previous bounce's ride ended (in this bounce's side convention): the push starts there
+      const hadPrev = pl.ctop != null && d.planActor === a;
+      const top0 = U.clamp(hadPrev ? pl.ctop : top, rel + 0.02 * H, top + 0.12 * H);
+      pl.tx0 = hadPrev ? Math.abs(pl.qtx) : tx; pl.ty0 = hadPrev ? pl.qty : ty;
+      d.planActor = a;
+      const e = 0.77; // FIBA: a ball dropped from 1.8 m rebounds 1.035-1.085 m
+      const g = G;
+      const vc = (moving ? 5.5 : 4.5 + 2 * spK); // ball speed when the hand meets it (ft/s)
+      // upward speed off the floor needed to reach the catch height at speed vc
+      const vUp = Math.sqrt(vc * vc + 2 * g * Math.max(0.05, ccatch - R));
+      const vImp = vUp / e;
+      const vRel = Math.sqrt(Math.max(4, vImp * vImp - 2 * g * Math.max(0.05, rel - R)));
+      const tP = 2 * (top0 - rel) / vRel; // push: constant acceleration from rest
+      const tD = (vImp - vRel) / g, tU = (vUp - vc) / g;
+      const tR = 2 * (ride) / vc; // ride: decelerate to rest at the top
+      const T = tP + tD + tU + tR;
+      // time-scale the physical cycle to the cadence: positions keep their shape, "gravity" scales
+      const k = T / Math.max(0.2, d.curPeriod || d.period);
+      pl.side = side; pl.rside = rside;
+      pl.top = top; pl.top0 = top0; pl.rel = rel; pl.ctop = ctop; pl.ccatch = ccatch;
+      pl.uP = tP / T; pl.uB = (tP + tD) / T; pl.uC = (tP + tD + tU) / T;
+      pl.tD = tD / k; pl.tU = tU / k; pl.g = g * k * k; pl.vRel = vRel * k; pl.vUp = vUp * k;
+      pl.tx = tx; pl.ty = ty; pl.cx = cx; pl.cy = cy;
+      // release point (along the push line) and catch point, x in the old hand's side convention
+      const kr = (top - rel) / Math.max(0.01, top - R);
+      pl.rx = U.lerp(tx, cx, kr); pl.ry = U.lerp(ty, cy, kr);
+      // catch / ride points are on the receiving hand's side: convert to the old hand's convention
+      pl.qx = qx * rside * side; pl.qy = qy; pl.qtx = tx * rside * side; pl.qty = ty;
     }
 
     // ------------------------------------------------------------ drawing
@@ -511,7 +633,8 @@
     }
   }
 
-  const TA = new Float64Array(3), TB = new Float64Array(3), TMP3 = [0, 0, 0];
+  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), TMP3 = [0, 0, 0];
+  const HO1 = { x: 0, y: 0, z: 0 }, HO2 = { x: 0, y: 0, z: 0 };
   const RM = new Float64Array(9);
   /** rot = R(axis, ang) * rot */
   function rotMul(m, ax, ay, az, ang) {

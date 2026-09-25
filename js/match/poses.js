@@ -8,7 +8,7 @@
   const P = RG.pose;
 
   const BASE = P({
-    rootZ: -0.004, pelPitch: 4, spFlex: 2, chFlex: 2, nkFlex: -3, hdFlex: 3,
+    rootZ: 0, pelPitch: 4, spFlex: 2, chFlex: 2, nkFlex: -3, hdFlex: 3,
     both: { ShF: 4, ShA: 8, ShT: 6, ElF: 14, Pro: 78, WrF: 6, Fing: 0.35, HipF: 4, HipA: 3, HipT: -6, Knee: 6, Ank: 0 },
   });
 
@@ -17,7 +17,7 @@
 
   // --- standing / idle (weight slightly on the right leg)
   def('stand', {
-    rootZ: -0.006, pelPitch: 5, pelRoll: 2, spFlex: 2, spLat: -1, chFlex: 1, nkFlex: -4, hdFlex: 4,
+    rootZ: 0, pelPitch: 5, pelRoll: 2, spFlex: 2, spLat: -1, chFlex: 1, nkFlex: -4, hdFlex: 4,
     lClvE: 0, rClvE: 0,
     lShF: 2, lShA: 9, lShT: 8, lElF: 16, lPro: 80, lWrF: 8,
     rShF: 5, rShA: 7, rShT: 6, rElF: 12, rPro: 76, rWrF: 5,
@@ -25,7 +25,7 @@
   });
   // hands on hips (dead ball)
   def('handsHips', {
-    rootZ: -0.006, pelPitch: 4, spFlex: -2, chFlex: -2, nkFlex: -2,
+    rootZ: -0.002, pelPitch: 4, spFlex: -2, chFlex: -2, nkFlex: -2,
     both: { ShF: -18, ShA: 42, ShT: -25, ElF: 105, Pro: 20, WrF: -20, Fing: 0.2, HipF: 4, HipA: 5, Knee: 6 },
   });
   // athletic ready stance (offense, no ball)

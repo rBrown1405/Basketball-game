@@ -53,6 +53,7 @@
       this.clockEnd = poss.clockEnd == null ? Math.max(0, this.clockStart - this.maxEventT()) : +poss.clockEnd;
       this.sc0 = 24; this.scT = 0; this.shotClockOn = true;
       this.lastShot = null; this.pendingRebound = null; this.madeShot = null;
+      this.swing = null; this._soonAt = -1; this._driveReactT = 0; this._swingCheck = 0;
       this.watch = this.T0 + this.maxEventT() * 2 + 60;
       this.phase = 'start';
       this.tempo = this.play === 'transition' ? 'push' : 'normal';
@@ -256,15 +257,15 @@
       let order;
       switch (kind) {
         case 'transition': order = ['top', 'cornerN', 'cornerF', 'blockF', 'slotF']; break;
-        case 'advance': order = ['top', 'wingN', 'wingF', 'blockN', 'elbowF']; break;
+        case 'advance': order = ['top', 'wingN', 'wingF', 'cornerF', 'dunkerN']; break;
         case 'pnr': order = ['top', 'cornerN', 'wingF', 'cornerF', 'elbowN']; break;
         case 'iso': order = ['wingN', 'cornerF', 'wingF', 'top', 'dunkerF']; break;
-        case 'post': order = ['wingN', 'topR', 'cornerF', 'slotF', 'blockN']; break;
+        case 'post': order = ['wingN', 'top', 'cornerF', 'wingF', 'blockN']; break;
         case 'spot': order = ['top', 'wingN', 'wingF', 'cornerN', 'cornerF']; break;
         case 'offscreen': order = ['top', 'blockN', 'wingF', 'cornerF', 'elbowN']; break;
         case 'handoff': order = ['wingN', 'cornerN', 'cornerF', 'wingF', 'high']; break;
         case 'cut': order = ['top', 'wingN', 'wingF', 'cornerF', 'high']; break;
-        default: order = ['top', 'wingN', 'wingF', 'cornerN', 'blockF'];
+        default: order = ['top', 'wingN', 'wingF', 'cornerN', 'dunkerF'];
       }
       // handler gets the first spot; bigs (C/PF, idx 3-4) prefer the last spot
       const list = offs.slice();
@@ -281,6 +282,7 @@
       }
       for (const id of offs) {
         const r = this.role[id] || (this.role[id] = { mode: 'spot', jx: 0, jy: 0, next: 0 });
+        r.path = null; r.pathSpot = null; r.probe = null;
         r.spotName = assigned[id] || 'top';
         r.spot = this.spotPt(r.spotName);
         if (r.mode !== 'locked') r.mode = 'spot';
@@ -302,7 +304,31 @@
       if (!actor) return 0;
       if (b.holder === actor) return 0;
       if (allowFlight && b.state === 'flight' && b.passTarget === actor) return Math.max(0, b.flightEnd() - b.time);
+      // a pass is still in the air: let it be caught, then move it on (never re-route the ball mid-flight)
+      if (b.state === 'flight' && b.passTarget && b.passTarget !== actor && b.passTarget.team === actor.team) {
+        const left = Math.max(0, b.flightEnd() - b.time) + 0.2;
+        const via = b.passTarget;
+        const dur = U.clamp(Math.hypot(actor.x - via.x, actor.y - via.y) / 36, 0.25, 1.2);
+        this.at(this.T + left, () => {
+          if (b.holder === actor) return;
+          if (b.holder && b.holder.team === actor.team && !b.holder.isBusy()) this.passBall(b.holder, actor, 'chest', dur, null);
+          else if (!(b.state === 'flight' && b.passTarget === actor)) this.giveBall(actor, 'chest');
+        }, 'relay pass');
+        return left + dur + 0.05;
+      }
+      if (b.state === 'flight' && b.passTarget === actor) return Math.max(0, b.flightEnd() - b.time);
       const h = b.holder;
+      if (h && h !== actor && h.team === actor.team && h.isBusy() && h.clip) {
+        // the holder is still finishing an action (landing, a catch): pass it as soon as he's free
+        const left = Math.max(0.1, (h.clip.clip.dur - h.clip.t) / (h.clip.speed || 1) - 0.1);
+        const dur = U.clamp(Math.hypot(actor.x - h.x, actor.y - h.y) / 36, 0.25, 1.2);
+        this.at(this.T + left, () => {
+          if (b.holder === actor) return;
+          if (b.holder === h) { if (h.isBusy()) h.stopClip(); this.passBall(h, actor, 'chest', dur, null); }
+          else if (!(b.state === 'flight' && b.passTarget === actor)) this.giveBall(actor, 'chest');
+        }, 'pass when free');
+        return left + dur + 0.05;
+      }
       if (h && h.team === actor.team && !h.isBusy()) {
         // implicit quick pass
         const d = Math.hypot(actor.x - h.x, actor.y - h.y);
@@ -340,15 +366,37 @@
       const v = this.v, b = v.ball;
       const T = this.T;
       // offense
+      const flow = this.flowOK ? this.flowOK() : false;
+      if (flow) { this.flowBall(); this.flowDriveReact(); }
       for (const a of this.offActors()) {
         const r = this.role[a.id];
         if (!r || a.isBusy()) continue;
-        if (r.mode === 'locked' || r.until > T) continue;
-        if (b.holder === a) { this.handlerAmbient(a, r, dt); continue; }
+        if (r.mode === 'locked' || r.until > T) { r.path = null; continue; }
+        if (b.holder === a) { r.path = null; if (flow && this.flowHandler(a, r)) continue; r.probe = null; this.handlerAmbient(a, r, dt); continue; }
         if (!r.spot) r.spot = this.spotPt('top');
-        if (T > r.next) this.offBallAction(a, r);
+        // half-court flow: scripted actions (screens, cuts, relocations) take over the player while they run
+        if (r.path) { if (flow && this.flowPath(a, r)) continue; r.path = null; }
+        if (T > r.next) {
+          if (flow) this.flowOffBall(a, r); else this.offBallAction(a, r);
+          if (r.path && this.flowPath(a, r)) continue;
+        }
         // targets always stay in bounds (corners included)
         let tx = this.X(U.clamp(this.U_(r.spot.x + r.jx), 2.2, 91.8)), ty = U.clamp(r.spot.y + r.jy, 2.2, 47.8);
+        // keep the floor spaced: drift away from a teammate who is too close (NBA spacing ~14 ft)
+        if (flow) {
+          let px = 0, py = 0;
+          for (const o of this.offActors()) {
+            if (o === a) continue;
+            const ro = this.role[o.id];
+            const ox = ro && ro.path && ro.pathSpot ? ro.pathSpot.x : o.x, oy = ro && ro.path && ro.pathSpot ? ro.pathSpot.y : o.y;
+            const dx = tx - ox, dy = ty - oy, dd = Math.hypot(dx, dy);
+            if (dd < 14 && dd > 0.01) { const k = (14 - dd) * 0.7; px += dx / dd * k; py += dy / dd * k; }
+          }
+          if (px || py) {
+            const nu = U.clamp(this.U_(tx + px), 2.2, 30), nv = U.clamp(ty + py, 2.5, 47.5);
+            tx = this.X(nu); ty = nv;
+          }
+        }
         // fast break: wings run wide lanes along the sidelines, then fill the corners
         if (this.tempo === 'push') {
           const u = this.U_(a.x);
@@ -360,7 +408,7 @@
         }
         const d = Math.hypot(tx - a.x, ty - a.y);
         const eff = 1 + this.intensity() * 0.14;
-        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, 0.95 * eff) : (d > 12 ? 17 : d > 4 ? 11 : 6) * eff;
+        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, 0.95 * eff) : (d > 14 ? 12 : d > 4 ? 8 : 5) * eff;
         a.moveTo(tx, ty, { speed: sp, face: d > 3 ? 'move' : { x: b.x, y: b.y }, stance: d > 5 ? 'stand' : 'ready' });
         a.lookAt({ x: b.x, y: b.y });
       }
@@ -437,15 +485,37 @@
     }
     trackDefender(a) {
       a._trackOwner = this;
-      a.track(() => this.guardPos(a), { speed: a.maxSpeed, stance: 'defense' });
-      a.setFace((me) => {
-        const b = this.v.ball;
-        const m = this.v.actor(this.matchup[me.id]);
-        if (!m) return Math.atan2(b.y - me.y, b.x - me.x);
-        if (this.v.ball.holder === m) return Math.atan2(m.y - me.y, m.x - me.x);
-        const fx = (m.x + b.x) * 0.5, fy = (m.y + b.y) * 0.5;
-        return Math.atan2(fy - me.y, fx - me.x);
-      });
+      a.track(() => {
+        const p = this.guardPos(a);
+        // squared up a defender slides and backpedals (~13 ft/s at most); only once beaten does he turn and run
+        a.goal.speed = a._dface && a._dface.run ? a.maxSpeed : Math.min(a.maxSpeed, 13.5);
+        return p;
+      }, { speed: a.maxSpeed, stance: 'defense' });
+      a.setFace((me) => this.defFacing(me));
+      a.faceLock = true;
+    }
+    /**
+     * Where a defender's chest points: always at his man (the ball handler squarely; off the ball mostly at
+     * his man, opened a little toward the ball with the eyes on it). Zone defenders face the ball. Only a
+     * defender who has been beaten (left well behind the spot he needs to be in) turns and runs to recover,
+     * then squares up again.
+     */
+    defFacing(me) {
+      const b = this.v.ball;
+      const st = me._dface || (me._dface = { run: false });
+      const lag = Math.hypot(me.goal.x - me.x, me.goal.y - me.y);
+      if (!st.run && lag > 5 && me.speed > 9) st.run = true;
+      else if (st.run && (lag < 2.2 || me.speed < 4)) st.run = false;
+      if (st.run) return me.speed > 3 ? Math.atan2(me.vy, me.vx) : null;
+      const bx = b.holder ? b.holder.x : b.x, by = b.holder ? b.holder.y : b.y;
+      const zone = /zone|boxone/.test(this.scheme) && !(this.scheme === 'boxone' && this.v.onCourt[this.def].indexOf(me.id) === 0);
+      const m = this.v.actor(this.matchup[me.id]);
+      if (zone || !m) { me.lookAt(null); return Math.atan2(by - me.y, bx - me.x); }
+      const toMan = Math.atan2(m.y - me.y, m.x - me.x);
+      if (b.holder === m) { me.lookAt(null); return toMan; }
+      me.lookAt({ x: bx, y: by });
+      const toBall = Math.atan2(by - me.y, bx - me.x);
+      return toMan + U.clamp(U.wrapPi(toBall - toMan) * 0.3, -0.55, 0.55);
     }
     guardPos(a) {
       const v = this.v, b = v.ball;
@@ -469,22 +539,22 @@
       let px, py;
       const hype = this.intensity();
       if (hasBall) {
-        let gap = (scheme === 'pressure' ? 2.6 : scheme === 'packline' ? 4.5 : 3.4) - hype * 0.5;
+        let gap = (scheme === 'pressure' ? 3.6 : scheme === 'packline' ? 5.6 : 4.6) - hype * 0.5;
         if (mu > 32 && scheme !== 'press') gap += U.clamp((mu - 32) * 0.35, 0, 8);
         const dx = rim.x - m.x, dy = rim.y - m.y, dl = Math.hypot(dx, dy) || 1;
         px = m.x + dx / dl * gap; py = m.y + dy / dl * gap;
         a.setStance(mu > 45 && scheme !== 'press' ? 'ready' : 'defense');
       } else {
         const dBall = Math.hypot(m.x - bx, m.y - by);
-        let t = U.clamp(0.22 + dBall / 70, 0.22, 0.5);
+        let t = U.clamp(0.16 + dBall / 105, 0.16, 0.36);
         if (scheme === 'packline') t += 0.12;
         if (scheme === 'nothree' && mu > 21) t -= 0.1;
         px = m.x + (rim.x - m.x) * t; py = m.y + (rim.y - m.y) * t;
         const help = U.clamp((dBall - 14) / 30, 0, 0.4);
-        px += (bx - px) * help * 0.45; py += (by - py) * help * 0.45;
+        px += (bx - px) * help * 0.3; py += (by - py) * help * 0.3;
         if (dBall < 21) { // deny one pass away
           const dx = bx - m.x, dy = by - m.y, dl = Math.hypot(dx, dy) || 1;
-          px = U.lerp(px, m.x + dx / dl * 3.2, 0.45); py = U.lerp(py, m.y + dy / dl * 3.2, 0.45);
+          px = U.lerp(px, m.x + dx / dl * 4.6, 0.38); py = U.lerp(py, m.y + dy / dl * 4.6, 0.38);
         }
         if (mu > 48 && scheme !== 'press') { px = this.X(Math.min(40, mu)); } // don't chase into the backcourt
         a.setStance(dBall < 18 + hype * 10 ? 'defense' : 'ready');
@@ -756,7 +826,7 @@
         if (r) r.until = fireAt;
         const go = () => {
           const eta = fireAt - this.T;
-          h.moveTo(cross.x + this.dir * (push ? 8 : 4), cross.y, { by: this.T + eta * 1.1, speed: push ? h.maxSpeed : 17, face: 'move', stance: 'dribble' });
+          h.moveTo(cross.x + this.dir * (push ? 8 : 4), cross.y, { by: this.T + eta * 1.1, speed: push ? h.maxSpeed : 17, face: 'move', stance: 'dribble', pace: 7 });
           if (v.ball.holder === h) v.ball.dribble(h);
         };
         if (extra > 0) this.at(this.T + extra, go, 'advance go'); else go();
@@ -818,7 +888,7 @@
       const nextSh = this.findNext((e) => (e.type === 'shot' && e.shooter === scr.id) || (e.type === 'pass' && e.to === scr.id));
       beat.onStart = (fireAt) => {
         const r = this.role[scr.id]; if (r) r.until = fireAt + 0.9;
-        scr.moveTo(spot.x, spot.y, { by: fireAt - 0.3, speed: 16, face: userDef ? { x: userDef.x, y: userDef.y } : 'move', stance: 'screen' });
+        scr.moveTo(spot.x, spot.y, { by: fireAt - 0.3, speed: 16, face: userDef ? { x: userDef.x, y: userDef.y } : 'move', stance: 'screen', pace: 6 });
         this.at(fireAt - 0.25, () => scr.setFace(Math.atan2(user.y - scr.y, user.x - scr.x) + Math.PI * 0.5), 'screen face');
         if (onBall) {
           const ru = this.role[user.id]; if (ru) ru.until = fireAt + 0.4;
@@ -826,7 +896,7 @@
         } else {
           const ru = this.role[user.id]; if (ru) ru.until = fireAt + 1.2;
           // user sets up his man then comes off the screen
-          user.moveTo(this.X(6), user.y < 25 ? 12 : 38, { by: fireAt - 0.5, speed: 9 });
+          user.moveTo(this.X(6), user.y < 25 ? 12 : 38, { by: fireAt - 0.5, speed: 9, pace: 5 });
         }
       };
       beat.onFire = () => {
@@ -871,10 +941,10 @@
       beat.onStart = (fireAt) => {
         const rf = this.role[from.id]; if (rf) rf.until = fireAt + 0.8;
         const rt = this.role[to.id]; if (rt) rt.until = fireAt + 0.8;
-        from.moveTo(hoSpot.x, hoSpot.y, { by: fireAt - 0.4, speed: 8, face: { x: to.x, y: to.y }, stance: 'dribble' });
+        from.moveTo(hoSpot.x, hoSpot.y, { by: fireAt - 0.4, speed: 8, face: { x: to.x, y: to.y }, stance: 'dribble', pace: 5 });
         // receiver curls toward the big, arriving at the handoff moment
         const side = to.y < hoSpot.y ? -1 : 1;
-        to.moveTo(hoSpot.x + this.dir * 1.2, hoSpot.y + side * 2.2, { by: fireAt, speed: 16, face: 'move' });
+        to.moveTo(hoSpot.x + this.dir * 1.2, hoSpot.y + side * 2.2, { by: fireAt, speed: 16, face: 'move', pace: 6 });
       };
       beat.onFire = () => {
         // short toss
@@ -965,7 +1035,18 @@
       beat.onStart = (fireAt) => {
         const tCatch = fireAt + flight - 0.05;
         const rt = this.role[to.id]; if (rt) { rt.until = fireAt + flight + 0.5; rt.spot = { x: cs.x, y: cs.y }; rt.jx = 0; rt.jy = 0; }
-        const rf = this.role[from.id]; if (rf) rf.until = fireAt + 0.3;
+        const rf = this.role[from.id];
+        if (rf) {
+          // the passer keeps working (probe dribbles, a swing and return) until shortly before the pass
+          const tLock = fireAt - windup - 0.9;
+          if (tLock - this.T > 1.0 && this.flowOK && this.flowOK()) {
+            rf.until = 0;
+            this.at(tLock, () => {
+              rf.until = fireAt + 0.3; rf.probe = null; rf.path = null;
+              if (!from.isBusy() && v.ball.holder === from) from.moveTo(from.x, from.y, { speed: 3, face: { x: to.x, y: to.y }, stance: 'dribble' });
+            }, 'passer set');
+          } else rf.until = fireAt + 0.3;
+        }
         const d0 = Math.hypot(to.x - cs.x, to.y - cs.y);
         if (tCatch - this.T > 2.2 && d0 < 10 && !to.isBusy() && kind !== 'alley') {
           // get open instead of waiting on the spot: move freely around the catch spot, then a v-cut
@@ -982,7 +1063,7 @@
           }, 'v-cut in');
           this.at(tPop, () => { if (v.ball.holder !== to) to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move' }); }, 'v-cut out');
         } else {
-          to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move' });
+          to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move', pace: 5.5 });
         }
         this.at(fireAt + flight - 0.45, () => to.setFace({ x: from.x, y: from.y }), 'face passer');
         this.at(Math.max(this.T + extra, fireAt - windup - 0.02), () => {
@@ -1147,8 +1228,18 @@
       beat.onStart = (fireAt) => {
         const clipStart = fireAt - rel;
         const r = this.role[sh.id]; if (r) r.until = fireAt + 2.5;
-        sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: rimShot ? 'move' : this.rim, stance: b.holder === sh ? 'dribble' : 'ready' });
-        if (b.holder === sh && b.state === 'held' && !catchAndShoot && Math.hypot(sh.x - origin.x, sh.y - origin.y) > 2) b.dribble(sh);
+        const approach = () => {
+          if (r) { r.until = fireAt + 2.5; r.probe = null; r.probeAnchor = null; r.path = null; }
+          sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: rimShot ? 'move' : this.rim, stance: b.holder === sh ? 'dribble' : 'ready', pace: rimShot ? 8 : 5.5 });
+          if (b.holder === sh && b.state === 'held' && !catchAndShoot && Math.hypot(sh.x - origin.x, sh.y - origin.y) > 2) b.dribble(sh);
+        };
+        // a long wait with the ball in his hands: he works it (probe dribbles around his spot) and only then
+        // goes into the shot, instead of creeping to the spot in slow motion
+        const tApp = clipStart - (Math.hypot(sh.x - origin.x, sh.y - origin.y) / (sh.maxSpeed * 0.7) + 0.7);
+        if (r && b.holder === sh && !catchAndShoot && !standFinish && tApp - this.T > 1.2 && this.flowOK && this.flowOK()) {
+          r.until = 0; r.probe = null; r.probeAnchor = { x: origin.x, y: origin.y };
+          this.at(tApp, approach, 'shot approach');
+        } else approach();
         this.at(clipStart, () => {
           if (b.holder !== sh && !(b.state === 'flight' && b.passTarget === sh)) this.giveBall(sh, 'pocket');
           sh.stopClip(0);
@@ -1747,7 +1838,7 @@
         const tRelease = fireAt - tFlight;
         const tClip = tRelease - rel;
         const r = this.role[sh.id]; if (r) r.until = fireAt + 1.5;
-        sh.moveTo(spot.x, spot.y, { by: tClip - routine + 0.3, speed: 12, face: facing, stance: 'stand' });
+        sh.moveTo(spot.x, spot.y, { by: tClip - routine + 0.3, speed: 12, face: facing, stance: 'stand', pace: 4.4 });
         // ref bounces the ball to the shooter
         if (lead) {
           // the official bounces the ball to the shooter from beside the lane, then steps out to the baseline so

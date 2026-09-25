@@ -589,16 +589,17 @@
   L.postD = P({ rootZ: -0.09, pelPitch: 26, spFlex: 6, chFlex: -2, nkFlex: -24, lShF: 70, lShA: 30, lElF: 40, lPro: 0, rShF: 140, rShA: 30, rElF: 30, both: { HipF: 46, HipA: 20, HipT: -10, Knee: 58, Ank: 16 } }, M.Poses.BASE);
   L.inbound = P({ rootZ: -0.01, pelPitch: 4, spFlex: -2, nkFlex: -8, both: { ShF: 160, ShA: 22, ElF: 70, Pro: 10, WrF: -30, HipF: 8, HipA: 6, Knee: 12 } }, M.Poses.BASE);
   L.handsKnees = P({ rootZ: -0.08, pelPitch: 40, spFlex: 20, chFlex: 8, nkFlex: -30, both: { ShF: 40, ShA: 10, ShT: 20, ElF: 10, Pro: 60, WrF: 10, HipF: 50, HipA: 8, Knee: 40, Ank: 14 } }, M.Poses.BASE);
-  L.refStand = P({ rootZ: -0.006, pelPitch: 3, spFlex: -1, chFlex: -2, nkFlex: -4, both: { ShF: -12, ShA: 12, ShT: -20, ElF: 30, Pro: 60, WrF: 0, Fing: 0.5, HipF: 3, HipA: 4, Knee: 4 } }, M.Poses.BASE);
-  L.dribbleLow = P({ rootZ: -0.08, pelPitch: 26, spFlex: 12, chFlex: 6, nkFlex: -26, lShF: 50, lShA: 30, lElF: 90, lPro: 20, rShF: 30, rShA: 20, rElF: 60, both: { HipF: 40, HipA: 12, HipT: -10, Knee: 50, Ank: 14 } }, M.Poses.BASE);
+  L.refStand = P({ rootZ: 0, pelPitch: 3, spFlex: -1, chFlex: -2, nkFlex: -4, both: { ShF: -12, ShA: 12, ShT: -20, ElF: 30, Pro: 60, WrF: 0, Fing: 0.5, HipF: 3, HipA: 4, Knee: 4 } }, M.Poses.BASE);
+  // dribbling stance: knees bent, hips back, a slight forward bend with a fairly straight back, eyes up
+  L.dribbleLow = P({ rootZ: -0.07, pelPitch: 17, spFlex: 6, chFlex: 3, nkFlex: -17, hdFlex: -3, lShF: 42, lShA: 26, lShT: -6, lElF: 88, lPro: 60, rShF: 30, rShA: 20, rElF: 60, both: { HipF: 36, HipA: 10, HipT: -10, Knee: 46, Ank: 14 } }, M.Poses.BASE);
   Object.assign(A.STANCE, {
-    screen: { pose: 'screen', L: [-0.13, 0.0], R: [0.13, 0.0], yaw: 14, gaitArms: 0.2, gaitTorso: 0.5 },
-    boxout: { pose: 'boxout', L: [-0.16, 0.0], R: [0.16, 0.0], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
-    postUp: { pose: 'postUp', L: [-0.16, 0.0], R: [0.16, 0.0], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
-    postD: { pose: 'postD', L: [-0.15, 0.02], R: [0.15, -0.02], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
-    inbound: { pose: 'inbound', L: [-0.08, 0.03], R: [0.08, -0.03], yaw: 10, gaitArms: 0.1, gaitTorso: 0.8 },
-    handsKnees: { pose: 'handsKnees', L: [-0.09, 0.0], R: [0.09, 0.0], yaw: 10, gaitArms: 0.8, gaitTorso: 0.8 },
-    refStand: { pose: 'refStand', L: [-0.075, 0.0], R: [0.075, 0.0], yaw: 9, gaitArms: 1, gaitTorso: 1 },
-    dribble: { pose: 'dribbleLow', L: [-0.11, 0.05], R: [0.11, -0.03], yaw: 12, gaitArms: 0.4, gaitTorso: 0.6 },
+    screen: { pose: 'screen', L: [-0.13, 0.085], R: [0.13, 0.085], yaw: 14, gaitArms: 0.2, gaitTorso: 0.5 },
+    boxout: { pose: 'boxout', L: [-0.16, 0.085], R: [0.16, 0.085], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
+    postUp: { pose: 'postUp', L: [-0.16, 0.085], R: [0.16, 0.085], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
+    postD: { pose: 'postD', L: [-0.15, 0.105], R: [0.15, 0.065], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
+    inbound: { pose: 'inbound', L: [-0.08, 0.115], R: [0.08, 0.055], yaw: 10, gaitArms: 0.1, gaitTorso: 0.8 },
+    handsKnees: { pose: 'handsKnees', L: [-0.09, 0.085], R: [0.09, 0.085], yaw: 10, gaitArms: 0.8, gaitTorso: 0.8 },
+    refStand: { pose: 'refStand', L: [-0.075, 0.085], R: [0.075, 0.085], yaw: 9, gaitArms: 1, gaitTorso: 1 },
+    dribble: { pose: 'dribbleLow', L: [-0.11, 0.135], R: [0.11, 0.055], yaw: 12, gaitArms: 0.4, gaitTorso: 0.6 },
   });
 })();

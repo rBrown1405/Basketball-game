@@ -445,6 +445,7 @@
     }
     if (dead) { timeouts(ctx, P.start !== 'made_basket'); subs(ctx, 0, P.start); subs(ctx, 1, P.start); }
     P.defScheme = ctx.D.strat.def;
+    P.offSystem = ctx.O.strat.off; // the live view shapes its off-ball movement and ball movement on it
     initiate(ctx, opts);
     runSegments(ctx, opts);
     if (ctx.pendingShot) { g.pending = { P, ctx }; P.pendingShot = ctx.pendingShot; return P; }

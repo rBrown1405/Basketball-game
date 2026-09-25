@@ -81,8 +81,11 @@
     const musc = U.clamp(0.9 + build * 0.25 - (fem ? 0.1 : 0), 0.75, 1.2);
     return {
       H, fem, bulk, musc,
-      hipH: 0.53 * H,
-      pelSp: 0.095 * H, spCh: 0.1 * H, chNk: 0.103 * H, neck: 0.07 * H,
+      // pelvis root height with straight legs: the hip joint sits 0.012 H below the root, so the leg (hip joint to
+      // ankle, 0.491 H) is only ~4 deg short of straight when standing tall. (At 0.53 H the knees could never
+      // straighten past ~25 deg, which gave every walk and idle a crouched, toddler-like look.)
+      hipH: 0.542 * H,
+      pelSp: 0.095 * H, spCh: 0.1 * H, chNk: 0.1 * H, neck: 0.07 * H,
       headR: 0.058 * H,
       shX: (fem ? 0.1 : 0.112) * H, shZ: 0.088 * H,
       hipX: (fem ? 0.056 : 0.051) * H,
@@ -139,7 +142,7 @@
       this.pose = new Float32Array(NCH);
       // IK requests: legs [ {on, x,y,z (ankle target), footYaw, footPitch, pivot} ], arms [{on, x,y,z}]
       this.legIK = [{ on: 0, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, flat: 1 }, { on: 0, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, flat: 1 }];
-      this.armIK = [{ on: 0, x: 0, y: 0, z: 0 }, { on: 0, x: 0, y: 0, z: 0 }];
+      this.armIK = [{ on: 0, x: 0, y: 0, z: 0, pole: null }, { on: 0, x: 0, y: 0, z: 0, pole: null }];
       this.facing = 0; this.x = 0; this.y = 0;
       this._v = new Float64Array(3);
     }
@@ -149,6 +152,7 @@
       const d = this.dims, H = d.H, P = this.P, R = this.R, B = this.B;
       const p = this.pose;
       if (pose !== p) p.set(pose);
+      limitPose(p);
       this.x = x; this.y = y; this.facing = phi;
       const c = Math.cos(phi), s = Math.sin(phi);
       mset(B, 0, s, c, 0, -c, s, 0, 0, 0, 1);
@@ -193,6 +197,7 @@
       xf(R, 18, P[6], P[7], P[8], sg * d.shX, -0.006 * H + p[CH[pre + 'ClvP']] * 0.03 * H, d.shZ + p[CH[pre + 'ClvE']] * 0.035 * H, P, o);
       const ik = this.armIK[side];
       if (ik.on > 0.001) this._armIK(side, pre, sg, P[o], P[o + 1], P[o + 2]);
+      limitArm(p, pre);
       const ua = fUA * 9, fa = ua + 9, hd = fa + 9;
       mulRot(R, 18, 0, p[CH[pre + 'ShF']], R, ua);
       mulRot(R, ua, 1, -sg * p[CH[pre + 'ShA']], R, ua);
@@ -220,16 +225,26 @@
       const dd = U.clamp(dist, dmin, dmax);
       const cosE = U.clamp((dd * dd - L1 * L1 - L2 * L2) / (2 * L1 * L2), -1, 1);
       const e = Math.acos(cosE);
-      const Vy = L2 * Math.sin(e), Vz = -L1 - L2 * Math.cos(e);
-      const tw = sg * p[CH[pre + 'ShT']];
-      const Wx = -Vy * Math.sin(tw), Wy = Vy * Math.cos(tw), Wz = Vz;
       const sc = dist > 1e-6 ? dd / dist : 1;
       const nx = Dx * sc, ny = Dy * sc, nz = Dz * sc;
-      const sol = solve2(Wx, Wy, Wz, nx, ny, nz, -sg * p[CH[pre + 'ShA']]);
+      const F0 = p[CH[pre + 'ShF']], A0 = p[CH[pre + 'ShA']], E0 = p[CH[pre + 'ElF']], T0 = p[CH[pre + 'ShT']];
+      let sf, sa, st = T0;
+      if (ik.pole) {
+        // swivel from a pole: the elbow bends toward a natural direction (down, a little out and back for low
+        // hands) instead of wherever the authored twist points it - no elbows folded into the chest
+        const sol = armPole(nx, ny, nz, dd, L1, L2, ik.pole[0] * sg, ik.pole[1], ik.pole[2], sg, F0, -sg * A0);
+        sf = sol.f; sa = -sg * sol.b; st = sg * sol.t;
+      } else {
+        const Vy = L2 * Math.sin(e), Vz = -L1 - L2 * Math.cos(e);
+        const tw = sg * T0;
+        const Wx = -Vy * Math.sin(tw), Wy = Vy * Math.cos(tw), Wz = Vz;
+        const sol = solve2(Wx, Wy, Wz, nx, ny, nz, -sg * A0);
+        sf = sol.f; sa = -sg * sol.b;
+      }
       const w = ik.on;
-      const F0 = p[CH[pre + 'ShF']], A0 = p[CH[pre + 'ShA']], E0 = p[CH[pre + 'ElF']];
-      p[CH[pre + 'ShF']] = w >= 1 ? sol.f : U.angLerp(F0, sol.f, w);
-      p[CH[pre + 'ShA']] = w >= 1 ? -sg * sol.b : U.angLerp(A0, -sg * sol.b, w);
+      p[CH[pre + 'ShF']] = w >= 1 ? sf : U.angLerp(F0, sf, w);
+      p[CH[pre + 'ShA']] = w >= 1 ? sa : U.angLerp(A0, sa, w);
+      p[CH[pre + 'ShT']] = w >= 1 ? st : U.angLerp(T0, st, w);
       p[CH[pre + 'ElF']] = w >= 1 ? e : U.lerp(E0, e, w);
     }
 
@@ -269,7 +284,7 @@
       xf(R, ft, P[an], P[an + 1], P[an + 2], 0, -d.heel, -d.ankH, P, an + 3);
       xf(R, ft, P[an], P[an + 1], P[an + 2], 0, d.ball, -d.ankH, P, an + 6);
       // toes: stay flat on the floor while the heel is up (MTP extension)
-      const toeAng = ik.on >= 0.999 ? ik.pitch : p[CH[pre + 'Toe']];
+      const toeAng = ik.on >= 0.999 ? Math.max(0, ik.pitch) : p[CH[pre + 'Toe']];
       mulRot(R, ft, 0, toeAng, T2, 0);
       xf(T2, 0, P[an + 6], P[an + 7], P[an + 8], 0, d.toe, 0, P, an + 9);
     }
@@ -310,6 +325,87 @@
     jz(j) { return this.P[j * 3 + 2]; }
   }
 
+  // ------------------------------------------------------------ pole-vector arm IK
+  const PSOL = { f: 0, b: 0, t: 0 };
+  /** Two-bone arm solve with a swivel pole (all vectors in the chest frame, shoulder at the origin).
+   *  (nx,ny,nz): wrist target at distance dd; (qx,qy,qz): direction the elbow should bulge toward.
+   *  Returns the Euler angles of the rig's upper-arm frame Rx(f) Ry(b) Rz(t): humerus = -Z, elbow hinge = +X. */
+  function armPole(nx, ny, nz, dd, L1, L2, qx, qy, qz, sg, f0, b0) {
+    const il = 1 / (dd || 1e-6);
+    const ux0 = nx * il, uy0 = ny * il, uz0 = nz * il; // unit shoulder->wrist
+    const a = (L1 * L1 - L2 * L2 + dd * dd) / (2 * dd);
+    const r = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+    // pole component perpendicular to the shoulder->wrist line
+    let k = qx * ux0 + qy * uy0 + qz * uz0;
+    let px = qx - k * ux0, py = qy - k * uy0, pz = qz - k * uz0;
+    let pl = Math.sqrt(px * px + py * py + pz * pz);
+    if (pl < 1e-4) { // pole along the arm: fall back to "down and out"
+      k = sg * 0.3 * ux0 - uz0; px = sg * 0.3 - k * ux0; py = -k * uy0; pz = -1 - k * uz0;
+      pl = Math.sqrt(px * px + py * py + pz * pz) || 1;
+    }
+    px /= pl; py /= pl; pz /= pl;
+    // elbow and the two bone directions
+    const ex = a * ux0 + r * px, ey = a * uy0 + r * py, ez = a * uz0 + r * pz;
+    const ux = ex / L1, uy = ey / L1, uz = ez / L1;
+    const fx = (nx - ex) / L2, fy = (ny - ey) / L2, fz = (nz - ez) / L2;
+    // hinge axis = humerus x forearm (flexion turns the forearm about +X); straight arm: from the pole side
+    let hx = uy * fz - uz * fy, hy = uz * fx - ux * fz, hz = ux * fy - uy * fx;
+    let hl = Math.sqrt(hx * hx + hy * hy + hz * hz);
+    if (hl < 1e-3) { hx = py * uz - pz * uy; hy = pz * ux - px * uz; hz = px * uy - py * ux; hl = Math.sqrt(hx * hx + hy * hy + hz * hz) || 1; }
+    hx /= hl; hy /= hl; hz /= hl;
+    // humerus = (-sin b, sin f cos b, -cos f cos b): two Euler solutions, keep the one nearest the current pose
+    let b = -Math.asin(U.clamp(ux, -1, 1));
+    let f = Math.atan2(uy, -uz);
+    const b2 = U.wrapPi(Math.PI - b), f2 = U.wrapPi(f + Math.PI);
+    if (Math.abs(U.wrapPi(f2 - f0)) + Math.abs(U.wrapPi(b2 - b0)) < Math.abs(U.wrapPi(f - f0)) + Math.abs(U.wrapPi(b - b0))) { b = b2; f = f2; }
+    const cf = Math.cos(f), sf = Math.sin(f), cb = Math.cos(b), sb = Math.sin(b);
+    // e1 = Rx(f)Ry(b)X, e2 = Rx(f)Ry(b)Y; twist t puts the frame's X on the hinge axis
+    const e1x = cb, e1y = sf * sb, e1z = -cf * sb;
+    const e2y = cf, e2z = sf;
+    const t = Math.atan2(hy * e2y + hz * e2z, hx * e1x + hy * e1y + hz * e1z);
+    PSOL.f = f; PSOL.b = b; PSOL.t = t;
+    return PSOL;
+  }
+
+  // ------------------------------------------------------------ anatomical joint limits
+  // Active range of motion of healthy adults (AAOS / clinical goniometry norms), in the rig's conventions:
+  // shoulder flexion 180 / extension 60, abduction 180, internal rotation 70 / external 90, elbow 0-150,
+  // hip flexion 125 / extension 30, abduction 45 / adduction 30, rotation 45, knee 0-150, ankle dorsiflexion 30 /
+  // plantarflexion 50; trunk flexion ~80 / extension ~30, lateral bend ~35, rotation ~45; neck flexion ~50 /
+  // extension ~60, lateral bend ~45, rotation ~80.
+  const LIM = {};
+  (function () {
+    const set = (k, lo, hi) => { LIM[k] = [lo * U.DEG, hi * U.DEG]; };
+    for (const s of ['l', 'r']) {
+      set(s + 'ShF', -60, 185); set(s + 'ShA', -45, 180); set(s + 'ShT', -90, 80); set(s + 'ElF', -4, 150);
+      set(s + 'WrF', -75, 85); set(s + 'WrD', -25, 35);
+      set(s + 'HipF', -32, 130); set(s + 'HipA', -30, 50); set(s + 'HipT', -45, 45); set(s + 'Knee', -3, 152); set(s + 'Ank', -52, 32);
+    }
+  })();
+  const TORSO_PAIRS = [
+    // [channel a, channel b, min sum, max sum] (degrees): shared ranges of the two spine or neck segments
+    ['spFlex', 'chFlex', -32, 82], ['spLat', 'chLat', -36, 36], ['spTwist', 'chTwist', -46, 46],
+    ['nkFlex', 'hdFlex', -62, 52], ['nkLat', 'hdLat', -42, 42], ['nkTwist', 'hdTwist', -80, 80],
+  ].map(([a, b, lo, hi]) => [CH[a], CH[b], lo * U.DEG, hi * U.DEG]);
+  /** clamp a pose to human joint ranges (in place) */
+  function limitPose(p) {
+    for (const k in LIM) { const i = CH[k], r = LIM[k]; const v = p[i]; if (v < r[0]) p[i] = r[0]; else if (v > r[1]) p[i] = r[1]; }
+    for (const t of TORSO_PAIRS) {
+      const sum = p[t[0]] + p[t[1]];
+      if (sum < t[2] || sum > t[3]) { const k = (sum < t[2] ? t[2] : t[3]) / sum; p[t[0]] *= k; p[t[1]] *= k; }
+    }
+    return p;
+  }
+  /** the upper arm cannot pass through the chest: adduction limit relaxes as the arm is raised in front */
+  function limitArm(p, pre) {
+    const iF = CH[pre + 'ShF'], iA = CH[pre + 'ShA'];
+    const fl = p[iF];
+    const minA = U.lerp(-4, -45, U.smooth((fl - 20 * U.DEG) / (70 * U.DEG))) * U.DEG;
+    if (p[iA] < minA) p[iA] = minA;
+    const r = LIM[pre + 'ElF']; if (p[CH[pre + 'ElF']] < r[0]) p[CH[pre + 'ElF']] = r[0]; else if (p[CH[pre + 'ElF']] > r[1]) p[CH[pre + 'ElF']] = r[1];
+    const rt = LIM[pre + 'ShT']; if (p[CH[pre + 'ShT']] < rt[0]) p[CH[pre + 'ShT']] = rt[0]; else if (p[CH[pre + 'ShT']] > rt[1]) p[CH[pre + 'ShT']] = rt[1];
+  }
+
   const SOL = { f: 0, b: 0 };
   /** find f,b so that Rx(f)*Ry(b)*W = D (|W| == |D|); pick b nearest b0 */
   function solve2(Wx, Wy, Wz, Dx, Dy, Dz, b0) {
@@ -342,5 +438,5 @@
     m[o] = xx; m[o + 3] = xy; m[o + 6] = xz; m[o + 1] = yx; m[o + 4] = yy; m[o + 7] = yz; m[o + 2] = zx; m[o + 5] = zy; m[o + 8] = zz;
   }
 
-  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, pose, mirrorPose, mmul, mulRot, xf, orthoCols };
+  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, pose, mirrorPose, mmul, mulRot, xf, orthoCols, limitPose, armPole, LIM };
 })();

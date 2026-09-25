@@ -22,6 +22,7 @@ Required (in this order, after the engine/UI scripts or before — the view has 
 <script src="js/match/actor.js"></script>
 <script src="js/match/ball.js"></script>
 <script src="js/match/choreo.js"></script>
+<script src="js/match/flow.js"></script>
 <script src="js/match/view.js"></script>
 ```
 
@@ -52,6 +53,7 @@ contract (home attacks right in periods 1–2).
 | `actor.js` | a person: steering with accel limits and timed arrivals, pivoting facing, foot controller (gait-phase stepping with predicted landings, heel rise/toe-off, error-driven stance steps, recovery steps, lateral step-slide that never crosses the feet), pose layering (stance → gait → upper-body clip → full-body clip → look-at), dribble arm, ball grips, pelvis reach clamp, momentum carried into clips |
 | `ball.js` | ball states (held with hand-over tosses, dribble synced to gait, flight as exact time-parameterised ballistic segments, loose bounces/rolls); passes (chest/bounce/lob…, homing to the receiver's hands), shots (swish / rim-in / bank / miss front-back-side-board with rattles, carom timed to the rebounder, blocks), spin with rotating seams, squash, shadow |
 | `choreo.js` | `Director`: possession → beats. Each event gets a planner that plans backwards from its visible moment, runs the game/shot clock, keeps offense spots moving, man/zone/press defense tracking, closeouts, box-outs, refs, FT lane setup, subs, timeouts, tip-off, turnovers, GIM freeze/resume, watchdog |
+| `flow.js` | Half-court flow on top of the `Director`: off-ball actions by offensive system (screens away, basket and backdoor cuts with a teammate filling the spot, lifts and drifts on drives, weak-side exchanges, bigs flashing / sealing), handler probing, and ball swings between engine events that always return the ball to the player the next event needs |
 | `view.js` | `PBC.Match.View` (public API), sub-stepped simulation, depth-sorted rendering, subs bookkeeping, referee positioning, body separation, pixel mode |
 | `viewer.js` | turntable/filmstrip used by the harness animation viewer |
 | `mock.js` | mock league context + endless contract-shaped possessions (every event type, GIM) + `resolvePending` |

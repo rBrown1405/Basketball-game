@@ -129,6 +129,8 @@
       g.speed = o.speed || this.maxSpeed * 0.85;
       g.arrive = o.arrive !== false;
       g.track = null;
+      // timed moves: never slower than this natural pace (walk there and wait instead of creeping in slow motion)
+      g.pace = o.pace || 0;
       if (o.face !== undefined) this.setFace(o.face);
       if (o.stance) this.setStance(o.stance);
       return this;
@@ -137,7 +139,7 @@
     track(fn, o) {
       o = o || {};
       const g = this.goal;
-      g.mode = 'track'; g.track = fn; g.speed = o.speed || this.maxSpeed; g.arrive = true; g.by = null;
+      g.mode = 'track'; g.track = fn; g.speed = o.speed || this.maxSpeed; g.arrive = true; g.by = null; g.pace = 0;
       if (o.face !== undefined) this.setFace(o.face);
       if (o.stance) this.setStance(o.stance);
       return this;
@@ -148,6 +150,7 @@
       return this;
     }
     setFace(f) {
+      this.faceLock = false;
       if (f == null || f === 'move') { this.faceMode = 'move'; return; }
       if (typeof f === 'number') { this.faceMode = 'angle'; this.faceAngle = f; return; }
       if (typeof f === 'function') { this.faceMode = 'fn'; this.faceFn = f; return; }
@@ -223,6 +226,7 @@
         if (g.by != null) {
           const left = g.by - this.time;
           want = left > 0.05 ? Math.min(g.speed * 1.25, Math.max(dist / left * 1.12, dist > 0.5 ? 2.5 : 0)) : g.speed * 1.2;
+          if (g.pace && dist > 1) want = Math.max(want, Math.min(g.pace, g.speed));
         }
         want = Math.min(want, this.maxSpeed * 1.08);
         if (g.arrive) want = Math.min(want, Math.sqrt(2 * this.decel * 0.8 * Math.max(0, dist - 0.05)));
@@ -260,11 +264,12 @@
         if (sp > 1.5) face = Math.atan2(this.vy, this.vx);
         return face;
       }
-      // explicit facing but moving fast: open up and run unless sliding stance allows it
+      // explicit facing but moving fast: open up and run unless sliding stance allows it (a defender locked on
+      // his man keeps squared up while sliding / backpedalling; his planner decides when he has to turn and run)
       const moveA = Math.atan2(this.vy, this.vx);
       const diff = Math.abs(U.wrapPi(moveA - face));
       const st = A.STANCE[this.stance] || A.STANCE.stand;
-      const slideMax = st.slide ? 13 : 7.5;
+      const slideMax = this.faceLock && this.faceMode === 'fn' ? 16 : st.slide ? 13 : 7.5;
       if (sp > slideMax && diff > 0.9) {
         const k = U.smooth((sp - slideMax) / 4);
         face = U.angLerp(face, moveA, k);
@@ -279,18 +284,24 @@
     }
 
     // ============================================================ locomotion / feet
+    /** ankle position for a foot whose ball (when flat) is at (bx, by). pitch > 0: heel raised, the foot pivots about
+     *  the ball (push-off); pitch < 0: toes up, the foot pivots about the heel (heel strike, then the forefoot lowers). */
     _ankleFromBall(bx, by, yaw, pitch, out) {
       const d = this.dims;
       const c = Math.cos(yaw), s = Math.sin(yaw);
-      // foot frame: forward (c,s), up; heel-rise pivots about the ball of the foot
       const cp = Math.cos(pitch), sp = Math.sin(pitch);
-      const back = d.ball, up = d.ankH;
-      // vector ball->ankle in foot-local (y fwd, z up) = (-back, up) rotated by Rx(-pitch)
-      const ly = -back * cp - up * sp * 0; // keep simple: rotate (y,z)
-      const ry = -back * cp + up * sp;
-      const rz = back * sp + up * cp;
+      let ry, rz;
+      if (pitch >= 0) {
+        // vector ball->ankle in foot-local (y fwd, z up) = (-ball, ankH) rotated about the ball
+        ry = -d.ball * cp + d.ankH * sp;
+        rz = d.ball * sp + d.ankH * cp;
+      } else {
+        // heel contact point (flat foot) = ball - (heel + ball); heel->ankle = (heel, ankH) rotated toes-up by -pitch
+        const a = -pitch, ca = Math.cos(a), sa = Math.sin(a);
+        ry = -(d.heel + d.ball) + d.heel * ca - d.ankH * sa;
+        rz = d.heel * sa + d.ankH * ca;
+      }
       out[0] = bx + c * ry; out[1] = by + s * ry; out[2] = rz;
-      void ly;
       return out;
     }
 
@@ -351,8 +362,9 @@
             // recovery step: foot left too far behind (sharp speed change / turn)
             const side = f.side ? 1 : -1, rx = s, ry = -c;
             const lead = 0.18;
-            const tx = this.x + vx * lead + this.moveDirX * gp.reach * gp.beta * strideLen + rx * side * gp.halfW * H;
-            const ty = this.y + vy * lead + this.moveDirY * gp.reach * gp.beta * strideLen + ry * side * gp.halfW * H;
+            // targets place the ankle; the ball of the foot (f.x, f.y) is one foot-length-to-ball further along the foot
+            const tx = this.x + vx * lead + this.moveDirX * gp.reach * gp.beta * strideLen + rx * side * gp.halfW * H + c * this.dims.ball;
+            const ty = this.y + vy * lead + this.moveDirY * gp.reach * gp.beta * strideLen + ry * side * gp.halfW * H + s * this.dims.ball;
             this._beginStep(f, tx, ty, this.facing + (f.side ? -1 : 1) * 7 * D, 0.17, Math.max(0.03, gp.lift * 0.5));
           }
           if (f.state === 'plant' && crossed(ph0, ph1, lph)) {
@@ -362,7 +374,8 @@
             f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
           }
           if (crossed(ph0, ph1, cph) && f.state === 'swing' && f.mode === 'gait') {
-            f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0;
+            // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down
+            f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = Math.min(0, gp.landPitch); f.hs = f.pitch < 0;
           }
           const rel = frac(this.phase - cph);
           if (f.state === 'swing' && f.mode === 'gait') {
@@ -374,10 +387,11 @@
             const reach = gp.reach * gp.beta * strideLen;
             const side = f.side ? 1 : -1;
             const rx = s, ry = -c;
-            f.tx = px + this.moveDirX * reach + rx * side * gp.halfW * H;
-            f.ty = py + this.moveDirY * reach + ry * side * gp.halfW * H;
             f.tyaw = this.facing + (f.side ? -1 : 1) * 7 * D;
-            const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, 0, TB);
+            // `reach` places the ankle ahead of the body at contact; the ball of the foot lies d.ball further along the foot
+            f.tx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
+            f.ty = py + this.moveDirY * reach + ry * side * gp.halfW * H + Math.sin(f.tyaw) * this.dims.ball;
+            const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, Math.min(0, gp.landPitch), TB);
             const e = U.smooth(sw);
             const lift = gp.lift * H * Math.pow(Math.sin(Math.PI * Math.pow(sw, gp.liftPow || 0.8)), 1.1);
             f.ax = f.x0 + (a1[0] - f.x0) * e;
@@ -386,9 +400,17 @@
             f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
             f.pitchNow = U.lerp(f.p0 || gp.toePitch, gp.landPitch, U.smooth(sw * 1.15)) + Math.sin(Math.PI * sw) * gp.toePitch * 0.25;
           } else if (f.state === 'plant') {
-            // heel rise toward toe-off
-            const k = U.clamp((rel - gp.beta * 0.45) / (gp.beta * 0.55), 0, 1);
-            f.pitch = rel < gp.beta ? gp.toePitch * k * k : f.pitch;
+            if (rel < gp.beta) {
+              if (f.hs && rel < gp.roll) {
+                // heel rocker: the forefoot comes down to the floor after a heel strike
+                f.pitch = Math.min(0, gp.landPitch) * (1 - U.smooth(rel / gp.roll));
+              } else {
+                // heel rise toward toe-off (ankle rocker -> forefoot rocker)
+                if (f.hs) { f.hs = false; f.pitch = 0; }
+                const k = U.clamp((rel - gp.beta * gp.heelOff) / (gp.beta * (1 - gp.heelOff)), 0, 1);
+                f.pitch = Math.max(f.pitch, gp.toePitch * k * k);
+              }
+            }
           }
         }
       } else {
@@ -435,6 +457,7 @@
           f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow || f.yaw; f.p0 = f.pitchNow || 0; f.h = 0.02 * H;
         }
         if (f.state === 'plant' && f.pitch > 0) f.pitch = Math.max(0, f.pitch - dt * 4);
+        else if (f.state === 'plant' && f.pitch < 0) { f.pitch = Math.min(0, f.pitch + dt * 4); f.hs = false; }
       }
       if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       if (this.clip) return;
@@ -653,11 +676,12 @@
       }
       return out;
     }
-    /** dribble "home" position of the hand (top of the bounce) */
+    /** where the ball sits at the top of the dribble: hip height, outside the dribble-side foot, a little in front */
     dribbleTop(hand, out) {
       const H = this.H, side = hand ? 1 : -1;
       const low = this.dribbleLow || 0;
-      return this.local(side * 0.14 * H, (0.12 + Math.min(0.08, this.speed * 0.006)) * H, (0.48 - low * 0.12) * H, out);
+      const spK = U.smooth((this.speed - 6) / 12);
+      return this.local(side * 0.2 * H, (0.13 + 0.14 * spK) * H, (0.5 - low * 0.2 + 0.09 * spK) * H, out);
     }
 
     // ============================================================ pose
@@ -772,15 +796,17 @@
         const side = f.side ? 1 : -1;
         const hx = this.x + s * side * this.dims.hipX, hy = this.y - c * side * this.dims.hipX;
         let dh = Math.hypot(ik.x - hx, ik.y - hy);
-        const L = (this.dims.th + this.dims.sh) * 0.975;
+        // a stance leg may straighten to ~6 deg of knee flexion (walking midstance / heel strike), no further
+        const L = (this.dims.th + this.dims.sh) * 0.9986;
         let zmax = ik.z + Math.sqrt(Math.max(0.01, L * L - dh * dh));
         // push-off: a stance foot behind the hip rolls onto the ball of the foot (heel rise) so the leg stays long,
         // the way real runners and walkers do, instead of the pelvis sinking to reach a flat foot
-        const wantZ = this.dims.hipH + p[CH.rootZ] * H + this.jumpZ;
+        // (zmax is the highest the hip JOINT can be; the pelvis root sits 0.012 H above it)
+        const wantZ = this.dims.hipH + p[CH.rootZ] * H + this.jumpZ - 0.012 * H;
         const behind = (f.x - hx) * c + (f.y - hy) * s < 0;
         if (zmax < wantZ && behind && this.gaitOn && !this.clip) {
-          const maxPitch = (this.speed > 9 ? 68 : 45) * D;
-          let pitch = f.pitch;
+          const maxPitch = (this.speed > 9 ? 68 : 58) * D;
+          let pitch = Math.max(0, f.pitch);
           while (zmax < wantZ && pitch < maxPitch) {
             pitch = Math.min(maxPitch, pitch + 2 * D);
             const a = this._ankleFromBall(f.x, f.y, f.yaw, pitch, TA);
@@ -799,42 +825,52 @@
       // arms: ball / explicit targets
       this._armTargets();
       sk.solve(p, this.x, this.y, this.facing);
+      // dribbling: the target is where the palm must touch the ball; move the wrist by the miss and re-solve
+      const d = this.dribble;
+      if (d && d.palm && d.wx != null && sk.armIK[d.hand ? 1 : 0].on > 0.01) {
+        const ik = sk.armIK[d.hand ? 1 : 0], j = (d.hand ? RG.J.R_HD : RG.J.L_HD) * 3;
+        for (let it = 0; it < 2; it++) {
+          ik.x += d.wx - sk.P[j]; ik.y += d.wy - sk.P[j + 1]; ik.z += d.wz - sk.P[j + 2];
+          sk.solve(p, this.x, this.y, this.facing);
+        }
+      }
     }
 
     _armTargets() {
       const sk = this.sk, H = this.H;
-      for (let side = 0; side < 2; side++) sk.armIK[side].on = 0;
+      for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; }
       // explicit
       for (let side = 0; side < 2; side++) {
         const t = this.handTarget[side];
         if (t && t.w > 0) { const ik = sk.armIK[side]; ik.on = Math.min(1, t.w); ik.x = t.x; ik.y = t.y; ik.z = t.z; }
       }
-      // dribble hand follows the ball near the top of the bounce
-      if (this.dribble && this.view && this.view.ball) {
+      // dribble: the hand rides the ball up, pushes it down with an extending elbow, follows through and waits
+      // low for the catch (targets planned by the ball); elbow back and a little out (pole), palm down
+      if (this.dribble && this.view && this.view.ball && this.dribble.wx != null) {
         const d = this.dribble;
-        const b = this.view.ball;
-        const top = this.dribbleTop(d.hand, TC);
-        const ik = sk.armIK[d.hand];
-        // hand rides the ball when it is high, else waits at the top
-        const bz = b.z;
-        const k = U.clamp((bz - (top[2] - 0.12 * H)) / (0.12 * H), 0, 1);
-        const hx = U.lerp(top[0], b.x, k), hy = U.lerp(top[1], b.y, k);
-        const hz = U.lerp(top[2] + 0.02 * H, bz + BALL_R + 0.02 * H, k);
-        const c = Math.cos(this.facing), s = Math.sin(this.facing);
-        ik.on = Math.max(ik.on, 0.95 * (d.w == null ? 1 : d.w));
-        ik.x = hx - c * 0.05 * H; ik.y = hy - s * 0.05 * H; ik.z = hz + 0.03 * H;
-        this.pose[CH[(d.hand ? 'r' : 'l') + 'WrF']] = (30 - 40 * k) * D;
-        this.pose[CH[(d.hand ? 'r' : 'l') + 'Pro']] = 80 * D;
-        this.pose[CH[(d.hand ? 'r' : 'l') + 'ShT']] = 25 * D;
-        // off arm: protect
-        const off = d.hand ? 'l' : 'r';
-        const wOff = 0.75 * (d.w == null ? 1 : d.w);
+        const wAll = d.w == null ? 1 : d.w;
+        const hand = d.hand ? 1 : 0, pre = hand ? 'r' : 'l';
+        const ik = sk.armIK[hand];
+        ik.on = Math.max(ik.on, 0.98 * wAll * (d.act == null ? 1 : d.act));
+        ik.x = d.wx; ik.y = d.wy; ik.z = d.wz; ik.pole = DRIB_POLE;
         const pp = this.pose;
-        pp[CH[off + 'ShF']] = U.lerp(pp[CH[off + 'ShF']], 48 * D, wOff);
-        pp[CH[off + 'ShA']] = U.lerp(pp[CH[off + 'ShA']], 32 * D, wOff);
-        pp[CH[off + 'ElF']] = U.lerp(pp[CH[off + 'ElF']], 92 * D, wOff);
-        pp[CH[off + 'Pro']] = U.lerp(pp[CH[off + 'Pro']], 20 * D, wOff);
-        pp[CH.spFlex] += 5 * D; pp[CH.chTwist] += (d.hand ? 1 : -1) * 6 * D;
+        pp[CH[pre + 'WrF']] = U.lerp(pp[CH[pre + 'WrF']], (d.wrF || 0) * D, wAll);
+        pp[CH[pre + 'Pro']] = U.lerp(pp[CH[pre + 'Pro']], 150 * D, wAll);
+        pp[CH[pre + 'WrD']] = U.lerp(pp[CH[pre + 'WrD']], 8 * D, wAll);
+        pp[CH[pre + 'Fing']] = U.lerp(pp[CH[pre + 'Fing']], 0.12, wAll);
+        // off arm: an "arm bar" guard, forearm up in front toward the defender, elbow ~90 deg (not pushing)
+        const off = hand ? 'l' : 'r';
+        const wOff = 0.8 * wAll;
+        pp[CH[off + 'ShF']] = U.lerp(pp[CH[off + 'ShF']], 42 * D, wOff);
+        pp[CH[off + 'ShA']] = U.lerp(pp[CH[off + 'ShA']], 26 * D, wOff);
+        pp[CH[off + 'ShT']] = U.lerp(pp[CH[off + 'ShT']], -6 * D, wOff);
+        pp[CH[off + 'ElF']] = U.lerp(pp[CH[off + 'ElF']], 88 * D, wOff);
+        pp[CH[off + 'Pro']] = U.lerp(pp[CH[off + 'Pro']], 60 * D, wOff);
+        pp[CH[off + 'WrF']] = U.lerp(pp[CH[off + 'WrF']], -10 * D, wOff);
+        pp[CH[off + 'Fing']] = U.lerp(pp[CH[off + 'Fing']], 0.2, wOff);
+        // shoulders turn a little toward the ball side; the dribbling shoulder dips as the push goes down
+        pp[CH.chTwist] += (hand ? -1 : 1) * 5 * D * wAll;
+        if (d.ph === 'push') pp[CH.chLat] += (hand ? 1 : -1) * 2.5 * D * Math.sin(Math.PI * (d.s || 0)) * wAll;
       }
       // holding the ball: grips from the active clip or hold mode
       if (this.hasBall && this.view && this.view.ball && !this.dribble) {
@@ -870,6 +906,8 @@
   }
 
   const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3);
+  // dribbling elbow swivel: behind the elbow with a small outward bias (x = outward, y = forward, z = up)
+  const DRIB_POLE = [0.28, -0.85, -0.45];
   const RT = { x: 0, y: 0, yaw: 0 };
   function frac(v) { return v - Math.floor(v); }
   /** did phase go through point p while moving from a to b (b>=a, may exceed 1)? */
