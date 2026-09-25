@@ -207,7 +207,8 @@
     }
 
     /** 0 in a regular-season game, up to ~1.25 in a Game 7: players go harder, defense locks in */
-    intensity() { const a = this.v.atm; return a && a.playoff ? U.clamp(+a.level || 0.6, 0, 1.25) : 0; }
+    /** how hard the players go (the engine's playoff intensity when given, so the Playoff Intensity slider shows) */
+    intensity() { const a = this.v.atm; if (!a || !a.playoff) return 0; return U.clamp(a.effort != null && isFinite(a.effort) ? +a.effort : +a.level || 0.6, 0, 1.25); }
 
     // ============================================================ geometry helpers
     X(u) { return this.dir > 0 ? 94 - u : u; }

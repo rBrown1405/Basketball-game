@@ -11,6 +11,7 @@
   Sim.K = {
     usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 13.6, shotTimeW: 14.1,
     zoneAdj: { rim: -0.38, paint: 0.02, mid: -0.12, c3: -0.3, ab3: -0.15 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
+    coast: 1, // how much a team with a big lead lets up (shooting focus, glass, pressure); 0 = never
   };
   Sim.debug = null;
 
@@ -147,7 +148,7 @@
   }
 
   /**
-   * opts: { gid, playoff, lite, sg } — sg (the schedule / postseason game object) is optional: without it a postseason
+   * opts: { gid, playoff, lite, sg }. sg (the schedule / postseason game object) is optional: without it a postseason
    * game is looked up by gid in S.todayPost, the play-in and S.playoffs.games.
    * Adds to the game: g.sl (slider multipliers), g.stakes (0 regular season … 1.25 Game 7 of the Finals), g.intensity
    * (stakes × playoff-intensity slider), g.stakesInfo (null in the regular season, else { round, roundName, gameNum,
@@ -159,7 +160,7 @@
     opts = opts || {};
     const L = PBC.League.cfg(S);
     const g = {
-      S, L, gid: opts.gid, playoff: !!opts.playoff, day: S.day, lite: !!opts.lite,
+      S, L, gid: opts.gid, playoff: !!opts.playoff, day: S.day, lite: !!opts.lite, noInjuries: !!opts.noInjuries,
       tids: [homeTid, awayTid], t: null,
       period: 1, clock: L.quarterLen, poss: -1, nextStart: 'jump_ball', nextSpot: { x: 47, y: 25 },
       possN: 0, score: [0, 0], final: false, pbp: [], userIdx: S.userTid === homeTid ? 0 : S.userTid === awayTid ? 1 : -1,
@@ -507,7 +508,8 @@
     const I = Math.min(1.5, g.intensity);
     const gb = 1 + 0.4 * I;
     const crunch = (isEnd && clockLeft <= 300 + 150 * Math.min(1.25, I) && Math.abs(lead) <= 10 + 4 * I) || g.period > L.periods;
-    const garbage = isEnd && g.period === L.periods && ((Math.abs(lead) >= 20 * gb && clockLeft <= 420 / gb) || (Math.abs(lead) >= 27 * gb && clockLeft <= 700 / gb));
+    const garbage = (isEnd && g.period === L.periods && ((Math.abs(lead) >= 20 * gb && clockLeft <= 420 / gb) || (Math.abs(lead) >= 27 * gb && clockLeft <= 700 / gb) || Math.abs(lead) >= 34 * gb))
+      || (g.period === L.periods - 1 && Math.abs(lead) >= 36 * gb && clockLeft <= L.quarterLen * 0.4); // runaway games empty the benches early
     const tireK = 6.5 * (1 + 0.5 * I);
     const totalReg = L.periods * L.quarterLen;
     const elapsed = Math.min(totalReg, g.elapsedReg);
@@ -800,6 +802,8 @@
     p *= 1 - fit * 0.07;
     // sliders (turnovers, steals, user ball security), form, playoff focus; defenders who gamble force more
     p *= g.toMult[O.idx] * Math.exp(0.25 * avgDev(D, 'gamble'));
+    const exPress = coastExcess(g, g.score[D.idx] - g.score[O.idx]); // a defense up big stops pressing and gambling
+    if (exPress > 2) p *= 1 - Math.min(0.3, (exPress - 2) * 0.011) * Sim.K.coast;
     return U.clamp(p, 0.03, 0.32 * Math.max(1, g.sl.to));
   }
 
@@ -1193,6 +1197,19 @@
 
   function isClutch(g) { return (g.period >= g.L.periods && g.clock <= 300 && Math.abs(g.score[0] - g.score[1]) <= 6) || g.period > g.L.periods; }
 
+  /**
+   * How far a lead is past "safe" for the time left (in men's-league points; <= 0 = the game is still live).
+   * Safe grows with the square root of the time remaining, like the analysts' safe-lead rule, so coasting only
+   * starts once a comeback is out of reach and never decides a competitive game.
+   */
+  function coastExcess(g, lead) {
+    const L = g.L, cs = L.key === 'women' ? 0.74 : 1; // lead sizes scale with the league's scoring
+    const reg = L.periods * L.quarterLen;
+    const left = g.period <= L.periods ? (L.periods - g.period) * L.quarterLen + g.clock : g.clock;
+    const safe = 12 + 0.45 * Math.sqrt(Math.max(0, left) * 2880 / reg);
+    return lead / cs - safe;
+  }
+
   function makeProb(ctx, sh, zone, kind, contest, d, info) {
     const g = ctx.g, O = ctx.O, D = ctx.D, L = g.L;
     const r = sh.r;
@@ -1221,6 +1238,11 @@
     if (ctx.gimDefense || (ctx.P && ctx.P.gim)) x -= zone === 'rim' || zone === 'paint' ? 0.5 : 0.15;
     x += sh.hot * 0.03;
     if (g.run.team === O.idx && g.run.pts >= 8) x += 0.03;
+    // big leads: the team ahead coasts and the team behind plays for pride (real games rarely end 50+ apart)
+    const margin = g.score[O.idx] - g.score[1 - O.idx];
+    const exUp = coastExcess(g, margin), exDown = coastExcess(g, -margin);
+    if (exUp > 0) x -= Math.min(0.45, exUp * 0.016) * Sim.K.coast;
+    else if (exDown > 0) x += Math.min(0.2, exDown * 0.007) * Sim.K.coast;
     const dm = C.DEFENSES[D.strat.def].mods;
     const dfit = defenseFit(D);
     if (dm.zone && dm.zone[zone]) x += dm.zone[zone] * (dm.needs ? 0.6 + 0.4 * (dfit + 1) / 2 * 2 : 1);
@@ -1438,6 +1460,8 @@
     x += Math.log(C.CRASH[O.strat.crash].oreb) + Math.log(C.OFFENSES[O.strat.off].mods.oreb || 1) + Math.log(C.DEFENSES[D.strat.def].mods.oreb || 1);
     if (is3(zone)) x += 0.08;
     if (zone === 'ft') x -= 1.25;
+    const exGlass = coastExcess(g, g.score[O.idx] - g.score[1 - O.idx]); // a team up big stops crashing the glass
+    if (exGlass > 2) x -= Math.min(0.6, (exGlass - 2) * 0.022) * Sim.K.coast;
     x -= (1 - avgEnergy(O) / 100) * 0.2;
     x += g.sl.oreb + 0.3 * avgDev(O, 'crash');       // slider + how hard this five crashes the glass
     const off = U.chance(U.sigmoid(x));
@@ -1588,7 +1612,7 @@
 
   function injuryCheck(ctx, dt) {
     const g = ctx.g;
-    if (g.opts && g.opts.noInjuries) return;
+    if (g.noInjuries) return;
     const im = g.sl.inj;
     if (!(im > 0)) return;          // injuries slider at 0: nobody gets hurt
     for (const T of g.t) for (const c of T.on) {

@@ -261,7 +261,8 @@
           <div><div class="small up dim" style="letter-spacing:2px">${L.playoffFormat === 'conference' ? L.confs[t.conf] + ' · ' + L.divs[t.div] : L.confs[t.conf]}</div>
           <div class="up" style="font-size:34px;line-height:1">${U.esc(t.city)} ${U.esc(t.name)}</div>
           <div class="muted">${st.w}-${st.l} · Power rank #${pr ? pr.rank : '-'} · Payroll ${U.money(payroll, true)} · Offense: ${C.OFFENSES[t.strat.off].label} · Defense: ${C.DEFENSES[t.strat.def].label}</div>
-          ${vs ? `<div class="small" style="margin-top:4px">Your career record vs ${U.esc(t.name)}: <b>${vs[0]}-${vs[1]}</b></div>` : ''}</div></div></div>
+          ${vs ? `<div class="small" style="margin-top:4px">Your career record vs ${U.esc(t.name)}: <b>${vs[0]}-${vs[1]}</b></div>` : ''}</div>
+          ${UI.openTeamEditor ? `<div class="spacer"></div><button class="btn ghost sm" data-edit-team="${tid}" title="Names, colors, uniforms, court and arena">🎨 Edit team</button>` : ''}</div></div>
         <div class="grid g-main">
           <div class="card"><div class="card-h"><h3>Roster</h3></div><div class="card-b flush" id="team-roster"></div></div>
           <div class="stack">
@@ -274,7 +275,7 @@
         compact: true, sort: 'ovr',
         rows: roster.map(p => ({ p, s: PBC.Stats.season(p, S.season, false) })),
         columns: [
-          { key: 'name', label: 'Player', fmt: r => `<span class="row nowrap">${UI.avatar(r.p, 26)}${UI.playerLink(r.p)}${r.p.injury ? ' 🚑' : ''}</span>`, value: r => r.p.last },
+          { key: 'name', label: 'Player', fmt: r => `<span class="row nowrap">${UI.avatar(r.p, 26)}${UI.playerLink(r.p)}${r.p.injury ? ' 🚑' : ''}${r.p.tradeReq ? ' <span title="Has asked for a trade">📣</span>' : ''}</span>`, value: r => r.p.last },
           { key: 'pos', label: 'Pos', fmt: r => UI.pos(r.p.pos), value: r => C.POS_NUM[r.p.pos] },
           { key: 'age', label: 'Age', num: true, value: r => r.p.age, fmt: r => r.p.age },
           { key: 'ovr', label: 'OVR', num: true, value: r => r.p.ovr, fmt: r => UI.ovr(r.p.ovr) },
@@ -284,6 +285,8 @@
           { key: 'sal', label: 'Salary', num: true, value: r => (r.p.contract ? r.p.contract.amt : 0), fmt: r => U.money(r.p.contract ? r.p.contract.amt : 0, true) },
         ],
       });
+      const eb = root.querySelector('[data-edit-team]');
+      if (eb) eb.onclick = () => UI.openTeamEditor(+eb.dataset.editTeam);
     },
   });
 

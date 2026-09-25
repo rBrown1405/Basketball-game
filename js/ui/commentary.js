@@ -368,6 +368,31 @@
       if (chance(0.25) && c.st.pts >= 10) return `${n} has ${statLine(c)}.`;
       return null;
     }
+    /** hot underdogs, cold favorites and upsets brewing (said once, at halftime or after the third) */
+    function storyOfTheNight(bx, sc) {
+      if (B.said.story) return false;
+      const fg = i => { const t = bx.teams[i]; return t.fga ? Math.round(t.fgm / t.fga * 100) : 0; };
+      const strength = i => PBC.League.teamStrength(S, T[i].id);
+      const gap = strength(0) - strength(1);
+      const dog = gap >= 4 ? 1 : gap <= -4 ? 0 : -1;
+      let line = null;
+      if (g.magic != null && fg(g.magic) >= 50) {
+        const m = g.magic;
+        line = pick([`${nick(m)} cannot miss tonight. ${fg(m)} percent from the field. When a team gets this hot, the talent gap goes out the window.`,
+          `Everything is going in for ${nick(m)}. ${fg(m)} percent shooting. This is one of those nights.`]);
+      } else if (g.offNight != null && fg(g.offNight) <= 42) {
+        const o = g.offNight;
+        line = pick([`${nick(o)} just cannot buy a bucket. ${fg(o)} percent from the field. You do not see that from them very often.`,
+          `Open looks are not falling for ${nick(o)}. ${fg(o)} percent shooting. Sometimes it is just that kind of night.`]);
+      } else if (dog >= 0 && sc[dog] > sc[1 - dog]) {
+        line = pick([`Nobody expected this. ${nick(dog)} are playing loose, and ${nick(1 - dog)} look rattled.`,
+          `${nick(dog)} came in as big underdogs and they are the ones in control. Stunning stuff so far.`]);
+      }
+      if (!line) return false;
+      B.said.story = 1;
+      say('color', line, { pri: 8, ttl: 12 });
+      return true;
+    }
     function runCheck(sc) {
       const run = g.run || {};
       if (run.pts >= 8 && run.pts !== B.runSaid && run.team >= 0) {
@@ -537,6 +562,7 @@
       onBreak(per) {
         const sc = g.score;
         const bx = PBC.Sim.box(g);
+        if ((per === 2 || per === L.periods - 1) && storyOfTheNight(bx, sc)) { /* the booth had a bigger story to tell */ }
         const top = U.maxBy(bx.teams.flatMap(t => t.players), x => x.pts);
         if (per === 2) {
           say('pbp', `That's halftime here${arena(0) ? ' at ' + arena(0) : ''}. ${lead(sc)}.`, { pri: 9, ttl: 8 });

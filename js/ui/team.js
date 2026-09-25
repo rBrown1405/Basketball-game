@@ -24,7 +24,7 @@
       UI.on(root, 'click', '[data-tab]', (e, el) => { rosterTab = el.dataset.tab; UI.refresh(); });
       const team = S.teams[S.userTid];
       const rows = roster.map(p => ({ p, s: PBC.Stats.season(p, S.season, false) }));
-      const nameCol = { key: 'name', label: 'Player', value: r => r.p.last, fmt: r => `<span class="row nowrap">${UI.avatar(r.p, 30)}<span>${UI.playerLink(r.p)}${team.strat.goTo1 === r.p.id ? ' <span class="tag gold">★1</span>' : team.strat.goTo2 === r.p.id ? ' <span class="tag gold">★2</span>' : ''}${r.p.injury ? ` <span class="tag bad" title="${U.esc(PBC.Player.injuryLabel(r.p.injury))}">INJ</span>` : ''}<div class="tiny dim">#${r.p.num} · ${U.esc(r.p.arch || '')}</div></span></span>` };
+      const nameCol = { key: 'name', label: 'Player', value: r => r.p.last, fmt: r => `<span class="row nowrap">${UI.avatar(r.p, 30)}<span>${UI.playerLink(r.p)}${team.strat.goTo1 === r.p.id ? ' <span class="tag gold">★1</span>' : team.strat.goTo2 === r.p.id ? ' <span class="tag gold">★2</span>' : ''}${r.p.injury ? ` <span class="tag bad" title="${U.esc(PBC.Player.injuryLabel(r.p.injury))}">INJ</span>` : ''}${r.p.tradeReq ? ` <span class="tag warn" title="${U.esc(r.p.tradeReq.text || 'Has asked for a trade')}">📣 TRADE REQUEST</span>` : ''}<div class="tiny dim">#${r.p.num} · ${U.esc(r.p.arch || '')}</div></span></span>` };
       const posCol = { key: 'pos', label: 'Pos', value: r => C.POS_NUM[r.p.pos], fmt: r => UI.pos(r.p.pos) };
       const base = [nameCol, posCol,
         { key: 'age', label: 'Age', num: true, value: r => r.p.age, fmt: r => r.p.age },

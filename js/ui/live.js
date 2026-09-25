@@ -272,7 +272,7 @@
     try { if (PBC.Broadcast) { LG.bc = PBC.Broadcast.create(host); host.bc = LG.bc; } } catch (e) { console.error('broadcast', e); }
     try { if (PBC.Commentary) { LG.cm = PBC.Commentary.create(host); host.cm = LG.cm; } } catch (e) { console.error('commentary', e); }
     if (LG.view) {
-      if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: stakes.playoff, level: stakes.level, label: stakes.short, finals: stakes.playoff && stakes.roundName === 'Finals' });
+      if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: stakes.playoff, level: stakes.level, effort: g.intensity, label: stakes.short, finals: stakes.playoff && stakes.roundName === 'Finals' });
       LG.view.onSound = (name, v) => { if (LG && LG.au) LG.au.play(name, v); };
     }
     LG.onKey = e => {
@@ -1039,7 +1039,7 @@
         LG.view = UI.makeCourtView(stage.querySelector('#court'), LG.S, LG.g);
         if (LG.view) {
           LG.view.period = LG.g.period;
-          if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: LG.stakes.playoff, level: LG.stakes.level, label: LG.stakes.short, finals: LG.stakes.playoff && LG.stakes.roundName === 'Finals' });
+          if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: LG.stakes.playoff, level: LG.stakes.level, effort: LG.g.intensity, label: LG.stakes.short, finals: LG.stakes.playoff && LG.stakes.roundName === 'Finals' });
           LG.view.onSound = (name, v) => { if (LG && LG.au) LG.au.play(name, v); };
           if (LG.bc) LG.bc.setView(LG.view);
         }

@@ -73,6 +73,7 @@
   function teamLookFor(S, p) {
     const t = p.tid >= 0 && S.teams[p.tid] ? S.teams[p.tid] : null;
     if (!t) return { uniform: { jersey: '#3b475f', number: '#ffffff', trim: '#8d99b0', shorts: '#3b475f' } };
+    if (UI.teamUniform) return { uniform: Object.assign({}, UI.teamUniform(t, false)) }; // the team's away set (Team Editor colors)
     const pri = t.colors.primary, sec = t.colors.secondary;
     return { uniform: { jersey: pri, number: U.textOn(pri) === '#ffffff' ? '#ffffff' : sec, trim: sec, shorts: pri } };
   }
