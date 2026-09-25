@@ -224,9 +224,12 @@
         const s = PBC.Stats.season(p, S.season, false);
         const mpg = s && s.gp ? s.min / s.gp : 0;
         const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
-        let d = (mpg - expected) * 0.25 * ((p.pers ? p.pers.pt : 50) / 50) + (winning - 0.5) * 6 * ((p.pers ? p.pers.win : 50) / 50);
+        const hurt = PBC.Player.isInjured(p);                   // injured players don't sulk about minutes
+        let d = (hurt ? 0 : (mpg - expected) * 0.25 * ((p.pers ? p.pers.pt : 50) / 50)) + (winning - 0.5) * 6 * ((p.pers ? p.pers.win : 50) / 50);
         if (p.promise && p.promise.type === 'starter' && s && s.gp >= 5 && s.gs / s.gp < 0.6) d -= 3;
         if (p.promise && p.promise.type === 'minutes' && s && s.gp >= 5 && mpg < p.promise.min - 2) d -= 3;
+        // good players stuck on bad teams get restless (the classic trade-request story)
+        if (p.ovr >= 76 && winning < 0.42) d -= (0.42 - winning) * 8 * ((p.pers ? p.pers.win : 50) / 60) * (rec.w + rec.l >= 10 ? 1 : 0);
         if (p.tradeReq) d -= 1;                                   // still waiting to be moved
         p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) + d * 0.5 * sens + (70 - (p.morale || 70)) * 0.05, 5, 100));
       });
@@ -260,18 +263,18 @@
       const p = S.players[id];
       if (p.tid < 0) continue;
       const m = p.morale == null ? 70 : p.morale;
-      p.lowWeeks = m < 40 ? (p.lowWeeks || 0) + 1 : m >= 48 ? 0 : p.lowWeeks || 0;
+      p.lowWeeks = m < 52 ? (p.lowWeeks || 0) + 1 : m >= 58 ? 0 : p.lowWeeks || 0;
       if (p.tradeReq) {
         if (m >= 60) Season.rescindTradeRequest(S, p);
         continue;
       }
-      if (!lb.tradeRequests || S.phase !== 'regular' || p.lowWeeks < 3) continue;
+      if (!lb.tradeRequests || S.phase !== 'regular' || p.lowWeeks < 3 || PBC.Player.isInjured(p)) continue;
       const user = p.tid === S.userTid;
       if (!user && p.ovr < 70) continue;                          // only notable players on AI teams make noise
       const pe = p.pers || {};
       const type = PBC.Persona ? PBC.Persona.of(p) : null;
-      let ch = 0.1 * lb.tradeRequestFreq * (0.6 + (pe.ego != null ? pe.ego : 50) / 100) * (1.3 - (pe.loyal != null ? pe.loyal : 50) / 100);
-      ch *= 1 + (40 - m) / 40 + Math.min(4, p.lowWeeks - 3) * 0.15;
+      let ch = 0.07 * lb.tradeRequestFreq * (0.6 + (pe.ego != null ? pe.ego : 50) / 100) * (1.3 - (pe.loyal != null ? pe.loyal : 50) / 100);
+      ch *= 1 + (52 - m) / 20 + Math.min(4, p.lowWeeks - 3) * 0.15;
       ch *= (type && REQ_TYPE[type]) || 1;
       if (U.chance(U.clamp(ch, 0, 0.8))) Season.makeTradeRequest(S, p);
     }
