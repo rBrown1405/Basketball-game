@@ -66,6 +66,9 @@
     const face = opts.face || (PBC.Persona ? PBC.Persona.face(p, opts.ctx) : 'neutral');
     const X_ = EXPR[face] || EXPR.neutral;
     const seed = U.hash(String(p && p.id != null ? p.id : (p && p.last) || 'x'));
+    // the same feature set drives the in-game model (PBC.Identity): face shape, eyes, nose, lips, ears...
+    const F = PBC.Identity ? PBC.Identity.features(p) : null;
+    const ft = (k, d) => (F && F[k] != null ? F[k] : d == null ? 0.5 : d);
     const m = new Uint8Array(N * N), l = new Uint8Array(N * N);
     const idx = (x, y) => y * N + x;
     const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -78,8 +81,9 @@
 
     // ---------------- geometry (head fills the frame like a media-day headshot)
     const cx = 32;
-    const crx = 14.2 + build * 1.2 - (fem ? 0.7 : 0), cry = 15.6, ccy = 24;
-    const jrx = 12.4 + build * 1.9 - (fem ? 1.3 : 0), jry = 11.6 - (fem ? 0.5 : 0), jcy = 33.4;
+    const faceLen = ft('faceLen'), jawF = ft('jaw'), chinF = ft('chin'), cheekF = ft('cheek'), foreF = ft('forehead');
+    const crx = 14.2 + build * 1.2 - (fem ? 0.7 : 0) - (faceLen - 0.5) * 2.2, cry = 15.6 + (faceLen - 0.5) * 2.4 + (foreF - 0.5) * 1.2, ccy = 24 - (foreF - 0.5) * 0.8;
+    const jrx = 12.4 + build * 1.9 - (fem ? 1.3 : 0) + (jawF - 0.5) * 3.6 - (faceLen - 0.5) * 1.2, jry = 11.6 - (fem ? 0.5 : 0) + (chinF - 0.5) * 2.6 + (faceLen - 0.5) * 2.2, jcy = 33.4 + (faceLen - 0.5) * 1.4;
     const inCran = (x, y, t) => { const X = x + 0.5 - cx, Y = y + 0.5 - ccy; t = t || 0; return (X * X) / ((crx + t) ** 2) + (Y * Y) / ((cry + t) ** 2) <= 1; };
     const inJaw = (x, y) => { const X = x + 0.5 - cx, Y = y + 0.5 - jcy; return (X * X) / (jrx * jrx) + (Y * Y) / (jry * jry) <= 1; };
     const inFace = (x, y) => inCran(x, y) || (inJaw(x, y) && y + 0.5 > ccy);
@@ -90,11 +94,16 @@
       const i = -0.6 * nx - 0.36 * ny + 0.72 * nz + (bayer(x, y) - 0.5) * 0.06;
       return i > 0.95 ? 4 : i > 0.78 ? 3 : i > 0.26 ? 2 : i > -0.12 ? 1 : 0;
     };
-    const hairline = x => 14.6 + 0.024 * (x + 0.5 - cx) ** 2;
-    const nw = (fem ? 5.2 : 6.2) + build * 2.4;
-    const strap = 17 + build * 2.5;
-    const eyeY = 30, my = 41;
-    const eyeL = cx - 8, eyeR = cx + 3; // left edges of the 5 px eyes
+    // hairline: higher forehead / receding temples come from the feature set
+    const hlF = ft('hairline');
+    const hairline = x => 14.6 - (foreF - 0.5) * 3 + (0.018 + hlF * 0.02) * (x + 0.5 - cx) ** 2 + (hlF > 0.8 ? Math.max(0, 4 - Math.abs(Math.abs(x + 0.5 - cx) - 9)) * 0.6 : 0);
+    const nw = (fem ? 5.2 : 6.2) + build * 2.4 + (ft('neck') - 0.5) * 2.4;
+    const strap = 17 + build * 2.5 + (ft('musc') - 0.5) * 2;
+    const eyeY = 30 + Math.round((faceLen - 0.5) * 2), my = 41 + Math.round((faceLen - 0.5) * 3 + (ft('noseL') - 0.5) * 1);
+    const eyeSp = Math.round((ft('eyeSpace') - 0.5) * 2.4);
+    const eyeL = cx - 8 - eyeSp, eyeR = cx + 3 + eyeSp; // left edges of the 5 px eyes
+    const eyeW = ft('eyeSize') > 0.78 ? 6 : ft('eyeSize') < 0.22 ? 4 : 5;
+    const eyeTilt = ft('eyeTilt') > 0.75 ? -1 : ft('eyeTilt') < 0.25 ? 1 : 0; // -1: outer corners up
 
     const hs = lk.hair || (fem ? 'ponytail' : 'fade');
     const beard = fem ? 'none' : (lk.beard || 'none');
@@ -195,10 +204,11 @@
 
     // ---------------- ears + head
     for (const s of [-1, 1]) {
-      const ex = cx + s * (crx + 0.3), ey = 31;
-      for (let y = 25; y < 38; y++) for (let x = Math.floor(ex - 3.5); x <= Math.ceil(ex + 3.5); x++) {
+      const ex = cx + s * (crx + 0.3 + (ft('earSize') - 0.5) * 1.2), ey = eyeY + 1;
+      const erx = 6.2 + (ft('earSize') - 0.5) * 5, ery = 16 + (ft('earSize') - 0.5) * 9;
+      for (let y = ey - 7; y < ey + 8; y++) for (let x = Math.floor(ex - 4.5); x <= Math.ceil(ex + 4.5); x++) {
         const X = x + 0.5 - ex, Y = y + 0.5 - ey;
-        if ((X * X) / 6.2 + (Y * Y) / 16 <= 1) set(x, y, EAR, s < 0 ? (X < -0.8 ? 3 : 2) : (X > 0.8 ? 1 : 2));
+        if ((X * X) / erx + (Y * Y) / ery <= 1) set(x, y, EAR, s < 0 ? (X < -0.8 ? 3 : 2) : (X > 0.8 ? 1 : 2));
       }
       // inner ear shadow
       set(ex + s * 0.2, ey, EAR, 0); set(ex + s * 0.2, ey + 1, EAR, 1);
@@ -212,7 +222,8 @@
     }
     for (const s of [-1, 1]) {
       const bx = cx + s * 8 - (s > 0 ? 1 : 0);
-      for (let k = 0; k < 3; k++) { if (get(bx + s * k, eyeY + 4) === SKIN) set(bx + s * k, eyeY + 4, SKIN, s < 0 ? 4 : 2); if (get(bx + s * k, eyeY + 6) === SKIN) set(bx + s * k, eyeY + 6, SKIN, Math.max(0, lv(bx + s * k, eyeY + 6) - 1)); }
+      const nk = cheekF > 0.7 ? 4 : cheekF < 0.3 ? 2 : 3;
+      for (let k = 0; k < nk; k++) { if (get(bx + s * k, eyeY + 4) === SKIN) set(bx + s * k, eyeY + 4, SKIN, s < 0 ? 4 : 2); if (cheekF > 0.3 && get(bx + s * k, eyeY + 6) === SKIN) set(bx + s * k, eyeY + 6, SKIN, Math.max(0, lv(bx + s * k, eyeY + 6) - (cheekF > 0.7 ? 2 : 1))); }
     }
     for (let x = cx - 2; x <= cx + 1; x++) if (get(x, 45) === SKIN) set(x, 45, SKIN, x < cx ? 3 : 2);
     for (let y = 40; y < 50; y++) for (let x = 16; x < 48; x++) if (get(x, y) === SKIN && !inFace(x, y) && (inFace(x, y - 1) || inFace(x, y - 2))) set(x, y, SKIN, 0);
@@ -303,7 +314,7 @@
     if (beard === 'goatee') for (let y = my + 2; y < 47; y++) for (let x = cx - 4; x <= cx + 3; x++) if (inFace(x, y) && Math.abs(x + 0.5 - cx) < 4.2 - (y - my - 2) * 0.28) set(x, y, BEARD, x < cx ? 2 : 1);
 
     // ---------------- eyes
-    const irisC = lk.eyes || (U.hash(seed + 'e') % 7 === 0 ? '#3f6a8a' : U.hash(seed + 'e') % 5 === 0 ? '#5c7a3a' : U.hash(seed + 'e') % 3 === 0 ? '#5a3a1e' : '#2b1a10');
+    const irisC = lk.eyes || (F ? F.eyeColor : '#2b1a10');
     for (let e = 0; e < 2; e++) {
       const x0 = e === 0 ? eyeL : eyeR;
       const mode = X_.eyes;
@@ -314,28 +325,34 @@
         for (let x = x0 + 1; x < x0 + 4; x++) set(x, eyeY, SKIN, 3);
         continue;
       }
-      const top = mode === 'wide' ? eyeY - 2 : mode === 'squint' ? eyeY : eyeY - 1;
-      for (let y = top; y <= eyeY; y++) for (let x = x0; x < x0 + 5; x++) set(x, y, WHITE, y === top ? 1 : 2);
-      set(x0, eyeY, WHITE, 1); set(x0 + 4, eyeY, WHITE, 1);
+      const big = ft('eyeSize') > 0.62 && mode !== 'squint' && mode !== 'lidded';
+      const top = mode === 'wide' || big ? eyeY - 2 : mode === 'squint' ? eyeY : eyeY - 1;
+      const xe = x0 + eyeW - 1; // outer edge (pixel index)
+      for (let y = top; y <= eyeY; y++) for (let x = x0; x <= xe; x++) set(x, y, WHITE, y === top ? 1 : 2);
+      set(x0, eyeY, WHITE, 1); set(xe, eyeY, WHITE, 1);
+      // eye tilt: the outer corner (toward the temple) sits a pixel up or down
+      if (eyeTilt) { const ox = e === 0 ? x0 : xe; if (eyeTilt < 0) { set(ox, top - 1, WHITE, 1); set(ox, eyeY, SKIN, faceLevel(ox, eyeY)); } else { set(ox, eyeY + 1, WHITE, 1); set(ox, top, SKIN, faceLevel(ox, top)); } }
       const look = X_.look || 0;
-      const ix = x0 + 1 + (look > 0 ? 1 : look < 0 ? 0 : (e === 0 ? 1 : 1));
+      const ix = x0 + 1 + (look > 0 ? 1 : look < 0 ? 0 : (e === 0 ? 1 : 1)) + (eyeW === 6 ? 1 : 0) - (eyeW === 4 && e === 1 ? 1 : 0);
       for (let y = Math.max(top, eyeY - 1); y <= eyeY; y++) { set(ix, y, IRIS, 2); set(ix + 1, y, IRIS, 1); }
       set(ix + (e === 0 ? 1 : 0), eyeY, DARK, 0);
       if (mode !== 'squint') set(ix, Math.max(top, eyeY - 1), WHITE, 4);
       // lash line (heavier at the outer corner), lids
-      for (let x = x0 - 1; x <= x0 + 5; x++) set(x, top - 1, LASH, 0);
-      set(e === 0 ? x0 - 1 : x0 + 5, top, LASH, 0);
-      if (fem) set(e === 0 ? x0 - 2 : x0 + 6, top - 2, LASH, 0);
-      if (mode === 'lidded' || mode === 'squint') for (let x = x0; x < x0 + 5; x++) set(x, top, SKIN, 1);
-      for (let x = x0; x < x0 + 5; x++) if (get(x, eyeY + 1) === SKIN) set(x, eyeY + 1, SKIN, Math.max(1, lv(x, eyeY + 1) - 1));
+      for (let x = x0 - 1; x <= xe + 1; x++) set(x, top - 1, LASH, 0);
+      set(e === 0 ? x0 - 1 : xe + 1, top, LASH, 0);
+      if (fem) set(e === 0 ? x0 - 2 : xe + 2, top - 2, LASH, 0);
+      const heavyLid = ft('lid') > 0.7;
+      if (mode === 'lidded' || mode === 'squint' || heavyLid) for (let x = x0; x <= xe; x++) set(x, top, SKIN, 1);
+      for (let x = x0; x <= xe; x++) if (get(x, eyeY + 1) === SKIN) set(x, eyeY + 1, SKIN, Math.max(1, lv(x, eyeY + 1) - 1));
     }
     // ---------------- brows
     const browFor = e => {
       const x0 = e === 0 ? eyeL : eyeR, b = X_.brow;
+      const arch = ft('browArch'), bth = ft('browThick');
       for (let k = 0; k < 6; k++) {
         const x = e === 0 ? x0 - 1 + k : x0 + k;
         const tIn = e === 0 ? k / 5 : 1 - k / 5; // 1 at the inner end
-        let dy = 0;
+        let dy = arch > 0.7 && (k === 2 || k === 3) ? -1 : arch < 0.25 ? (tIn > 0.6 ? 0 : 1) : 0;
         if (b === 'soft') dy = (k === 2 || k === 3) ? -1 : 0;
         else if (b === 'up') dy = -1 - ((k === 2 || k === 3) ? 1 : 0);
         else if (b === 'angry') dy = Math.round(tIn * 2.4) - 1;
@@ -344,25 +361,36 @@
         else if (b === 'cocky') dy = e === 0 ? -2 - ((k === 2 || k === 3) ? 1 : 0) : 1;
         else if (b === 'annoyed') dy = e === 0 ? Math.round(tIn * 2) - 1 : 0;
         else dy = (k === 2 || k === 3) && tIn > 0.3 ? 0 : 0;
-        const y = eyeY - 5 + dy;
-        const thick = fem ? tIn > 0.5 : tIn > 0.25 || b === 'heavy' || b === 'angry';
+        const y = eyeY - 5 + dy - (bth > 0.75 ? 1 : 0);
+        const thick = bth > 0.75 ? true : bth < 0.25 ? tIn > 0.7 : fem ? tIn > 0.5 : tIn > 0.25 || b === 'heavy' || b === 'angry';
         set(x, y, BROW, 2 - (k === 0 || k === 5 ? 0 : 0));
         if (thick) set(x, y + 1, BROW, 1);
+        if (bth > 0.75 && tIn > 0.3) set(x, y + 2, BROW, 1);
       }
     };
     browFor(0); browFor(1);
     // ---------------- nose
-    for (let y = eyeY + 3; y <= eyeY + 7; y++) { if (get(cx + 1, y) === SKIN) set(cx + 1, y, SKIN, Math.max(1, lv(cx + 1, y) - 1)); if (y > eyeY + 3 && get(cx - 2, y) === SKIN) set(cx - 2, y, SKIN, Math.min(4, lv(cx - 2, y) + 1)); }
-    set(cx - 1, eyeY + 7, SKIN, 4); set(cx, eyeY + 7, SKIN, 3);
-    set(cx - 3, eyeY + 8, SKIN, 1); set(cx + 2, eyeY + 8, SKIN, 0); set(cx - 3, eyeY + 9, SKIN, 0); set(cx + 2, eyeY + 9, SKIN, 0);
-    for (let x = cx - 2; x <= cx + 1; x++) set(x, eyeY + 9, SKIN, 1);
-    set(cx - 4, eyeY + 8, SKIN, Math.max(0, lv(cx - 4, eyeY + 8) - 1)); set(cx + 3, eyeY + 8, SKIN, 0);
+    const nTip = eyeY + 7 + (ft('noseL') > 0.7 ? 1 : ft('noseL') < 0.3 ? -1 : 0);
+    const nW = ft('noseW') > 0.7 ? 1 : ft('noseW') < 0.3 ? -1 : 0; // nostril spread
+    const bridge = ft('noseBridge') > 0.7;
+    for (let y = eyeY + 3; y <= nTip; y++) { if (get(cx + 1, y) === SKIN) set(cx + 1, y, SKIN, Math.max(1, lv(cx + 1, y) - 1)); if (y > eyeY + 3 && get(cx - 2, y) === SKIN) set(cx - 2, y, SKIN, Math.min(4, lv(cx - 2, y) + 1)); if (bridge && get(cx - 1, y) === SKIN && y < nTip - 1) set(cx - 1, y, SKIN, 4); }
+    set(cx - 1, nTip, SKIN, 4); set(cx, nTip, SKIN, 3);
+    set(cx - 3 - nW, nTip + 1, SKIN, 1); set(cx + 2 + nW, nTip + 1, SKIN, 0); set(cx - 3 - nW, nTip + 2, SKIN, 0); set(cx + 2 + nW, nTip + 2, SKIN, 0);
+    for (let x = cx - 2 - nW; x <= cx + 1 + nW; x++) set(x, nTip + 2, SKIN, 1);
+    set(cx - 4 - nW, nTip + 1, SKIN, Math.max(0, lv(cx - 4 - nW, nTip + 1) - 1)); set(cx + 3 + nW, nTip + 1, SKIN, 0);
+    if (nW < 0) { set(cx - 2, nTip + 1, SKIN, 2); set(cx + 1, nTip + 1, SKIN, 1); }
     // ---------------- cheeks lift for smiles
     if (X_.cheeks) for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { const x = cx + s * (8 + k) - (s > 0 ? 1 : 0); if (get(x, eyeY + 4) === SKIN) set(x, eyeY + 4, SKIN, s < 0 ? 4 : 3); if (X_.cheeks > 1 && get(x, eyeY + 7) === SKIN) set(x, eyeY + 7, SKIN, Math.max(0, lv(x, eyeY + 7) - 1)); }
     // ---------------- mouth
-    const upperLip = (x0, x1) => { for (let x = x0; x <= x1; x++) if (get(x, my - 1) === SKIN) set(x, my - 1, LIP, x < cx ? 2 : 1); };
-    const lowerLip = (x0, x1) => { for (let x = x0; x <= x1; x++) if ([SKIN, BEARD, STUB].includes(get(x, my + 1))) set(x, my + 1, LIP, x < cx - 1 ? 4 : x < cx + 1 ? 3 : 2); for (let x = x0 + 1; x < x1; x++) if (get(x, my + 2) === SKIN) set(x, my + 2, SKIN, Math.max(0, lv(x, my + 2) - 1)); };
-    const W2 = fem ? 3 : 4;
+    const upperLip = (x0, x1) => { if (ft('lipFull') < 0.3) return; for (let x = x0; x <= x1; x++) if (get(x, my - 1) === SKIN) set(x, my - 1, LIP, x < cx ? 2 : 1); };
+    const lipF = ft('lipFull');
+    const lowerLip = (x0, x1) => {
+      for (let x = x0; x <= x1; x++) if ([SKIN, BEARD, STUB].includes(get(x, my + 1))) set(x, my + 1, LIP, x < cx - 1 ? 4 : x < cx + 1 ? 3 : 2);
+      if (lipF > 0.68) for (let x = x0 + 1; x < x1; x++) if ([SKIN, BEARD, STUB].includes(get(x, my + 2))) set(x, my + 2, LIP, x < cx ? 3 : 2);
+      const yb = lipF > 0.68 ? my + 3 : my + 2;
+      for (let x = x0 + 1; x < x1; x++) if (get(x, yb) === SKIN) set(x, yb, SKIN, Math.max(0, lv(x, yb) - 1));
+    };
+    const W2 = (fem ? 3 : 4) + (ft('mouthW') > 0.72 ? 1 : ft('mouthW') < 0.28 ? -1 : 0);
     switch (X_.mouth) {
       case 'smile':
         upperLip(cx - W2 + 1, cx + W2 - 2);
@@ -501,7 +529,7 @@
   }
   function keyOf(p, uni, face, bg) {
     const lk = (p && p.look) || {};
-    return [p && p.id, lk.skin, lk.hair, lk.hairColor, lk.beard, lk.headband, lk.build, lk.tattoo, lk.eyes, p && p.gender, p && p.num, uni.jersey, uni.trim, uni.number, face, bg].join('|');
+    return [p && p.id, lk.skin, lk.hair, lk.hairColor, lk.beard, lk.headband, lk.build, lk.tattoo, lk.eyes, p && p.gender, p && p.num, uni.jersey, uni.trim, uni.number, face, bg, lk.feat ? JSON.stringify(lk.feat) : ''].join('|');
   }
   /** data URL of a 64×64 pixel portrait. opts: { face, ctx: {mood}, bg: 'team'|'studio'|'none', uniform } */
   function url(p, opts) {

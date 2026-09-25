@@ -24,7 +24,8 @@
     };
   }
   function playerLook(p, teamIdx) {
-    return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle };
+    return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle,
+      expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral' };
   }
   UI.matchContext = function (S, g) {
     const L = PBC.League.cfg(S);
