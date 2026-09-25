@@ -78,7 +78,7 @@
     const st = S.settings || {};
     return {
       style: st.courtStyle === 'retro' ? 'retro' : 'broadcast',
-      pixel: st.pixelArt !== false,
+      pixel: st.pixelArt === true, // realistic 3D players by default; pixel art is opt-in
       pixelSize: st.pixelSize || 'normal',
       camera: ['fixed', 'wide', 'close'].includes(st.camera) ? st.camera : 'auto',
       showNames: !!st.showNames,

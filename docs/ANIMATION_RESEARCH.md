@@ -70,3 +70,34 @@ From NBA SportVU tracking (2015-16 sample) and NBA.com team tracking: passes ~5.
 23% / 44% / 21% / 11% / 1% of the time under 2 / 2-6 / 6-10 / 10-15 / over 15 ft/s; nearest teammate ~14 ft;
 idle spells rarely over 3 s. Passes per possession by system: motion / Princeton ~3-3.4, isolation ~2.4-2.6.
 https://github.com/linouk23/NBA-Player-Movements , https://github.com/gabriel1200/site_Data
+
+## Player models and rendering (human.js, human_build.js, gl3d.js)
+
+The realistic players start from the MakeHuman 1.1 base mesh, targets and skeleton weights, which the MakeHuman
+project released under CC0 1.0 (https://github.com/makehumancommunity/makehuman, LICENSE.ASSETS.md).
+`tools/human/build.js` converts them into `js/match/human_data.js`.
+
+| Topic | What the code does | Source |
+|---|---|---|
+| Body shape | gender = average of MakeHuman's three race targets (no single ancestry baked in); muscle x weight grid with ideal proportions; identity face shapes (jaw, chin, cheekbones, eyes, nose, lips, ears, neck) from `PBC.Identity` | https://github.com/makehumancommunity/makehuman |
+| Proportions | ANSUR II tall athletic men: neck girth .203 H, chest .537, waist .470, upper thigh .320, calf .202, biceps .181, forearm .161; bideltoid .266; acromion .826 H; arm segments from the shoulder joint centre | https://github.com/senihberkay/US-Army-ANSUR-II |
+| Heads | head length ~200 mm barely grows with stature, so tall players' heads scale less than their bodies | ANSUR II (as above) |
+| Twist | forearm pronation / humerus / femur rotation spread along the segment per vertex (no candy-wrapper) | https://users.cs.utah.edu/~ladislav/kavan07skinning/kavan07skinning.pdf |
+| Skin | wrap diffuse with a red scatter band; two Beckmann lobes, F0 0.028, oilier and sharper with sweat | https://developer.nvidia.com/gpugems/gpugems/part-iii-materials/chapter-16-real-time-approximations-subsurface-scattering , https://developer.nvidia.com/gpugems/gpugems3/part-iii-rendering/chapter-14-advanced-techniques-realistic-real-time-skin |
+| Skin tone | portrait tone kept for lightness, chroma pulled toward measured skin albedo (Fitzpatrick I-VI, linear sRGB) | https://github.com/AntonPalmqvist/physically-based-api |
+| Cloth | wrap diffuse 0.5 and Charlie sheen (Filament cloth model) | https://raw.githubusercontent.com/google/filament/main/shaders/src/surface_shading_model_cloth.fs , https://blog.selfshadow.com/publications/s2017-shading-course/imageworks/s2017_pbs_imageworks_sheen.pdf |
+| Hair | Kajiya-Kay with shifted tangents | https://web.engr.oregonstate.edu/~mjb/cs557/Projects/Papers/HairRendering.pdf |
+| Eyes | sclera albedo ~(0.65, 0.5, 0.39), iris with limbal ring, cornea glint | https://github.com/Unity-Technologies/Graphics (HDRP EyeUtils) |
+| Lights | arena 1500-2000 lux, 5000-5700 K, camera white-balanced (neutral); overhead key, far fill, camera fill, warm maple bounce, rim | https://sportsvenuecalculator.com/knowledge/led-sports-lighting/basketball-court-lighting/ , https://steamcdn-a.akamaihd.net/apps/valve/2007/NPAR07_IllustrativeRenderingInTeamFortress2.pdf |
+| Tone map | Khronos PBR Neutral (keeps team colours) | https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral |
+| Uniform | shorts waistband ~0.61 H, hem just above the knee (~0.3 H); jersey tucked; loose drape by smoothing an offset of the body | ANSUR II landmarks (as above) |
+
+## Broadcast and watch-sim realism
+
+| Topic | Notes | Source |
+|---|---|---|
+| Game camera | mid-level at centre court, wide enough for all ten players, moves little; fans reject swaying / zooming experiments | https://www.sportsvideo.org/2018/03/31/live-from-final-four-camera-op-janis-murray-makes-history-taking-over-main-game-camera-position/ , https://awfulannouncing.com/nba/trying-to-make-a-big-game-feel-bigger-with-experimental-camera-angles-isnt-worth-it.html |
+| Camera pan | follows the players' formation more than the ball, with lead room and smooth, purposeful motion | https://openaccess.thecvf.com/content_cvpr_2016/papers/Chen_Learning_Online_Smooth_CVPR_2016_paper.pdf |
+| Replays | 4x-6x slow motion for highlights, in dead time only | https://smt.com/nba-finals-espn-caps-23rd-nba-season-with-tech-fueled-productions-in-okc-and-indy/ |
+| Pace | ~98.8 possessions per 48 min, ~14.5 s per possession; free throw 10 s limit | https://fantasyteamadvice.com/nba/game-pace-data-today , https://videorulebook.nba.com/archive/free-throw-violation-shooter-takes-more-than-10-seconds-to-shoot |
+| Sim complaints | skating feet, floaty balls, passive defenders, bodies overlapping, repetitive animation; praise for planted feet and steady TV framing | https://steamcommunity.com/app/3551340/discussions/0/506217282369883622/ , https://nba.2k.com/2k26/courtside-report/gameplay/ |

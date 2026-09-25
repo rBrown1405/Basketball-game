@@ -404,7 +404,17 @@
       cam.ox = ox - X0; cam.oy = oy - Y0;
       // a ball held in the hands belongs to the sprite (drawn into the scratch canvas at its depth slot)
       const oo = o.extra ? Object.assign({}, o, { extra: { d: o.extra.d, fn: () => (ballFn ? ballFn(sg) : this.ball.draw(sg, cam)) } }) : o;
-      try { this.fr.draw(sg, cam, sk, style, oo); } finally { cam.ox = ox; cam.oy = oy; }
+      try {
+        const R3 = this._r3;
+        if (R3 && R3.cells.has(sk)) {
+          // the 3D cell was rendered at this (pixel) camera: shift it into the sprite canvas
+          const c = R3.cells.get(sk);
+          const exb = oo.extra, behind = exb && exb.d > cam.depth(sk.P[1], 3) + 0.25;
+          if (exb && behind) exb.fn();
+          sg.drawImage(R3.cv, c.cx, c.cy, c.cw, c.ch, c.x0 - X0, c.y0 - Y0, c.x1 - c.x0, c.y1 - c.y0);
+          if (exb && !behind) exb.fn();
+        } else this.fr.draw(sg, cam, sk, style, oo);
+      } finally { cam.ox = ox; cam.oy = oy; }
       sg.setTransform(1, 0, 0, 1, 0, 0);
       const img = sg.getImageData(0, 0, w, h), d = img.data;
       const n = w * h;
@@ -436,6 +446,16 @@
       }
       sg.putImageData(img, 0, 0);
       g.drawImage(this._spr, 0, 0, w, h, X0, Y0, w, h);
+    }
+    /** composite a 3D person's cell; a held ball goes in front of or behind the body by depth */
+    blit3d(g, cam, R3, pp, o) {
+      if (!R3.cells.has(pp.sk)) return false;
+      const ex = o && o.extra;
+      const behind = ex && ex.d > cam.depth(pp.sk.P[1], 3) + 0.25;
+      if (ex && behind) ex.fn();
+      R3.blit(g, pp.sk);
+      if (ex && !behind) ex.fn();
+      return true;
     }
     /** crisp pixel-art contact shadow (hard ellipse instead of a soft blob) */
     drawPixelShadow(g, cam, sk) {
@@ -605,8 +625,15 @@
         let o = 0;
         for (const ho of this.hoops) { for (const L of ho.lv) { L.dr = rp.net[o++]; L.dz = rp.net[o++]; L.ox = rp.net[o++]; L.oy = rp.net[o++]; } ho.rimShake = rp.net[o++]; ho.boardShake = rp.net[o++]; }
       }
+      // realistic 3D players: rendered into per-person cells now, composited below in depth order
+      let R3 = null;
+      if (this.opts.models !== '2d' && q !== 'low' && M.GL3D && M.Human) {
+        R3 = M.GL3D.get();
+        if (R3) { const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr }), this, '3d players'); if (!n3) R3 = R3 && R3.cells.size ? R3 : null; }
+      }
+      this._r3 = R3;
       try {
-        if (q !== 'low') for (const pp of people) this.fr.drawReflection(g, cam, pp.sk, pp.style, pix ? 0.08 : 0.11);
+        if (q !== 'low') for (const pp of people) { if (!(R3 && R3.reflect(g, cam, pp.sk, pix ? 0.07 : 0.1))) this.fr.drawReflection(g, cam, pp.sk, pp.style, pix ? 0.08 : 0.11); }
         if (pix) for (const pp of people) this.drawPixelShadow(g, cam, pp.sk);
         else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, 1);
         b.drawShadow(g, cam);
@@ -629,7 +656,7 @@
             const o = { dpr };
             if (heldBy && heldBy === pp.a) o.extra = { d: cam.depth(b.y, b.z) + 0.05, fn: ballFn };
             if (pix) this.drawPixelPerson(g, cam, pp.sk, pp.style, o);
-            else this.fr.draw(g, cam, pp.sk, pp.style, o);
+            else if (!(R3 && this.blit3d(g, cam, R3, pp, o))) this.fr.draw(g, cam, pp.sk, pp.style, o);
           } else if (it.k === 1) {
             const ho = it.o;
             ho.drawBoard(g, cam);

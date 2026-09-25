@@ -80,3 +80,9 @@ js/ui/                screens, portraits, TV graphics, arena audio and the comme
 docs/                 engine ⇄ view contract, data model, UI guide
 test/                 Node test scripts (node test/calibrate.js men, node test/procanim.js …)
 ```
+
+## Credits
+
+The 3D players are built from the MakeHuman 1.1 base mesh, targets and skeleton weights, released under CC0 1.0 by the
+MakeHuman project (https://github.com/makehumancommunity/makehuman). `tools/human/build.js` regenerates
+`js/match/human_data.js` from them.

@@ -87,9 +87,12 @@
       hipH: 0.542 * H,
       pelSp: 0.095 * H, spCh: 0.1 * H, chNk: 0.1 * H, neck: 0.07 * H,
       headR: 0.058 * H,
-      shX: (fem ? 0.1 : 0.112) * H, shZ: 0.088 * H,
+      // shoulder joint = the glenohumeral centre (~0.80 H), about 4 cm below the acromion (ANSUR acromion .826 H)
+      shX: (fem ? 0.1 : 0.112) * H, shZ: 0.064 * H,
       hipX: (fem ? 0.056 : 0.051) * H,
-      ua: 0.186 * H, fa: 0.146 * H, hand: 0.108 * H,
+      // arm segments from the shoulder joint centre (ANSUR / MakeHuman): upper arm ~0.172 H, forearm ~0.152 H, hand
+      // ~0.112 H (wingspan ~1.09 H, long like an NBA player's; Drillis-Contini's 0.186 H is measured from the acromion)
+      ua: 0.172 * H, fa: 0.152 * H, hand: 0.112 * H,
       th: 0.245 * H, sh: 0.246 * H, ankH: 0.039 * H,
       heel: 0.03 * H, ball: 0.084 * H, toe: 0.04 * H,
       footW: 0.036 * H,
