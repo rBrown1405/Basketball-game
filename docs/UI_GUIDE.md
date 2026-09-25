@@ -57,6 +57,7 @@ UI.backupNow(reason), UI.saveAs()      // rotating backup / named save slot
 UI.guardUnsaved(doing) -> Promise<bool>  // asks before leaving a career with unsaved changes
 UI.teamUniform(t, home), UI.teamCourt(t), UI.teamArena(t)   // Team Editor look with defaults
 UI.openTeamEditor(tid)
+UI.openPlayerEditor(pid, { tab: 'main' | 'tend' | 'pers' | 'char' })   // ratings & looks, tendencies, personality, characteristics
 UI.money = PBC.U.money
 ```
 
