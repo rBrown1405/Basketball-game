@@ -415,6 +415,66 @@
       };
       return cs;
     }
+    /**
+     * A jump stop off a run or a drive, built for this player's own speed: a small hop off the last step (~0.16 s in
+     * the air, barely off the floor) and both feet land together, about shoulder width apart and a touch staggered,
+     * out ahead of the hips so the legs brake the body; the knees give, the hips sink and stay back, chest up and
+     * balanced over the feet (not leaning in), the ball chinned if he has it (a dribble is picked up on the hop).
+     * Then he settles into the stance, free to pivot on either foot.
+     * o: { faceTo: {x, y} (turns toward it in the air, up to ~60 deg), stance (after it; default holdChest with the
+     * ball, ready without), onEnd }. Returns the clip state (null: not now).
+     */
+    jumpStop(o) {
+      o = o || {};
+      const b = this.view && this.view.ball;
+      const has = !!(b && b.holder === this);
+      const v = U.clamp(this.speed, 3, 16), H = this.H, Lg = this.dims.th + this.dims.sh;
+      const f0 = this.facing, c = Math.cos(f0), s = Math.sin(f0);
+      // the way he is going, in the clip's frame [fwd, lat (+ = right)]
+      const ux = this.speed > 0.5 ? this.vx / this.speed : c, uy = this.speed > 0.5 ? this.vy / this.speed : s;
+      const mf = ux * c + uy * s, ml = ux * s - uy * c;
+      // the last push (on at speed), the hop (a little slower in the air), the brake onto both feet (to a stop in
+      // ~0.2 s, ~2 g from a 12 ft/s drive) and the settle
+      const tA = 0.08, tB = tA + 0.16, tC = tB + 0.2, dur = tC + 0.22;
+      const dA = v * tA, dB = dA + 0.9 * v * 0.16, dC = dB + 0.8 * v * 0.2 * 0.5;
+      const along = (d) => [mf * d, ml * d];
+      const turn = o.faceTo ? U.clamp(U.wrapPi(Math.atan2(o.faceTo.y - this.y, o.faceTo.x - this.x) - f0), -1.05, 1.05) : 0;
+      const root = [[0, 0, 0], [tA, ...along(dA)], [tB, ...along(dB)], [tB + 0.1, ...along(dB + (dC - dB) * 0.75)], [tC, ...along(dC)], [dur, ...along(dC)]];
+      const yaw = [[0, 0], [tA, 0], [tB, turn / D], [dur, turn / D]];
+      // both feet land where the hips come to rest, square to the way he ends up facing: ~0.22 H apart, the right a
+      // touch back; at touchdown they are out ahead of the hips by the braking distance
+      const land = along(dC + 0.03 * Lg), cf = Math.cos(turn), sf = Math.sin(turn);
+      const spot = (lat, fwd) => [land[0] + fwd * cf + lat * sf, land[1] - fwd * sf + lat * cf];
+      const steps = [
+        { t0: tA - 0.02, t1: tB, foot: 'l', to: spot(-0.11 * H, 0.015 * H), yaw: turn / D + 12, lift: 0.03, easeOut: 1 },
+        { t0: tA, t1: tB, foot: 'r', to: spot(0.11 * H, -0.02 * H), yaw: turn / D - 12, lift: 0.03, easeOut: 1 },
+      ];
+      const st = o.stance || (has ? 'holdChest' : 'ready');
+      const base = (A.STANCE[st] || A.STANCE.ready).pose;
+      const K = (t, p2) => ({ t, p: Object.assign({ base }, p2) });
+      const keys = [
+        K(0, {}),
+        K(tA, { rootZ: -0.035, pelPitch: 14, spFlex: 4 }),
+        K(tA + 0.08, { rootZ: -0.01, pelPitch: 8, spFlex: 2, both: { HipF: 38, Knee: 42, Ank: -6 } }),
+        K(tB, { rootZ: -0.06, pelPitch: 14, spFlex: 2, nkFlex: -6, both: { HipF: 42, Knee: 48, Ank: 10 } }),
+        K(tB + 0.09, { rootZ: -0.1, pelPitch: 20, spFlex: 3, nkFlex: -10, both: { HipF: 55, Knee: 70, Ank: 20 } }),
+        K(tC, { rootZ: -0.085, pelPitch: 18, spFlex: 3, nkFlex: -8 }),
+        K(dur, {}),
+      ];
+      const clip = A.buildClip({ name: 'jumpStop', dur, events: { hop: tA, land: tB }, root, yaw, steps, keys, jump: { t0: tA, t1: tB, h: 0.015 } });
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: f0, fadeIn: 0.06, mirror: false });
+      if (!cs) return null;
+      if (has && b.state === 'dribble') b.give(this, 'chest');
+      else if (has) this.ballHold = this.ballHold || 'chest';
+      cs.onEnd = () => {
+        this.setStance(st);
+        if (o.faceTo) this.setFace(o.faceTo);
+        if (o.onEnd) o.onEnd(this);
+      };
+      return cs;
+    }
+    /** how long a jump stop takes */
+    jumpStopDur() { return 0.08 + 0.16 + 0.2 + 0.22; }
     _spinQuick() { return 1.12 - 0.24 * (this.rAgi == null ? 0.5 : this.rAgi); }
     /** how long this player's spin move takes (quicker for the agile) */
     spinDur() { return 0.15 + 0.56 * this._spinQuick() + 0.16; }
@@ -452,6 +512,12 @@
         }
       }
       if (this.clip) this._updateClip(dt);
+      // how hard a jump comes down: the legs give on landing in proportion (see buildPose)
+      if (dt > 0) {
+        const jz = this.jumpZ || 0, pz = this._jzPrev == null ? jz : this._jzPrev;
+        if (pz > 0.03 && jz <= 0.03 && (this._jzV || 0) < -3) this._absorb = { v: -this._jzV, t: this.time };
+        this._jzV = (jz - pz) / dt; this._jzPrev = jz;
+      }
       if (this.upper) this._updateUpper(dt);
       if (!this.clip) {
         this._steer(dt);
@@ -1102,11 +1168,15 @@
     }
 
     _beginStep(f, tx, ty, tyaw, dur, lift) {
-      const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
+      // (a foot still in the air goes on from where it is: restarted from the spot it last stood on, it jumped back
+      // there for a frame)
+      const inAir = f.state === 'swing' && f.ax != null;
+      const a = inAir ? [f.ax, f.ay, f.az] : this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
+      const yaw0 = inAir && f.yawNow != null ? f.yawNow : f.yaw, p0 = inAir ? f.pitchNow || 0 : f.pitch;
       f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur; f.trk = null; f.liftKind = 'step';
       f.liftT = this.time; this._lastSwing = f.side; f.liftPending = false;
-      f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
-      f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H; f.arc = null; f.stanceStep = false;
+      f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = yaw0; f.p0 = p0;
+      f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H; f.arc = null; f.stanceStep = false; f.easeOut = false;
       this._lastStepT = this.time; this._lastFoot = f.side;
     }
     _advanceStep(f, dt) {
@@ -1131,7 +1201,7 @@
         f.tx = tx; f.ty = ty; f.tyaw = fe + (f.side ? -1 : 1) * st.yaw * D;
       }
       const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, 0, TB);
-      const e = U.smooth(f.s);
+      const e = f.easeOut ? f.s * (2 - f.s) : U.smooth(f.s);
       f.ax = f.x0 + (a1[0] - f.x0) * e;
       f.ay = f.y0 + (a1[1] - f.y0) * e;
       const arc = f.arc;
@@ -1256,6 +1326,8 @@
               const ty = cs.oy + cs.offY * (1 - U.smooth(stp.t1 / Math.max(0.01, cs.blendT))) + s * stp.to[0] - c * lat;
               if (f.state !== 'air') {
                 this._beginStep(f, tx, ty, cs.ofacing + (stp.yaw || 0) * D * (cs.mirror ? -1 : 1), stp.t1 - stp.t0, stp.lift || 0.06);
+                // (a hop off the run: the foot leaves already moving and slows into the landing)
+                if (stp.easeOut) f.easeOut = true;
                 // swinging around a pivot (a spin): the foot travels round it on an arc, the given way round
                 if (stp.arc) {
                   const at = stp.arc.at, al = cs.mirror ? -at[1] : at[1];
@@ -1625,6 +1697,41 @@
         const w = U.smooth(cs.w);
         const mask = maskOf(cs.clip.mask);
         for (const i of mask) p[i] += (this.clipPose[i] - p[i]) * w;
+      }
+      // landing from a jump: the legs give under the weight, deeper the harder he comes down (~0.1 ft at 10 ft/s, the
+      // lowest ~0.08 s after touching down, then back up) with the trunk folding a little over the hips, on top of
+      // the landing the move itself is drawn with
+      const ab = this._absorb;
+      if (ab) {
+        const t = this.time - ab.t;
+        if (t > 0.7 || t < 0) this._absorb = null;
+        else {
+          const k = Math.min(1.3, ab.v / 10) * (t / 0.08) * Math.exp(1 - t / 0.08);
+          p[CH.rootZ] -= 0.015 * k; p[CH.pelPitch] += 5 * D * k; p[CH.spFlex] += 3 * D * k; p[CH.nkFlex] -= 3 * D * k;
+        }
+      }
+      // a crossover (between the legs, behind the back) moves the body with the ball: the weight down on the outside
+      // foot as the ball is pushed across (the hips over it, the shoulder on the ball side dipped), over the middle as
+      // the ball crosses and onto the other foot by the catch, the way he pushes off, the head staying level. (Only
+      // the hands and the ball moved: the body stood still over a ball going side to side)
+      const dr = this.dribble && this.dribble.ball && this.dribble.ball.dr;
+      if (dr && dr.actor === this && dr.move && dr.moveStarted && (!this._xo || this._xo.mv !== dr.move)) {
+        this._xo = { mv: dr.move, t: this.time, dur: Math.max(0.2, dr.move.period || 0.36), from: dr.hand === 1 ? 1 : -1, k: dr.move.type === 'cross' ? 1 : 0.7 };
+      }
+      const xo = this._xo;
+      if (xo) {
+        const sx = (this.time - xo.t) / xo.dur;
+        if (sx > 1.6 || sx < 0) this._xo = null;
+        else if (!this.clip) {
+          // (standing or walking into it; on the move, a drive's crossover, the weight shows in the lean into the
+          // push instead: the hips shifted over one foot at speed pulled the other out of its reach)
+          const env = U.smooth(sx / 0.2) * (1 - U.smooth((sx - 0.9) / 0.7)) * xo.k * (1 - U.smooth((this.speed - 5) / 6));
+          const side = xo.from * Math.cos(Math.PI * U.smooth(U.clamp(sx, 0, 1))) * env, dip = Math.sin(Math.PI * U.clamp(sx, 0, 1)) * env;
+          p[CH.rootX] += 0.2 * side; p[CH.rootZ] -= 0.03 * dip;
+          p[CH.pelRoll] += 4 * D * side; p[CH.spLat] += 7 * D * side; p[CH.chLat] += 4 * D * side;
+          p[CH.nkLat] -= 7 * D * side; p[CH.hdLat] -= 3 * D * side;
+          p[CH.pelPitch] += 5 * D * dip; p[CH.spFlex] += 4 * D * dip;
+        }
       }
       // knocked down (charge)
       if (this.fall > 0) {

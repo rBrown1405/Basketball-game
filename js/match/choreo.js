@@ -1392,6 +1392,13 @@
           to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move', pace: 5.5 });
         }
         this.at(fireAt + flight - 0.45, () => to.setFace({ x: from.x, y: from.y }), 'face passer');
+        // driving into the pass: a jump stop first, both feet down and the ball chinned, squared up to the catch spot
+        // in the air (a drive and kick thrown out of a stop instead of on the run)
+        this.at(Math.max(this.T + extra, fireAt - windup - 0.46), () => {
+          const bb = v.ball;
+          if (bb.holder !== from || bb.state !== 'dribble' || from.isBusy() || from.speed < 9 || kind === 'lob' || kind === 'alley') return;
+          from.jumpStop({ faceTo: { x: cs.x, y: cs.y } });
+        }, 'jump stop');
         // the passer turns to the catch spot first (the feet over ~0.4 s, the trunk at once) and throws squared up
         // to it: the throw used to start wherever he happened to face, and the body pointed away from the pass
         this.at(Math.max(this.T + extra * 0.5, fireAt - windup - 0.45), () => {

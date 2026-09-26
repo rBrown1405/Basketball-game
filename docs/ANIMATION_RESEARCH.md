@@ -234,6 +234,16 @@ Animation Lab shows the key pose a stride is at and steps to the next one (`P`).
 | A runner's foot leaves moving | the swing starts with the ankle already moving forward at about a third of the body's speed (the foot rolls off the toes); eased out of a standstill, at a sprint it hung ~1 ft behind the body and pulled the hip past its range (frames with a hip held at its limit in the lab's sprint: ~36 per leg -> 0-3) | |
 | On time at any stance share | a sprinter's rear foot leaves when the front one is only half way through its swing (0.5 / (1 - stance share)); held until a set 60 %, it stayed down past its reach and was dragged | |
 
+## Jump stop, crossover weight and landings (actor.js, choreo.js, lab.js)
+
+| Move | How | Sources |
+|---|---|---|
+| Jump stop (`Actor.jumpStop`) | built for the player's own speed: a small hop off the last step (~0.16 s in the air, the feet barely off the floor, leaving already moving forward) and both feet land together about shoulder width apart, a touch staggered, out ahead of the hips so the legs brake the body (to a stop in ~0.2 s); the knees give, the hips sink and stay back, chest up and balanced over the feet (not leaning in); a dribble is picked up on the hop and the ball chinned, and he can square up to a target in the air, then pivot on either foot. In games a driver passing out of a drive at 9+ ft/s now jump-stops into the pass, squared to the catch spot. Lab: Jump stop from a run, Drive into a jump stop | https://www.coachesclipboard.net/JumpStop.html , https://www.breakthroughbasketball.com/drills/jumpstops , https://www.basketballforcoaches.com/teaching-the-jump-stop/ |
+| Crossover weight shift | the body goes with the ball on a crossover (between the legs and behind the back a little less): the weight down on the outside foot as the ball is pushed across (the hips over it, ~0.2 ft, the shoulder on the ball side dipped ~7 deg), over the middle and a touch lower as the ball crosses, then onto the other foot by the catch, the way he pushes off; the head stays level. Standing or walking into it; at speed (a drive's crossover) the weight shows in the lean into the push instead. Only the hands and the ball used to move | https://www.levelupbasket.com/crossover-dribble , https://en.wikipedia.org/wiki/Crossover_dribble |
+| Landings give with the impact | on top of each jump's drawn landing, the legs give in proportion to how hard he comes down: ~0.1 ft more at 10 ft/s, the lowest ~0.08 s after touchdown, the trunk folding a little; lab landings from rebounds, blocks, dunks and tips now peak at ~67-77 deg of knee bend | https://pmc.ncbi.nlm.nih.gov/articles/PMC5003310/ , https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2022.847945/full |
+| The dip before a jump | each jump keeps its drawn countermovement, checked in the lab: a rebound dips ~0.75 ft (knee ~83 deg) before a ~1.6 ft jump, quick blocks and tips ~0.45 ft (knee ~65 deg), a jump shot ~0.6 ft | |
+| Scripted steps | a step that starts while that foot is still in the air goes on from where the foot is (it used to restart from the spot it last stood on and jumped back there for a frame) | |
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the

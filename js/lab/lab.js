@@ -116,6 +116,11 @@
     c.at(2.2, () => c.a.setFace(c.f0));
     c.at(3.8, () => c.a.setFace(c.f0 + Math.PI));
   });
+  add('Locomotion', 'jumpstop', 'Jump stop from a run', 3.4, (c) => {
+    c.a.setStance('ready');
+    c.at(0.3, () => go(c, 60, 12));
+    c.at(1.7, () => c.a.jumpStop());
+  });
   add('Locomotion', 'backpedal', 'Backpedal', 5, (c) => {
     c.a.setStance('ready'); c.a.setFace(c.f0);
     c.at(0.4, () => { go(c, -60, 9); c.a.setFace(c.f0); });
@@ -155,6 +160,11 @@
     c.at(1.2, () => c.a.play('hesi'));
   });
   add('Ball', 'triple', 'Triple threat', 5, (c) => { c.b.give(c.a, 'triple'); c.a.setStance('triple'); });
+  add('Ball', 'djumpstop', 'Drive into a jump stop, face the pass', 3.6, (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble');
+    c.at(0.3, () => go(c, 60, 14));
+    c.at(1.5, () => c.a.jumpStop({ faceTo: { x: c.a.x + c.rx * 12 + c.fx * 4, y: c.a.y + c.ry * 12 + c.fy * 4 } }));
+  });
   add('Ball', 'pivot', 'Pivot 180 from triple threat', 4.8, (c) => {
     c.b.give(c.a, 'triple'); c.a.setStance('triple');
     c.at(0.8, () => c.a.pivotTo(c.f0 + Math.PI));
