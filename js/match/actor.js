@@ -276,9 +276,9 @@
         name: 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
         pivot: { side, t0: 0, t1: dur + 0.12 },
         keys: [
-          { t: 0, p: hold, ball: [0.13, 0.09, 0.5], grip: 'hip' },
-          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.13, 0.1, 0.52], grip: 'hip' },
-          { t: dur + 0.12, p: hold, ball: [0.13, 0.09, 0.5], grip: 'hip' },
+          { t: 0, p: hold, ball: [0.11, 0.12, 0.53], grip: 'hip' },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.11, 0.13, 0.55], grip: 'hip' },
+          { t: dur + 0.12, p: hold, ball: [0.11, 0.12, 0.53], grip: 'hip' },
         ],
       });
       this.ballHold = 'triple';
@@ -1141,8 +1141,9 @@
     _holdLocal(out) {
       const H = this.H, m = this.lefty ? -1 : 1;
       switch (this.ballHold) {
-        // (on the front of the hip: a little further out than flush, so the guide hand across it clears the belly)
-        case 'triple': out[0] = 0.13 * H * m; out[1] = 0.09 * H; out[2] = 0.5 * H; break;
+        // (on the front of the right hip, in toward the middle a little: the other hand reaches across to it from the
+        // crouch and clears the belly)
+        case 'triple': out[0] = 0.11 * H * m; out[1] = 0.12 * H; out[2] = 0.53 * H; break;
         case 'over': out[0] = 0; out[1] = 0.05 * H; out[2] = 1.1 * H; break;
         // (on the shot's line: ~6-7 in off the belly, just right of the middle)
         case 'pocket': out[0] = 0.06 * H * m; out[1] = 0.165 * H; out[2] = 0.55 * H; break;
@@ -1163,15 +1164,29 @@
     /** how low he dribbles (0..1): sitting down in the dribbling stance keeps the ball at the lowered hips (a speed
      *  dribble on the run comes back up), deeper still when protecting it */
     dribbleDepth() {
-      const st = this.stance === 'dribble' ? 0.35 * (1 - U.smooth((this.speed - 5) / 7)) : 0;
+      // (driving he stays down in it; only running it out in the open does the dribble come back up)
+      const st = this.stance === 'dribble' ? 0.35 * (1 - U.smooth((this.speed - 10) / 8)) : 0;
       return Math.max(this.dribbleLow || 0, st);
     }
-    /** where the ball sits at the top of the dribble: hip height, outside the dribble-side foot, a little in front */
-    dribbleTop(hand, out) {
-      const H = this.H, side = hand ? 1 : -1;
+    /** the dribble's shape for how he is moving (H-fractions, body frame, x toward the dribble hand): tx/ty = where
+     *  the hand has the ball at the top, cx/cy = where it meets the floor, top = its height at the top. Sizing up
+     *  (standing): the ball out wide of the hip with the arm long (the reference guard setup); driving: low, outside
+     *  the foot; running it up the floor: pushed out ahead at thigh height, where he runs onto it */
+    dribbleShape(o) {
       const low = this.dribbleDepth();
-      const spK = U.smooth((this.speed - 6) / 12);
-      return this.local(side * 0.2 * H, (0.13 + 0.14 * spK) * H, (0.5 - low * 0.2 + 0.09 * spK) * H, out);
+      const spK = U.smooth((this.speed - 6) / 12), still = 1 - U.smooth((this.speed - 1) / 4);
+      o.tx = U.lerp(0.2, 0.27, still) - 0.03 * spK;
+      o.ty = 0.12 + 0.2 * spK - 0.02 * still;
+      o.cx = o.tx + 0.01;
+      o.cy = o.ty + 0.05 + 0.22 * spK;
+      o.top = 0.5 - 0.2 * low - 0.03 * spK;
+      o.low = low; o.spK = spK; o.still = still;
+      return o;
+    }
+    /** where the ball sits at the top of the dribble (see dribbleShape) */
+    dribbleTop(hand, out) {
+      const H = this.H, side = hand ? 1 : -1, g = this.dribbleShape(DSH);
+      return this.local(side * g.tx * H, g.ty * H, g.top * H, out);
     }
 
     // ============================================================ pose
@@ -1244,6 +1259,12 @@
         A.applyGait(p, this.phase, this.speed, kT, back, kA);
         if (lat > 0.001) A.applySlide(p, this.phase, this.gaitK * lat);
         if (back > 0.001) { p[CH.spFlex] -= 6 * D * this.gaitK * back; p[CH.pelPitch] -= 4 * D * this.gaitK * back; }
+      }
+      // driving with the ball: he stays down in it (the dribble drive reference: low, knees bent, leaning into it);
+      // only running it out in the open does he come up
+      if (this.dribble && this.gaitK > 0.001 && !this.clip) {
+        const drvK = U.smooth((this.speed - 3) / 4) * (1 - U.smooth((this.speed - 13) / 5)) * this.gaitK;
+        p[CH.rootZ] -= 0.055 * drvK; p[CH.pelPitch] += 9 * D * drvK; p[CH.spFlex] += 4 * D * drvK; p[CH.nkFlex] -= 9 * D * drvK;
       }
       // lean from acceleration and turns: the trunk tilts mostly at the hips, and the neck and head take most of it
       // back so the eyes stay level (runners hold the head steady; a head nodding with every change of pace looked
@@ -1487,15 +1508,22 @@
         // the ball, not pushing), in front or out to the side depending on where he is; as well as the handler's
         // skill allows: a guard keeps it up and turned at his man, a big who can't dribble barely lifts it; with
         // nobody close it is carried loosely in front
+        // (nobody close: standing, it hangs loose across in front toward the other knee, the reference guard setup;
+        // driving, it rides out to the side for balance; running it up the floor it swings like a runner's arm)
         const off = hand ? 'l' : 'r';
-        const wOff = 0.85 * wAll;
         const gd = this._guardDir(this._inDt);
         const wG = gd.w * (0.2 + 0.8 * this.rHandle);
+        const moveK = U.smooth((this.speed - 1.5) / 4), runK = U.smooth((this.speed - 12) / 6);
+        const wOff = 0.85 * wAll * (1 - 0.85 * runK * (1 - wG));
         for (let k = 0; k < GUARD_CH.length; k++) {
           const c = GUARD_CH[k], g = GUARD_FRONT[k] + (GUARD_SIDE[k] - GUARD_FRONT[k]) * gd.side;
-          const v = GUARD_CARRY[k] + (g - GUARD_CARRY[k]) * wG;
+          const base = GUARD_HANG[k] + (GUARD_OUT[k] - GUARD_HANG[k]) * moveK;
+          const v = base + (g - base) * wG;
           pp[CH[off + c]] = U.lerp(pp[CH[off + c]], c === 'Fing' ? v : v * D, wOff);
         }
+        // running with it: leaning into the push, head up (the speed dribble reference)
+        const spD = U.smooth((this.speed - 10) / 8) * wAll;
+        if (spD > 0.001) { pp[CH.pelPitch] += 7 * D * spD; pp[CH.spFlex] += 5 * D * spD; pp[CH.nkFlex] -= 7 * D * spD; pp[CH.hdFlex] -= 3 * D * spD; }
         // shoulders turn a little toward the ball side; the dribbling shoulder dips as the push goes down
         pp[CH.chTwist] += (hand ? -1 : 1) * 5 * D * wAll;
         if (d.ph === 'push') pp[CH.chLat] += (hand ? 1 : -1) * 2.5 * D * Math.sin(Math.PI * (d.s || 0)) * wAll;
@@ -1616,7 +1644,7 @@
   }
 
   const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3), BL = new Float64Array(3);
-  const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3);
+  const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3), DSH = {};
   // body centre lines kept for clearBall: pelvis, chest, neck, head centre, left hip / knee / ankle, right hip / knee / ankle
   const BODY_J = [RG.J.PEL, RG.J.CHS, RG.J.NCK, RG.J.HC, RG.J.L_HIP, RG.J.L_KN, RG.J.L_AN, RG.J.R_HIP, RG.J.R_KN, RG.J.R_AN];
   /** move point l out to at least `min` from the segment between body points a and b (a == b: a sphere) */
@@ -1652,6 +1680,10 @@
   const GUARD_FRONT = [79, 8.5, 12, 110, 166, -26.5, -9, 0.15];
   const GUARD_SIDE = [40, 44, -49, 107, 166, -30.5, 5, 0.15];
   const GUARD_CARRY = [25, 21, 0, 93.5, 69, -1.5, 10.5, 0.25];
+  // nobody close: standing (sizing up), the arm hangs loose down and across in front of the bent-over trunk toward
+  // the other knee; driving, it rides out to the side and forward for balance
+  const GUARD_HANG = [56, -23, 26, 30, 84, 6, 0, 0.35];
+  const GUARD_OUT = [38, 48, -8, 58, 62, -8, 0, 0.2];
   const MASKS = {};
   function maskOf(name) {
     if (MASKS[name]) return MASKS[name];

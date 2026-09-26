@@ -732,18 +732,18 @@
       const side = d.hand ? 1 : -1;
       const recv = moving ? d.move.toHand : d.hand;
       const rside = recv ? 1 : -1;
-      const low = U.clamp(Math.max(d.low || 0, a.dribbleDepth ? a.dribbleDepth() : a.dribbleLow || 0), 0, 1);
-      const spK = U.smooth((a.speed - 6) / 12);
-      // heights of the ball centre: top of the ride ~hip height (0.52 H), catch ~0.07 H lower, release
-      // ~0.14 H below the top; low/protect dribble at the knees; speed dribble waist to chest
-      let top = (0.5 - 0.2 * low + 0.09 * spK) * H;
+      // the dribble's shape for how he is moving (the actor's dribbleShape: wide of the hip sizing up, low and outside
+      // the foot driving, pushed out ahead at thigh height running)
+      const sh = a.dribbleShape ? a.dribbleShape(DSH) : { tx: 0.2, ty: 0.13, cx: 0.21, cy: 0.18, top: 0.5, low: 0, spK: 0 };
+      const low = U.clamp(Math.max(d.low || 0, sh.low), 0, 1), spK = sh.spK;
+      // heights of the ball centre: top of the ride ~hip height, catch ~0.07 H lower, release ~0.14 H below the top;
+      // low/protect dribble at the knees
+      let top = (sh.top - 0.2 * Math.max(0, low - sh.low)) * H;
       let ride = (0.07 - 0.035 * low) * H;
       let push = (0.14 - 0.06 * low + 0.02 * spK) * H;
-      // ball placement: outside the dribble-side foot (>= 0.2 H from the midline), a little in front;
-      // pushed out ahead of the body when running
-      const tx = 0.2 * H, ty = (0.13 + 0.14 * spK) * H;
-      let cx = 0.21 * H, cy = ty + (0.05 + 0.22 * spK) * H;
-      let qx = 0.2 * H, qy = (0.13 + 0.14 * spK) * H; // catch point (receiving hand side)
+      const tx = sh.tx * H, ty = sh.ty * H;
+      let cx = sh.cx * H, cy = sh.cy * H;
+      let qx = sh.tx * H, qy = sh.ty * H; // catch point (receiving hand side)
       let ctop = top;
       if (moving) {
         // crossovers stay low (a sharp "V" below the knees): the new hand catches the ball at the knees and
@@ -839,7 +839,7 @@
     }
   }
 
-  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), TL = new Float64Array(3), TMP3 = [0, 0, 0];
+  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), TL = new Float64Array(3), TMP3 = [0, 0, 0], DSH = {};
   const HO1 = { x: 0, y: 0, z: 0 }, HO2 = { x: 0, y: 0, z: 0 };
   const RM = new Float64Array(9);
   /** rot = R(axis, ang) * rot */
