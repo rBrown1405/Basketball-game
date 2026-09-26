@@ -517,6 +517,9 @@
         this.phaseN = (this.phaseN || 0) + Math.floor(ph1);
         const cycleT = 2 / sps;
         const strideLen = sp * cycleT;
+        // (read by the animation lab's gait readout)
+        const gd = this.gaitDbg || (this.gaitDbg = {});
+        gd.sps = sps; gd.stride = strideLen; gd.cycle = cycleT; gd.beta = gp.beta;
         // one leg at a time: a foot leaves the floor only while the other one is down, or has been in its stride for
         // over half a step, and never twice running while the other has not moved (a catch-up step of one foot
         // starting with the other's stride, or two lifts in one frame, read as a two-footed hop)
