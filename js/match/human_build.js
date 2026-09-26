@@ -397,6 +397,9 @@
       for (let k = 0; k < 4; k++) if (wb[i * 4 + k] === B.HED || wb[i * 4 + k] === B.NCK && pos[i * 3 + 2] > 0.87 * H) hedW[i] += ww[i * 4 + k] / 255;
     }
     const gJer = i => a.gJer[i] * 0.002, gSho = i => a.gSho[i] * 0.002; // H units
+    // baked ambient occlusion of the body (per body part: creases, not limbs on the body); cloth over it is looser
+    // and sees less of it
+    const bodyAO = i => (a.ao ? a.ao[i] / 255 : 1), clothAO = i => 0.45 + 0.55 * bodyAO(i);
     const refShirtG = i => {
       // referee shirt: collar and short sleeves instead of arm holes
       const x = pos[i * 3] / H, y = pos[i * 3 + 1] / H, z = pos[i * 3 + 2] / H;
@@ -497,7 +500,7 @@
         const tw = [twf[p * 4], twf[p * 4 + 1], twf[p * 4 + 2], twf[p * 4 + 3]];
         mm[r] = out.v(skinPos[p * 3], skinPos[p * 3 + 1], skinPos[p * 3 + 2], nrm[p * 3], nrm[p * 3 + 1], nrm[p * 3 + 2],
           [wb[p * 4], wb[p * 4 + 1], wb[p * 4 + 2], wb[p * 4 + 3]], [ww[p * 4], ww[p * 4 + 1], ww[p * 4 + 2], ww[p * 4 + 3]], tw,
-          mat[p], 1, 0, aux1[p], inked(p) ? (tatUV[p * 2] + (wrap ? 1 : 0)) / 2 : a.rvUV[r * 2] / 65535, inked(p) ? tatUV[p * 2 + 1] / 3 : a.rvUV[r * 2 + 1] / 65535);
+          mat[p], bodyAO(p), 0, aux1[p], inked(p) ? (tatUV[p * 2] + (wrap ? 1 : 0)) / 2 : a.rvUV[r * 2] / 65535, inked(p) ? tatUV[p * 2 + 1] / 3 : a.rvUV[r * 2 + 1] / 65535);
         return mm[r];
       };
       for (let t = 0; t < tr.length; t += 3) {
@@ -516,7 +519,7 @@
       const sel = new Set();
       for (let i = 0; i < np; i++) if (gf(i) > -0.02) sel.add(i);
       if (!sel.size) continue;
-      layer(out, ctx, sel, () => H * off, gf, m, { smooth: 1, minOff: () => H * off * 0.6, attr: (i, g) => ({ ao: 1, a0: 0, a1: trimmed ? U.sat(g / 0.04) : 1 }) });
+      layer(out, ctx, sel, () => H * off, gf, m, { smooth: 1, minOff: () => H * off * 0.6, attr: (i, g) => ({ ao: bodyAO(i), a0: 0, a1: trimmed ? U.sat(g / 0.04) : 1 }) });
     }
     // ---------------------------------------------------------- jersey / shirt
     {
@@ -531,7 +534,7 @@
       };
       layer(out, ctx, sel, ease, shirtG, MAT.JERSEY, {
         smooth: dims.fem ? 16 : 10, minOff: i => H * 0.004, maxOff: i => H * (0.0065 + 0.03 * U.smooth(shirtG(i) / 0.05)),
-        attr: (i, g) => ({ ao: 1, a0: 0.3 * U.smooth((0.66 - pos[i * 3 + 2] / H) / 0.08), a1: U.sat(g / 0.04) }),
+        attr: (i, g) => ({ ao: clothAO(i), a0: 0.3 * U.smooth((0.66 - pos[i * 3 + 2] / H) / 0.08), a1: U.sat(g / 0.04) }),
       });
     }
     // ---------------------------------------------------------- shorts / pants
@@ -552,7 +555,7 @@
       layer(out, ctx, sel, ease, pantsG, ref ? MAT.PANTS : MAT.SHORTS, {
         smooth: 6, minOff: i => H * 0.005, extra: ref ? null : crotchW, extraIters: 24,
         bridge: ref ? null : (P, sl) => hangShorts(P, sl, pos, nrm, H),
-        attr: (i, g) => ({ ao: 1, a0: ref ? 0.1 : U.smooth((0.53 - pos[i * 3 + 2] / H) / 0.17), a1: U.sat(g / 0.04) }),
+        attr: (i, g) => ({ ao: clothAO(i), a0: ref ? 0.1 : U.smooth((0.53 - pos[i * 3 + 2] / H) / 0.17), a1: U.sat(g / 0.04) }),
       });
     }
 

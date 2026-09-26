@@ -78,6 +78,130 @@ for (let i = 0; i < NP; i++) {
   gS[i] = Math.max(-127, Math.min(127, Math.round(dS[i] / 0.002)));
 }
 
+// ---------------------------------------------------------------- baked ambient occlusion (per position vertex)
+// Self-occlusion within each body part only (head, neck, trunk, each arm, each leg), so the creases darken (eye
+// sockets, under the brows and nose, nostrils, lips, ears, the jaw over the neck, navel, knuckles, backs of the
+// knees) but a limb never leaves a shadow on a body it has moved away from (Bunnell, GPU Gems 2 ch. 14; the usual
+// per-part bake of game characters).
+const AO = (() => {
+  const t0 = Date.now();
+  const P = AP, WB = X.WB;
+  const partOfBone = b => (b === PB.HED ? 0 : b === PB.NCK ? 1 : (b === PB.PEL || b === PB.SPN || b === PB.CHS) ? 2
+    : (b === PB.L_UA || b === PB.L_FA || b === PB.L_HD || (b >= PB.L_FNG && b < PB.L_FNG + 10)) ? 3
+    : (b === PB.R_UA || b === PB.R_FA || b === PB.R_HD || (b >= PB.R_FNG && b < PB.R_FNG + 10)) ? 4
+    : (b === PB.L_TH || b === PB.L_SH || b === PB.L_FT || b === PB.L_TOE) ? 5 : 6);
+  // which parts may shade which: head <- head, neck; neck <- head, neck, trunk; trunk <- trunk, neck; limbs <- themselves
+  const SHADE = [[1, 1, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0], [0, 1, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0, 1]];
+  const RANGE = [0.035, 0.04, 0.07, 0.045, 0.045, 0.055, 0.055].map(v => v * H);
+  const part = new Int8Array(NP);
+  for (let i = 0; i < NP; i++) part[i] = partOfBone(WB[i * 4]);
+  // position triangles (once each)
+  const T = [], seen = new Set();
+  for (let t = 0; t < tris.length; t += 3) {
+    const a = rvPos[tris[t]], b = rvPos[tris[t + 1]], c = rvPos[tris[t + 2]];
+    if (a === b || b === c || a === c) continue;
+    const k = [a, b, c].sort((x, y) => x - y).join(',');
+    if (seen.has(k)) continue; seen.add(k); T.push(a, b, c);
+  }
+  const NT = T.length / 3, tp = new Int8Array(NT);
+  for (let t = 0; t < NT; t++) tp[t] = part[T[t * 3]];
+  // vertex normals
+  const N = new Float64Array(NP * 3);
+  for (let t = 0; t < NT; t++) {
+    const a = T[t * 3], b = T[t * 3 + 1], c = T[t * 3 + 2];
+    const ux = P[b * 3] - P[a * 3], uy = P[b * 3 + 1] - P[a * 3 + 1], uz = P[b * 3 + 2] - P[a * 3 + 2];
+    const vx = P[c * 3] - P[a * 3], vy = P[c * 3 + 1] - P[a * 3 + 1], vz = P[c * 3 + 2] - P[a * 3 + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const v of [a, b, c]) { N[v * 3] += nx; N[v * 3 + 1] += ny; N[v * 3 + 2] += nz; }
+  }
+  // the mesh may wind either way: point normals away from the part's centre of mass
+  const cm = Array.from({ length: 7 }, () => [0, 0, 0, 0]);
+  for (let i = 0; i < NP; i++) { const q = cm[part[i]]; q[0] += P[i * 3]; q[1] += P[i * 3 + 1]; q[2] += P[i * 3 + 2]; q[3]++; }
+  let agree = 0;
+  for (let i = 0; i < NP; i++) {
+    const q = cm[part[i]], l = Math.hypot(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]) || 1;
+    N[i * 3] /= l; N[i * 3 + 1] /= l; N[i * 3 + 2] /= l;
+    agree += (P[i * 3] - q[0] / q[3]) * N[i * 3] + (P[i * 3 + 1] - q[1] / q[3]) * N[i * 3 + 1] + (P[i * 3 + 2] - q[2] / q[3]) * N[i * 3 + 2] > 0 ? 1 : -1;
+  }
+  if (agree < 0) for (let i = 0; i < NP * 3; i++) N[i] = -N[i];
+  // uniform grid of triangles
+  let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < NP; i++) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], P[i * 3 + k]); mx[k] = Math.max(mx[k], P[i * 3 + k]); }
+  const CS = 0.012 * H, G = [0, 1, 2].map(k => Math.max(1, Math.ceil((mx[k] - mn[k]) / CS) + 1));
+  const cells = new Map();
+  const ck = (x, y, z) => (x * G[1] + y) * G[2] + z;
+  for (let t = 0; t < NT; t++) {
+    const vs = [T[t * 3], T[t * 3 + 1], T[t * 3 + 2]];
+    const lo = [0, 1, 2].map(k => Math.floor((Math.min(...vs.map(v => P[v * 3 + k])) - mn[k]) / CS));
+    const hi = [0, 1, 2].map(k => Math.floor((Math.max(...vs.map(v => P[v * 3 + k])) - mn[k]) / CS));
+    for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) {
+      const key = ck(x, y, z); let c = cells.get(key); if (!c) cells.set(key, c = []); c.push(t);
+    }
+  }
+  // Moller-Trumbore
+  const hitT = (t, ox, oy, oz, dx, dy, dz) => {
+    const a = T[t * 3] * 3, b = T[t * 3 + 1] * 3, c = T[t * 3 + 2] * 3;
+    const e1x = P[b] - P[a], e1y = P[b + 1] - P[a + 1], e1z = P[b + 2] - P[a + 2];
+    const e2x = P[c] - P[a], e2y = P[c + 1] - P[a + 1], e2z = P[c + 2] - P[a + 2];
+    const px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x;
+    const det = e1x * px + e1y * py + e1z * pz;
+    if (Math.abs(det) < 1e-12) return -1;
+    const inv = 1 / det, sx = ox - P[a], sy = oy - P[a + 1], sz = oz - P[a + 2];
+    const u = (sx * px + sy * py + sz * pz) * inv; if (u < 0 || u > 1) return -1;
+    const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x;
+    const v = (dx * qx + dy * qy + dz * qz) * inv; if (v < 0 || u + v > 1) return -1;
+    return (e2x * qx + e2y * qy + e2z * qz) * inv;
+  };
+  // stratified cosine-weighted directions (fixed set, rotated per vertex)
+  const NR = 40, DIRS = [];
+  for (let k = 0; k < NR; k++) {
+    const u1 = (k + 0.5) / NR, u2 = (k * 0.618034) % 1;
+    const r = Math.sqrt(u1), ph = 2 * Math.PI * u2;
+    DIRS.push([r * Math.cos(ph), r * Math.sin(ph), Math.sqrt(Math.max(0, 1 - u1))]);
+  }
+  const out = new Uint8Array(NP), stamp = new Int32Array(NT);
+  let ray = 0;
+  for (let i = 0; i < NP; i++) {
+    const pi = part[i], range = RANGE[pi], allow = SHADE[pi];
+    const nx = N[i * 3], ny = N[i * 3 + 1], nz = N[i * 3 + 2];
+    // tangent frame (with a per-vertex twist so the fixed ray set does not print a pattern)
+    let tx = Math.abs(nz) < 0.9 ? -ny : 0, ty = Math.abs(nz) < 0.9 ? nx : -nz, tz = Math.abs(nz) < 0.9 ? 0 : ny;
+    let tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
+    let bx = ny * tz - nz * ty, by = nz * tx - nx * tz, bz = nx * ty - ny * tx;
+    const rot = (i * 2.399963) % (2 * Math.PI), cr = Math.cos(rot), sr = Math.sin(rot);
+    const t2x = tx * cr + bx * sr, t2y = ty * cr + by * sr, t2z = tz * cr + bz * sr;
+    bx = ny * t2z - nz * t2y; by = nz * t2x - nx * t2z; bz = nx * t2y - ny * t2x;
+    const ox = P[i * 3] + nx * 0.0008 * H, oy = P[i * 3 + 1] + ny * 0.0008 * H, oz = P[i * 3 + 2] + nz * 0.0008 * H;
+    let occ = 0;
+    for (const d of DIRS) {
+      const dx = t2x * d[0] + bx * d[1] + nx * d[2], dy = t2y * d[0] + by * d[1] + ny * d[2], dz = t2z * d[0] + bz * d[1] + nz * d[2];
+      ray++;
+      // march the grid cells along the ray
+      let best = Infinity;
+      const steps = Math.ceil(range / (CS * 0.5));
+      let lastKey = -1;
+      for (let s2 = 0; s2 <= steps && best === Infinity; s2++) {
+        const q = s2 * CS * 0.5;
+        const cx = Math.floor((ox + dx * q - mn[0]) / CS), cy = Math.floor((oy + dy * q - mn[1]) / CS), cz = Math.floor((oz + dz * q - mn[2]) / CS);
+        const key = ck(cx, cy, cz); if (key === lastKey) continue; lastKey = key;
+        const c = cells.get(key); if (!c) continue;
+        for (const t of c) {
+          if (stamp[t] === ray || !allow[tp[t]]) continue; stamp[t] = ray;
+          const vA = T[t * 3], vB = T[t * 3 + 1], vC = T[t * 3 + 2];
+          if (vA === i || vB === i || vC === i) continue;
+          const h = hitT(t, ox, oy, oz, dx, dy, dz);
+          if (h > 0 && h < range && h < best) best = h;
+        }
+      }
+      // nearer hits occlude more (a far surface of the same part only dims a little)
+      if (best < Infinity) occ += 1 - 0.6 * (best / range);
+    }
+    out[i] = Math.round(Math.max(0.2, 1 - occ / NR) * 255);
+  }
+  console.log('ao bake', NT, 'tris,', ray, 'rays,', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
+  return out;
+})();
+
 // ---------------------------------------------------------------- face / scalp masks in head-local MakeHuman cm
 const hj = AJ('head');
 const toHead = p => [(p[0] - hj[0]) / (CMf * s0), (p[1] - hj[1]) / (CMf * s0), (p[2] - hj[2]) / (CMf * s0)];
@@ -285,6 +409,7 @@ faceT.forEach((f, fi) => {
 put('wb', X.WB); put('ww', X.WW);
 put('gJer', gJ, 0.002); put('gSho', gS, 0.002);
 put('scalp', scalpV, 0.1); put('beard', beardV, 1 / 255);
+put('ao', AO, 1 / 255);
 const blob = Buffer.concat(parts);
 const packed = zlib.deflateRawSync(blob, { level: 9 });
 const meta = {

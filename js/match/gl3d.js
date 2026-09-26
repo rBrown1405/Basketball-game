@@ -79,6 +79,8 @@ uniform vec3 uSky, uGround;
 uniform float uExpo;
 uniform vec3 uSkin, uJersey, uShorts, uTrim, uNum, uSock, uShoe, uShoeAcc, uSole, uHair, uSleeve, uBand, uIris, uLip;
 uniform vec4 uHeadO;     // head origin (bind, feet) + feet per cm
+uniform vec4 uFace;      // head-local cm: eye |x|, eye y (depth), eye z, mouth line z
+uniform float uMouthW;   // half mouth width (cm)
 uniform vec4 uEyeL, uEyeR; // eye centres (bind) + radius
 uniform vec4 uGaze;      // gaze yaw, pitch (radians, head frame), blink 0..1, eyelid open
 uniform vec4 uFlags;     // referee, tattoo ink, H (feet), sweat 0..1
@@ -211,7 +213,9 @@ vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
   float mu = mix(0.16, 0.5, oil);
   float m1 = mix(0.42, 0.34, oil), m2 = mix(0.19, 0.1, oil);
   float rs = mix(0.32, 0.55, oil);
-  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey, uC1, uC2);
+  // (baked creases dim the lights a little too: the shadow map is too coarse for eye sockets and nostrils, and the
+  // arena's big fill lights would otherwise flatten them)
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey * mix(1.0, ao, 0.35), uC1 * mix(1.0, ao, 0.6), uC2 * mix(1.0, ao, 0.6));
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
     float t = ndl + 0.25;
@@ -227,7 +231,7 @@ vec3 shadeCloth(vec3 alb, vec3 N, vec3 V, float ao, float rough, float sheen) {
   vec3 dif = vec3(0.0), spc = vec3(0.0);
   vec3 sc = sqrt(max(alb, vec3(0.0))) * sheen;
   float ndv = max(dot(N, V), 1e-3);
-  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey, uC1, uC2);
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey * mix(1.0, ao, 0.3), uC1 * mix(1.0, ao, 0.5), uC2 * mix(1.0, ao, 0.5));
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
     dif += Cs[i] * clamp((ndl + 0.5) / 2.25, 0.0, 1.0);
@@ -325,14 +329,33 @@ void main() {
     if (mat == 1 && uMaskP.x > 0.5) {  // face paint from the UV masks
       vec3 lc = (vB - uHeadO.xyz) / uHeadO.w;          // head-local centimetres (MakeHuman scale)
       vec4 m1 = texture(uMask1, vUV), m2 = texture(uMask2, vUV);
-      // lips (a touch darker and redder than the skin), mouth corners
-      alb = mix(alb, uLip, smoothstep(0.3, 0.8, m1.a) * 0.75);
+      // regional colour: cheeks, nose tip and ears a little flushed, the skin under the eyes a little darker and
+      // cooler (strongest on light skin, where it shows)
+      float light = clamp(dot(uSkin, vec3(0.3, 0.55, 0.15)) * 2.2 - 0.25, 0.15, 1.0);
+      float cheek = smoothstep(2.0, 3.2, abs(lc.x)) * smoothstep(5.6, 4.2, abs(lc.x)) * smoothstep(uFace.w - 0.5, uFace.w + 1.0, lc.z) * smoothstep(uFace.z - 0.6, uFace.z - 2.2, lc.z) * step(uFace.y - 1.5, lc.y);
+      float noseTip = smoothstep(1.4, 0.4, abs(lc.x)) * smoothstep(uFace.y + 2.2, uFace.y + 3.6, lc.y) * smoothstep(uFace.w + 0.6, uFace.w + 1.6, lc.z) * smoothstep(uFace.z - 0.5, uFace.z - 2.0, lc.z);
+      float ear = smoothstep(6.0, 7.0, abs(lc.x));
+      alb *= mix(vec3(1.0), vec3(1.06, 0.93, 0.92), clamp(cheek * 0.8 + noseTip + ear * 0.7, 0.0, 1.0) * light);
+      float under = smoothstep(1.2, 0.3, abs(abs(lc.x) - uFace.x) / 1.6) * smoothstep(uFace.z - 2.2, uFace.z - 0.9, lc.z) * smoothstep(uFace.z - 0.1, uFace.z - 0.7, lc.z) * step(uFace.y - 1.0, lc.y);
+      alb *= mix(vec3(1.0), vec3(0.9, 0.88, 0.92), under * 0.8);
+      // lips: the upper lip a shade darker than the lower, the line between them dark, the corners tucked in
+      float lipM = smoothstep(0.3, 0.8, m1.a), lz = lc.z - uFace.w;
+      alb = mix(alb, uLip * mix(1.0, 0.8, smoothstep(0.05, 0.45, lz)), lipM * 0.78);
+      float mline = (1.0 - smoothstep(0.02, 0.14, abs(lz))) * (1.0 - smoothstep(0.85, 1.05, abs(lc.x) / uMouthW)) * smoothstep(0.1, 0.35, m1.a);
+      alb *= 1.0 - 0.62 * mline;
+      oil = max(oil, lipM * smoothstep(-0.15, -0.55, lz) * 0.55);
       // cavities: nostrils
       alb *= 1.0 - 0.55 * m2.a;
-      // brows: a distance-coded band, broken into hair strokes
-      float strokes = 0.55 + 0.45 * noise(vec3(lc.x * 14.0, lc.z * 3.0, lc.y * 6.0));
-      float brow = smoothstep(uMaskP.z - 0.04, uMaskP.z + 0.08, m1.b) * strokes;
-      alb = mix(alb, uHair * 0.55, clamp(brow, 0.0, 1.0) * 0.9);
+      // brows: fine hairs lying along the brow (growing up and out at the inner end), dense along the centre line
+      // and thinning out to bare skin at the edges and the tail, instead of a painted band
+      float bd0 = smoothstep(uMaskP.z - 0.2, uMaskP.z + 0.1, m1.b);
+      float tail = smoothstep(uFace.x + 3.2, uFace.x + 1.4, abs(lc.x));
+      float slant = (abs(lc.x) - uFace.x) * 0.35;
+      // (hairs ~6 mm long and a fraction of a millimetre wide: stretched noise, two layers)
+      vec3 hp = vec3(abs(lc.x) * 1.7, (lc.z - slant) * 26.0, lc.y * 1.5);
+      float hairs = max(smoothstep(0.48, 0.66, noise(hp)), smoothstep(0.5, 0.68, noise(hp * vec3(1.3, 1.7, 1.0) + 11.0)) * 0.8);
+      float brow = clamp(bd0 * (0.35 + 0.65 * hairs) * mix(0.55, 1.0, tail), 0.0, 1.0);
+      alb = mix(alb, uHair * 0.5, brow * 0.86);
       // lash line (upper lid margin)
       alb *= 1.0 - uMaskP.w * smoothstep(0.45, 0.9, m2.b);
       // beard: full shape, mustache, goatee; stubble uses the full shape at low density
@@ -487,19 +510,28 @@ void main() {
     dd = vec3(dd.x, cp * dd.y + sp * dd.z, -sp * dd.y + cp * dd.z);
     float r = length(dd.xz) * step(0.0, dd.y);
     if (dd.y < 0.0) r = 2.0;
-    vec3 scl = vec3(0.72, 0.62, 0.55);
+    // sclera: warm off-white, pinker toward the corners, with faint vessels
+    float cornerK = smoothstep(0.35, 0.8, abs(dd.x));
+    vec3 scl = mix(vec3(0.7, 0.6, 0.5), vec3(0.68, 0.45, 0.4), cornerK * 0.6);
+    scl *= 1.0 - 0.12 * cornerK * smoothstep(0.55, 0.8, noise(vec3(atan(dd.z, dd.x) * 9.0, r * 7.0, 3.0)));
     vec3 alb = scl;
-    float iris = smoothstep(0.47, 0.43, r);
-    float ring = smoothstep(0.3, 0.46, r) * iris;
-    vec3 ic = uIris * (0.7 + 0.6 * noise(vec3(atan(dd.x, dd.z) * 6.0, r * 20.0, 1.0)));
-    alb = mix(alb, ic * (1.0 - 0.55 * ring), iris);
-    alb = mix(alb, vec3(0.01), smoothstep(0.2, 0.16, r));
-    // the upper lid shades the top of the eyeball; the corners sit in the socket's shadow
-    float lid = mix(0.45, 1.0, smoothstep(0.55, -0.05, dd.z)) * mix(0.7, 1.0, smoothstep(0.75, 0.35, abs(dd.x)));
-    vec3 c = alb * (uC0 * max(dot(N, uL0), 0.15) * 0.6 + amb(N, 1.0) * 1.2) * lid;
-    // cornea glint
+    // iris: radial fibres, a lighter collarette around the pupil, a dark limbal ring
+    float iris = 1.0 - smoothstep(0.43, 0.47, r);
+    float ang = atan(dd.x, dd.z);
+    float fib = noise(vec3(ang * 14.0, r * 6.0, 1.0)) * 0.6 + noise(vec3(ang * 38.0, r * 3.0, 2.0)) * 0.4;
+    vec3 ic = uIris * (0.62 + 0.75 * fib);
+    ic = mix(ic, uIris * 1.45 + 0.03, (1.0 - smoothstep(0.2, 0.28, r)) * smoothstep(0.16, 0.2, r) * 0.6);
+    float ring = smoothstep(0.32, 0.46, r) * iris;
+    alb = mix(alb, ic * (1.0 - 0.6 * ring), iris);
+    alb = mix(alb, vec3(0.008), 1.0 - smoothstep(0.16, 0.2, r));
+    // the upper lid and lashes shade the top third of the eye; the corners sit in the socket's shadow
+    float lid = mix(0.3, 1.0, smoothstep(0.32, -0.12, dd.z)) * mix(0.62, 1.0, smoothstep(0.78, 0.32, abs(dd.x)));
+    // (lit mostly by the warm bounce and the key: the cool sky term alone turned the whites blue-grey)
+    vec3 c = alb * (uC0 * gKey * max(dot(N, uL0), 0.12) * 0.45 + uC2 * max(dot(N, uL2), 0.0) * 0.35 + mix(uGround, uSky, 0.35) * 0.95) * lid;
+    // cornea: a sharp catchlight from the camera side, a softer one from the overhead lights, the wet lower margin
     vec3 R = reflect(-V, N);
-    c += vec3(1.2) * pow(max(dot(R, uL0), 0.0), 180.0) + vec3(0.5) * pow(max(dot(R, uL2), 0.0), 120.0);
+    c += vec3(1.1) * pow(max(dot(R, uL2), 0.0), 260.0) + vec3(0.6) * pow(max(dot(R, uL0), 0.0), 140.0) * lid;
+    c += vec3(0.08) * smoothstep(-0.3, -0.42, dd.z) * (1.0 - cornerK);
     col = c;
   } else if (mat == 9) {
     col = shadeCloth(uBand, N, V, ao, 0.5, 0.8);
@@ -1066,6 +1098,7 @@ void main() { oCol = vec4(1.0); }`;
       for (const k in cache.v3) gl.uniform3fv(u[k], cache.v3[k]);
       const hd = m.head;
       gl.uniform4f(u.uHeadO, hd.o[0], hd.o[1], hd.o[2], hd.s);
+      if (u.uFace) { const ey = hd.eye || { x: 3, y: 8, z: 0 }, mo = hd.mouth || { z: -6, w: 2.3 }; gl.uniform4f(u.uFace, ey.x, ey.y, ey.z, mo.z); gl.uniform1f(u.uMouthW, mo.w); }
       const e0 = hd.eyes[0], e1 = hd.eyes[1];
       gl.uniform4f(u.uEyeL, e0.c[0], e0.c[1], e0.c[2], e0.r);
       gl.uniform4f(u.uEyeR, e1.c[0], e1.c[1], e1.c[2], e1.r);
