@@ -91,6 +91,10 @@ project released under CC0 1.0 (https://github.com/makehumancommunity/makehuman,
 | Lights | arena 1500-2000 lux, 5000-5700 K, camera white-balanced (neutral); overhead key, far fill, camera fill, warm maple bounce, rim | https://sportsvenuecalculator.com/knowledge/led-sports-lighting/basketball-court-lighting/ , https://steamcdn-a.akamaihd.net/apps/valve/2007/NPAR07_IllustrativeRenderingInTeamFortress2.pdf |
 | Tone map | Khronos PBR Neutral (keeps team colours) | https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral |
 | Uniform | shorts waistband ~0.61 H, hem just above the knee (~0.3 H); jersey tucked; loose drape by smoothing an offset of the body | ANSUR II landmarks (as above) |
+| Garment edges | neckline, arm holes and hems are distances measured along the body surface (the outline field divided by its surface gradient), so ~1 in bindings are the same width everywhere; the straps run unbroken over the shoulders; bindings hug the body so no gap opens onto the hidden skin | https://www.footlocker.co.uk/en/inspiration/a/shoe-anatomy-guide.html (garment and shoe anatomy terms), Filament cloth model (as above) |
+| Shorts crotch | the fork sits at the real crotch on the midline; below it the two leg tubes meet at the midline without crossing, the front and back panels run flat across them, and any fold of the offset cloth is relaxed until no triangle faces the wrong way | (geometry) |
+| Shoes | high-top basketball sneaker: ~1.1 in midsole a touch wider than the upper, outsole wrapping up at toe and heel, rounded toe box, heel counter and pull tab, padded collar sized to clear the ankle and Achilles, tongue; outsole, midsole groove, laces, eyelets, overlays, side stripe and stitching drawn per pixel from shoe-local coordinates | https://www.footlocker.co.uk/en/inspiration/a/shoe-anatomy-guide.html , https://blog.finishline.com/2013/11/19/sneaker-glossary/ |
+| Tattoo sleeves | the ink fades in at the shoulder, stops in a clean line an inch above the wrist and leaves a thin strip along the inside of the arm where the pattern wraps (seam triangles get their own vertices) | (rendering) |
 
 ## Broadcast and watch-sim realism
 

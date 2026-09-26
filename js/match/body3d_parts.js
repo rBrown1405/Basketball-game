@@ -24,10 +24,11 @@
 
   // ------------------------------------------------------------ vertex accumulator
   class Acc {
-    constructor() { this.P = []; this.N = []; this.BI = []; this.BW = []; this.TW = []; this.MT = []; this.AO = []; this.X0 = []; this.X1 = []; this.T = []; }
+    constructor() { this.P = []; this.N = []; this.BI = []; this.BW = []; this.TW = []; this.MT = []; this.AO = []; this.X0 = []; this.X1 = []; this.UU = []; this.VV = []; this.T = []; }
     get n() { return this.P.length / 3; }
-    /** infl: array of [bone, weight, twistFraction] (any length; the 4 largest are kept) */
-    vert(px, py, pz, nx, ny, nz, infl, mat, ao, x0, x1) {
+    /** infl: array of [bone, weight, twistFraction] (any length; the 4 largest are kept); u, v: optional 0..1 */
+    vert(px, py, pz, nx, ny, nz, infl, mat, ao, x0, x1, u, v) {
+      this.UU.push(u || 0); this.VV.push(v || 0);
       infl.sort((a, b) => b[1] - a[1]);
       let s = 0;
       for (let i = 0; i < 4 && i < infl.length; i++) s += infl[i][1];
@@ -90,7 +91,7 @@
     for (let i = 0; i < used.length; i++) {
       if (!used[i]) continue;
       const v = perVert(i, pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2], nrm[i * 3], nrm[i * 3 + 1], nrm[i * 3 + 2]);
-      map[i] = acc.vert(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2], nrm[i * 3], nrm[i * 3 + 1], nrm[i * 3 + 2], v.infl, v.mat, v.ao, v.x0, v.x1);
+      map[i] = acc.vert(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2], nrm[i * 3], nrm[i * 3 + 1], nrm[i * 3 + 2], v.infl, v.mat, v.ao, v.x0, v.x1, v.u, v.v);
     }
     for (let t = 0; t < T.length; t += 3) acc.tri(map[T[t]], map[T[t + 1]], map[T[t + 2]]);
   }
@@ -145,43 +146,48 @@
     for (let s = 0; s < sides; s++) acc.tri(base + (n - 1) * sides + s, tip, base + (n - 1) * sides + (s + 1) % sides);
   }
 
-  // ------------------------------------------------------------ shoes (mid-top basketball sneakers)
+  // ------------------------------------------------------------ shoes (high-top basketball sneakers)
+  // Shape: a ~1.1 in sole unit a touch wider than the upper, a rounded toe box, the vamp over the instep, a firm heel
+  // counter and a padded high-top collar around the ankle. Every vertex carries its shoe-local coordinates (x across,
+  // y along the foot, z above the floor) so the shader draws the outsole, midsole, laces, eyelets, overlays and
+  // stitching per pixel: crisp lines instead of per-vertex material steps on the mesh.
   function shoeMesh(acc, bind, dims, side, detail) {
     const H = dims.H, sg = side ? 1 : -1, FT = side ? B.R_FT : B.L_FT, TOE = side ? B.R_TOE : B.L_TOE;
     const S = new BD.Shape(bind), h = v => v * H;
-    const a = dims.ankH / H;
+    const a = dims.ankH / H, F = -a; // the floor in foot-local height (H units)
     const l = (x, y, z) => [h(x * sg), h(y), h(z)];
-    S.box(FT, l(0.001, -0.006, -a + 0.0072), [h(0.0205), h(0.037), h(0.0072)], { round: h(0.0058), k: 0 });
-    S.box(FT, l(0.003, 0.072, -a + 0.0072), [h(0.0272), h(0.058), h(0.0072)], { round: h(0.0068), k: h(0.014) });
-    S.ell(FT, l(0.002, 0.086, -a + 0.02), [h(0.0245), h(0.045), h(0.0155)], { k: h(0.01) });
-    S.ell(FT, l(0.001, 0.035, -a + 0.027), [h(0.0255), h(0.05), h(0.0245)], { k: h(0.012) });
-    S.ell(FT, l(0, -0.017, -a + 0.029), [h(0.0205), h(0.024), h(0.029)], { k: h(0.012) });
-    S.ell(FT, l(0, -0.004, 0.004), [h(0.0215), h(0.027), h(0.026)], { k: h(0.012) });
-    S.ell(FT, l(0, 0.03, -0.002), [h(0.0155), h(0.021), h(0.019)], { k: h(0.01) });
+    // sole unit: heel and forefoot slabs blended through the arch
+    S.box(FT, l(0.0005, -0.009, F + 0.0074), [h(0.0213), h(0.036), h(0.0074)], { round: h(0.0052), k: 0 });
+    S.box(FT, l(0.003, 0.071, F + 0.0069), [h(0.0272), h(0.058), h(0.0069)], { round: h(0.006), k: h(0.016) });
+    // upper
+    S.ell(FT, l(0.002, 0.089, F + 0.0222), [h(0.0238), h(0.044), h(0.0156)], { k: h(0.01) });
+    S.ell(FT, l(0.001, 0.042, F + 0.0285), [h(0.0248), h(0.052), h(0.0235)], { k: h(0.012) });
+    S.ell(FT, l(0, -0.018, F + 0.031), [h(0.021), h(0.026), h(0.029)], { k: h(0.012) });
+    // high-top collar around the ankle (sized to clear the leg: the ankle bones and the Achilles reach ~0.037 H
+    // behind and ~0.021 H in front of the joint) and the tongue standing up in front of the shin
+    S.ell(FT, l(0, -0.009, 0.017), [h(0.0215), h(0.0342), h(0.0305)], { k: h(0.012) });
+    S.ell(FT, l(0, 0.023, 0.007), [h(0.0145), h(0.018), h(0.024)], { k: h(0.01) });
     S.compile();
     const f = (x, y, z) => S.eval(x, y, z);
     const R = bind.R, r = FT * 9;
     const Rf = [-R[r], R[r + 2], R[r + 1], -R[r + 3], R[r + 5], R[r + 4], -R[r + 6], R[r + 8], R[r + 7]];
-    const c = toW(bind, FT, ...l(0, 0.045, -a + 0.024));
+    const c = toW(bind, FT, ...l(0, 0.045, -a + 0.026));
     const hi = detail === 'high';
-    const m = BD.starMesh(f, c, Rf, h(0.03), h(0.034), h(0.095), hi ? 44 : 24, hi ? 40 : 20, h(0.16));
-    const nrm = gradNormals(f, m.pos, h(0.0015));
+    const m = BD.starMesh(f, c, Rf, h(0.03), h(0.034), h(0.095), hi ? 72 : 28, hi ? 60 : 22, h(0.18));
+    const nrm = gradNormals(f, m.pos, h(0.0012));
     UT.fixWinding(m.pos, nrm, m.tri);
-    const lp = [0, 0, 0], ball = dims.ball / H;
-    addMesh(acc, m.pos, nrm, m.tri, (i, x, y, z) => {
+    const lp = [0, 0, 0], ln = [0, 0, 0], ball = dims.ball / H;
+    addMesh(acc, m.pos, nrm, m.tri, (i, x, y, z, nx, ny, nz) => {
       toL(bind, FT, x, y, z, lp);
       const lx = lp[0] / H * sg, ly = lp[1] / H, lz = lp[2] / H;
+      // foot-local normal: 'top-ness' of the upper (the laces live on top of the vamp, not on its sides)
+      ln[0] = R[r] * nx + R[r + 3] * ny + R[r + 6] * nz; ln[1] = R[r + 1] * nx + R[r + 4] * ny + R[r + 7] * nz; ln[2] = R[r + 2] * nx + R[r + 5] * ny + R[r + 8] * nz;
       const wt = U.smooth((ly - (ball - 0.012)) / 0.03);
-      let mat = MAT.SHOE, x1 = 0, x0 = 0;
-      if (lz < -a + 0.0135) { mat = MAT.SOLE; x1 = U.smooth((lz - (-a + 0.009)) / 0.004); }
-      else if (Math.abs(lx) < 0.0095 && ly > 0.012 && ly < 0.085 && lz > -a + 0.028) { mat = MAT.LACE; x0 = (ly * 180) % 1; }
-      else {
-        // side accent: a swept stripe on the outer side and the heel tab
-        const sweep = lz - (-a + 0.018 + 0.16 * (ly - 0.02) * (ly - 0.02) * 10);
-        x1 = (lx > 0.012 ? 1 : 0.7) * U.smooth(1 - Math.abs(sweep) / 0.006) * U.smooth((0.11 - ly) / 0.02) * U.smooth((ly + 0.02) / 0.02);
-        if (ly < -0.03 && lz > -0.01) x1 = Math.max(x1, 0.8);
-      }
-      return { infl: [[FT, 1 - wt, 0], [TOE, wt, 0]], mat, ao: 1, x0, x1 };
+      return {
+        infl: [[FT, 1 - wt, 0], [TOE, wt, 0]], mat: MAT.SHOE, ao: 1,
+        x0: U.sat((lx + 0.04) / 0.08), x1: U.sat((ln[2] - 0.25) / 0.55),
+        u: U.sat((ly + 0.08) / 0.24), v: U.sat((lz + a) / 0.12),
+      };
     });
   }
 

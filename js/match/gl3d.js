@@ -311,7 +311,15 @@ void main() {
     if (mat == 0 && a1 > 0.01 && uFlags.y > 0.0) {
       // black-and-grey sleeve: motifs (roses, stars, clocks, script, tribal blades) over smoke shading,
       // blue-black ink softened under the skin
-      float ink = tattooInk(vec2(vUV.x, vUV.y * 3.0), H, fract(uFlags.y * 7.31));
+      // (tattoo coordinates: u around the limb stored as u / 2, v along it as v / 3)
+      float tu = vUV.x * 2.0, tv = vUV.y * 3.0;
+      float ink = tattooInk(vec2(fract(tu), tv), H, fract(uFlags.y * 7.31));
+      if (tv < 1.5) {
+        // a sleeve starts at the shoulder, stops in a clean line an inch above the wrist, and leaves a thin strip of
+        // skin along the inside of the arm where the pattern wraps around
+        float fw = fwidth(tv) + 1e-4, su = min(fract(tu), 1.0 - fract(tu));
+        ink *= smoothstep(0.012, 0.035, tv) * (1.0 - smoothstep(0.935 - fw, 0.935 + fw, tv)) * smoothstep(0.015, 0.045, su);
+      }
       alb = mix(alb, vec3(0.03, 0.036, 0.05), ink * a1 * 0.9);
     }
     if (mat == 1 && uMaskP.x > 0.5) {  // face paint from the UV masks
@@ -352,8 +360,9 @@ void main() {
       float s = fract(th / (2.0 * PI) * 26.0);
       base = mix(vec3(0.78), vec3(0.01), smoothstep(0.46, 0.5, s) * smoothstep(0.96, 0.92, s));
     }
-    // trim along the edges (neck, arm holes, waistband, hems): a1 is the distance to the cut (0..1 over 0.04 H)
-    float trimW = mat == 3 ? 0.2 : 0.15;
+    // trim along the edges (neck, arm holes, waistband, hems): a1 is the distance to the cut along the body
+    // (0..1 over 0.04 H); bindings about an inch wide
+    float trimW = mat == 3 ? 0.3 : 0.27;
     base = mix(base, uTrim, 1.0 - smoothstep(trimW - 0.04, trimW + 0.02, a1));
     if (mat == 2 && uFlags.x < 0.5) {
       // side panel down the ribs
@@ -387,18 +396,68 @@ void main() {
     vec3 base = mat == 4 ? uSock : uSleeve;
     float rib = 0.93 + 0.07 * sin(atan(vB.x, vB.y) * 80.0);
     // crew socks: a ribbed cuff and a team stripe near the top
-    if (mat == 4) { base *= rib; base = mix(base, uTrim, (1.0 - smoothstep(0.1, 0.14, a1)) * step(0.05, a1) * uCloth.w); }
+    if (mat == 4) {
+      // two team stripes just under the cuff (a1: distance below the top, 0..1 over 0.04 H), antialiased
+      float fw = fwidth(a1) + 1e-4;
+      float s1 = smoothstep(0.11 - fw, 0.11 + fw, a1) * (1.0 - smoothstep(0.19 - fw, 0.19 + fw, a1));
+      float s2 = smoothstep(0.26 - fw, 0.26 + fw, a1) * (1.0 - smoothstep(0.34 - fw, 0.34 + fw, a1));
+      base *= rib; base = mix(base, uTrim, max(s1, s2) * uCloth.w);
+    }
     col = shadeCloth(base, N, V, ao, 0.5, 0.8);
-  } else if (mat == 5) {
-    vec3 base = mix(uShoe, uShoeAcc, clamp(a1, 0.0, 1.0));
-    col = shadeGloss(base, N, V, ao, 0.35, 0.6);
-  } else if (mat == 6) {
-    vec3 base = mix(uSole, uShoeAcc, clamp(a1, 0.0, 1.0) * 0.0);
-    col = shadeGloss(base, N, V, ao, 0.5, 0.3) * mix(0.85, 1.0, a1);
-  } else if (mat == 13) {
-    float lace = step(0.45, fract(a0 * 3.0));
-    vec3 base = mix(uShoe, (dot(uShoe, vec3(0.33)) > 0.5 ? vec3(0.05) : vec3(0.85)), 0.55 * lace);
-    col = shadeCloth(base, N, V, ao, 0.6, 0.6);
+  } else if (mat == 5 || mat == 6 || mat == 13) {
+    // basketball shoe, drawn per pixel from shoe-local coordinates (H units): x across (outer side +), y along the
+    // foot (heel -), z above the floor; a1 = how much the surface faces up (the top of the vamp)
+    float sx = a0 * 0.08 - 0.04, sy = vUV.x * 0.24 - 0.08, sz = vUV.y * 0.12, ax = abs(sx);
+    float px = fwidth(sz) + 1e-5;
+    float toe = smoothstep(0.1, 0.14, sy), heel = 1.0 - smoothstep(-0.05, -0.028, sy);
+    float outTop = 0.0035 + 0.003 * toe + 0.0012 * heel;          // outsole rubber wraps up at the toe and heel
+    float soleTop = 0.0143 + 0.0045 * toe + 0.0022 * heel;        // midsole top edge (toe spring)
+    bool lightShoe = dot(uShoe, vec3(0.333)) > 0.5;
+    vec3 outsole = lightShoe ? mix(uShoeAcc, vec3(0.05), 0.55) : vec3(0.045);
+    float rough = 0.42, ks = 0.45;
+    vec3 base;
+    float inSole = 1.0 - smoothstep(soleTop - px, soleTop + px, sz);
+    float inOut = 1.0 - smoothstep(outTop - px, outTop + px, sz);
+    // midsole: foam with a moulded groove line around it
+    vec3 mid = uSole * (1.0 - 0.18 * (1.0 - smoothstep(0.00075 - px, 0.00075 + px, abs(sz - (outTop + soleTop) * 0.52))));
+    // upper
+    vec3 up = uShoe;
+    float acc = 0.0;
+    // heel counter and pull tab
+    acc = max(acc, (1.0 - smoothstep(-0.03, -0.026, sy)) * (1.0 - smoothstep(0.044, 0.046, sz)));
+    acc = max(acc, (1.0 - smoothstep(-0.04, -0.036, sy)) * smoothstep(0.066, 0.07, sz));
+    // toe cap overlay
+    float cap = smoothstep(0.106, 0.11, sy) * (1.0 - smoothstep(0.03, 0.032, sz));
+    // side stripe: a crescent sweeping up from the forefoot toward the heel (both sides, bolder outside)
+    float s = clamp((0.088 - sy) / 0.108, 0.0, 1.0);
+    float zc = 0.021 + 0.024 * pow(s, 1.4);
+    float w = 0.0022 + 0.0052 * sin(3.14159 * min(s * 1.05, 1.0)) * (sx > 0.0 ? 1.0 : 0.75);
+    float stripe = (1.0 - smoothstep(w - px, w + px, abs(sz - zc))) * step(0.0, 0.088 - sy) * step(sy, 0.088) * step(-0.022, sy) * (1.0 - a1);
+    acc = max(acc, stripe);
+    up = mix(up, uShoeAcc, acc);
+    up = mix(up, mix(uShoe, uShoeAcc, 0.35), cap * (1.0 - acc));
+    // padded collar: the top of the high-top, a touch darker and softer
+    float collar = smoothstep(0.069, 0.073, sz);
+    up *= 1.0 - 0.14 * collar;
+    // laces and eyelets on top of the vamp
+    float onTop = smoothstep(0.45, 0.8, a1) * step(0.012, sy) * step(sy, 0.088);
+    float lacesW = 0.0085;
+    float row = abs(fract(sy / 0.0095) - 0.5);
+    float lace = (1.0 - smoothstep(lacesW - px, lacesW + px, ax)) * (1.0 - smoothstep(0.26, 0.34, row)) * onTop;
+    vec3 laceCol = lightShoe ? mix(uShoeAcc, vec3(0.08), 0.3) : vec3(0.9);
+    up = mix(up, laceCol, lace * 0.92);
+    float eyelet = (1.0 - smoothstep(0.0012, 0.0019, length(vec2(ax - 0.0098, (fract(sy / 0.0095) - 0.5) * 0.0095)))) * onTop;
+    up = mix(up, vec3(0.03), eyelet * 0.85);
+    // stitching along the overlays and above the sole
+    float stitch = (1.0 - smoothstep(0.00025, 0.0006, abs(sz - soleTop - 0.0024))) * step(0.5, fract(sy * 900.0));
+    up *= 1.0 - 0.25 * stitch * (1.0 - a1);
+    // fabric: fine knit / mesh grain up close
+    up *= 0.97 + 0.03 * noise(vB * 700.0);
+    base = mix(up, mid, inSole);
+    base = mix(base, outsole, inOut);
+    rough = mix(0.45, mix(0.55, 0.85, inOut), inSole);
+    ks = mix(0.5, mix(0.3, 0.15, inOut), inSole);
+    col = shadeGloss(base, N, V, ao, rough, ks);
   } else if (mat == 7) {
     vec3 lc = (vB - uHeadO.xyz) / uHeadO.w;
     // clumps (cm scale) and strand-scale streaks (~1.5 mm) that a pixel can still resolve up close

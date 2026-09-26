@@ -36,14 +36,46 @@ const gJ = new Int8Array(NP), gS = new Int8Array(NP);
 const PB = X.PB;
 const TRUNK = new Set([PB.PEL, PB.SPN, PB.CHS, PB.NCK]), HIPS = new Set([PB.PEL, PB.SPN, PB.L_TH, PB.R_TH]);
 function share(i, set) { let w = 0; for (let k = 0; k < 4; k++) if (set.has(X.WB[i * 4 + k])) w += X.WW[i * 4 + k]; return w / 255; }
+const fJ = new Float64Array(NP), fS = new Float64Array(NP);
 for (let i = 0; i < NP; i++) {
   const p = [AP[i * 3], AP[i * 3 + 1], AP[i * 3 + 2]];
   const tj = share(i, TRUNK), th = share(i, HIPS);
   let j = jerseyG(p[0] / H, p[1] / H, p[2] / H), sh = shortsG(p);
-  if (tj < 0.5) j = Math.min(j, (tj - 0.5) * 0.08);
+  // (only below the armpits, where the arms hang beside the torso: over the shoulders the skin leans on the arm
+  // bones, and cutting there sliced the straps into points and roughened the arm holes)
+  if (tj < 0.5 && p[2] / H < 0.745) j = Math.min(j, (tj - 0.5) * 0.08);
   if (th < 0.5) sh = Math.min(sh, (th - 0.5) * 0.08);
-  gJ[i] = Math.max(-127, Math.min(127, Math.round(j / 0.002)));
-  gS[i] = Math.max(-127, Math.min(127, Math.round(sh / 0.002)));
+  fJ[i] = j; fS[i] = sh;
+}
+// make the outlines distances along the body surface (divide by the surface gradient), so a trim band of a given
+// width is that wide everywhere (the raw fields made the neck trim hairline-thin and the arm hole trim fat)
+function surfaceDistance(f) {
+  const gx = new Float64Array(NP), gy = new Float64Array(NP), gz = new Float64Array(NP), wa = new Float64Array(NP);
+  for (let t = 0; t < tris.length; t += 3) {
+    const a = rvPos[tris[t]], b = rvPos[tris[t + 1]], c = rvPos[tris[t + 2]];
+    if (a === b || b === c || a === c) continue;
+    const pa = [AP[a * 3] / H, AP[a * 3 + 1] / H, AP[a * 3 + 2] / H], pb = [AP[b * 3] / H, AP[b * 3 + 1] / H, AP[b * 3 + 2] / H], pc = [AP[c * 3] / H, AP[c * 3 + 1] / H, AP[c * 3 + 2] / H];
+    const e1 = sub(pb, pa), e2 = sub(pc, pa);
+    const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+    const A2 = len(n); if (A2 < 1e-12) continue;
+    const u = [n[0] / A2, n[1] / A2, n[2] / A2];
+    const cr = (v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    // gradient of the linear interpolant: sum f_i (n x opposite edge) / 2A
+    const k0 = cr(sub(pc, pb)), k1 = cr(sub(pa, pc)), k2 = cr(sub(pb, pa));
+    const G = [0, 1, 2].map(q => (f[a] * k0[q] + f[b] * k1[q] + f[c] * k2[q]) / A2);
+    for (const v of [a, b, c]) { gx[v] += G[0] * A2; gy[v] += G[1] * A2; gz[v] += G[2] * A2; wa[v] += A2; }
+  }
+  const out = new Float64Array(NP);
+  for (let i = 0; i < NP; i++) {
+    const g = wa[i] > 0 ? Math.hypot(gx[i], gy[i], gz[i]) / wa[i] : 1;
+    out[i] = f[i] / Math.max(0.35, Math.min(3, g));
+  }
+  return out;
+}
+const dJ = surfaceDistance(fJ), dS = surfaceDistance(fS);
+for (let i = 0; i < NP; i++) {
+  gJ[i] = Math.max(-127, Math.min(127, Math.round(dJ[i] / 0.002)));
+  gS[i] = Math.max(-127, Math.min(127, Math.round(dS[i] / 0.002)));
 }
 
 // ---------------------------------------------------------------- face / scalp masks in head-local MakeHuman cm

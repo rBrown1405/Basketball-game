@@ -61,8 +61,10 @@
    * and separate toward the hem, the inverted V of real basketball shorts.
    */
   function hangShorts(P, sel, pos, nrm, H) {
+    // the crotch: the lowest point ON the midline (the inner thighs come within ~1 in of it lower down, which put the
+    // fork too low and left the tubes apart up to the real crotch)
     let zc = 1e9;
-    for (const i of sel) { const z = pos[i * 3 + 2]; if (Math.abs(pos[i * 3]) < 0.014 * H && z > 0.38 * H && z < 0.56 * H && z < zc) zc = z; }
+    for (const i of sel) { const z = pos[i * 3 + 2]; if (Math.abs(pos[i * 3]) < 0.0025 * H && z > 0.38 * H && z < 0.56 * H && z < zc) zc = z; }
     if (!(zc < 1e8)) return;
     // hang, column by column from the waistband down
     const NC = 24, cw = 0.24 * H / NC, zTop = 0.6 * H, zBot = zc - 0.04 * H;
@@ -77,8 +79,8 @@
       if (ny > 0) { if (y > runF[c]) runF[c] = y; else P[i * 3 + 1] = y + (runF[c] - y) * k * U.smooth((ny - 0.15) / 0.25); }
       else { if (y < runB[c]) runB[c] = y; else P[i * 3 + 1] = y + (runB[c] - y) * k * U.smooth((-ny - 0.15) / 0.25); }
     }
-    // below the crotch: close the thigh gap at the inner sides (a touch of overlap so no light shows between the
-    // leg tubes), less and less toward the hem
+    // below the crotch: close the thigh gap at the inner sides, less and less toward the hem; the tubes meet at the
+    // midline without crossing it (an overlap folded the cloth into a grey slit)
     const z0 = zc - 0.09 * H, NB = 24, band = (zc - z0) / NB;
     const gl = new Float64Array(NB).fill(-1e9), gr = new Float64Array(NB).fill(1e9);
     for (const i of sel) {
@@ -90,10 +92,72 @@
       const z = P[i * 3 + 2]; if (z < z0 || z >= zc) continue;
       const b = Math.min(NB - 1, Math.floor((z - z0) / band)), x = P[i * 3];
       const wz = U.smooth((z - z0) / (0.05 * H));
-      const g = (x < 0 ? -gl[b] : gr[b]) + 0.004 * H;
+      const g = (x < 0 ? -gl[b] : gr[b]) - 0.0006 * H;
       if (wz > 0 && g > 0 && g < 0.065 * H) {
         const fall = U.smooth((0.075 * H - (Math.abs(x) - g)) / (0.055 * H));
         P[i * 3] = x - Math.sign(x) * g * wz * fall;
+      }
+    }
+    // the front and back panels run flat across the two tubes down to the fork: in each band from a little above
+    // the crotch down toward the hem, points in the groove where the tubes meet come forward (back) to the line
+    // between the two tubes' front-most (back-most) points, fading out where the legs part (the groove shaded as a
+    // grey crease down the front of the shorts)
+    const zt = zc + 0.03 * H, NP2 = 30, band2 = (zt - z0) / NP2;
+    const bins = Array.from({ length: NP2 }, () => []);
+    for (const i of sel) { const z = P[i * 3 + 2]; if (z >= z0 && z < zt && Math.abs(P[i * 3]) < 0.08 * H) bins[Math.min(NP2 - 1, Math.floor((z - z0) / band2))].push(i); }
+    for (let b = 0; b < NP2; b++) {
+      const ids = bins[b]; if (ids.length < 6) continue;
+      const zm = z0 + (b + 0.5) * band2;
+      const wz = U.smooth((zm - z0) / (0.06 * H));
+      if (wz <= 0) continue;
+      let yMin = 1e9, yMax = -1e9;
+      for (const i of ids) { const y = P[i * 3 + 1]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
+      const yMid = (yMin + yMax) / 2;
+      for (const front of [true, false]) {
+        let lx = 0, ly = front ? -1e9 : 1e9, rx = 0, ry = front ? -1e9 : 1e9;
+        for (const i of ids) {
+          const x = P[i * 3], y = P[i * 3 + 1];
+          if (x < 0) { if (front ? y > ly : y < ly) { lx = x; ly = y; } } else if (front ? y > ry : y < ry) { rx = x; ry = y; }
+        }
+        if (!(rx - lx > 0.004 * H)) continue;
+        for (const i of ids) {
+          const x = P[i * 3], y = P[i * 3 + 1];
+          if (x <= lx || x >= rx || (front ? y < yMid : y > yMid)) continue;
+          const yl = ly + (x - lx) / (rx - lx) * (ry - ly);
+          if (front ? y < yl : y > yl) P[i * 3 + 1] = y + (yl - y) * wz;
+        }
+      }
+    }
+  }
+  /** where the offset cloth folded over itself (a triangle facing the other way than the body under it: offsetting a
+   *  narrow groove, the crotch, by more than its width), relax the fold's vertices and their neighbours toward their
+   *  neighbourhood until nothing is folded; a fold shows as a grey slit of back faces */
+  function untangle(P, tri, pos, adj, sel) {
+    const flipped = () => {
+      const bad = new Set();
+      for (let t = 0; t < tri.length; t += 3) {
+        const A = tri[t] * 3, B = tri[t + 1] * 3, C = tri[t + 2] * 3;
+        const ux = P[B] - P[A], uy = P[B + 1] - P[A + 1], uz = P[B + 2] - P[A + 2], vx = P[C] - P[A], vy = P[C + 1] - P[A + 1], vz = P[C + 2] - P[A + 2];
+        const bx = pos[B] - pos[A], by = pos[B + 1] - pos[A + 1], bz = pos[B + 2] - pos[A + 2], cx = pos[C] - pos[A], cy = pos[C + 1] - pos[A + 1], cz = pos[C + 2] - pos[A + 2];
+        const d = (uy * vz - uz * vy) * (by * cz - bz * cy) + (uz * vx - ux * vz) * (bz * cx - bx * cz) + (ux * vy - uy * vx) * (bx * cy - by * cx);
+        if (d < 0) { bad.add(tri[t]); bad.add(tri[t + 1]); bad.add(tri[t + 2]); }
+      }
+      return bad;
+    };
+    for (let round = 0; round < 40; round++) {
+      const bad = flipped();
+      if (!bad.size) return;
+      const ring = new Set(bad);
+      for (const i of bad) for (const j of adj[i]) if (sel.has(j)) ring.add(j);
+      // (averaging over all cloth neighbours, moving only the fold and its ring)
+      for (let it = 0; it < 2; it++) {
+        const upd = [];
+        for (const i of ring) {
+          let sx = 0, sy = 0, sz = 0, c = 0;
+          for (const j of adj[i]) { if (!sel.has(j)) continue; sx += P[j * 3]; sy += P[j * 3 + 1]; sz += P[j * 3 + 2]; c++; }
+          if (c) upd.push(i, P[i * 3] + 0.6 * (sx / c - P[i * 3]), P[i * 3 + 1] + 0.6 * (sy / c - P[i * 3 + 1]), P[i * 3 + 2] + 0.6 * (sz / c - P[i * 3 + 2]));
+        }
+        for (let k = 0; k < upd.length; k += 4) { const i = upd[k]; P[i * 3] = upd[k + 1]; P[i * 3 + 1] = upd[k + 2]; P[i * 3 + 2] = upd[k + 3]; }
       }
     }
   }
@@ -119,16 +183,19 @@
       if (sub.size) smoothPos(P, sub, adj, opts.extraIters || 16, 0.5, null);
     }
     if (opts.bridge) opts.bridge(P, sel);
-    // keep the layer outside the skin after smoothing
-    if (opts.minOff != null) for (const i of sel) {
+    // keep the layer outside the skin after smoothing (and, where asked, close to it: a binding hugs the body, a
+    // loose edge standing off it opened a see-through gap onto the hidden skin underneath)
+    if (opts.minOff != null || opts.maxOff != null) for (const i of sel) {
       const dx = P[i * 3] - pos[i * 3], dy = P[i * 3 + 1] - pos[i * 3 + 1], dz = P[i * 3 + 2] - pos[i * 3 + 2];
       const dn = dx * nrm[i * 3] + dy * nrm[i * 3 + 1] + dz * nrm[i * 3 + 2];
-      const m = opts.minOff(i);
-      if (dn < m) { P[i * 3] += nrm[i * 3] * (m - dn); P[i * 3 + 1] += nrm[i * 3 + 1] * (m - dn); P[i * 3 + 2] += nrm[i * 3 + 2] * (m - dn); }
+      const m = opts.minOff ? opts.minOff(i) : -1e9, mx = opts.maxOff ? opts.maxOff(i) : 1e9;
+      const want = dn < m ? m : dn > mx ? mx : dn;
+      if (want !== dn) { P[i * 3] += nrm[i * 3] * (want - dn); P[i * 3 + 1] += nrm[i * 3 + 1] * (want - dn); P[i * 3 + 2] += nrm[i * 3 + 2] * (want - dn); }
     }
     // triangles of the selection and their normals
     const tri = [];
     for (let t = 0; t < ptri.length; t += 3) { const a = ptri[t], b = ptri[t + 1], c = ptri[t + 2]; if (sel.has(a) && sel.has(b) && sel.has(c)) tri.push(a, b, c); }
+    untangle(P, tri, pos, adj, sel);
     const LN = HU.normals(P, tri, np);
     // clip at g = 0: new vertices on edges remember their two parents
     const G = new Map();
@@ -362,21 +429,29 @@
       if (ref || !covers(st.armSleeve, side(i))) return -1;
       const d = dom[i];
       if (!(ARMS.has(d) || d === B.L_HD || d === B.R_HD)) return -1;
-      if (d === B.L_HD || d === B.R_HD) return -0.02;
-      return -0.05 - armLz(i);
+      // the cuff: a clean cut across the forearm ~1 in above the wrist (cutting where the skin weights switch to the
+      // hand left a ragged edge)
+      const fb = side(i) ? B.R_FA : B.L_FA, r = fb * 9;
+      const along = -((pos[i * 3] - O[fb * 3]) * RF[r + 2] + (pos[i * 3 + 1] - O[fb * 3 + 1]) * RF[r + 5] + (pos[i * 3 + 2] - O[fb * 3 + 2]) * RF[r + 8]);
+      return Math.min(-0.05 - armLz(i), ((lens[fb] || 0.15 * H) - along) / H - 0.012);
     };
     // ---------------------------------------------------------- skin
     const hidden = new Uint8Array(np);
     const mat = new Uint8Array(np), aux1 = new Float32Array(np);
     for (let i = 0; i < np; i++) {
       const z = pos[i * 3 + 2], d = dom[i];
-      if (shirtG(i) > 0.006 || pantsG(i) > 0.006) hidden[i] = 1;
+      // (skin is dropped only well inside the clothing: near an edge a gap between cloth and body, the armpit seen
+      // from behind, must show skin, not the background)
+      if (shirtG(i) > 0.03 || pantsG(i) > 0.03) hidden[i] = 1;
       if (FOOT.has(d) || (SHIN.has(d) && z < shoeTop)) hidden[i] = 1;
       let m = hedW[i] > 0.5 ? MAT.HEAD : MAT.SKIN;
       if (sockG(i) > 0.004 || legSleeveG(i) > 0.004 || armSleeveG(i) > 0.004) hidden[i] = 1;
       if (m === MAT.SKIN && st.tattoo && st.tattoo !== 'none') {
         const tatSide = (seed >> 5) & 1;
-        if ((st.tattoo === 'arms' && ARMS.has(d)) || (st.tattoo === 'sleeve' && ARMS.has(d) && side(i) === tatSide)) aux1[i] = 1;
+        // (the hands carry the flag too: the ink itself stops in a clean line above the wrist, drawn by the shader
+        // from the coordinate along the arm, instead of where the skin weights switch bones)
+        const armOrHand = ARMS.has(d) || d === B.L_HD || d === B.R_HD;
+        if ((st.tattoo === 'arms' && armOrHand) || (st.tattoo === 'sleeve' && armOrHand && side(i) === tatSide)) aux1[i] = 1;
         else if (st.tattoo === 'chest' && (d === B.CHS) && z > 0.7 * H) aux1[i] = 1;
       }
       mat[i] = m;
@@ -388,7 +463,9 @@
     const tatUV = new Float32Array(np * 2).fill(-1);
     for (let i = 0; i < np; i++) {
       if (!aux1[i]) continue;
-      const d = dom[i];
+      let d = dom[i];
+      const hand = d === B.L_HD || d === B.R_HD;
+      if (hand) d = d === B.L_HD ? B.L_FA : B.R_FA; // hands continue the forearm's coordinates past the wrist (v > 1)
       if (ARMS.has(d)) {
         const r = d * 9, ax = [-RF[r + 2], -RF[r + 5], -RF[r + 8]];
         const rx = pos[i * 3] - O[d * 3], ry = pos[i * 3 + 1] - O[d * 3 + 1], rz = pos[i * 3 + 2] - O[d * 3 + 2];
@@ -401,7 +478,7 @@
         const qx = ax[1] * oz - ax[2] * oy, qy = ax[2] * ox - ax[0] * oz, qz = ax[0] * oy - ax[1] * ox;
         const th = Math.atan2(px * qx + py * qy + pz * qz, px * ox + py * oy + pz * oz);
         tatUV[i * 2] = 0.5 + th / (2 * Math.PI);
-        tatUV[i * 2 + 1] = (d === B.L_UA || d === B.R_UA ? 0 : 0.5) + 0.5 * U.clamp(al / len, 0, 1);
+        tatUV[i * 2 + 1] = (d === B.L_UA || d === B.R_UA ? 0 : 0.5) + 0.5 * U.clamp(al / len, 0, hand ? 1.4 : 1);
       } else {
         tatUV[i * 2] = U.clamp(0.5 + pos[i * 3] / (0.4 * H), 0, 1);
         tatUV[i * 2 + 1] = 2 + U.clamp((pos[i * 3 + 2] - 0.7 * H) / (0.15 * H), 0, 1);
@@ -409,19 +486,26 @@
     }
     {
       const rv = a.rvPos, tr = a.tris, nr = D.meta.nr;
-      const map = new Int32Array(nr).fill(-1);
+      const map = new Int32Array(nr).fill(-1), mapW = new Int32Array(nr).fill(-1);
+      const inked = p => tatUV[p * 2] >= 0 && mat[p] === MAT.SKIN;
+      // (tattoo coordinates are stored as u / 2 and v / 3: a triangle across the seam where the angle around the limb
+      // wraps gets its own copies of the low-side vertices at u + 1, so it does not smear the whole range across)
+      const emit = (r, wrap) => {
+        const mm = wrap ? mapW : map;
+        if (mm[r] >= 0) return mm[r];
+        const p = rv[r];
+        const tw = [twf[p * 4], twf[p * 4 + 1], twf[p * 4 + 2], twf[p * 4 + 3]];
+        mm[r] = out.v(skinPos[p * 3], skinPos[p * 3 + 1], skinPos[p * 3 + 2], nrm[p * 3], nrm[p * 3 + 1], nrm[p * 3 + 2],
+          [wb[p * 4], wb[p * 4 + 1], wb[p * 4 + 2], wb[p * 4 + 3]], [ww[p * 4], ww[p * 4 + 1], ww[p * 4 + 2], ww[p * 4 + 3]], tw,
+          mat[p], 1, 0, aux1[p], inked(p) ? (tatUV[p * 2] + (wrap ? 1 : 0)) / 2 : a.rvUV[r * 2] / 65535, inked(p) ? tatUV[p * 2 + 1] / 3 : a.rvUV[r * 2 + 1] / 65535);
+        return mm[r];
+      };
       for (let t = 0; t < tr.length; t += 3) {
-        const p0 = rv[tr[t]], p1 = rv[tr[t + 1]], p2 = rv[tr[t + 2]];
-        if (hidden[p0] && hidden[p1] && hidden[p2]) continue;
-        const ids = [tr[t], tr[t + 1], tr[t + 2]].map(r => {
-          if (map[r] >= 0) return map[r];
-          const p = rv[r];
-          const tw = [twf[p * 4], twf[p * 4 + 1], twf[p * 4 + 2], twf[p * 4 + 3]];
-          map[r] = out.v(skinPos[p * 3], skinPos[p * 3 + 1], skinPos[p * 3 + 2], nrm[p * 3], nrm[p * 3 + 1], nrm[p * 3 + 2],
-            [wb[p * 4], wb[p * 4 + 1], wb[p * 4 + 2], wb[p * 4 + 3]], [ww[p * 4], ww[p * 4 + 1], ww[p * 4 + 2], ww[p * 4 + 3]], tw,
-            mat[p], 1, 0, aux1[p], tatUV[p * 2] >= 0 && mat[p] === MAT.SKIN ? tatUV[p * 2] : a.rvUV[r * 2] / 65535, tatUV[p * 2] >= 0 && mat[p] === MAT.SKIN ? tatUV[p * 2 + 1] / 3 : a.rvUV[r * 2 + 1] / 65535);
-          return map[r];
-        });
+        const rs = [tr[t], tr[t + 1], tr[t + 2]], ps = rs.map(r => rv[r]);
+        if (hidden[ps[0]] && hidden[ps[1]] && hidden[ps[2]]) continue;
+        let seam = false;
+        if (ps.every(inked)) { const us = ps.map(p => tatUV[p * 2]); seam = Math.max(...us) - Math.min(...us) > 0.5; }
+        const ids = rs.map((r, k) => emit(r, seam && tatUV[ps[k] * 2] < 0.5));
         out.t(ids[0], ids[1], ids[2]);
       }
     }
@@ -446,7 +530,7 @@
         return H * (0.006 + 0.017 * loose - 0.0015 * top);
       };
       layer(out, ctx, sel, ease, shirtG, MAT.JERSEY, {
-        smooth: dims.fem ? 16 : 10, minOff: i => H * 0.004,
+        smooth: dims.fem ? 16 : 10, minOff: i => H * 0.004, maxOff: i => H * (0.0065 + 0.03 * U.smooth(shirtG(i) / 0.05)),
         attr: (i, g) => ({ ao: 1, a0: 0.3 * U.smooth((0.66 - pos[i * 3 + 2] / H) / 0.08), a1: U.sat(g / 0.04) }),
       });
     }
@@ -565,7 +649,7 @@
         const bi = [acc.BI[i * 4], acc.BI[i * 4 + 1], acc.BI[i * 4 + 2], acc.BI[i * 4 + 3]];
         const q = [0, 1, 2, 3].map(k => Math.round(acc.BW[i * 4 + k] * 255));
         let big = 0; for (let k = 1; k < 4; k++) if (q[k] > q[big]) big = k; q[big] += 255 - q.reduce((s, x) => s + x, 0);
-        out.v(acc.P[i * 3], acc.P[i * 3 + 1], acc.P[i * 3 + 2], acc.N[i * 3], acc.N[i * 3 + 1], acc.N[i * 3 + 2], bi, q, null, acc.MT[i], acc.AO[i], acc.X0[i], acc.X1[i], 0, 0);
+        out.v(acc.P[i * 3], acc.P[i * 3 + 1], acc.P[i * 3 + 2], acc.N[i * 3], acc.N[i * 3 + 1], acc.N[i * 3 + 2], bi, q, null, acc.MT[i], acc.AO[i], acc.X0[i], acc.X1[i], acc.UU[i], acc.VV[i]);
       }
       for (let t = 0; t < acc.T.length; t++) acc.T[t] += base;
       for (let t = 0; t < acc.T.length; t += 3) out.t(acc.T[t], acc.T[t + 1], acc.T[t + 2]);
