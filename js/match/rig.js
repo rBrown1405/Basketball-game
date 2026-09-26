@@ -197,8 +197,18 @@
       const sg = side === 0 ? -1 : 1, pre = side === 0 ? 'l' : 'r';
       const jSh = side === 0 ? J.L_SH : J.R_SH, fUA = side === 0 ? F.L_UA : F.R_UA;
       const o = jSh * 3;
-      xf(R, 18, P[6], P[7], P[8], sg * d.shX, -0.006 * H + p[CH[pre + 'ClvP']] * 0.03 * H, d.shZ + p[CH[pre + 'ClvE']] * 0.035 * H, P, o);
       const ik = this.armIK[side];
+      // scapulohumeral rhythm: raising the arm past ~70 deg also elevates the shoulder girdle (the joint rises
+      // ~6-7 cm at full overhead reach), so overhead reaches - shots, dunks, rebounds, blocks - get the real
+      // extra height and the shoulders shrug naturally
+      let elev;
+      if (ik.on > 0.001) {
+        const wx = ik.x - P[6], wy = ik.y - P[7], wz = ik.z - (P[8] + d.shZ);
+        const Dz = R[20] * wx + R[23] * wy + R[26] * wz, dl = Math.hypot(wx, wy, wz) || 1;
+        elev = U.lerp(Math.acos(U.clamp(Math.cos(p[CH[pre + 'ShF']]) * Math.cos(p[CH[pre + 'ShA']]), -1, 1)), Math.acos(U.clamp(-Dz / dl, -1, 1)), Math.min(1, ik.on));
+      } else elev = Math.acos(U.clamp(Math.cos(p[CH[pre + 'ShF']]) * Math.cos(p[CH[pre + 'ShA']]), -1, 1));
+      const shrug = U.smooth((elev - 1.2) / 1.9) * 1.25;
+      xf(R, 18, P[6], P[7], P[8], sg * d.shX, -0.006 * H + p[CH[pre + 'ClvP']] * 0.03 * H, d.shZ + (p[CH[pre + 'ClvE']] + shrug) * 0.035 * H, P, o);
       if (ik.on > 0.001) this._armIK(side, pre, sg, P[o], P[o + 1], P[o + 2]);
       limitArm(p, pre);
       const ua = fUA * 9, fa = ua + 9, hd = fa + 9;

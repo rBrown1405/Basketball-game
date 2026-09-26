@@ -72,10 +72,11 @@
       if (actor) {
         actor.hasBall = true; actor.dribble = null;
         if (hold !== undefined) actor.ballHold = hold;
+        actor._holdS = null; // a new hold starts where it belongs (the toss below covers the distance)
         const p = actor.heldBallPos(this._tmp);
         const jump = Math.hypot(p[0] - this.x, p[1] - this.y, p[2] - this.z);
         // never pop: a far hand-over becomes a short toss into the hands
-        if (jump > 1.2 && isFinite(jump)) { this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 26, 0.18, 0.45) }; }
+        if (jump > 1.2 && isFinite(jump)) { this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 16, 0.26, 0.55) }; }
         else { this.blend = null; this.x = p[0]; this.y = p[1]; this.z = p[2]; }
       }
       this.spin[0] = this.spin[1] = this.spin[2] = 0;

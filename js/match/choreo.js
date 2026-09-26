@@ -1171,7 +1171,9 @@
       const dRimNow = Math.hypot(sh.x - this.rim.x, sh.y - this.rim.y);
       let standFinish = false;
       if (kind === 'tip' && dRimNow > 6.5) clipName = dRimNow < 9.5 ? 'putback' : 'layup';
-      if ((RIM_SHOTS[kind] && kind !== 'alley' && dRimNow < 9.5) || (kind === 'tip' && dRimNow <= 6.5)) {
+      // (a dunk is always thrown down at the rim: a standing putback dunk only from close in, otherwise a
+      // short running dunk whose run-up absorbs the distance)
+      if ((RIM_SHOTS[kind] && kind !== 'alley' && dRimNow < (kind === 'dunk' ? 5.5 : 9.5)) || (kind === 'tip' && dRimNow <= 6.5)) {
         if (kind !== 'tip') clipName = (kind === 'dunk') ? 'putbackDunk' : 'putback';
         standFinish = true;
       }
@@ -1188,9 +1190,14 @@
         // finish from where he is (within a couple of feet of the engine spot, close to the rim)
         const rp = this.clipRootAt(clip, clip.events.release);
         const a0 = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x);
-        const px = sh.x + Math.cos(a0) * rp.fwd, py = sh.y + Math.sin(a0) * rp.fwd;
-        const dToRim = Math.hypot(px - this.rim.x, py - this.rim.y);
-        if (dToRim > 1.0) { spot.x = px; spot.y = py; }
+        if (clipName === 'putbackDunk') {
+          // the dunk goes down at the rim: release just in front of it, the gather and jump carry him there
+          spot.x = this.rim.x - Math.cos(a0) * 1.3; spot.y = this.rim.y - Math.sin(a0) * 1.3;
+        } else {
+          const px = sh.x + Math.cos(a0) * rp.fwd, py = sh.y + Math.sin(a0) * rp.fwd;
+          const dToRim = Math.hypot(px - this.rim.x, py - this.rim.y);
+          if (dToRim > 1.0) { spot.x = px; spot.y = py; }
+        }
       }
       const rimShot = !!RIM_SHOTS[kind] || clipName === 'layup' || clipName === 'floater';
       // facing at the start of the clip: toward the rim from the approach side
@@ -1259,8 +1266,14 @@
           if (b.holder === sh && b.state === 'dribble') b.give(sh, 'low');
           // rim finishes re-anchor on the shooter if the approach plan slipped (no dragging)
           let ox = origin.x, oy = origin.y, of = facing;
-          if (rimShot || clipName === 'putback' || clipName === 'putbackDunk' || clipName === 'tip') {
-            if (Math.hypot(sh.x - ox, sh.y - oy) > 2.5) {
+          let blendT = null;
+          const dunkClip = clipName === 'dunk' || clipName === 'dunk2' || clipName === 'putbackDunk';
+          const slip = Math.hypot(sh.x - ox, sh.y - oy);
+          if (dunkClip && slip > 1.5 && slip < (clipName === 'putbackDunk' ? 4.5 : 6.5)) {
+            // dunks stay anchored at the rim: the run-up / gather absorbs the slip (steps stretch or shorten)
+            blendT = clip.jump ? U.clamp(clip.jump.t0 + 0.15, 0.4, 0.65) : 0.5;
+          } else if (rimShot || clipName === 'putback' || clipName === 'putbackDunk' || clipName === 'tip') {
+            if (slip > 2.5) {
               ox = sh.x; oy = sh.y;
               of = Math.atan2(this.rim.y - oy, this.rim.x - ox);
               const r0 = this.clipRootAt(clip, 0);
@@ -1269,7 +1282,7 @@
           }
           const lift = clip.jump ? clip.jump.h * sh.H * (0.85 + sh.rVert * 0.3) * (jumper ? 0.88 + ((style * 7.3) % 1) * 0.26 : 1) : null;
           const cs = sh.play(clipName, {
-            x: ox, y: oy, facing: of, mirror, fadeIn: 0.08, speed: spk, jumpH: lift,
+            x: ox, y: oy, facing: of, mirror, fadeIn: 0.08, speed: spk, jumpH: lift, blendT: blendT == null ? undefined : blendT,
             noHang: Math.random() < 0.6,
             hold: pending ? clip.events.set : null,
             onEvent: (name) => {
@@ -1847,6 +1860,9 @@
         this.ftSetup = true;
         setup = Math.max(this.placeForFT(sh), busy + Math.hypot(sh.x - spot.x, sh.y - spot.y) / 10 + 0.4);
         v.camHint = { x: this.rim.x - this.dir * 18, hold: 99, tight: true };
+      } else {
+        // the last one has to come down through the net and the official has to get it back first
+        setup = Math.max(1.5, busy);
       }
       const lead = v.nearestRef(this.rim.x, 25) || v.refs[0];
       const routine = 2.2;
@@ -1864,7 +1880,8 @@
           // the official bounces the ball to the shooter from beside the lane, then steps out to the baseline so
           // nobody but the lane players is near the lane when the ball is released
           const rp = this.P(15.5, 25 + (lead.y < 25 ? -9.5 : 9.5));
-          lead.moveTo(rp.x, rp.y, { speed: 9, face: { x: spot.x, y: spot.y } });
+          const toLane = () => { if (!lead.isBusy()) lead.moveTo(rp.x, rp.y, { speed: 9, face: { x: spot.x, y: spot.y } }); };
+          if (first) toLane(); else this.at(this.T + 1.0, toLane, 'ref to lane');
           this.at(tClip - routine + 0.1, () => {
             if (b.holder !== lead) this.giveBall(lead, 'chest');
             lead.ballHold = 'chest';
@@ -1872,7 +1889,7 @@
             this.passBall(lead, sh, 'bounce', U.clamp(d / 26, 0.4, 0.9), () => { b.dribble(sh, sh.lefty ? 0 : 1, { period: 0.62 }); sh.setFace(facing); });
           }, 'ref bounce');
           this.at(tClip - routine + 0.9, () => {
-            const out = this.P(1.5, 25 + (lead.y < 25 ? -14 : 14));
+            const out = this.P(1.2, 25 + (lead.y < 25 ? -11 : 11));
             if (!lead.isBusy()) lead.moveTo(out.x, out.y, { speed: 8, face: { x: this.rim.x, y: 25 } });
           }, 'ref steps out');
         }
@@ -1929,8 +1946,9 @@
         // between free throws: ref gets the ball back
         if (!lastOne) {
           const ref = v.nearestRef(this.rim.x, 25);
-          if (ref) ref.moveTo(this.rim.x - this.dir * 3.5, 22 + Math.random() * 6, { speed: 10, face: { x: this.rim.x, y: 25 } });
-          this.at(this.T + 0.55, () => { if (ref && b.holder !== ref) this.giveBall(ref, 'chest'); }, 'ref retrieves');
+          if (ref) ref.moveTo(this.rim.x - this.dir * 3.5, 22 + Math.random() * 6, { speed: 12, face: { x: this.rim.x, y: 25 } });
+          // catch it on the way down through the net / off the first bounce
+          this.at(this.T + 0.9, () => { if (ref && b.holder !== ref) this.giveBall(ref, 'chest'); }, 'ref retrieves');
         }
       };
       return need;

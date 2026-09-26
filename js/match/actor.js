@@ -661,11 +661,24 @@
         let bx = bk[0](t), by = bk[1](t), bz = bk[2](t);
         if (cs.mirror) bx = -bx;
         const w = cs.w;
-        const base = this._holdLocal(HL);
+        const base = this._holdLocalS(HL);
         return this.local(U.lerp(base[0], bx * H, w), U.lerp(base[1], by * H, w), U.lerp(base[2], bz * H, w), out);
       }
-      const l = this._holdLocal(HL);
+      const l = this._holdLocalS(HL);
       return this.local(l[0], l[1], l[2], out);
+    }
+    /** the hold position eased over ~0.1 s, so switching how the ball is held (chest, pocket, overhead...)
+     *  moves it through the hands instead of teleporting it */
+    _holdLocalS(out) {
+      const tg = this._holdLocal(out);
+      const t = this.time || 0;
+      let s = this._holdS;
+      if (!s) s = this._holdS = { x: tg[0], y: tg[1], z: tg[2], t };
+      const dt = U.clamp(t - s.t, 0, 0.1); s.t = t;
+      const k = 1 - Math.exp(-dt / 0.09);
+      s.x += (tg[0] - s.x) * k; s.y += (tg[1] - s.y) * k; s.z += (tg[2] - s.z) * k;
+      out[0] = s.x; out[1] = s.y; out[2] = s.z;
+      return out;
     }
     _holdLocal(out) {
       const H = this.H, m = this.lefty ? -1 : 1;
@@ -829,6 +842,24 @@
       // arms: ball / explicit targets
       this._armTargets();
       sk.solve(p, this.x, this.y, this.facing);
+      // holding the ball up high (dunks, lobs, rebounds, overhead holds) where the grip is out of the arms'
+      // reach: the ball goes where the hands can actually hold it instead of floating above them
+      const gr = this._grip, vb = this.view && this.view.ball;
+      const cr = this._carry || (this._carry = { x: 0, y: 0, z: 0, t: this.time || 0 });
+      const cdt = U.clamp((this.time || 0) - cr.t, 0, 0.1); cr.t = this.time || 0;
+      if (gr && (gr[0] || gr[1]) && vb && vb.holder === this && vb.state === 'held') {
+        let ex = 0, ey = 0, ez = 0, n = 0;
+        for (let side = 0; side < 2; side++) {
+          if (!gr[side]) continue;
+          const ik = sk.armIK[side], j = (side ? RG.J.R_WR : RG.J.L_WR) * 3;
+          ex += sk.P[j] - ik.x; ey += sk.P[j + 1] - ik.y; ez += sk.P[j + 2] - ik.z; n++;
+        }
+        const w = U.smooth((vb.z - 0.4 * H) / (0.2 * H)) / n;
+        // eased so a grip change or the ball rising past the hips never snaps it
+        const k = 1 - Math.exp(-cdt / 0.05);
+        cr.x += (ex * w - cr.x) * k; cr.y += (ey * w - cr.y) * k; cr.z += (ez * w - cr.z) * k;
+        vb.x += cr.x; vb.y += cr.y; vb.z += cr.z;
+      } else { cr.x = cr.y = cr.z = 0; }
       // dribbling: the target is where the palm must touch the ball; move the wrist by the miss and re-solve
       const d = this.dribble;
       if (d && d.palm && d.wx != null && sk.armIK[d.hand ? 1 : 0].on > 0.01) {
@@ -842,6 +873,8 @@
 
     _armTargets() {
       const sk = this.sk, H = this.H;
+      const grip = this._grip || (this._grip = [0, 0]);
+      grip[0] = grip[1] = 0;
       for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; }
       // explicit
       for (let side = 0; side < 2; side++) {
@@ -892,7 +925,7 @@
             if (!g) continue;
             const gx = mir ? -g[0] : g[0];
             const ik = sk.armIK[side];
-            ik.on = 1;
+            ik.on = 1; this._grip[side] = 1;
             ik.x = b.x + (s * gx + c * g[1]) * BALL_R;
             ik.y = b.y + (-c * gx + s * g[1]) * BALL_R;
             ik.z = b.z + g[2] * BALL_R;

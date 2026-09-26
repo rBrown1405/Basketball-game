@@ -198,9 +198,14 @@
     shootRel: { r: [0.2, -1.2, -1.0], l: null },
     hold: { r: [1.35, -0.45, -0.25], l: [-1.35, -0.45, -0.25] },
     hip: { r: [0.85, -0.3, -1.1], l: [-1.2, 0.8, 0.1] },
-    over: { r: [1.2, -0.6, 0.1], l: [-1.2, -0.6, 0.1] },
+    // overhead two hands: palms on the sides of the ball, wrists a little below its centre
+    over: { r: [1.2, -0.5, -0.6], l: [-1.2, -0.5, -0.6] },
     right: { r: [0.4, -1.2, -0.9], l: null },
-    rightTop: { r: [0.2, -0.3, 1.45], l: null },
+    // one hand up high (layup / finger roll / tip / cocked dunk): the ball sits on the palm and fingers, above
+    // and a little ahead of the wrist
+    rightTop: { r: [0.25, -0.55, -1.15], l: null },
+    // the slam: the hand on the top-back of the ball throwing it down
+    slam: { r: [0.25, -0.85, 0.95], l: null },
     left: { r: null, l: [-0.4, -1.2, -0.9] },
     under: { r: [0.3, -0.5, -1.4], l: [-0.3, -0.5, -1.4] },
   };
