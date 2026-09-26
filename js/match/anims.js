@@ -43,14 +43,18 @@
   });
   const JOG = gaitSet({
     pelPitch: 6, spFlex: 5, chFlex: 2, nkFlex: -7, hdFlex: 0, // ~9 deg forward lean (running studies)
-    rootZ: [[0, -0.012], [0.17, -0.032], [0.36, -0.01], [0.43, 0.008], [0.5, -0.012], [0.67, -0.032], [0.86, -0.01], [0.93, 0.008]],
+    // (a deeper dip in midstance: captured runs at 10-13 ft/s, CMU subjects 9 and 16, bounce 0.05-0.075 H; the top
+    // stays where the stance leg can still reach the floor)
+    rootZ: [[0, -0.013], [0.17, -0.035], [0.36, -0.01], [0.43, 0.008], [0.5, -0.013], [0.67, -0.035], [0.86, -0.01], [0.93, 0.008]],
     pelTwist: [[0, 8], [0.25, 0], [0.5, -8], [0.75, 0]],
     pelRoll: [[0.1, -5], [0.35, 2], [0.6, 5], [0.85, -2]],
     spTwist: [[0, -5], [0.5, 5]],
     chTwist: [[0, -9], [0.25, 0], [0.5, 9], [0.75, 0]],
     nkTwist: [[0, 6], [0.5, -6]],
-    rShF: [[0, -38], [0.25, 2], [0.5, 46], [0.75, 6]], lShF: opp([[0, -38], [0.25, 2], [0.5, 46], [0.75, 6]]),
-    rElF: [[0, 72], [0.25, 86], [0.5, 104], [0.75, 90]], lElF: opp([[0, 72], [0.25, 86], [0.5, 104], [0.75, 90]]),
+    // arm swing mostly behind the body: the captured runners' upper arms go ~35-45 deg back but only ~10-20 deg in
+    // front of the trunk (the hand comes up to the chest with the elbow bent, the upper arm barely passes vertical)
+    rShF: [[0, -44], [0.25, -12], [0.5, 22], [0.75, -6]], lShF: opp([[0, -44], [0.25, -12], [0.5, 22], [0.75, -6]]),
+    rElF: [[0, 78], [0.25, 92], [0.5, 108], [0.75, 96]], lElF: opp([[0, 78], [0.25, 92], [0.5, 108], [0.75, 96]]),
     rShA: [[0, 14], [0.5, 8]], lShA: opp([[0, 14], [0.5, 8]]),
     rShT: [[0, 4], [0.5, 22]], lShT: opp([[0, 4], [0.5, 22]]),
     rPro: 55, lPro: 55, rWrF: 12, lWrF: 12, rFing: 0.55, lFing: 0.55,
@@ -61,13 +65,13 @@
   });
   const SPRINT = gaitSet({
     pelPitch: 9, spFlex: 8, chFlex: 3, nkFlex: -11, hdFlex: 0, // ~14 deg at top speed; more only while accelerating
-    rootZ: [[0, -0.016], [0.13, -0.036], [0.26, -0.014], [0.38, 0.01], [0.5, -0.016], [0.63, -0.036], [0.76, -0.014], [0.88, 0.01]],
+    rootZ: [[0, -0.016], [0.13, -0.038], [0.26, -0.014], [0.38, 0.01], [0.5, -0.016], [0.63, -0.038], [0.76, -0.014], [0.88, 0.01]],
     pelTwist: [[0, 10], [0.25, 0], [0.5, -10], [0.75, 0]],
     pelRoll: [[0.08, -5], [0.3, 2], [0.58, 5], [0.8, -2]],
     spTwist: [[0, -6], [0.5, 6]],
     chTwist: [[0, -10], [0.25, 0], [0.5, 10], [0.75, 0]],
     nkTwist: [[0, 7], [0.5, -7]],
-    rShF: [[0, -52], [0.25, 5], [0.5, 68], [0.75, 10]], lShF: opp([[0, -52], [0.25, 5], [0.5, 68], [0.75, 10]]),
+    rShF: [[0, -58], [0.25, -10], [0.5, 36], [0.75, -4]], lShF: opp([[0, -58], [0.25, -10], [0.5, 36], [0.75, -4]]),
     rElF: [[0, 66], [0.25, 88], [0.5, 110], [0.75, 92]], lElF: opp([[0, 66], [0.25, 88], [0.5, 110], [0.75, 92]]),
     rShA: [[0, 12], [0.5, 6]], lShA: opp([[0, 12], [0.5, 6]]),
     rShT: [[0, 2], [0.5, 18]], lShT: opp([[0, 2], [0.5, 18]]),
@@ -119,7 +123,8 @@
     const gw = gaitWeights(speed, out.w || (out.w = {}));
     // stance share of the stride (ground contact): walking ~60%, running ~31-33%, sprinting ~22-25% (gait studies)
     out.beta = gw.walk * 0.6 + gw.jog * 0.33 + gw.sprint * 0.24;
-    out.lift = gw.walk * 0.05 + gw.jog * 0.2 + gw.sprint * 0.29;
+    // (swing foot height: a captured 10-13 ft/s run tucks the knee to ~106-117 deg with the thigh ~45-50 deg up)
+    out.lift = gw.walk * 0.05 + gw.jog * 0.17 + gw.sprint * 0.27;
     // how far ahead of the body the ankle lands, as a share of the contact length: a walker's heel strikes about
     // 0.16 x height ahead of the hip (leg ~20 deg forward), runners land close under the body, not reaching out
     out.reach = gw.walk * 0.37 + gw.jog * 0.34 + gw.sprint * 0.31;
