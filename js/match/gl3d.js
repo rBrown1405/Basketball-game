@@ -926,7 +926,7 @@ void main() { oCol = vec4(1.0); }`;
 
     // ---------------------------------------------------------- jersey numbers / names
     numSlot(style) {
-      const k = [style.num, style.numColor, style.trim, style.lastName || '', style.kind].join('|');
+      const k = [style.num, style.numColor, style.trim, style.lastName || '', style.kind, style.wordmark || ''].join('|');
       let s = this.numSlots.get(k);
       if (s) return s;
       const i = this.numNext++ % 64;
@@ -943,7 +943,37 @@ void main() { oCol = vec4(1.0); }`;
         g.fillStyle = style.numColor || '#111'; g.fillText(num, cx, cy);
       };
       if (style.kind === 'ref') { drawNum(x + cw * 0.75, y + ch * 0.36, 34); }
-      else {
+      else if (style.wordmark) {
+        // front: the team's wordmark arched across the chest (letters on a wide arc, the middle highest), the number
+        // under it; the cell spans 0.2 H square from 0.81 H down to 0.61 H
+        const word = style.wordmark.slice(0, 13), cx = x + cw * 0.25, cy = y + ch * 0.34, R = 150;
+        let size = 24;
+        g.font = '900 ' + size + 'px ' + font;
+        const maxW = cw * 0.5 * 0.86;
+        const w0 = g.measureText(word).width + (word.length - 1) * size * 0.06;
+        if (w0 > maxW) size = Math.max(11, Math.floor(size * maxW / w0));
+        g.font = '900 ' + size + 'px ' + font;
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+        const track = size * 0.06, widths = [...word].map(c => g.measureText(c).width);
+        const total = widths.reduce((a, b) => a + b, 0) + track * (word.length - 1);
+        let px = -total / 2;
+        for (let i = 0; i < word.length; i++) {
+          const mid = px + widths[i] / 2, ang = mid / R;
+          g.save();
+          g.translate(cx + R * Math.sin(ang), cy + R * (1 - Math.cos(ang)));
+          g.rotate(ang);
+          g.lineWidth = size * 0.16; g.strokeStyle = style.trim || '#000'; g.strokeText(word[i], 0, 0);
+          g.fillStyle = style.numColor || '#111'; g.fillText(word[i], 0, 0);
+          g.restore();
+          px += widths[i] + track;
+        }
+        drawNum(cx, y + ch * 0.68, 52);
+        drawNum(x + cw * 0.75, y + ch * 0.55, 66);
+        if (style.lastName) {
+          g.font = '800 17px ' + font; g.fillStyle = style.numColor || '#111'; g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText(String(style.lastName).toUpperCase().slice(0, 14), x + cw * 0.75, y + ch * 0.17);
+        }
+      } else {
         drawNum(x + cw * 0.25, y + ch * 0.47, 62);
         drawNum(x + cw * 0.75, y + ch * 0.55, 66);
         if (style.lastName) {

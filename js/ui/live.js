@@ -19,7 +19,7 @@
   function teamLook(t, home) {
     const ct = UI.teamCourt ? UI.teamCourt(t) : (t.court || {}); // Team Editor court, or the same defaults it shows
     return {
-      id: t.id, abbr: t.abbr, city: t.city, name: t.name, arena: arenaName(t), colors: Object.assign({}, t.colors), uniform: uniformFor(t, home),
+      id: t.id, abbr: t.abbr, city: t.city, name: t.name, home: !!home, arena: arenaName(t), colors: Object.assign({}, t.colors), uniform: uniformFor(t, home),
       court: { paint: ct.paint || t.colors.primary, logoText: ct.logoText || t.abbr, wood: ct.wood || t.wood || 'light', apron: ct.apron || null },
     };
   }

@@ -76,7 +76,12 @@
         const p = actor.heldBallPos(this._tmp);
         const jump = Math.hypot(p[0] - this.x, p[1] - this.y, p[2] - this.z);
         // never pop: a far hand-over becomes a short toss into the hands, a near one a quick slide into them
-        if (jump > 1.2 && isFinite(jump)) { this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 16, 0.26, 0.55), arc: 1 }; }
+        // (a ball gathered on its way up from the floor, the pick-up of a dribble, rises straight into the hands at
+        // bounce speed; only a hand-over across the floor gets the lobbed arc)
+        if (jump > 1.2 && isFinite(jump)) {
+          const rising = p[2] > this.z + 0.4 && Math.hypot(p[0] - this.x, p[1] - this.y) < 3;
+          this.blend = rising ? { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 22, 0.1, 0.24), arc: 0 } : { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 16, 0.26, 0.55), arc: 1 };
+        }
         else if (jump > 0.2 && isFinite(jump)) { this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 8, 0.06, 0.15), arc: 0 }; }
         else { this.blend = null; this.x = p[0]; this.y = p[1]; this.z = p[2]; }
       }
