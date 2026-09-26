@@ -168,7 +168,7 @@
     Finishing: ['layup', 'reverse', 'dunk', 'dunk2', 'alley', 'putback', 'putbackDunk', 'tip'],
     Passing: ['passChest', 'passBounce', 'passOverhead', 'passPush', 'passLob', 'passOutlet', 'passInbound', 'catch', 'pickup'],
     'Defense and boards': ['rebound', 'contestJump', 'contestUp', 'wallUp', 'block', 'swipe', 'intercept', 'jumpTip', 'fall'],
-    'Handling and post': ['jab', 'spin', 'hesi', 'backdown'],
+    'Handling and post': ['jab', 'hesi', 'backdown'],
     Emotes: ['fistPump', 'flex', 'threeFingers', 'point', 'clap', 'dejected'],
   };
   const LABEL = {
@@ -178,7 +178,7 @@
     passChest: 'Chest pass', passBounce: 'Bounce pass', passOverhead: 'Overhead pass', passPush: 'One-hand push pass', passLob: 'Lob pass',
     passOutlet: 'Outlet pass', passInbound: 'Inbound pass', catch: 'Catch', pickup: 'Pick up', rebound: 'Rebound', contestJump: 'Contest (jump)',
     contestUp: 'Contest (vertical)', wallUp: 'Wall up', block: 'Block', swipe: 'Swipe', intercept: 'Intercept', jumpTip: 'Jump ball tip',
-    fall: 'Charge (fall)', jab: 'Jab step', spin: 'Spin (clip only)', hesi: 'Hesitation (clip only)', backdown: 'Post back down',
+    fall: 'Charge (fall)', jab: 'Jab step', hesi: 'Hesitation (clip only)', backdown: 'Post back down',
     fistPump: 'Fist pump', flex: 'Flex', threeFingers: 'Three fingers', point: 'Point', clap: 'Clap', dejected: 'Dejected',
   };
   const CATCHES = { catch: 'catch', rebound: 'grab', intercept: 'catch', alley: 'catch', tip: 'tip', jumpTip: 'tip' };
@@ -239,7 +239,7 @@
 
   // ------------------------------------------------------------ the lab
   const SET0 = { scenario: 'jog', height: 78, height2: 77, hand: 'R', gender: 'M', speed: 80, agility: 80, rate: 1, cam: -40, camH: 5.4, dist: 15,
-    follow: true, faceLock: false, loop: true, seed: 1,
+    follow: true, faceLock: false, quad: false, orbit: false, loop: true, seed: 1,
     ov: { hud: true, skel: false, locks: true, limits: true, trails: true, ghost: false, vel: true, targets: false } };
   const set = Object.assign({}, SET0, store.get('set', {}));
   set.ov = Object.assign({}, SET0.ov, (store.get('set', {}) || {}).ov || {});
@@ -344,6 +344,8 @@
       const dt = Math.min(0.1, (now - (this.lastReal || now)) / 1000);
       this.lastReal = now;
       this.renderDt = dt;
+      // orbit: the camera goes slowly round the player (a 360 look at the move, paused or playing)
+      if (set.orbit && !this.ui.drag) { set.cam = ((set.cam + 40 * dt + 180) % 360 + 360) % 360 - 180; this.ui.orbitTick = (this.ui.orbitTick || 0) + 1; if (this.ui.orbitTick % 10 === 0) this.ui.syncSliders(); }
       if (this.playing) {
         this.budget += dt * set.rate;
         let n = 0;
@@ -384,7 +386,7 @@
     }
 
     render() {
-      const g = this.g, cam = this.cam, W = this.world, dpr = this.dpr;
+      const g = this.g, W = this.world, dpr = this.dpr;
       if (!W) return;
       const a = this.ctx.a;
       // focus: follow the player (eased in real time; snapped after a restart, a seek or a step back), else the start spot
@@ -392,18 +394,44 @@
       const k = 1 - Math.exp(-(this.renderDt || 0) / 0.12);
       if (this.snapFocus || !this.playing || Math.hypot(fx - this.focus.x, fy - this.focus.y) > 6) { this.focus.x = fx; this.focus.y = fy; this.snapFocus = false; }
       else { this.focus.x += (fx - this.focus.x) * k; this.focus.y += (fy - this.focus.y) * k; }
-      const ang = this.viewAngle();
-      this.vc = Math.cos(ang); this.vs = Math.sin(ang);
       // look at the player's middle; in the air the camera rises with the body (eased) so a dunk stays in the frame
       const up = set.follow ? Math.max(0, a.sk.P[2] - a.H * 0.53) : 0;
       if (this.snapUp || !this.playing) this.focusUp = up; else this.focusUp = (this.focusUp || 0) + (up - (this.focusUp || 0)) * (1 - Math.exp(-(this.renderDt || 0) / 0.15));
       this.snapUp = false;
-      const lookH = 0.45 * a.H + this.focusUp, camZ = set.camH + this.focusUp;
-      cam.setPose(this.focus.x, this.focus.y - set.dist, camZ, Math.atan2(camZ - lookH, set.dist), 1.25 * cam.H);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       const grd = g.createLinearGradient(0, 0, 0, this.vh);
       grd.addColorStop(0, '#0b0d12'); grd.addColorStop(1, '#171a22');
       g.fillStyle = grd; g.fillRect(0, 0, this.vw, this.vh);
+      if (set.quad) {
+        // four cameras on the same frame, turned with the player: front, his right side, back, and from above
+        const face = -(a.facing - this.ctx.f0);
+        const h = Math.max(120, this.vh - (this.barH || 0)), hw = this.vw / 2, hh = h / 2;
+        const dq = set.dist * 0.72;
+        const views = [['FRONT', -90, set.camH, dq], ['RIGHT SIDE', 0, set.camH, dq], ['BACK', 90, set.camH, dq], ['FROM ABOVE', -90, 13, 3.5]];
+        views.forEach(([name, deg, ch, dist], i) => {
+          const x0 = (i % 2) * hw, y0 = Math.floor(i / 2) * hh;
+          g.save(); g.translate(x0, y0);
+          g.beginPath(); g.rect(0, 0, hw, hh); g.clip();
+          this.renderView(g, hw, hh, deg * D + face, ch, dist);
+          g.fillStyle = 'rgba(8,10,14,0.7)'; g.fillRect(hw - 118, 6, 112, 22);
+          g.fillStyle = '#f06a1a'; g.font = 'bold 12px system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(name, hw - 12, 21); g.textAlign = 'left';
+          g.restore();
+        });
+        g.strokeStyle = '#262b38'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(hw, 0); g.lineTo(hw, h); g.moveTo(0, hh); g.lineTo(this.vw, hh); g.stroke();
+        this.cam.setSize(this.vw, this.vh);
+      } else {
+        this.renderView(g, this.vw, this.vh, this.viewAngle(), set.camH, set.dist);
+      }
+      if (set.ov.hud) this.drawPhaseDial(g, a);
+    }
+    /** one camera's picture of the frame into a w x h view (the context already placed and clipped to it) */
+    renderView(g, w, h, ang, camH, dist) {
+      const cam = this.cam, W = this.world, dpr = this.dpr, a = this.ctx.a;
+      cam.setSize(w, h);
+      this.vc = Math.cos(ang); this.vs = Math.sin(ang);
+      const lookH = 0.45 * a.H + (this.focusUp || 0), camZ = camH + (this.focusUp || 0);
+      cam.setPose(this.focus.x, this.focus.y - dist, camZ, Math.atan2(camZ - lookH, dist), 1.25 * cam.H);
       this.drawFloor(g);
       if (set.ov.trails) this.drawPrints(g);
       // people, farthest first
@@ -442,7 +470,6 @@
         if (set.ov.vel) this.drawVel(g, p);
         if (set.ov.targets) this.drawTargets(g, p);
       }
-      if (set.ov.hud) this.drawPhaseDial(g, a);
     }
     drawFloor(g) {
       const cam = this.cam, F = this.focus;
@@ -689,14 +716,16 @@
       P.appendChild(pl);
       // camera
       const cm = this.el('div', { class: 'sec' }, [this.el('h2', { text: 'Camera' })]);
-      cm.appendChild(this.slider('Angle', 'cam', -180, 180, 1, (v) => v + '°'));
+      cm.appendChild(this.slider('Angle', 'cam', -180, 180, 1, (v) => Math.round(v) + '°'));
       cm.appendChild(this.slider('Height', 'camH', 0.5, 14, 0.1, (v) => v.toFixed(1) + ' ft'));
       cm.appendChild(this.slider('Distance', 'dist', 5, 45, 0.5, (v) => v.toFixed(1) + ' ft'));
       const presets = [['Right side', 0, 5.4], ['Front', -90, 5.4], ['3/4 front', -40, 5.4], ['Left side', 180, 5.4], ['Back', 90, 5.4], ['Low', -60, 1.2], ['High', -40, 12]];
       cm.appendChild(this.el('div', { class: 'chips' }, presets.map(([n, ang, h], i) => this.el('button', { text: (i + 1) + ' ' + n, onclick: () => this.preset(ang, h) }))));
       const follow = this.toggle('Follow the player', () => set.follow, (v) => { set.follow = v; });
       const lock = this.toggle('Turn with the player', () => set.faceLock, (v) => { set.faceLock = v; });
-      cm.appendChild(this.el('div', { class: 'checks' }, [follow, lock]));
+      const quad = this.toggle('4 views at once: front, side, back, above (Q)', () => set.quad, (v) => { set.quad = v; });
+      const orbit = this.toggle('Orbit: the camera circles the player, 360 (T)', () => set.orbit, (v) => { set.orbit = v; });
+      cm.appendChild(this.el('div', { class: 'checks' }, [quad, orbit, follow, lock]));
       P.appendChild(cm);
       // overlays
       const ov = this.el('div', { class: 'sec' }, [this.el('h2', { text: 'Debug overlays' })]);
@@ -715,7 +744,7 @@
       P.appendChild(rp);
       // keys
       const ks = this.el('div', { class: 'sec' }, [this.el('h2', { text: 'Keys' })]);
-      ks.appendChild(this.el('div', { class: 'note', html: '<kbd>Space</kbd> play / pause &nbsp; <kbd>←</kbd><kbd>→</kbd> one frame &nbsp; <kbd>Shift</kbd>+arrows 10 frames<br><kbd>[</kbd><kbd>]</kbd> slower / faster &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>1</kbd>-<kbd>7</kbd> camera<br><kbd>F</kbd> follow &nbsp; drag to orbit, wheel or pinch to zoom' }));
+      ks.appendChild(this.el('div', { class: 'note', html: '<kbd>Space</kbd> play / pause &nbsp; <kbd>←</kbd><kbd>→</kbd> one frame &nbsp; <kbd>Shift</kbd>+arrows 10 frames<br><kbd>[</kbd><kbd>]</kbd> slower / faster &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>1</kbd>-<kbd>7</kbd> camera<br><kbd>Q</kbd> 4 views &nbsp; <kbd>T</kbd> orbit 360 &nbsp; <kbd>F</kbd> follow<br>drag to turn the camera, wheel or pinch to zoom' }));
       P.appendChild(ks);
       // transport bar
       const B = this.bar;
@@ -818,7 +847,7 @@
         'scenario: ' + L.sc.name + ' [' + L.sc.id + ']',
         'time: ' + L.simT.toFixed(3) + ' s, frame ' + L.frame + ' (60 fps), seed ' + set.seed,
         'player: ' + inch(set.height) + ', ' + (set.hand === 'L' ? 'left' : 'right') + '-handed, ' + (set.gender === 'F' ? "women's" : "men's") + ' body, speed ' + set.speed + ', agility ' + set.agility,
-        'camera: angle ' + set.cam + ' deg, height ' + set.camH.toFixed(1) + ' ft, distance ' + set.dist.toFixed(1) + ' ft',
+        'camera: angle ' + Math.round(set.cam) + ' deg, height ' + set.camH.toFixed(1) + ' ft, distance ' + set.dist.toFixed(1) + ' ft' + (set.quad ? ', 4 views' : ''),
       ].concat(this.gaitText(a).map(s => s.replace(/<[^>]+>/g, ''))).concat([
         'joints at a limit: ' + (lim.length ? lim.join(', ') : 'none'),
         'notes: ' + (this.notes.value || '-'),
@@ -855,6 +884,8 @@
         else if (k === 'g' || k === 'G') { set.ov.skel = !set.ov.skel; save(); this.sync(); }
         else if (k === 'o' || k === 'O') { set.ov.ghost = !set.ov.ghost; save(); this.sync(); }
         else if (k === 'c' || k === 'C') { this.copyReport(); }
+        else if (k === 'q' || k === 'Q') { set.quad = !set.quad; save(); this.sync(); }
+        else if (k === 't' || k === 'T') { set.orbit = !set.orbit; save(); this.sync(); }
       });
     }
     mouse() {

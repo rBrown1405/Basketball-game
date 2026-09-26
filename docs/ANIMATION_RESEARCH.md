@@ -158,23 +158,33 @@ project released under CC0 1.0 (https://github.com/makehumancommunity/makehuman,
 | Free throws | the official catches the ball out of the net and walks to the lane before bouncing it to the shooter (~16 s between free throws in the NBA, compressed) | https://thef5.substack.com/p/long-time-short-king |
 | Camera | the ball always stays inside the middle ~60 % of the frame; faster pans when it runs out of the picture | https://openaccess.thecvf.com/content_cvpr_2016/papers/Chen_Learning_Online_Smooth_CVPR_2016_paper.pdf |
 
-## Motion capture (tools/mocap, clips_mocap.js)
+## Fully procedural (no motion capture)
 
-Real captures from the CMU Graphics Lab Motion Capture Database (free for research and commercial use; BVH release by
-Bruce Hahne) are retargeted onto the rig by `tools/mocap/retarget.js`: pelvis, spine, chest, neck and head from each
-joint's rotation relative to the take's T-pose, arms and legs from bone directions (so the captured person's
-proportions do not matter; limb directions match the capture to ~0.1 deg median), the facing from the pelvis
-heading, the root from the pelvis's ground point, and the feet's real contacts turned into planted phases and
-scripted steps (pivots become zero-lift steps about the ball of the foot) so planted feet never slide. The data used
-in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217.
-https://raw.githubusercontent.com/una-dinosauria/cmu-mocap/master/READMEFIRST.txt
+Every movement is built in code from the player's own body and feet: gait cycles, stances, key poses, IK and
+physics-style layers. No captured motion is played back any more (`clips_mocap.js` and the `tools/mocap` retargeting
+pipeline were removed). A few CMU Graphics Lab captures (mocap.cs.cmu.edu) were used earlier only as measurements
+while tuning, and those numbers stay: the defensive slide is a lateral bound at 10-12 ft/s with the gap between the
+feet swinging ~0.14-0.66 H (take 102_27); captured runners swing the upper arm ~35-45 deg back but only ~10-20 deg in
+front, and tuck the knee to ~106-117 deg at 10-13 ft/s (takes 102_10, 09_01, 09_05, 16_35, 16_55).
 
-| Take | Use | Notes |
+| Move | How it is built now | Sources |
 |---|---|---|
-| 102_11 (OffensiveMoveSpinLeft) | the spin move (`spinMocap`) | low stance, a hop into the pivot, ~260 deg of rotation in ~1.1 s with the real footwork; replaces the three-key procedural spin |
-| 102_27 (DefensiveMoveSideToSide) | tuning of the defensive slide and stances | at 10-12 ft/s a slide is a lateral bound (both feet land nearly together ~2 times a second, a brief flight on each push-off) with the gap between the feet swinging ~0.14-0.66 H; hips ~0.115 H below standing, hip abduction ~35 deg, knees 58-96 deg, arms out with elbows bent ~75 deg. The slide's steps are now ~25% slower and the stance lower and wider with the low hand's elbow bent |
-| 102_10, 09_01, 09_05, 16_35, 16_55 (runs, 10-18 ft/s) | check of the jog and sprint cycles | the captured runners swing the upper arm ~35-45 deg back but only ~10-20 deg in front of the trunk (ours reached +46 jogging, +68 sprinting) and tuck the knee to ~106-117 deg at 10-13 ft/s; the arm cycles now swing mostly behind the body (-44/+22 jogging, -58/+36 sprinting), the swing foot rises a little less, the midstance dip is a little deeper. Cadence (~2.7-3.3 steps/s), stride, trunk lean and elbow bend already matched |
-| 124_04 / 124_05 / 124_06 (free throw, jump shot, lay up) | reviewed, not used | an amateur's form (a deep bend-over gather); the research-tuned shooting clips stay |
+| Spin move (`Actor.spinMove`) | built at the moment for this player's feet: a right-hand dribble plants the left foot ahead and a little across (in front of his man) as the body brakes onto it; a reverse pivot on the ball of that foot (the foot turns with the body, clockwise, the back into the defender) while the free leg swings round behind on an arc; then a second pivot on the foot that just landed while the first swings through, a full circle in all, ~0.8 s (quicker for the agile). The hips stay over the standing foot on each pivot (the pelvis centre a hip's width inside it) and move across between the feet as the weight changes. The head and shoulders lead the turn, the off arm tucks in close (a smaller moment of inertia spins faster) and comes out for balance after. The ball is taken on top as it comes up and pulled tight to the hip through the first half turn (the hand never under it), then pushed down at ~180 deg and crossed to the other hand; the bounce stays where it hits the floor instead of swinging round with the body. A left-hand dribble is the mirror image | https://www.coachesclipboard.net/Dribbling.html , https://basketballarmy.com/how-to-do-a-basketball-spin-move/ , https://basketballtrainer.com/how-to-do-a-spin-move-in-basketball/ , https://www.teachpe.com/biomechanics/angular-motion/angular-momentum |
+
+## Knees in line (actor.js, rig.js)
+
+The swinging leg's knee used to fan out to the side (up to ~70 deg at a sprint and on curves). In running the hip
+moves only a few degrees side to side through the swing and the knee drives straight ahead; a two-bone IK leg keeps
+its knee pointing forward only if the knee's direction is held with the body. Three causes, three fixes:
+
+| Cause | Fix | Sources |
+|---|---|---|
+| The swing foot was bowed out around the planted foot even with the heel kicked up above it; with the knee folded the hip-ankle line is short, so that small sideways shove swung the whole thigh out | the bow only applies to a foot low enough to meet the other one; a runner's heel rises behind its own hip (the ankle eases over to the hip's line as the heel comes up, back out to its landing spot as it comes down) | https://pubmed.ncbi.nlm.nih.gov/26364243/ , https://pmc.ncbi.nlm.nih.gov/articles/PMC3537459/ |
+| Any sideways miss of a folded leg's target was turned into hip abduction | a leg in the air holds its hip's side-to-side angle near neutral the more its knee is bent (the foot, in the air, misses its target sideways by a little instead); a straight leg stepping out still opens freely | https://weaverdev.io/projects/proc-anim-tutorial/ , https://blog.littlepolygon.com/posts/twobone/ , https://guillaumeblanc.github.io/ozz-animation/documentation/ik/ |
+| On a curve, a cut or a turn the knee followed a foot still pointing the old way | the swing foot turns to the body's heading early in the swing and into the landing heading only as it comes down; a foot landing on a curve is aimed where the body will face while it is down; a planted foot pivots on its ball when the body turns hard over it; standing steps aim where the body will face when they land and never swing the foot round the wrong way on a 180 | https://www.tandfonline.com/doi/full/10.1080/14763141.2020.1864015 |
+
+Measured in the Animation Lab (knee off the leg's line, worst frame): sprint 69 -> 15 deg, run 31 -> 15, jog 27 -> 15,
+jogging a circle 72 -> 23, a 90 deg cut 115 -> 42, start and stop 83 -> 36; walking stays ~10.
 
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 

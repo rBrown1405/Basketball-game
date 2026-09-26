@@ -474,17 +474,6 @@
       { t: 0.7, p: 'triple', ball: [0.13, 0.2, 0.53], grip: 'hip' },
     ],
   });
-  clip('spin', {
-    dur: 0.62, events: { turn: 0.3 },
-    root: [[0, 0, 0], [0.3, 1.2, -1.0], [0.62, 3.0, -1.6]],
-    yaw: [[0, 0], [0.62, 360]],
-    steps: [{ t0: 0.05, t1: 0.3, foot: 'r', to: [1.3, -1.9], lift: 0.06 }, { t0: 0.3, t1: 0.58, foot: 'l', to: [3.3, -1.3], lift: 0.06 }],
-    keys: [
-      { t: 0.0, p: { base: 'ready', rootZ: -0.08, pelPitch: 24, spFlex: 10 } },
-      { t: 0.3, p: { base: 'ready', rootZ: -0.1, pelPitch: 26, spFlex: 12, lShF: 40, lShA: 60, lElF: 60, rShF: 20, rShA: 40, rElF: 60 } },
-      { t: 0.62, p: { base: 'ready', rootZ: -0.08, pelPitch: 22, spFlex: 10 } },
-    ],
-  });
   clip('hesi', {
     dur: 0.6, mask: 'upper', events: { hesi: 0.25 },
     keys: [

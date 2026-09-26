@@ -324,7 +324,7 @@
       // keep a foot's landing spot at a stride's distance from the foot it turns around
       const reach = (q, p, lo, hi) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, k = U.clamp(l, lo, hi) / l; return [p[0] + dx * k, p[1] + dy * k]; };
       const fr = this.feet[mir ? 0 : 1]; // the free foot (the right in the build)
-      const quick = 1.12 - 0.24 * (this.rAgi == null ? 0.5 : this.rAgi);
+      const quick = this._spinQuick();
       const tA = 0.15, dB = 0.3 * quick, dC = 0.26 * quick;
       const tB = tA + dB, tC = tB + dC, dur = tC + 0.16;
       // the whole turn: a full circle back to the facing he had, or round to exitFacing (clockwise in the build)
@@ -404,6 +404,9 @@
       };
       return cs;
     }
+    _spinQuick() { return 1.12 - 0.24 * (this.rAgi == null ? 0.5 : this.rAgi); }
+    /** how long this player's spin move takes (quicker for the agile) */
+    spinDur() { return 0.15 + 0.56 * this._spinQuick() + 0.16; }
     /** where the body will be in dt seconds (the playing clip's root motion, else straight on at this velocity) */
     predictFrame(dt, out) {
       const cs = this.clip;
