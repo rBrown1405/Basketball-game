@@ -60,12 +60,36 @@
     }
 
     // ---------------------------------------------------------- tags, runs, lower thirds, captions
+    // the top-corner graphics keep clear of the arena's hanging scoreboard, which pans with the camera: the left
+    // corner by default, the right one when the board hangs over the left, under the board when it fills the top
+    const CORNER = { 'bc-tag': 0.024, 'bc-run': 0.095 };
+    function placeCorner(id, fresh) {
+      const el = $(id), v = B.view, bd = v && v.boardRect ? v.boardRect() : null;
+      if (!el) return;
+      const Lw = layer.clientWidth, Lh = layer.clientHeight;
+      const w = el.offsetWidth / (Lw || 1), h = el.offsetHeight / (Lh || 1), top = CORNER[id];
+      const spots = ['left', 'right', 'below'];
+      const clear = (s) => {
+        if (!bd) return true;
+        const x0 = s === 'right' ? 0.98 - w : 0.02, x1 = x0 + w;
+        const y0 = s === 'below' ? bd.y1 + 0.012 + (id === 'bc-run' ? 0.075 : 0) : top;
+        return y0 >= bd.y1 || x1 < bd.x0 - 0.01 || x0 > bd.x1 + 0.01;
+      };
+      let s = el._spot || 'left';
+      if (fresh || !clear(s)) s = spots.find(clear) || 'below';
+      if (s === el._spot && !fresh) return;
+      el._spot = s;
+      el.style.left = s === 'right' ? 'auto' : '';
+      el.style.right = s === 'right' ? '2cqw' : '';
+      el.style.top = s === 'below' && bd ? ((bd.y1 + 0.012 + (id === 'bc-run' ? 0.075 : 0)) * 100).toFixed(2) + 'cqh' : '';
+    }
     function tag(html, i, secs) {
       if (!on()) return;
       const el = $('bc-tag');
       el.setAttribute('style', i != null ? tcss(i) : '');
       el.innerHTML = html;
       el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+      placeCorner('bc-tag', true);
       B.tagT = secs || 3.2;
     }
     function showRun(i, pts) {
@@ -74,6 +98,7 @@
       el.setAttribute('style', tcss(i));
       el.innerHTML = `<span class="rn-ab">${esc(T[i].abbr)}</span><span class="rn-n">${pts}-0</span><span class="rn-l">RUN</span>`;
       el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+      placeCorner('bc-run', true);
       B.runT = 4.5;
     }
     function lowerThird(c, teamIdx, headline, secs) {
@@ -134,6 +159,8 @@
         renderBug(s);
         const tick = (k, el) => { if (B[k] > 0) { B[k] -= dt; if (B[k] <= 0) { const e = $(el); if (e) e.classList.remove('on'); } } };
         tick('tagT', 'bc-tag'); tick('runT', 'bc-run'); tick('tpT', 'bc-tp'); tick('l3T', 'bc-l3'); tick('capT', 'bc-cap');
+        if (B.tagT > 0) placeCorner('bc-tag', false);
+        if (B.runT > 0) placeCorner('bc-run', false);
         const rp = $('bc-replay');
         if (rp && rp.classList.contains('on') && B.view && B.view.replayProgress) {
           const bar = rp.querySelector('.rp-bar i'); if (bar) bar.style.width = Math.round(B.view.replayProgress() * 100) + '%';

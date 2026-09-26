@@ -604,9 +604,11 @@
       const kd = cam.f / 150;
       const cx = cam.ox + (47 - cam.x) * kd;
       const w = 23 * kd, h = 10.5 * kd;
-      if (cx + w < 0 || cx - w > cam.W) return;
+      if (cx + w < 0 || cx - w > cam.W) { this.board = null; return; }
       const top = -0.34 * h, bot = top + h;
       const x0 = cx - w / 2;
+      // where it hangs, as fractions of the frame (the TV graphics keep clear of it)
+      this.board = { x0: x0 / cam.W, x1: (x0 + w) / cam.W, y1: (bot + h * 0.07) / cam.H };
       // cables
       g.strokeStyle = 'rgba(40,42,50,0.9)';
       g.lineWidth = Math.max(1, kd * 0.12);

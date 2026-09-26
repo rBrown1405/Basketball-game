@@ -598,6 +598,8 @@
       this.replay = null;
     }
     isReplaying() { return !!this.replay; }
+    /** the arena's hanging scoreboard on screen ({x0, x1, y1} as fractions of the frame), or null */
+    boardRect() { return (this.arena && this.arena.board) || null; }
     replayProgress() { const r = this.replay; return r ? U.clamp((r.rt - r.t0) / Math.max(0.01, r.t1 - r.t0), 0, 1) : 0; }
     updateReplay(dt) {
       const r = this.replay;

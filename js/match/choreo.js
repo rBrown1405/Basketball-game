@@ -275,10 +275,13 @@
       let oi = 1;
       const byBig = list.filter((id) => id !== handlerId).sort((a, b) => this.bigness(a) - this.bigness(b));
       for (const id of byBig) { if (oi < order.length) assigned[id] = order[oi++]; else rest.push(id); }
-      // special roles
+      // special roles (the player who had that spot takes the other's, so no two players share a spot)
       if (ev) {
-        if (ev.screener && assigned[ev.screener] && kind === 'pnr') assigned[ev.screener] = 'elbowN';
-        if (kind === 'post' && ev.target) { /* post player chosen later */ }
+        if (ev.screener && assigned[ev.screener] && kind === 'pnr') {
+          const had = Object.keys(assigned).find((id) => assigned[id] === 'elbowN');
+          if (had != null && had !== String(ev.screener)) assigned[had] = assigned[ev.screener];
+          assigned[ev.screener] = 'elbowN';
+        }
       }
       for (const id of offs) {
         const r = this.role[id] || (this.role[id] = { mode: 'spot', jx: 0, jy: 0, next: 0 });
@@ -287,6 +290,16 @@
         r.spot = this.spotPt(r.spotName);
         if (r.mode !== 'locked') r.mode = 'spot';
       }
+    }
+    /** move player `id` to the named spot; whoever stood there takes his old one */
+    giveSpot(id, name) {
+      const r = this.role[id];
+      if (!r) return;
+      for (const o of this.v.onCourt[this.off]) {
+        const ro = this.role[o];
+        if (String(o) !== String(id) && ro && ro.spotName === name) { ro.spotName = r.spotName; ro.spot = this.spotPt(r.spotName); ro.path = null; ro.pathSpot = null; }
+      }
+      r.spotName = name; r.spot = this.spotPt(name);
     }
     bigness(id) { const p = this.v.look(id); return p ? (+p.height || 78) : 78; }
     handlerId() { const h = this.v.ball.holder; return h && h.team === this.off ? h.id : null; }
@@ -409,18 +422,27 @@
             tx = this.X(nu); ty = nv;
           }
         }
-        // fast break: wings run wide lanes along the sidelines, then fill the corners
-        if (this.tempo === 'push') {
-          const u = this.U_(a.x);
-          const sn = r.spotName || '';
-          if ((sn.indexOf('corner') === 0 || sn.indexOf('wing') === 0) && u > 22) {
-            const laneY = sn.slice(-1) === 'N' ? 5 : 45;
-            tx = this.X(Math.max(8, u - 16)); ty = laneY;
-          } else if (sn.indexOf('block') === 0 && u > 12) { tx = this.X(Math.max(4, u - 18)); ty = U.lerp(a.y, 25, 0.35); }
+        // up the floor (a fast break or a walked-up ball alike) the offense fills the lanes: the players headed for
+        // the wings and corners run wide along the sidelines ahead of the ball, the rim runner takes the middle
+        // to the basket, the trailer comes up behind the ball; each peels off to his half-court spot once level
+        // with it (instead of the whole team jogging up the floor in one pack)
+        let lane = false;
+        if (this.tempo === 'push' || this.phase === 'start') {
+          const u = this.U_(a.x), su = this.U_(r.spot.x), bu = this.U_(b.x);
+          const sn = r.spotName || '', far = sn.slice(-1) === 'F';
+          if (u > su + 10) {
+            lane = true;
+            if (sn.indexOf('corner') === 0 || sn.indexOf('wing') === 0) { tx = this.X(Math.max(su, u - 16)); ty = far ? 45.5 : 4.5; }
+            else if (sn.indexOf('dunker') === 0 || sn.indexOf('block') === 0 || sn.indexOf('short') === 0) { tx = this.X(Math.max(su, u - 18)); ty = U.lerp(a.y, far ? 31 : 19, 0.35); }
+            else { tx = this.X(Math.max(su, Math.min(u, Math.max(bu + 7, u - 14)))); ty = U.lerp(a.y, r.spot.y, 0.3); } // (never back up)
+            tx = this.X(U.clamp(this.U_(tx), 2.2, 91.8));
+          }
+          // (behind the ball or still in the backcourt: run to get ahead of it)
+          if (lane && (u > bu - 4 || u > 47)) lane = 'run';
         }
         const d = Math.hypot(tx - a.x, ty - a.y);
         const eff = 1 + this.intensity() * 0.14;
-        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, 0.95 * eff) : (d > 14 ? 12 : d > 4 ? 8 : 5) * eff;
+        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, 0.95 * eff) : lane === 'run' ? Math.min(a.maxSpeed * 0.8, 19) * eff : lane ? 14 * eff : (d > 14 ? 12 : d > 4 ? 8 : 5) * eff;
         a.moveTo(tx, ty, { speed: sp, face: d > 3 ? 'move' : { x: b.x, y: b.y }, stance: d > 5 ? 'stand' : 'ready' });
         a.lookAt({ x: b.x, y: b.y });
       }
@@ -605,11 +627,15 @@
       const v = this.v;
       const newDefDir = -this.dir; // they now defend the basket at the other end? No: scorers defend the far basket
       void newDefDir;
-      for (const a of this.offActors()) {
-        if (a.isBusy()) continue;
-        const bx = this.X(62 + Math.random() * 14);
-        this.at(this.T + 0.5 + Math.random() * 0.6, () => { if (!a.isBusy()) a.moveTo(bx, 10 + Math.random() * 30, { speed: 10 + Math.random() * 5 }); }, 'retreat');
-      }
+      // they get back spread across the floor (each keeps his side of the court, in order across it), the
+      // guards stopping higher up to pick up the ball, the bigs running back to the paint
+      const list = this.offActors().filter((a) => !a.isBusy()).sort((p, q) => p.y - q.y);
+      list.forEach((a, i) => {
+        const k = list.length > 1 ? i / (list.length - 1) : 0.5;
+        const ty = U.lerp(9, 41, k) + (Math.random() - 0.5) * 3;
+        const bx = this.X(a.H > 6.75 ? 72 + Math.random() * 6 : 60 + Math.random() * 8);
+        this.at(this.T + 0.5 + Math.random() * 0.6, () => { if (!a.isBusy()) a.moveTo(bx, ty, { speed: 10 + Math.random() * 5 }); }, 'retreat');
+      });
     }
 
     // ============================================================ planners
@@ -877,10 +903,10 @@
         this.assignSpots(kind, ev);
         const h = this.A(ev.handler);
         if (h && v.ball.holder !== h) this.ensureBall(h);
-        if (kind === 'post' && ev.target) { const r = this.role[ev.target]; if (r) { r.spotName = 'blockN'; r.spot = this.spotPt('blockN'); } }
-        if (kind === 'offscreen' && ev.target) { const r = this.role[ev.target]; if (r) { r.spotName = 'blockN'; r.spot = this.spotPt('blockN'); } }
-        if (kind === 'handoff' && ev.screener) { const r = this.role[ev.screener]; if (r) { r.spotName = 'high'; r.spot = this.spotPt('high'); } }
-        if (kind === 'cut' && ev.target) { const r = this.role[ev.target]; if (r) { r.spotName = 'wingN'; r.spot = this.spotPt('wingN'); } }
+        if (kind === 'post' && ev.target) this.giveSpot(ev.target, 'blockN');
+        if (kind === 'offscreen' && ev.target) this.giveSpot(ev.target, 'blockN');
+        if (kind === 'handoff' && ev.screener) this.giveSpot(ev.screener, 'high');
+        if (kind === 'cut' && ev.target) this.giveSpot(ev.target, 'wingN');
       };
       const h = this.A(ev.handler);
       const d = h ? Math.hypot(h.x - this.spotPt('top').x, h.y - 25) : 0;
