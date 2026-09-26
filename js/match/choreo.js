@@ -1300,8 +1300,15 @@
         if (b.state === 'flight' && b.passTarget === sh) tBall = Math.max(0, b.flightEnd() - b.time);
         else tBall = this.ensureBall(sh);
       }
-      const clipLead = catchAndShoot ? Math.max(0, tBall - 0.02) : tBall + 0.15;
-      const need = Math.max(tReach * 1.25 + 0.25, clipLead) + rel;
+      // (an alley-oop goes up before the lob gets there: the jump starts so the clip's catch moment meets the ball
+      // in the air, instead of the catcher taking the lob on the floor and jumping with it)
+      const catchT = kind === 'alley' && clip.events && clip.events.catch != null ? clip.events.catch / (spk || 1) : null;
+      const clipLead = catchT != null && tBall > 0 ? Math.max(0, tBall - catchT) : catchAndShoot ? Math.max(0, tBall - 0.02) : tBall + 0.15;
+      // (the lob sets an alley-oop's clock: the jump starts on time wherever the catcher is, re-anchored on him, and
+      // the beat does not wait out a longer gap on the game clock, or the lob would land before he goes up)
+      const alleyLob = catchT != null && tBall > 0;
+      const need = (alleyLob ? clipLead : Math.max(tReach * 1.25 + 0.25, clipLead)) + rel;
+      if (alleyLob) beat.maxDur = need;
       const pending = !!ev.pending;
       const result = this.shotResult(ev, sh, spot, kind);
       // rebound look-ahead
