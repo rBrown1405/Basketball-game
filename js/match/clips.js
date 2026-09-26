@@ -82,9 +82,22 @@
   });
 
   // ------------------------------------------------------------ finishes at the rim
-  // right-hand layup: gather, right-left steps, left-foot takeoff, right knee drive, extend and release at the apex.
-  // The take-off gets the hand up to the rim (~0.37 H, 24-33 in by athleticism, a guard's running one-foot jump) and
-  // the airtime matches that height (T = sqrt(8h/g) ~ 0.76 s), so the rise and fall look like real gravity
+  // right-hand layup (the user's reference frames): gathered off the dribble at the right hip with both hands, carried
+  // up the outside over the right-left steps, lifted over the right shoulder at the left-foot take-off with the right
+  // knee driving, then the body goes vertical, the right arm straight up and the ball rolls off the finger pads at the
+  // top while the left arm goes out for balance. Arms fitted to the rig at each phase (grips lay* in anims.js). The
+  // take-off gets the hand up to the rim (~0.37 H, 24-33 in by athleticism, a guard's running one-foot jump) and the
+  // airtime matches that height (T = sqrt(8h/g) ~ 0.76 s), so the rise and fall look like real gravity
+  const LAY = {
+    gather: { rShF: 7.5, rShA: 12, rShT: -14, rElF: 59.5, rPro: 21.5, rWrF: -3.5, rWrD: 25, lShF: 47.5, lShA: -18.5, lShT: 79.5, lElF: 64.5, lPro: 95, lWrF: -51, lWrD: -20 },
+    carry: { rShF: 0.5, rShA: 17.5, rShT: -22.5, rElF: 108, rPro: 117.5, rWrF: -75, rWrD: 25, lShF: 80.5, lShA: -26.5, lShT: 80, lElF: 64.5, lPro: 70, lWrF: -52.5, lWrD: -20 },
+    step2: { rShF: 8, rShA: 27, rShT: -37, rElF: 123.5, rPro: 106.5, rWrF: -75, rWrD: 25, lShF: 99.5, lShA: -33, lShT: 80, lElF: 65, lPro: 72.5, lWrF: -64.5, lWrD: -20 },
+    takeoff: { rShF: 86, rShA: 8, rShT: 2, rElF: 96, rPro: 157.5, rWrF: -60, rWrD: 5.5, lShF: 120, lShA: -15.5, lShT: 46.5, lElF: 50.5, lPro: 64.5, lWrF: -36, lWrD: -8.5 },
+    reach: { rShF: 122.5, rShA: -4.5, rShT: -5.5, rElF: 24, rPro: 154.5, rWrF: -75, rWrD: 25, lShF: 75, lShA: 55, lShT: 44.5, lElF: 42.5, lPro: 121, lWrF: 19, lWrD: -25, lFing: 0.3 },
+    release: { rShF: 141, rShA: -6, rShT: 33.5, rElF: 0, rPro: 156, rWrF: -62.5, rWrD: -12.5, rFing: 0.15, lShF: 63.5, lShA: 58.5, lShT: 41.5, lElF: 40.5, lPro: 115, lWrF: 9.5, lWrD: -25, lFing: 0.3 },
+  };
+  const LAY_B = { gather: [0.14, 0.21, 0.5], carry: [0.17, 0.26, 0.6], step2: [0.2, 0.23, 0.72], takeoff: [0.13, 0.135, 1.04], reach: [0.1, 0.14, 1.16], release: [0.09, 0.15, 1.235] };
+  A.LAY = LAY; A.LAY_B = LAY_B;
   clip('layup', {
     dur: 1.52, events: { gather: 0.04, set: 0.46, release: 0.8 },
     jump: { t0: 0.46, t1: 1.22, h: 0.37 },
@@ -93,12 +106,15 @@
     root: [[0, 0, 0], [0.13, 1.7, 0.1], [0.4, 4.9, 0], [0.46, 5.6, 0], [0.8, 7.6, 0], [1.22, 9.7, 0], [1.52, 10.3, 0]],
     keys: [
       { t: 0.0, p: { base: 'ready', rootZ: -0.05, pelPitch: 16, spFlex: 10, rShF: 20, rShA: 22, rElF: 70, rPro: 60, lShF: 50, lShA: 30, lElF: 85, lPro: 20 }, ball: [0.15, 0.2, 0.4], grip: 'right' },
-      { t: 0.12, p: { rootZ: -0.06, pelPitch: 18, spFlex: 10, chTwist: 10, nkFlex: -10, lShF: 40, lShA: 20, lShT: 25, lElF: 95, lPro: 20, rShF: 30, rShA: 18, rShT: 30, rElF: 100, rPro: 0, rWrF: -20 }, ball: [0.1, 0.16, 0.55], grip: 'hold' },
-      { t: 0.38, p: { rootZ: -0.06, pelPitch: 14, spFlex: 6, chTwist: 6, nkFlex: -10, lShF: 60, lShA: 24, lShT: 25, lElF: 100, lPro: 10, rShF: 60, rShA: 16, rShT: 20, rElF: 110, rPro: 0, rWrF: -30, lHipF: 30, lKnee: 45, rHipF: 20, rKnee: 60 }, ball: [0.1, 0.16, 0.75], grip: 'hold' },
-      { t: 0.52, p: { rootZ: 0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -14, hdFlex: -8, lShF: 78, lShA: 34, lElF: 84, lPro: 10, rShF: 130, rShA: 16, rElF: 70, rPro: 0, rWrF: -40, rHipF: 95, rKnee: 100, rAnk: 10, lHipF: -5, lKnee: 12, lAnk: -35 }, ball: [0.11, 0.14, 1.05], grip: 'shoot' },
-      { t: 0.8, p: { rootZ: 0, pelPitch: 0, spFlex: -4, chFlex: -8, nkFlex: -18, hdFlex: -10, lShF: 52, lShA: 40, lElF: 70, lPro: 10, rShF: 168, rShA: 12, rShT: 20, rElF: 12, rPro: 150, rWrF: 20, rFing: 0.2, rHipF: 85, rKnee: 95, lHipF: 0, lKnee: 20, lAnk: -35 }, ball: [0.1, 0.18, 1.37], grip: 'rightTop' },
-      { t: 0.96, p: { rootZ: 0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -14, lShF: 44, lShA: 36, lElF: 60, rShF: 150, rShA: 14, rElF: 14, rWrF: 40, rHipF: 60, rKnee: 70, lHipF: 10, lKnee: 25 } },
-      { t: 1.22, p: { rootZ: -0.05, pelPitch: 14, spFlex: 6, lShF: 45, lShA: 26, lElF: 55, rShF: 70, rShA: 20, rElF: 45, both: { HipF: 30, HipA: 8, Knee: 42, Ank: 10 } } },
+      { t: 0.12, p: Object.assign({ rootZ: -0.06, pelPitch: 18, spFlex: 10, chTwist: 10, nkFlex: -10 }, LAY.gather), ball: LAY_B.gather, grip: 'layGather' },
+      { t: 0.26, p: Object.assign({ rootZ: -0.065, pelPitch: 16.8, pelRoll: 2.1, spFlex: 8.4, spLat: -1.1, chFlex: 1.3, chTwist: 8.9, nkFlex: -9.4, hdFlex: 5.3, lHipF: 20.2, lHipA: 3.7, lHipT: -5.9, lKnee: 29.3, lAnk: 1.8, rHipF: 5, rHipA: 1.5, rHipT: -5.9, rKnee: 29.1, rAnk: -1.5 }, LAY.carry), ball: LAY_B.carry, grip: 'layCarry' },
+      { t: 0.4, p: Object.assign({ rootZ: -0.06, pelPitch: 14, spFlex: 6, chTwist: 6, nkFlex: -10, lHipF: 30, lKnee: 45, rHipF: 20, rKnee: 60 }, LAY.step2), ball: LAY_B.step2, grip: 'layStep' },
+      { t: 0.52, p: Object.assign({ rootZ: 0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -14, hdFlex: -8, rHipF: 95, rKnee: 100, rAnk: 10, lHipF: -5, lKnee: 12, lAnk: -35 }, LAY.takeoff), ball: LAY_B.takeoff, grip: 'layLift' },
+      { t: 0.66, p: Object.assign({ rootZ: 0.004, pelPitch: 0, pelRoll: 2, spFlex: -3.7, spLat: -1, chFlex: -7.6, nkFlex: -16.6, hdFlex: -10.8, lHipF: -5.6, lHipA: 4, lHipT: -6, lKnee: 13.4, lAnk: -39.8, rHipF: 97, rHipA: 2, rHipT: -6, rKnee: 102, rAnk: 5.7 }, LAY.reach), ball: LAY_B.reach, grip: 'layReach' },
+      { t: 0.8, p: Object.assign({ rootZ: 0, pelPitch: 0, spFlex: -4, chFlex: -8, nkFlex: -18, hdFlex: -10, rHipF: 85, rKnee: 95, lHipF: 0, lKnee: 20, lAnk: -35 }, LAY.release), ball: LAY_B.release, grip: 'layRel' },
+      // follow-through: the wrist has flicked the ball up off the fingers, the arm stays up, the left arm out
+      { t: 0.96, p: { rootZ: 0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -14, rShF: 146, rShA: -4, rShT: 30, rElF: 6, rPro: 140, rWrF: 45, rFing: 0.3, lShF: 55, lShA: 55, lShT: 40, lElF: 40, lPro: 110, lWrF: 5, lFing: 0.3, rHipF: 60, rKnee: 70, lHipF: 10, lKnee: 25 } },
+      { t: 1.22, p: { rootZ: -0.05, pelPitch: 14, spFlex: 6, lShF: 45, lShA: 30, lElF: 55, rShF: 70, rShA: 20, rElF: 45, both: { HipF: 30, HipA: 8, Knee: 42, Ank: 10 } } },
       { t: 1.52, p: 'ready' },
     ],
   });

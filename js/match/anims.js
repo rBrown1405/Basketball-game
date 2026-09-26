@@ -230,6 +230,16 @@
     // one hand up high (layup / finger roll / tip / cocked dunk): the ball sits on the palm and fingers, above
     // and a little ahead of the wrist
     rightTop: { r: [0.25, -0.55, -1.15], l: null },
+    // right-hand layup, fitted to the rig with the layup's arms (the user's reference frames): gathered at the right
+    // hip (right hand behind and under it on the outside, left hand across its front), carried up the outside over
+    // the two steps, lifted over the right shoulder on the palm at take-off, then the arm goes straight up and the
+    // ball rolls off the finger pads with the left arm out for balance
+    layGather: { r: [0.455, -0.819, -1.091], l: [-1.228, -0.236, 0.757] },
+    layCarry: { r: [0.23, -1.087, -0.805], l: [-1.239, -0.245, 0.687] },
+    layStep: { r: [0.222, -0.769, -1.114], l: [-1.262, -0.238, 0.156] },
+    layLift: { r: [0.126, 0.086, -1.384], l: [-1.3, -0.046, -0.294] },
+    layReach: { r: [0.101, 0.189, -1.315], l: null },
+    layRel: { r: [-0.001, -0.61, -1.999], l: null },
     // the slam: the hand on the top-back of the ball throwing it down
     slam: { r: [0.25, -0.85, 0.95], l: null },
     left: { r: null, l: [-0.4, -1.2, -0.9] },
