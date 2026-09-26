@@ -101,3 +101,16 @@ project released under CC0 1.0 (https://github.com/makehumancommunity/makehuman,
 | Replays | 4x-6x slow motion for highlights, in dead time only | https://smt.com/nba-finals-espn-caps-23rd-nba-season-with-tech-fueled-productions-in-okc-and-indy/ |
 | Pace | ~98.8 possessions per 48 min, ~14.5 s per possession; free throw 10 s limit | https://fantasyteamadvice.com/nba/game-pace-data-today , https://videorulebook.nba.com/archive/free-throw-violation-shooter-takes-more-than-10-seconds-to-shoot |
 | Sim complaints | skating feet, floaty balls, passive defenders, bodies overlapping, repetitive animation; praise for planted feet and steady TV framing | https://steamcommunity.com/app/3551340/discussions/0/506217282369883622/ , https://nba.2k.com/2k26/courtside-report/gameplay/ |
+
+## Motion and contact fixes from the motion audit
+
+| Topic | What the code does | Source |
+|---|---|---|
+| Sideways / backpedal gait | a defensive or offensive shuffle keeps the arms quiet (no jog arm swing at shuffle cadence) and the torso still; forward, sideways and backward gait parameters are blended by direction instead of switched | https://www.breakthroughbasketball.com/defense/Debunking-Cross-Feet , https://theorangeduck.com/page/spring-roll-call |
+| Body contact | capsule-style push-out on pelvis and chest (torsos lean ahead of the feet), a hard floor, and the closing velocity cancelled at contact so steering slides players around each other | https://www.red3d.com/cwr/papers/1999/gdc99steer.html , https://www.nature.com/articles/35035023 |
+| Spacing | off-ball spot targets that sit on top of the ball handler move out to ~14 ft | https://fivethirtyeight.com/features/how-nba-teams-are-bringing-the-post-up-back-to-life |
+| Overhead reach | scapulohumeral rhythm: raising the arm past ~70 deg elevates the shoulder girdle (the joint rises ~6-7 cm at full reach) | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3140083/ |
+| Ball in hand | the ball is carried where the hands can hold it when a scripted grip is out of reach; one-hand finishes rest the ball on the palm above the wrist | https://newsroom.2k.com/news/nba-2k21-next-generation-movement-and-impact-engine-revealed-in-second-courtside-report |
+| Dunks | thrown down at the rim: a standing putback dunk only from close in, otherwise a short running dunk whose run-up absorbs the distance | https://nba.2k.com/2k26/courtside-report/gameplay/ |
+| Free throws | the official catches the ball out of the net and walks to the lane before bouncing it to the shooter (~16 s between free throws in the NBA, compressed) | https://thef5.substack.com/p/long-time-short-king |
+| Camera | the ball always stays inside the middle ~60 % of the frame; faster pans when it runs out of the picture | https://openaccess.thecvf.com/content_cvpr_2016/papers/Chen_Learning_Online_Smooth_CVPR_2016_paper.pdf |
