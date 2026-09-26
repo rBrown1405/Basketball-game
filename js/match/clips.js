@@ -446,10 +446,10 @@
     steps: [{ t0: 0.04, t1: 0.2, foot: 'r', to: [1.3, 0.45], lift: 0.05 }, { t0: 0.36, t1: 0.56, foot: 'r', to: [-0.35, 0.7], lift: 0.04 }],
     root: [[0, 0, 0], [0.2, 0.35, 0.1], [0.56, 0, 0], [0.7, 0, 0]],
     keys: [
-      { t: 0.0, p: 'triple', ball: [0.11, 0.12, 0.53], grip: 'hip' },
+      { t: 0.0, p: 'triple', ball: [0.095, 0.12, 0.53], grip: 'hip' },
       { t: 0.2, p: { base: 'triple', rootZ: -0.1, pelPitch: 30, spFlex: 16, nkFlex: -26, chTwist: 10 }, ball: [0.14, 0.12, 0.46], grip: 'hip' },
-      { t: 0.5, p: 'triple', ball: [0.11, 0.12, 0.53], grip: 'hip' },
-      { t: 0.7, p: 'triple', ball: [0.11, 0.12, 0.53], grip: 'hip' },
+      { t: 0.5, p: 'triple', ball: [0.095, 0.12, 0.53], grip: 'hip' },
+      { t: 0.7, p: 'triple', ball: [0.095, 0.12, 0.53], grip: 'hip' },
     ],
   });
   clip('spin', {

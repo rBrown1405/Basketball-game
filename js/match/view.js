@@ -345,7 +345,9 @@
           // soft push-out, and a hard floor: torsos never pass into each other (bodies ~1 ft deep)
           let k = Math.min(1, 30 * h) * push;
           const hard = push - minD * 0.2;
-          if (hard > k) k = hard;
+          // (a deep overlap is worked out over a few frames, at most ~0.4 ft a frame: all at once it read as a
+          // teleport when two players ran into each other at full speed)
+          if (hard > k) k = Math.min(hard, Math.max(k, 0.4));
           a.x -= nx * k * la / tot; a.y -= ny * k * la / tot;
           b.x += nx * k * lb / tot; b.y += ny * k * lb / tot;
           // contact: stop pressing into each other (inelastic along the contact normal) so steering slides

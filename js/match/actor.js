@@ -10,6 +10,12 @@
   const D = U.DEG;
 
   let _uid = 1;
+  /** the Player Speed live AI slider (League Settings, 0..100, 50 = default) as a multiplier, 0.8 .. 1.25 */
+  function paceOf(view) {
+    const ai = view && view.opts && view.opts.ai;
+    const x = ai && ai.moveSpeed != null ? U.clamp(+ai.moveSpeed, 0, 100) : 50;
+    return x < 50 ? U.lerp(0.8, 1, x / 50) : U.lerp(1, 1.25, (x - 50) / 50);
+  }
 
   class Foot {
     constructor(side) {
@@ -71,9 +77,14 @@
       this.lefty = this.look.hand === 'L';
       const r = (k, d) => U.clamp(((this.look[k] == null ? d : this.look[k]) - 25) / 74, 0, 1);
       this.rSpeed = r('speed', 70); this.rAgi = r('agility', 70); this.rVert = r('vert', 65); this.rHandle = r('handle', 55);
-      this.maxSpeed = this.kind === 'ref' ? 16 : 19 + this.rSpeed * 7;
-      this.accel = this.kind === 'ref' ? 12 : 14 + this.rAgi * 7;
-      this.decel = this.accel * 1.5;
+      // top speed 20-28 ft/s by rating (NBA tracking: game peaks ~22 ft/s, the fastest ~29), first-step push 16-24
+      // ft/s^2, braking harder than that (players decelerate faster than they accelerate); all scaled by the Player
+      // Speed live AI slider, which also scales how fast the director moves them (goalK)
+      this.paceK = this.kind === 'ref' ? 1 : paceOf(view);
+      this.goalK = this.kind === 'ref' ? 1 : 1.1 * this.paceK;
+      this.maxSpeed = this.kind === 'ref' ? 16 : (20 + this.rSpeed * 8) * this.paceK;
+      this.accel = this.kind === 'ref' ? 12 : (16 + this.rAgi * 8) * this.paceK;
+      this.decel = this.accel * 1.7;
       // state
       this.x = 47; this.y = 25; this.vx = 0; this.vy = 0; this.facing = 0; this.speed = 0;
       this.ax = 0; this.ay = 0;
@@ -148,7 +159,7 @@
       const g = this.goal;
       g.mode = 'move'; g.x = x; g.y = y;
       g.by = o.by == null ? null : o.by;
-      g.speed = o.speed || this.maxSpeed * 0.85;
+      g.speed = o.speed ? o.speed * this.goalK : this.maxSpeed * 0.85;
       g.arrive = o.arrive !== false;
       g.track = null;
       // timed moves: never slower than this natural pace (walk there and wait instead of creeping in slow motion)
@@ -161,7 +172,7 @@
     track(fn, o) {
       o = o || {};
       const g = this.goal;
-      g.mode = 'track'; g.track = fn; g.speed = o.speed || this.maxSpeed; g.arrive = true; g.by = null; g.pace = 0;
+      g.mode = 'track'; g.track = fn; g.speed = o.speed ? o.speed * this.goalK : this.maxSpeed; g.arrive = true; g.by = null; g.pace = 0;
       if (o.face !== undefined) this.setFace(o.face);
       if (o.stance) this.setStance(o.stance);
       return this;
@@ -276,9 +287,9 @@
         name: 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
         pivot: { side, t0: 0, t1: dur + 0.12 },
         keys: [
-          { t: 0, p: hold, ball: [0.11, 0.12, 0.53], grip: 'hip' },
-          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.11, 0.13, 0.55], grip: 'hip' },
-          { t: dur + 0.12, p: hold, ball: [0.11, 0.12, 0.53], grip: 'hip' },
+          { t: 0, p: hold, ball: [0.095, 0.12, 0.53], grip: 'hip' },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.095, 0.13, 0.55], grip: 'hip' },
+          { t: dur + 0.12, p: hold, ball: [0.095, 0.12, 0.53], grip: 'hip' },
         ],
       });
       this.ballHold = 'triple';
@@ -364,7 +375,7 @@
       // how hard a player pushes off depends on how fast he wants to go: a walk starts gently (walking speed within
       // a step or two), a sprint with everything he has (every start used to be a sprinter's push, even into a
       // walk, and the upper body lurched ahead of the legs)
-      const accelNow = Math.min(this.accel, 3 + 1.4 * Math.max(Math.hypot(dvx, dvy), spd));
+      const accelNow = Math.min(this.accel, 4.5 + 1.8 * Math.max(Math.hypot(dvx, dvy), spd));
       const amax = (slowing ? this.decel : accelNow) * dt;
       if (el > amax) { ex *= amax / el; ey *= amax / el; }
       this.ax = ex / Math.max(dt, 1e-4); this.ay = ey / Math.max(dt, 1e-4);
@@ -408,7 +419,8 @@
     }
     _turn(dt) {
       const want = this._desiredFacing();
-      const rate = this.speed > 8 ? 5.5 : 7.5;
+      // (a 180 in ~0.3 s standing, ~0.4 s on the run; quicker for the agile)
+      const rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
       this.facing = U.angApproach(this.facing, want, rate * dt);
       this.facing = U.wrapPi(this.facing);
     }
@@ -527,7 +539,7 @@
           const o = this.feet[1 - f.side];
           if (o.state !== 'plant') {
             const since = this.time - (o.liftT == null ? -9 : o.liftT);
-            if (o.mode === 'gait' ? since < Math.max(minLag, 0.09) || (o.sw || 0) < swOk : (o.s || 0) < 0.6) return false;
+            if (o.mode === 'gait' ? since < Math.max(minLag, 0.09) || (o.sw || 0) < swOk : (o.s || 0) < 0.92) return false;
             // (and it really is out in front: a swing that started far back, a foot catching up, can be most of the
             // way through its time still level with this one, and both feet were in the air side by side)
             if (o.mode === 'gait' && (o.sw || 0) < 0.92) {
@@ -830,7 +842,7 @@
       for (const f of this.feet) {
         const iyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
         const ye = U.wrapPi(iyaw - f.yaw);
-        if (Math.abs(ye) > 14 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 14 * D, 8 * dt));
+        if (Math.abs(ye) > 14 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 14 * D, 13 * dt));
       }
       // error-driven stepping
       let worst = null, worstE = 0;
@@ -1143,7 +1155,7 @@
       switch (this.ballHold) {
         // (on the front of the right hip, in toward the middle a little: the other hand reaches across to it from the
         // crouch and clears the belly)
-        case 'triple': out[0] = 0.11 * H * m; out[1] = 0.12 * H; out[2] = 0.53 * H; break;
+        case 'triple': out[0] = 0.095 * H * m; out[1] = 0.12 * H; out[2] = 0.53 * H; break;
         case 'over': out[0] = 0; out[1] = 0.05 * H; out[2] = 1.1 * H; break;
         // (on the shot's line: ~6-7 in off the belly, just right of the middle)
         case 'pocket': out[0] = 0.06 * H * m; out[1] = 0.165 * H; out[2] = 0.55 * H; break;

@@ -93,6 +93,8 @@
       desc: 'How well defenders stay between their man and the basket, keep the ball and their man in view, and recover after screens and drives.' },
     { key: 'defPressure', group: 'ai', label: 'On-Ball Pressure', map: ['lin', 0.8, 1.25], fmt: 'level', lo: 'Sag off', hi: 'Up close',
       desc: 'How closely defenders play the ball handler. At 50 the cushion matches NBA player tracking (about 4 ft around the three-point line, tighter near the rim).' },
+    { key: 'moveSpeed', group: 'ai', label: 'Player Speed', map: ['lin', 0.8, 1.25], fmt: 'level', lo: 'Deliberate', hi: 'Blazing',
+      desc: 'How fast players run, cut, turn and react in the live game you watch. At 50 top speeds and first steps match NBA player tracking.' },
     { key: 'helpD', group: 'ai', label: 'Help Defense', map: ['lin', 0.5, 1.5], fmt: 'level', lo: 'Stay home', hi: 'Swarm',
       desc: 'How far help defenders sink toward the ball and how hard they collapse on drives. More help protects the rim but leaves shooters open on the kick-out.' },
     // User team

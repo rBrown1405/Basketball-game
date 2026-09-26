@@ -663,7 +663,9 @@
   function limitArm(p, pre) {
     const iF = CH[pre + 'ShF'], iA = CH[pre + 'ShA'];
     const fl = p[iF];
-    const minA = U.lerp(-4, -45, U.smooth((fl - 20 * U.DEG) / (70 * U.DEG))) * U.DEG;
+    // (the arm down at the side meets the trunk past a few degrees of adduction; raised forward it can cross in front
+    // of the body: ~20 deg at 35 deg of flexion, 45 by 70)
+    const minA = U.lerp(-4, -45, U.smooth((fl - 10 * U.DEG) / (60 * U.DEG))) * U.DEG;
     if (p[iA] < minA) p[iA] = minA;
     const r = LIM[pre + 'ElF']; if (p[CH[pre + 'ElF']] < r[0]) p[CH[pre + 'ElF']] = r[0]; else if (p[CH[pre + 'ElF']] > r[1]) p[CH[pre + 'ElF']] = r[1];
     const rt = LIM[pre + 'ShT']; if (p[CH[pre + 'ShT']] < rt[0]) p[CH[pre + 'ShT']] = rt[0]; else if (p[CH[pre + 'ShT']] > rt[1]) p[CH[pre + 'ShT']] = rt[1];
