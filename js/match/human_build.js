@@ -464,12 +464,26 @@
     // limb (u, the seam on the inner side facing the body) and along it (v: upper arm 0..0.5, forearm 0.5..1);
     // chest pieces get v = 2 + height
     const tatUV = new Float32Array(np * 2).fill(-1);
+    // limb each inked vertex is mapped along (hands continue the forearm's coordinates past the wrist, v > 1; -2: chest)
+    const limbOf = new Int16Array(np).fill(-1);
     for (let i = 0; i < np; i++) {
       if (!aux1[i]) continue;
       let d = dom[i];
-      const hand = d === B.L_HD || d === B.R_HD;
-      if (hand) d = d === B.L_HD ? B.L_FA : B.R_FA; // hands continue the forearm's coordinates past the wrist (v > 1)
-      if (ARMS.has(d)) {
+      if (d === B.L_HD || d === B.R_HD) d = d === B.L_HD ? B.L_FA : B.R_FA;
+      limbOf[i] = ARMS.has(d) ? d : -2;
+    }
+    // the ring of plain skin around the ink gets coordinates too (and no ink), mapped along the limb it borders, so
+    // the triangles along the edge of a sleeve blend sane coordinates instead of the body's texture UVs (which drew
+    // a jagged dark line where a sleeve starts at the shoulder)
+    for (let i = 0; i < np; i++) {
+      if (aux1[i] || mat[i] !== MAT.SKIN) continue;
+      for (const j of D.adj[i]) if (aux1[j]) { limbOf[i] = limbOf[j]; break; }
+    }
+    for (let i = 0; i < np; i++) {
+      if (limbOf[i] === -1) continue;
+      const hand = dom[i] === B.L_HD || dom[i] === B.R_HD;
+      const d = limbOf[i];
+      if (d >= 0) {
         const r = d * 9, ax = [-RF[r + 2], -RF[r + 5], -RF[r + 8]];
         const rx = pos[i * 3] - O[d * 3], ry = pos[i * 3 + 1] - O[d * 3 + 1], rz = pos[i * 3 + 2] - O[d * 3 + 2];
         const len = lens[d] || 0.16 * H;
@@ -596,12 +610,17 @@
           default: return 0.35;
         }
       };
-      // high-top: the crown is pushed up to a flat top ~7 cm above the head with near-vertical sides
+      // high-top: the crown is pushed up to a top ~5 cm above the head with near-vertical sides, the top a shallow
+      // dome with rounded edges (a sculpted cut, not a box)
       let lift = null;
       if (style === 'hightop') {
         let topZ = -1e9; for (const i of sel) topZ = Math.max(topZ, L.get(i)[2]);
-        const z0 = EZ + 5.2, zTop = topZ + 6.8;
-        lift = i => { const p = L.get(i); const k = U.smooth((p[2] - z0) / 3.2); if (!k) return null; const r = 0.07 * k; return [hk * p[0] * r, hk * (p[1] - 1.5) * r, hk * (zTop - p[2]) * k]; };
+        const z0 = EZ + 5.2, zTop = topZ + 4.8;
+        lift = i => {
+          const p = L.get(i); const k = U.smooth((p[2] - z0) / 3.2); if (!k) return null;
+          const dome = 1.6 * U.smooth(Math.hypot(p[0], p[1] - 1.5) / 8.5), r = 0.06 * k;
+          return [hk * p[0] * r, hk * (p[1] - 1.5) * r, hk * (zTop - dome - p[2]) * k];
+        };
       }
       const smoothN = style === 'afro' ? 10 : style === 'hightop' ? 2 : style === 'curly' || style === 'twists' ? 2 : 1;
       layer(out, ctx, sel, i => hk * th(i), i => scalpD(i), MAT.HAIR, {

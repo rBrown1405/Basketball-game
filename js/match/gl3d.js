@@ -28,10 +28,19 @@ uniform mat4 uVP;
 uniform vec3 uFlut;
 uniform vec3 uSway;
 uniform mat4 uShM;      // world -> shadow tile (xy in atlas uv, z depth 0..1)
+uniform vec4 uFlags;     // (H in z)
 out vec3 vW; out vec3 vN; out vec3 vB; out vec3 vBN; out vec4 vM; out vec2 vUV; out vec3 vSh; flat out float vMat;
 void main() {
   vec3 p = vec3(0.0), n = vec3(0.0);
   vec4 P4 = vec4(aPos, 1.0);
+  // shorts between the legs: the cloth bunches into tight folds where the two leg tubes meet under the fork; shade
+  // it as the soft drape it is (normals eased toward the front / back panel) instead of a crumpled star of creases
+  vec3 nrm = aNrm;
+  float Hh = uFlags.z;   // (0 in the shadow pass, which needs no normals)
+  if (Hh > 0.0 && int(aMat.x * 255.0 + 0.5) == 3) {
+    float kf = (1.0 - smoothstep(0.018 * Hh, 0.055 * Hh, abs(aPos.x))) * smoothstep(0.39 * Hh, 0.43 * Hh, aPos.z) * (1.0 - smoothstep(0.5 * Hh, 0.53 * Hh, aPos.z));
+    if (kf > 0.0) nrm = normalize(mix(aNrm, vec3(0.0, aPos.y >= 0.0 ? 1.0 : -1.0, 0.0), kf * 0.75));
+  }
   for (int i = 0; i < 4; i++) {
     float w = aW[i];
     if (w <= 0.0) continue;
@@ -44,7 +53,7 @@ void main() {
     vec4 i2 = texelFetch(uBones, ivec2(b + 5, uRow), 0);
     float th = texelFetch(uBones, ivec2(b + 6, uRow), 0).x * aTw[i];
     vec3 lp = vec3(dot(i0, P4), dot(i1, P4), dot(i2, P4));
-    vec3 ln = vec3(dot(i0.xyz, aNrm), dot(i1.xyz, aNrm), dot(i2.xyz, aNrm));
+    vec3 ln = vec3(dot(i0.xyz, nrm), dot(i1.xyz, nrm), dot(i2.xyz, nrm));
     float c = cos(th), s = sin(th);
     lp.xy = vec2(c * lp.x - s * lp.y, s * lp.x + c * lp.y);
     ln.xy = vec2(c * ln.x - s * ln.y, s * ln.x + c * ln.y);
