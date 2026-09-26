@@ -128,9 +128,10 @@
       c.a.moveTo(cx + Math.cos(ang) * R * c.rx + Math.sin(ang) * R * c.fx, cy + Math.cos(ang) * R * c.ry + Math.sin(ang) * R * c.fy, { speed: 11 });
     },
   });
-  add('Locomotion', 'slide', 'Defensive slide', 7.2, (c) => {
+  // (a real slide's pace: elite players cover a 5 m out-and-back shuffle in ~3.6-3.9 s, peaking ~11-12 ft/s)
+  add('Locomotion', 'slide', 'Defensive slide', 7.0, (c) => {
     c.a.setStance('defense'); c.a.setFace(c.f0);
-    for (let k = 0; k < 6; k++) c.at(0.4 + k * 1.15, () => { go(c, 0, 11, k % 2 ? -7 : 7); c.a.setFace(c.f0); });
+    for (let k = 0; k < 4; k++) c.at(0.4 + k * 1.6, () => { go(c, 0, 10, k % 2 ? -12 : 12); c.a.setFace(c.f0); });
   });
   add('Dribbling', 'dwalk', 'Dribble walking', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 200, 5)); });
   add('Dribbling', 'djog', 'Dribble jogging', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 200, 11)); });

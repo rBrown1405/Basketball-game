@@ -200,6 +200,22 @@ Animation Lab rings any joint held at its limit in red (a limb out of reach in y
 | Hips past their range step instead | a planted leg keeps its foot on its spot (a foot dragged on the floor reads worse), and the foot takes its step early when its hip nears the end of its range (spread past ~46 deg, crossed past ~26, stretched back past ~28) | |
 | Ankles | a planted foot's ankle bends ~50 deg at most under the body's weight (the weight-bearing lunge test measures ~50 deg in healthy adults); past ~47 deg of shin lean over the foot the heel rises (the foot rolls onto its ball, which stays on its spot), and a pivot turns on the ball with the heel up | https://ijspt.scholasticahq.com/article/21253-the-dorsiflexion-range-of-motion-screen-a-validation-study , https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9517286/ |
 
+## Stride first, turning in place and the slide (actor.js, anims.js)
+
+A runner speeds up mostly by lengthening the stride and turns the legs over faster only near top speed, so the steps
+never become tiny and quick. Checked in real games (median steps per second by speed, before -> after): sprinting
+3.64 -> 3.23 (step length 0.91 -> 0.99 H), running 3.09 -> 2.94, jogging 2.87 -> 2.77, with legs touching,
+feet left behind and planted-foot slide at the same level as before.
+
+| Rule | How | Sources |
+|---|---|---|
+| Stride first, then cadence | ~147-156 steps/min jogging, ~170 running, topping out ~190 (3.2 steps/s) at a sprint, where the steps keep growing instead; longer legs turn over a little slower (x sqrt(6.6 ft / height)) | https://pmc.ncbi.nlm.nih.gov/articles/PMC12222555/ , https://www.jospt.org/doi/10.2519/jospt.2015.6019 , https://pmc.ncbi.nlm.nih.gov/articles/PMC7739839/ |
+| The cycle runs on distance | a stride is two steps of speed / cadence, so the cycle advances by distance / stride length and the feet step exactly as far as the body goes; a foot already in the air still lands on time when the body stops under it (run on distance alone, a swing hung beside the other leg as the speed ran out) | |
+| Quick first steps | accelerating hard, the steps come quicker and shorter: a sprinter's step rate is near its top within the first few steps out of a start while the step length keeps growing | https://journals.biologists.com/bio/article/3/8/689/1118/Kinematics-of-transition-during-human-accelerated |
+| Catch-up steps | a planted foot falling behind (a cut, a burst) quickens the next steps, never past ~4.8 steps/s (elite sprinters top out just under 5); not in a slide, where the trailing foot is meant to be behind | https://pmc.ncbi.nlm.nih.gov/articles/PMC8008308/ , https://pubmed.ncbi.nlm.nih.gov/20980924/ |
+| Turning in place | a standing turn of more than ~55 deg is a pivot: the whole body goes round together on one foot (turning left on the left foot) while the other foot steps round it (twice for a big turn), the head and shoulders a little ahead and the hips with the feet, so the legs never cross; a move order stops it and the run starts from where the turn got to | http://www.amherst-basketball.com/AYB/pivoting |
+| Defensive slide | a push and a reach, not a patter. The feet never cross, so a step can only open the gap between them from nearly together to a wide reach: the body goes ~0.3 H per step at most. A slow slide takes ~1.2 ft steps ~4 times a second, a quick one (~11-12 ft/s, the top pace elite players hold over a 5 m shuffle test) ~2 ft steps ~6 times a second. In games, steps at 3-5 ft/s grew from ~1.0 to ~1.14 ft at ~3.6 steps/s instead of ~4; the lab's slide test now runs 12 ft each way (it used to turn back after 7 ft, before the slide got going) | https://pmc.ncbi.nlm.nih.gov/articles/PMC9697629/ , https://www.breakthroughbasketball.com/defense/Debunking-Cross-Feet |
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the

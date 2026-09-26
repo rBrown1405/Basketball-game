@@ -157,6 +157,8 @@
     moveTo(x, y, o) {
       o = o || {};
       const g = this.goal;
+      // (a standing turn gives way to a move: it fades out and the run starts from where the turn got to)
+      if (this.clip && this.clip.autoTurn && !this.clip.ending && Math.hypot(x - this.x, y - this.y) > 0.8) this.stopClip();
       g.mode = 'move'; g.x = x; g.y = y;
       g.by = o.by == null ? null : o.by;
       g.speed = o.speed ? o.speed * this.goalK : this.maxSpeed * 0.85;
@@ -282,20 +284,29 @@
       } else {
         steps.push({ t0: 0.03, t1: dur, foot: fSide, to: rot(F0, delta), yaw: delta / D, lift: 0.06 });
       }
-      const hold0 = o.hold || 'triple', hold = this.lefty && HANDED[hold0] ? HANDED[hold0] : hold0, bm = this.lefty ? -1 : 1;
+      const noBall = o.ball === false;
+      const hold0 = noBall ? this.stance : o.hold || 'triple';
+      const hold = noBall ? (A.STANCE[hold0] || A.STANCE.stand).pose : this.lefty && HANDED[hold0] ? HANDED[hold0] : hold0, bm = this.lefty ? -1 : 1;
+      const tw = delta > 0 ? 1 : -1;
       const clip = A.buildClip({
-        name: 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
+        name: noBall ? 'turn' : 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
         pivot: { side, t0: 0, t1: dur + 0.12 },
-        keys: [
+        // (the whole body goes round together: the head and shoulders a little ahead, the hips with the feet)
+        keys: noBall ? [
+          { t: 0, p: hold },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.04, chTwist: tw * 9, nkTwist: tw * 12, hdTwist: tw * 4 } },
+          { t: dur + 0.12, p: hold },
+        ] : [
           { t: 0, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
-          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.13 * bm, 0.21, 0.55], grip: this.lefty ? 'hipL' : 'hip' },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: tw * 12, nkTwist: tw * 10 }, ball: [0.13 * bm, 0.21, 0.55], grip: this.lefty ? 'hipL' : 'hip' },
           { t: dur + 0.12, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
         ],
       });
-      this.ballHold = 'triple';
+      if (!noBall) this.ballHold = 'triple';
       // (built for this player's own feet and turn: never mirrored for a lefty)
       const cs = this.play(clip, { x: this.x, y: this.y, facing: this.facing, fadeIn: 0.08, mirror: false });
-      if (cs) cs.onEnd = () => { this.setStance(hold0); this.setFace(o.faceAfter != null ? o.faceAfter : angle); };
+      if (cs && noBall) { cs.autoTurn = true; cs.onEnd = () => { this.setStance(hold0); }; }
+      else if (cs) cs.onEnd = () => { this.setStance(hold0); this.setFace(o.faceAfter != null ? o.faceAfter : angle); };
       return !!cs;
     }
     /**
@@ -544,6 +555,16 @@
     _turn(dt) {
       const want = this._desiredFacing();
       this._wantFace = want; this._wantT = this.time;
+      // standing and turning far (to face the ball, a man, the other way): the whole body goes round together on a
+      // pivot foot while the other foot steps round it, instead of the upper body turning first and the feet
+      // catching up with a step across (the legs crossed)
+      const g = this.goal, settled = g.mode === 'idle' || (g.mode === 'move' && Math.hypot(g.x - this.x, g.y - this.y) < 0.6);
+      if (this.kind === 'player' && !this.clip && this.speed < 1.2 && settled && !(this.hasBall && !this.dribble) &&
+          this.feet[0].state === 'plant' && this.feet[1].state === 'plant' && Math.abs(U.wrapPi(want - this.facing)) > 0.96 &&
+          this.time - (this._pivotT || -9) > 0.35) {
+        this._pivotT = this.time;
+        if (this.pivotTo(want, { ball: false })) return;
+      }
       // (a 180 in ~0.3 s standing, ~0.4 s on the run; quicker for the agile)
       const rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
       this._turnRate = rate;
@@ -595,7 +616,8 @@
         const c = Math.cos(this.facing), s = Math.sin(this.facing);
         const fwdDot = this.moveDirX * c + this.moveDirY * s;
         this.fwdDot = fwdDot;
-        // accelerating hard: quicker, shorter steps (sprinter's start)
+        // accelerating hard: quicker, shorter steps (a sprinter's step rate is near its top within the first few
+        // steps out of a start while the step length keeps growing for many more)
         const accF = Math.max(0, this.ax * this.moveDirX + this.ay * this.moveDirY);
         let sps = A.stepsPerSec(Math.min(this.maxSpeed, sp + accF * 0.3), H);
         // (blended, not switched: a hard switch changed the swing foot's lift and timing in a single frame)
@@ -610,7 +632,12 @@
           // ~0.66 H; with alternating steps that width range needs ~5 steps/s at 10 ft/s (the old ~7 was a pitter-patter)
           // (only the defensive slide: a sidestep in any other stance keeps the quicker, shorter steps)
           const ks = this.stP.slide;
-          const slideSps = U.lerp(2 * U.clamp(1.7 + 0.19 * sp, 1.9, 3.6), U.clamp(2.8 + 0.24 * sp, 3.4, 5.4), ks);
+          // (a slide is a push and a reach, not a patter. The feet never cross, so a step can only open the gap
+          // between them from nearly together to a wide reach: the body goes ~0.3 H per step at most, and past that
+          // the steps have to come quicker. A slow slide takes ~1.2 ft steps ~4 times a second, a quick one (~11-12
+          // ft/s, the top pace elite players hold over a 5 m shuffle test) ~2 ft steps ~6 times a second)
+          const slideStep = U.clamp(0.75 + 0.1 * sp, 0.9, 0.3 * H);
+          const slideSps = U.lerp(2 * U.clamp(1.7 + 0.19 * sp, 1.9, 3.6), U.clamp(sp / slideStep, 2.6, 6.4), ks);
           gp.halfW = U.lerp(gp.halfW, slideW, latK);
           gp.reach = U.lerp(gp.reach, 0.5, latK);
           gp.lift = U.lerp(gp.lift, 0.035 + 0.02 * ks * U.smooth((sp - 6) / 6), latK);
@@ -639,9 +666,16 @@
         // (measured against where this stride's toe-off normally is, so a steady run is never hurried; eased: it
         // used to drop back in one frame as the foot behind lifted, and the swinging foot lurched)
         const lagOn = Math.min(0.26 * H, (1 - gp.reach) * gp.beta * sp * 2 / sps + 0.05 * H);
-        const bT = 1 + 0.8 * U.smooth((lagMax - lagOn) / (0.1 * H));
+        // (not in a slide: its trailing foot is meant to be behind, and hurrying it made the feet patter)
+        const bT = 1 + 0.8 * U.smooth((lagMax - lagOn) / (0.1 * H)) * (1 - latK);
         this._boost = (this._boost || 1) + (bT - (this._boost || 1)) * (1 - Math.exp(-dt / (bT > (this._boost || 1) ? 0.05 : 0.15)));
-        sps *= this._boost;
+        // (however hurried, never quicker than ~4.8 steps/s, about the most a sprinter's legs turn over; a slide keeps
+        // its own rhythm)
+        sps = Math.min(sps * this._boost, Math.max(4.8 * Math.sqrt(6.6 / H), latK > 0.5 ? sps : 0));
+        // the stride cycle runs on the distance the body travels: a stride is two steps of speed / cadence, so a
+        // cycle is (distance / stride length) = cadence x time / 2, and the feet step exactly as far as the body goes.
+        // (written on the clock so a foot already in the air still lands on time when the body stops under it: run
+        // on the distance alone, a swing hung in the air beside the other leg as the speed ran out)
         const dphi = sps * 0.5 * dt;
         let ph0 = this.phase, ph1 = ph0 + dphi;
         this.phase = ph1 - Math.floor(ph1);

@@ -98,12 +98,15 @@
     // stature (~0.0039 x height per step/min), so cadence = sqrt(60 v / WR): ~103 steps/min for a 6'6" player
     // at 1.37 m/s (step ~0.40 x height), ~84 at a stroll, ~120 walking briskly
     const walk = Math.sqrt(60 * Math.max(0.6, s) / (0.0039 * H)) / 60;
-    // running: ~150-165 steps/min jogging, 170-185 running, 190+ sprinting (taller athletes a little lower)
+    // running: stride first, then cadence. Speeding up from a jog, a runner mostly lengthens the stride and only at
+    // high speed turns the legs over faster: ~147-156 steps/min jogging, ~170 running, topping out ~190 (3.2 steps/s)
+    // at a sprint, where the steps keep growing instead (no tiny, quick steps); longer legs turn over a little slower
+    // (~4 steps/min less per 5 cm of leg)
     let c;
-    if (s < 8) c = U.lerp(2.45, 2.55, U.clamp((s - RUN_MIN) / (8 - RUN_MIN), 0, 1));
-    else if (s < 12) c = U.lerp(2.55, 2.8, (s - 8) / 4);
-    else if (s < 18) c = U.lerp(2.8, 3.25, (s - 12) / 6);
-    else c = U.lerp(3.25, 3.7, Math.min(1, (s - 18) / 7));
+    if (s < 10) c = U.lerp(2.45, 2.6, U.clamp((s - RUN_MIN) / (10 - RUN_MIN), 0, 1));
+    else if (s < 14) c = U.lerp(2.6, 2.85, (s - 10) / 4);
+    else if (s < 20) c = U.lerp(2.85, 3.1, (s - 14) / 6);
+    else c = U.lerp(3.1, 3.2, Math.min(1, (s - 20) / 6));
     const run = c * Math.sqrt(6.6 / H);
     if (s <= WALK_MAX) return walk;
     if (s >= RUN_MIN) return run;
