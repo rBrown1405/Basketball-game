@@ -400,6 +400,12 @@
         if (r.mode === 'locked' || r.until > T) { r.path = null; continue; }
         if (b.holder === a) { r.path = null; if (flow && this.flowHandler(a, r)) continue; r.probe = null; this.handlerAmbient(a, r, dt); continue; }
         if (!r.spot) r.spot = this.spotPt('top');
+        // offensive three seconds: nobody plants himself in the lane; past ~2 seconds (a scripted cut or screen that
+        // ends in there included) he clears out to the nearest spot just outside it (short corner, block, elbow) and
+        // can come back in after
+        const dtl = U.clamp(T - (r.laneT0 != null ? r.laneT0 : T), 0, 0.1); r.laneT0 = T;
+        r.laneT = this.inPaint(a, 0) ? (r.laneT || 0) + dtl : 0;
+        if (r.laneT > 2.1 * this.sliderK('offIQ', 1.2, 0.85)) { r.laneOut = T + 1.0; r.laneT = 0; r.path = null; r.next = Math.max(r.next || 0, T + 1.0); }
         // half-court flow: scripted actions (screens, cuts, relocations) take over the player while they run
         if (r.path) { if (flow && this.flowPath(a, r)) continue; r.path = null; }
         if (T > r.next) {
@@ -408,7 +414,8 @@
         }
         // targets always stay in bounds (corners included)
         let tx = this.X(U.clamp(this.U_(r.spot.x + r.jx), 2.2, 91.8)), ty = U.clamp(r.spot.y + r.jy, 2.2, 47.8);
-        // keep the floor spaced: drift away from a teammate who is too close (NBA spacing ~14 ft)
+        // keep the floor spaced: drift away from a teammate who is too close (NBA spacing ~14 ft; Floor Spacing slider)
+        const spc = 14 * this.sliderK('spacing', 0.8, 1.2);
         if (flow) {
           let px = 0, py = 0;
           for (const o of this.offActors()) {
@@ -416,7 +423,7 @@
             const ro = this.role[o.id];
             const ox = ro && ro.path && ro.pathSpot ? ro.pathSpot.x : o.x, oy = ro && ro.path && ro.pathSpot ? ro.pathSpot.y : o.y;
             const dx = tx - ox, dy = ty - oy, dd = Math.hypot(dx, dy);
-            if (dd < 14 && dd > 0.01) { const k = (14 - dd) * 0.7; px += dx / dd * k; py += dy / dd * k; }
+            if (dd < spc && dd > 0.01) { const k = (spc - dd) * 0.7; px += dx / dd * k; py += dy / dd * k; }
           }
           if (px || py) {
             const nu = U.clamp(this.U_(tx + px), 2.2, 30), nv = U.clamp(ty + py, 2.5, 47.5);
@@ -428,10 +435,10 @@
         const bh = b.holder;
         if (bh && bh !== a && bh.team === this.off && this.phase === 'front' && this.tempo !== 'push' && this.U_(bh.x) < 40) {
           let dx = tx - bh.x, dy = ty - bh.y, dd = Math.hypot(dx, dy);
-          if (dd < 12) {
+          if (dd < spc - 2) {
             if (dd < 0.5) { dx = a.x - bh.x; dy = a.y - bh.y; dd = Math.hypot(dx, dy); }
             if (dd < 0.5) { dx = this.X(this.U_(bh.x) + 1) - bh.x; dy = bh.y < 25 ? 1 : -1; dd = Math.hypot(dx, dy); }
-            const nu = U.clamp(this.U_(bh.x + dx / dd * 14), 2.2, 32), nv = U.clamp(bh.y + dy / dd * 14, 2.5, 47.5);
+            const nu = U.clamp(this.U_(bh.x + dx / dd * spc), 2.2, 32), nv = U.clamp(bh.y + dy / dd * spc, 2.5, 47.5);
             tx = this.X(nu); ty = nv;
           }
         }
@@ -452,6 +459,11 @@
           }
           // (behind the ball or still in the backcourt: run to get ahead of it)
           if (lane && (u > bu - 4 || u > 47)) lane = 'run';
+        }
+        if (r.laneOut && T < r.laneOut && this.inPaint({ x: tx, y: ty }, -1.2)) {
+          const base = this.rim.x < 47 ? 0 : 94, side = ty >= 25 ? 1 : -1;
+          const lu = Math.abs(tx - base), lv = Math.abs(ty - 25);
+          if (9.3 - lv < 20.3 - lu) ty = 25 + side * 9.3; else tx = base + (this.rim.x < 47 ? 1 : -1) * 20.3;
         }
         const d = Math.hypot(tx - a.x, ty - a.y);
         const eff = 1 + this.intensity() * 0.14;
@@ -625,10 +637,39 @@
           px = U.lerp(px, m.x + dx / dl * 4.6, 0.38); py = U.lerp(py, m.y + dy / dl * 4.6, 0.38);
         }
         if (mu > 48 && scheme !== 'press') { px = this.X(Math.min(40, mu)); } // don't chase into the backcourt
+        // the closer his man is to the rim the tighter he stays: ~3.5 ft off a man under the basket, ~7 ft off a
+        // perimeter man one pass away, more two passes away (a big 12 ft from the rim used to be left 6-8 ft alone)
+        const dRimM = Math.hypot(m.x - rim.x, m.y - rim.y);
+        const cap = (3.5 + 0.2 * Math.max(0, dRimM - 8) + (dBall > 30 ? 3 : 0)) * this.sliderK('helpD', 0.8, 1.3) / this.sliderK('defIQ', 0.85, 1.12);
+        const gx = px - m.x, gy = py - m.y, gl = Math.hypot(gx, gy);
+        if (gl > cap) { px = m.x + gx / gl * cap; py = m.y + gy / gl * cap; }
         a.setStance(dBall < 18 + hype * 10 ? 'defense' : 'ready');
       }
+      // defensive three seconds: a defender who is not guarding anyone within arm's length steps out of the lane
+      // before his third second, then back in (the way real bigs keep a foot out)
+      if (!hasBall) {
+        const inLane = this.inPaint({ x: px, y: py }, 0) && Math.hypot(m.x - px, m.y - py) > 4.5;
+        const dt3 = U.clamp(this.T - (a._laneT0 != null ? a._laneT0 : this.T), 0, 0.1); a._laneT0 = this.T;
+        a._laneT = inLane && this.inPaint(a, 0) ? (a._laneT || 0) + dt3 : 0;
+        if (a._laneT > 2.3) { a._laneOut = this.T + 0.9; a._laneT = 0; }
+        if (a._laneOut && this.T < a._laneOut && inLane) {
+          const base = rim.x < 47 ? 0 : 94, side = m.y >= 25 ? 1 : -1;
+          const u = Math.abs(px - base), vy = Math.abs(py - 25);
+          if (8.8 - vy < 19.8 - u) py = 25 + side * 8.8; else px = base + (rim.x < 47 ? 1 : -1) * 19.8;
+        }
+      }
+      // a shot about to go up: only its contester closes in; everyone else keeps out of the shooter's space (the
+      // engine called it open or contested, and a help spot that happened to sit next to him had three defenders
+      // around a shooter the engine left open)
+      const sa = this.shotAvoid;
+      if (sa && this.T < sa.until && a !== sa.except) {
+        const ex = px - sa.x, ey = py - sa.y, el = Math.hypot(ex, ey);
+        if (el < sa.r) { const k = sa.r / Math.max(el, 0.01); px = sa.x + (el > 0.01 ? ex : a.x - sa.x) * k; py = sa.y + (el > 0.01 ? ey : a.y - sa.y) * k; }
+      }
       out.x = U.clamp(px, 0.5, 93.5); out.y = U.clamp(py, 0.5, 49.5);
-      out.vx = m.vx * 0.6; out.vy = m.vy * 0.6;
+      // (anticipation: an aware defender moves with his man, a lost one reacts late)
+      const ant = 0.6 * this.sliderK('defIQ', 0.55, 1.3);
+      out.vx = m.vx * ant; out.vy = m.vy * ant;
       return out;
     }
     zoneSpot(a, bx, by) {
@@ -1103,7 +1144,19 @@
       const mv = ev.move;
       const b = v.ball;
       beat.onStart = (fireAt) => {
-        const r = this.role[a.id]; if (r) r.until = fireAt + 0.8;
+        const r = this.role[a.id];
+        // a long wait before the move: he keeps working the ball (probe dribbles, a jab, a hesitation) and only sets up
+        // for the move ~a second before it, instead of standing in place dribbling for seconds
+        const tSet = fireAt - 1.0;
+        if (r && b.holder === a && tSet - this.T > 0.8 && mv !== 'spin' && this.flowOK && this.flowOK() && !this.driving(a)) {
+          r.until = 0; r.probe = null; r.probeNext = Math.min(r.probeNext || 0, this.T + 0.2);
+          this.at(tSet, () => { if (r) { r.until = fireAt + 0.8; r.probe = null; } setup(fireAt); }, 'move setup');
+          return;
+        }
+        if (r) r.until = fireAt + 0.8;
+        setup(fireAt);
+      };
+      const setup = (fireAt) => {
         if (mv === 'size_up') {
           a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
           this.at(Math.max(this.T + extra, fireAt - 0.8), () => { if (b.holder === a) { b.dribble(a); b.dribbleMove('btl'); } }, 'sizeup');
@@ -1286,7 +1339,7 @@
               if (df.isBusy()) return;
               this.dtask[df.id] = { until: fireAt + flight + 2 };
               const dx = this.rim.x - cs.x, dy = this.rim.y - cs.y, dl = Math.hypot(dx, dy) || 1;
-              const gapC = nxt.contest === 'tight' ? 2.6 : nxt.contest === 'contested' ? 4 : 9;
+              const gapC = nxt.contest === 'tight' ? 3.0 : nxt.contest === 'contested' ? 5 : 9;
               df.moveTo(cs.x + dx / dl * gapC, cs.y + dy / dl * gapC, { speed: df.maxSpeed, face: { x: cs.x, y: cs.y }, stance: 'defense' });
             }, 'closeout early');
           }
@@ -1564,9 +1617,16 @@
     planContest(ev, sh, spot, fireAt) {
       const v = this.v;
       const df = this.A(ev.defender) || this.guardOf(sh.id) || this.nearestTo(this.def, spot.x, spot.y);
+      if (!RIM_SHOTS[ev.kind] && ev.kind !== 'floater') {
+        const c0 = ev.contest || 'contested';
+        this.shotAvoid = { x: spot.x, y: spot.y, r: c0 === 'open' ? 6.5 : c0 === 'contested' ? 4.6 : 3.2, until: fireAt + 0.3, except: df };
+      } else this.shotAvoid = null;
       if (df && df.team === this.def) {
+        // how close the contest gets, by the engine's contest level, set so the closest defender at the release lands in
+        // NBA player tracking's buckets (tight 2-4 ft, contested 4-6 ft, open 6+ ft; a contested look used to land
+        // at 2-4 ft two times in three and read as smothered)
         const contest = ev.contest || 'contested';
-        const gap = contest === 'tight' ? 2.4 : contest === 'contested' ? 3.8 : 7.5;
+        const gap = contest === 'tight' ? 2.9 : contest === 'contested' ? 4.9 : 7.5;
         const dx = this.rim.x - spot.x, dy = this.rim.y - spot.y, dl = Math.hypot(dx, dy) || 1;
         const cp = this.clampCourt({ x: spot.x + dx / dl * gap, y: spot.y + dy / dl * gap }, 0.5);
         const arrive = contest === 'open' ? fireAt + 0.35 : fireAt - 0.3;

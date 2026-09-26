@@ -91,7 +91,7 @@
     const ctx = UI.matchContext(S, g);
     const vs = viewSettings(S);
     if (vs.style !== 'retro' && PBC.Match && PBC.Match.View) {
-      try { return new PBC.Match.View(canvas, ctx, { quality: S.settings.lowQuality ? 'low' : 'high', pixelMode: vs.pixel, pixelSize: vs.pixelSize, camera: vs.camera === 'fixed' ? 'broadcast' : vs.camera, showNames: vs.showNames }); } catch (e) { console.error('Match view failed', e); }
+      try { return new PBC.Match.View(canvas, ctx, { quality: S.settings.lowQuality ? 'low' : 'high', pixelMode: vs.pixel, pixelSize: vs.pixelSize, camera: vs.camera === 'fixed' ? 'broadcast' : vs.camera, showNames: vs.showNames, ai: PBC.Sliders && PBC.Sliders.aiMods ? PBC.Sliders.aiMods(S) : null }); } catch (e) { console.error('Match view failed', e); }
     }
     if (PBC.Match && PBC.Match.RetroView) {
       try { return new PBC.Match.RetroView(canvas, ctx, { quality: 'high', showNames: false }); } catch (e) { console.error('RetroView failed', e); }

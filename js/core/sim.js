@@ -63,7 +63,7 @@
   // identity slider values (used when js/core/sliders.js is not loaded)
   const SL_DEFAULT = {
     pace: 1, trans: 1, three: 1, dunk: 1, l3: 0, lMid: 0, lIn: 0, ft: 0, sfoul: 1, to: 1, stl: 1, blk: 1, contest: 0, nsfoul: 1, oreb: 0,
-    fatigue: 1, inj: 1, injSev: 1, usage: 1, clutch: 1, home: 1, upset: 1, po: 1, uShoot: 0, uDef: 0, uTo: 1,
+    fatigue: 1, inj: 1, injSev: 1, usage: 1, clutch: 1, home: 1, upset: 1, po: 1, uShoot: 0, uDef: 0, uTo: 1, quick: 1,
   };
   const TEND_KEYS = ['three', 'mid', 'rim', 'dunk', 'pullup', 'stepback', 'drawFoul', 'iso', 'pnr', 'post', 'pass', 'push', 'crash', 'gamble', 'block', 'foul'];
   const NO_DEV = {};
@@ -1092,7 +1092,10 @@
     const at = f => U.round(t0 + span * f, 2);
     const handler = info.handler || ctx.handler;
     const setEv = f => evAt(ctx, at(f), 'set', { play: info.play, setName: info.setName, handler: handler.id, screener: info.screener ? info.screener.id : undefined, target: plan.shooter.id, team: idx });
-    const pass = (f, from, to, kind) => { if (from && to && from !== to) evAt(ctx, at(f), 'pass', { from: from.id, to: to.id, kind: kind || 'chest', team: idx }); };
+    // the last pass reaches the shooter later with a quicker trigger (Shoot When Open slider): he catches and lets it
+    // fly instead of holding it while the defense recovers (timing only, the shot itself is already decided)
+    const quick = (g.sl && g.sl.quick) || 1;
+    const pass = (f, from, to, kind) => { if (from && to && from !== to) evAt(ctx, at(to === plan.shooter ? 1 - (1 - f) / quick : f), 'pass', { from: from.id, to: to.id, kind: kind || 'chest', team: idx }); };
     const move = (f, c, m) => evAt(ctx, at(f), 'move', { player: c.id, move: m, team: idx });
     const perimeter = O.on.filter(c => c !== handler && c !== plan.shooter);
     switch (info.play) {

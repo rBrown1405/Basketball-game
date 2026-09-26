@@ -178,3 +178,17 @@ would make the view more faithful if they ever become available (all optional, t
   (they are today) is important: the view poses the freeze from them.
 * Engine values the view already tolerates beyond the contract text: `play: 'pop' | 'putback'`, shot
   `kind: 'heave'`, `look.headband: 'team'`, `ctx.otLen`, `clockEnd: null` before the possession is finished.
+
+## Live Game AI sliders (League Settings)
+
+Six sliders (0-100, 50 = calibrated) shape how players read the floor in the live game; the results are still set by the
+engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1, 100 -> hi):
+
+| Slider | What it changes |
+|---|---|
+| Offensive Awareness (`offIQ`) | how often off-ball players act (rest between cuts and relocations), how often the handler probes, how soon a player clears the lane |
+| Shoot When Open (`shootOpen`) | when the last pass reaches the shooter in the engine's play timeline (later = catch and fire); timing only |
+| Floor Spacing (`spacing`) | how far apart off-ball players keep and how far they stay from the ball (~14 ft at 50) |
+| Defensive Awareness (`defIQ`) | how much defenders anticipate their man's movement, how tight help stays |
+| On-Ball Pressure (`defPressure`) | the cushion off the ball handler (NBA tracking by distance from the rim at 50) |
+| Help Defense (`helpD`) | how far help defenders may sag off their man toward the ball |

@@ -99,7 +99,8 @@
     if (r.pathSpot) { r.spot = r.pathSpot; r.spotName = 'flow'; }
     r.path = null; r.pathSpot = null; r.jx = 0; r.jy = 0;
     const pr = this.flowProfile();
-    r.next = this.T + (r.pathRest != null ? r.pathRest : U.lerp(pr.rest[0], pr.rest[1], Math.random()));
+    // (Offensive Awareness slider: heady players rest less between actions, stagnant ones stand around longer)
+    r.next = this.T + (r.pathRest != null ? r.pathRest : U.lerp(pr.rest[0], pr.rest[1], Math.random())) / this.sliderK('offIQ', 0.6, 1.5);
   };
   /** drive `a` along its action path; returns true while the path is in control */
   P.flowPath = function (a, r) {
@@ -155,7 +156,7 @@
       case 'big': ok = this.flowBig(a); break;
       default: ok = false;
     }
-    if (!ok) { this.offBallAction(a, r); r.next = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()); }
+    if (!ok) { this.offBallAction(a, r); r.next = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) / this.sliderK('offIQ', 0.6, 1.5); }
     return ok;
   };
   function pickKey(w) {
@@ -317,7 +318,7 @@
     if (!r.probe || T > r.probe.end) {
       r.probe = null;
       if (T < (r.probeNext || 0)) return false;
-      if (Math.random() > pr.probe) { r.probeNext = T + 1 + Math.random(); return false; }
+      if (Math.random() > pr.probe * this.sliderK('offIQ', 0.6, 1.3)) { r.probeNext = T + 1 + Math.random(); return false; }
       // around his shot spot when a shot is coming, else around where he is
       const me = r.probeAnchor ? { u: this.U_(r.probeAnchor.x), v: r.probeAnchor.y } : this.uv(a);
       const rimU = this.U_(this.rim.x);

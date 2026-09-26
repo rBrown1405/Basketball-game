@@ -17,6 +17,7 @@
     { key: 'rebounding', label: 'Rebounding', icon: '🙌', desc: 'Battle on the glass.' },
     { key: 'players', label: 'Players', icon: '🏃', desc: 'Fatigue, injuries, stars and clutch play.' },
     { key: 'game', label: 'Game', icon: '🏟️', desc: 'Home court, upsets and how hard teams go in the playoffs.' },
+    { key: 'ai', label: 'Live Game AI', icon: '🧠', desc: 'How players read the floor in the live game you watch: positioning, spacing, help and shot decisions. (The results are set by the groups above.)' },
     { key: 'user', label: 'User Team Difficulty', icon: '🎮', desc: 'Handicaps that only apply to your team (50 = fair).' },
     { key: 'league', label: 'League Behaviour', icon: '🏛️', desc: 'How players and front offices react to the league. (Injury frequency and severity are under Players.)' },
   ];
@@ -81,6 +82,19 @@
       desc: 'Game-to-game form swings, rare "can\'t miss" nights for underdogs and off nights for favorites. 0 = the better team plays to its level every night.' },
     { key: 'playoffIntensity', group: 'game', label: 'Playoff Intensity', map: ['lin0', 0, 2], fmt: 'x0', lo: 'Like the regular season', hi: 'War',
       desc: 'How much harder teams go in the play-in and playoffs: tighter rotations, stars play more, slower pace, tougher defense. Grows every round and in elimination games.' },
+    // Live game AI: how the players in the live view position themselves and move (50 = calibrated)
+    { key: 'offIQ', group: 'ai', label: 'Offensive Awareness', map: ['lin', 0.5, 1.5], fmt: 'level', lo: 'Stagnant', hi: 'Heady',
+      desc: 'How well offensive players read the floor: keeping their spacing, cutting when their man turns his head or sags, relocating for an open look and moving the ball instead of standing around.' },
+    { key: 'shootOpen', group: 'ai', label: 'Shoot When Open', map: ['lin', 0.5, 1.5], fmt: 'level', lo: 'Patient', hi: 'Quick trigger',
+      desc: 'How quickly an open shooter lets it fly: higher, the ball reaches him just before his shot and he rises up at once, instead of holding it while the defense recovers.' },
+    { key: 'spacing', group: 'ai', label: 'Floor Spacing', map: ['lin', 0.8, 1.2], fmt: 'level', lo: 'Crowded', hi: 'Five out',
+      desc: 'How far off-ball players spread out around the arc and into the corners.' },
+    { key: 'defIQ', group: 'ai', label: 'Defensive Awareness', map: ['lin', 0.5, 1.5], fmt: 'level', lo: 'Lost', hi: 'Locked in',
+      desc: 'How well defenders stay between their man and the basket, keep the ball and their man in view, and recover after screens and drives.' },
+    { key: 'defPressure', group: 'ai', label: 'On-Ball Pressure', map: ['lin', 0.8, 1.25], fmt: 'level', lo: 'Sag off', hi: 'Up close',
+      desc: 'How closely defenders play the ball handler. At 50 the cushion matches NBA player tracking (about 4 ft around the three-point line, tighter near the rim).' },
+    { key: 'helpD', group: 'ai', label: 'Help Defense', map: ['lin', 0.5, 1.5], fmt: 'level', lo: 'Stay home', hi: 'Swarm',
+      desc: 'How far help defenders sink toward the ball and how hard they collapse on drives. More help protects the rim but leaves shooters open on the kick-out.' },
     // User team
     { key: 'userShooting', group: 'user', label: 'Your Team: Shooting', map: ['add', -0.35, 0.35], fmt: 'fg', base: 0.47,
       desc: 'Make percentage for your team only. Higher makes the game easier.' },
@@ -239,7 +253,7 @@
     pace: 1, trans: 1, three: 1, dunk: 1, l3: 0, lMid: 0, lIn: 0, ft: 0, sfoul: 1,
     to: 1, stl: 1, blk: 1, contest: 0, nsfoul: 1, oreb: 0,
     fatigue: 1, inj: 1, injSev: 1, usage: 1, clutch: 1, home: 1, upset: 1, po: 1,
-    uShoot: 0, uDef: 0, uTo: 1,
+    uShoot: 0, uDef: 0, uTo: 1, quick: 1,
   };
 
   /** Multipliers/offsets for the game engine (cached by Sim.createGame on g.sl). All identity at the defaults. */
@@ -253,7 +267,15 @@
       fatigue: m('fatigue'), inj: m('injuries'), injSev: m('injurySeverity'), usage: m('starUsage'), clutch: m('clutch'),
       home: m('homeCourt'), upset: m('upsets'), po: m('playoffIntensity'),
       uShoot: m('userShooting'), uDef: m('userDefense'), uTo: m('userBallSecurity'),
+      quick: m('shootOpen'),
     };
+  }
+
+  /** Live game AI sliders, raw 0..100 (50 = calibrated), read by the live view's director. */
+  function aiMods(S) {
+    const s = get(S), o = {};
+    for (const d of DEFS) if (d.group === 'ai') o[d.key] = s[d.key];
+    return o;
   }
 
   /** League behaviour settings as numbers (and the trade-request toggle). */
@@ -287,12 +309,13 @@
       case 'pct': return `${sgn(x)}${Math.abs(x * 100).toFixed(1)}%`;
       case 'contest': return x > 0 ? `${Math.round(x * 300)}% fewer open looks` : `${Math.round(-x * 300)}% more open looks`;
       case 'margin': return `${sgn(x)}${Math.abs(Math.round(x * 100))}% asking value`;
+      case 'level': return `${v > 50 ? '+' : '-'}${Math.abs(v - 50) * 2}%`;
       default: return String(v);
     }
   }
 
   PBC.Sliders = {
     GROUPS, DEFS, BY_KEY, KEYS, GAME_KEYS, LEAGUE_KEYS, PRESETS, PRESET_KEYS, IDENTITY,
-    mapVal, defaults, get, value, set, applyPreset, reset, detectPreset, simMods, league, describe,
+    mapVal, defaults, get, value, set, applyPreset, reset, detectPreset, simMods, aiMods, league, describe,
   };
 })();
