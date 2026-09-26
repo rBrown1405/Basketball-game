@@ -142,7 +142,7 @@
       this._inT = null;
     }
     resetFeet() {
-      const st = A.STANCE[this.stance] || A.STANCE.stand;
+      const st = stanceOf(this, this.stance);
       for (const f of this.feet) {
         const o = f.side ? st.R : st.L;
         const c = Math.cos(this.facing), s = Math.sin(this.facing);
@@ -282,20 +282,20 @@
       } else {
         steps.push({ t0: 0.03, t1: dur, foot: fSide, to: rot(F0, delta), yaw: delta / D, lift: 0.06 });
       }
-      const hold = o.hold || 'triple';
+      const hold0 = o.hold || 'triple', hold = this.lefty && HANDED[hold0] ? HANDED[hold0] : hold0, bm = this.lefty ? -1 : 1;
       const clip = A.buildClip({
         name: 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
         pivot: { side, t0: 0, t1: dur + 0.12 },
         keys: [
-          { t: 0, p: hold, ball: [0.095, 0.12, 0.53], grip: 'hip' },
-          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.095, 0.13, 0.55], grip: 'hip' },
-          { t: dur + 0.12, p: hold, ball: [0.095, 0.12, 0.53], grip: 'hip' },
+          { t: 0, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.13 * bm, 0.21, 0.55], grip: this.lefty ? 'hipL' : 'hip' },
+          { t: dur + 0.12, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
         ],
       });
       this.ballHold = 'triple';
       // (built for this player's own feet and turn: never mirrored for a lefty)
       const cs = this.play(clip, { x: this.x, y: this.y, facing: this.facing, fadeIn: 0.08, mirror: false });
-      if (cs) cs.onEnd = () => { this.setStance(hold); this.setFace(o.faceAfter != null ? o.faceAfter : angle); };
+      if (cs) cs.onEnd = () => { this.setStance(hold0); this.setFace(o.faceAfter != null ? o.faceAfter : angle); };
       return !!cs;
     }
     /**
@@ -419,6 +419,7 @@
     }
     _turn(dt) {
       const want = this._desiredFacing();
+      this._wantFace = want; this._wantT = this.time;
       // (a 180 in ~0.3 s standing, ~0.4 s on the run; quicker for the agile)
       const rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
       this.facing = U.angApproach(this.facing, want, rate * dt);
@@ -817,7 +818,7 @@
     }
 
     _stanceFeet(dt) {
-      const st = A.STANCE[this.stance] || A.STANCE.stand;
+      const st = stanceOf(this, this.stance);
       const H = this.H;
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
       const rx = s, ry = -c;
@@ -1155,7 +1156,7 @@
       switch (this.ballHold) {
         // (on the front of the right hip, in toward the middle a little: the other hand reaches across to it from the
         // crouch and clears the belly)
-        case 'triple': out[0] = 0.095 * H * m; out[1] = 0.12 * H; out[2] = 0.53 * H; break;
+        case 'triple': out[0] = 0.13 * H * m; out[1] = 0.2 * H; out[2] = 0.53 * H; break;
         case 'over': out[0] = 0; out[1] = 0.05 * H; out[2] = 1.1 * H; break;
         // (on the shot's line: ~6 in off the belly and a little more, so the straight line up clears the face; just
         // right of the middle)
@@ -1215,7 +1216,7 @@
       return o;
     }
     _stancePose(name) {
-      const st = A.STANCE[name] || A.STANCE.stand;
+      const st = stanceOf(this, name);
       return PL[st.pose] || PL.stand;
     }
 
@@ -1273,6 +1274,27 @@
         if (lat > 0.001) A.applySlide(p, this.phase, this.gaitK * lat);
         if (back > 0.001) { p[CH.spFlex] -= 6 * D * this.gaitK * back; p[CH.pelPitch] -= 4 * D * this.gaitK * back; }
       }
+      // a single step (not the running cycle): the weight goes over the other foot while this one is up, the
+      // stepping side's hip drops a little and comes through with the leg (a step taken by the leg alone, the hips
+      // parked over the middle, looked like the leg was not part of the body)
+      if (this.gaitK < 0.999 && this.fall <= 0) {
+        const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        for (const f of this.feet) {
+          if (f.state !== 'swing' || f.mode !== 'step') continue;
+          const o = this.feet[1 - f.side];
+          if (o.state !== 'plant') continue;
+          const b = Math.sin(Math.PI * U.clamp(f.s || 0, 0, 1)) * (1 - U.clamp(this.gaitK, 0, 1)) * (this.clip ? 0.5 : 1);
+          if (b <= 0.001) continue;
+          const sg = f.side ? 1 : -1;
+          // (the standing foot's offset to the right, feet)
+          const lat = (o.x - this.x) * s - (o.y - this.y) * c;
+          p[CH.rootX] += U.clamp(lat * 0.3, -0.12, 0.12) * b;
+          p[CH.pelRoll] += sg * 2 * D * b;
+          const fwd = ((f.tx - f.x) * c + (f.ty - f.y) * s) / H;
+          p[CH.pelTwist] += sg * U.clamp(fwd * 0.5, -0.1, 0.1) * b;
+          p[CH.chTwist] -= sg * U.clamp(fwd * 0.2, -0.04, 0.04) * b;
+        }
+      }
       // driving with the ball: he stays down in it (the dribble drive reference: low, knees bent, leaning into it);
       // only running it out in the open does he come up
       if (this.dribble && this.gaitK > 0.001 && !this.clip) {
@@ -1296,6 +1318,20 @@
         const w = U.smooth(cs.w);
         const mask = maskOf(cs.clip.mask);
         for (const i of mask) p[i] += (this.clipPose[i] - p[i]) * w;
+      }
+      // 3a. the body goes with the pass: the weight comes forward and the hips hinge and dip as the arms extend (the
+      // upper-body clips leave the pelvis to the stance, so a pass was thrown by the arms alone with the legs and
+      // hips standing still); a catch gives a little the other way
+      if (this.upper && !this.clip) {
+        const cs = this.upper, ev = cs.clip.events || {}, w = U.smooth(cs.w), t = cs.t;
+        if (ev.release != null) {
+          const r = Math.max(0.05, ev.release);
+          const k = (t < r ? U.smooth(t / r) : Math.exp(-(t - r) / 0.16)) * w;
+          p[CH.rootY] += 0.2 * k; p[CH.rootZ] -= 0.014 * k; p[CH.pelPitch] += 6 * D * k; p[CH.spFlex] += 3 * D * k;
+        } else if (ev.catch != null) {
+          const k = t < ev.catch ? 0 : U.smooth(Math.min(1, (t - ev.catch) / 0.07)) * Math.exp(-Math.max(0, t - ev.catch - 0.07) / 0.18) * w;
+          p[CH.rootY] -= 0.08 * k; p[CH.rootZ] -= 0.01 * k; p[CH.pelPitch] += 2 * D * k; p[CH.spFlex] += 3 * D * k;
+        }
       }
       // 3b. squared up to a pass target: the trunk takes the turn the feet have not made yet
       if (this.aim_ && this.aim_.w > 0.001 && !this.clip) {
@@ -1344,6 +1380,92 @@
       p[CH.chTwist] += rel * 0.2; p[CH.nkTwist] += rel * 0.35; p[CH.hdTwist] += rel * 0.35;
     }
 
+    /** one body, turning: (1) the hips take about a third of any turn of the upper body over planted feet (a pass,
+     *  a look, squaring up), spread so the lower spine sits between the hips and the chest instead of the chest
+     *  twisting on still hips; (2) a turn of the whole body starts at the head: the head and neck lead the facing by
+     *  its turn rate, the chest a little, and the hips come round last (standing and walking turns go eyes, head,
+     *  trunk, pelvis, feet). dt: time since the last solve (0 = the same frame again) */
+    _bodyTurn(p, dt) {
+      const kt = this._kt || (this._kt = { f: this.facing, wf: 0, wv: 0, ld: 0, lv: 0 });
+      // the rest of the turn the body is making (where the steering wants it to face), while it steers itself
+      const lead = !this.clip && this._wantT != null && this.time - this._wantT < 0.1 ? U.clamp(U.wrapPi(this._wantFace - this.facing), -0.9, 0.9) : 0;
+      if (!(dt >= 0) || dt > 0.12) { kt.f = this.facing; kt.wf = 0; kt.wv = 0; kt.ld = lead; kt.lv = 0; }
+      else if (dt > 0) {
+        const raw = U.clamp(U.wrapPi(this.facing - kt.f) / dt, -14, 14);
+        kt.f = this.facing;
+        // (the turn rate and the lead eased by critically damped springs, ~40 and ~60 ms, so neither twitches)
+        let y = 2 * Math.LN2 / 0.04, j0 = kt.wf - raw, j1 = kt.wv + j0 * y, e = Math.exp(-y * dt);
+        kt.wf = e * (j0 + j1 * dt) + raw; kt.wv = e * (kt.wv - j1 * y * dt);
+        // (only while the body is really turning: a facing held off its target - a pivot foot, a lock - would
+        // otherwise leave the chest twisted and the hands off a held ball)
+        const leadT = lead * U.smooth((Math.abs(kt.wf) - 0.3) / 1.2);
+        y = 2 * Math.LN2 / 0.06; j0 = kt.ld - leadT; j1 = kt.lv + j0 * y; e = Math.exp(-y * dt);
+        kt.ld = e * (j0 + j1 * dt) + leadT; kt.lv = e * (kt.lv - j1 * y * dt);
+      }
+      // (not boxing out, where the hips stay square to the man sealed behind while the head and chest find the ball,
+      // and half of it in a defensive stance, squared up to the ball handler)
+      const stK = this.stance === 'boxout' ? 0 : this.stance === 'defense' || this.stance === 'defenseWide' ? 0.5 : 1;
+      const kT = 0.3 * (1 - U.clamp(this.gaitK, 0, 1)) * (this.fall > 0 ? 0 : 1) * stK;
+      if (kT > 0.001) {
+        const T = p[CH.spTwist] + p[CH.chTwist];
+        const add = U.clamp(kT * T, -0.1, 0.1), k = Math.abs(T) > 1e-6 ? add / T : 0;
+        p[CH.pelTwist] += add; p[CH.spTwist] *= 1 - k; p[CH.chTwist] *= 1 - k;
+      }
+      // the head and neck turn toward the new direction first, the chest part of the way, the hips last (they
+      // follow the feet); a clip animates its own head and turn, so it gets none of this
+      const ld = kt.ld, wf = this.clip ? 0 : kt.wf;
+      if (Math.abs(ld) > 0.002 || Math.abs(wf) > 0.05) {
+        p[CH.hdTwist] += 0.35 * ld + U.clamp(0.02 * wf, -0.12, 0.12);
+        p[CH.nkTwist] += 0.3 * ld + U.clamp(0.015 * wf, -0.1, 0.1);
+        p[CH.chTwist] += 0.18 * ld + U.clamp(0.008 * wf, -0.05, 0.05);
+        p[CH.spTwist] += 0.07 * ld;
+        p[CH.pelTwist] -= U.clamp(0.012 * wf, -0.08, 0.08);
+      }
+    }
+    /** one body, follow-through and overlap: each segment out along a chain (lower spine, chest, neck, head; upper
+     *  arm, forearm) carries a small lag spring on its world angle, driven by how the animated angle accelerates,
+     *  so it trails a little as a motion starts and carries on a little as it stops ("successive breaking of
+     *  joints"). A landing or a take-off (the pelvis' vertical acceleration) nods the head and neck a touch. Arms
+     *  held on the ball by IK keep their hands there (only their elbows' bulge follows). dt as in _bodyTurn */
+    _followThrough(p, dt) {
+      const kc = this._kc || (this._kc = new KChain(10));
+      const fresh = !(dt >= 0) || dt > 0.12;
+      if (fresh) kc.reset();
+      const go = !fresh && dt > 0;
+      // vertical acceleration of the pelvis, and the body's forward and sideways acceleration (ft/s^2)
+      const hz = p[CH.rootZ] * this.H;
+      let aUp = 0, aF = 0, aL = 0;
+      if (go) {
+        const vz = (hz - kc.hz) / dt; if (kc.warm >= 2) aUp = U.clamp((vz - kc.vz) / dt, -200, 200); kc.vz = vz;
+        if (kc.warm >= 1) {
+          const c = Math.cos(this.facing), s = Math.sin(this.facing), ax = (this.vx - kc.pvx) / dt, ay = (this.vy - kc.pvy) / dt;
+          aF = U.clamp(ax * c + ay * s, -40, 40); aL = U.clamp(ax * s - ay * c, -40, 40);
+        }
+      } else if (fresh) kc.vz = 0;
+      kc.hz = hz; kc.pvx = this.vx; kc.pvy = this.vy;
+      let W = p[CH.pelPitch], prev = 0, chestW = 0;
+      for (let k = 0; k < 4; k++) {
+        const ch = KC_PITCH[k];
+        W += p[ch];
+        if (k === 1) chestW = W;
+        // (landing: the head nods; braking: it tips forward a touch, speeding up: back)
+        const ext = k === 3 ? 0.18 * aUp - 0.12 * aF : k === 2 ? 0.1 * aUp - 0.06 * aF : 0;
+        const o = kc.at(k, W, dt, go, KC_SPINE[k], ext);
+        p[ch] += o - prev; prev = o;
+      }
+      for (let side = 0; side < 2; side++) {
+        const pre = side ? 'r' : 'l', b = 4 + side * 3;
+        const iF = CH[pre + 'ShF'], iE = CH[pre + 'ElF'], iA = CH[pre + 'ShA'];
+        const wUa = chestW + p[iF], wFa = wUa + p[iE];
+        // (the arms hang from the shoulders: braking swings them forward, speeding up leaves them behind, a cut to
+        // one side swings them the other way)
+        const sgA = side ? 1 : -1;
+        const oU = kc.at(b, wUa, dt, go, KC_UA, -0.45 * aF), oF = kc.at(b + 1, wFa, dt, go, KC_FA, 0), oA = kc.at(b + 2, p[iA], dt, go, KC_AB, -0.4 * sgA * aL);
+        p[iF] += oU; p[iE] += oF - oU; p[iA] += oA;
+      }
+      if (go) kc.warm++;
+    }
+
     /** final solve: sets IK requests from feet / ball and runs the skeleton */
     solve() {
       this.buildPose();
@@ -1353,6 +1475,8 @@
       const dtI = this._inT == null ? -1 : tNow - this._inT;
       this._inT = tNow;
       this._inDt = dtI;
+      // one body: the hips take their share of a turn of the upper body, and a turn starts at the head
+      this._bodyTurn(p, dtI);
       const fall = this.fall;
       // feet
       let minRootZ = Infinity;
@@ -1424,6 +1548,8 @@
       this._armTargets();
       // pose channels that jump between frames (stance and clip switches, dribble arm poses, look-at flips) glide
       this._inTorso.apply(p, dtI);
+      // one body: each segment out along the spine and the arms trails and follows through a little
+      this._followThrough(p, dtI);
       sk.dt = dtI;
       sk.solve(p, this.x, this.y, this.facing);
       sk.dt = 0;
@@ -1592,13 +1718,15 @@
           // a plain hold: elbows down and out, palms on the sides of the ball
           const gripName = this.ballHold === 'triple' ? 'hip' : this.ballHold === 'over' ? 'over' : 'hold';
           const grip = A.GRIP[gripName], pole = HOLD_POLE[gripName] || null;
+          // (the triple threat stance's arms are fitted to hold the ball: its elbows go where that pose has them)
+          const fk = gripName === 'hip' && this.stance === 'triple';
           const mir = this.lefty;
           for (let side = 0; grip && side < 2; side++) {
             const g = mir ? (side ? grip.l : grip.r) : (side ? grip.r : grip.l);
             if (!g) continue;
             const gx = mir ? -g[0] : g[0];
             const ik = sk.armIK[side];
-            ik.on = 1; this._grip[side] = 1; src[side] = 'grip'; ik.pole = pole;
+            ik.on = 1; this._grip[side] = 1; src[side] = 'grip'; ik.pole = fk ? null : pole; ik.fkPole = fk;
             ik.x = b.x + (s * gx + c * g[1]) * BALL_R;
             ik.y = b.y + (-c * gx + s * g[1]) * BALL_R;
             ik.z = b.z + g[2] * BALL_R;
@@ -1690,6 +1818,40 @@
   const DRIB_POLE = [0.28, -0.85, -0.45];
   // holding the ball without a clip: elbows down and out (chest), out and forward (overhead), back (hip pocket)
   const HOLD_POLE = { hold: [0.62, -0.25, -0.75], over: [0.75, 0.25, -0.3], hip: [0.35, -0.8, -0.5] };
+  // stances with a ball side (the ball on the right hip / right of the chest): a lefty gets the mirror image, pose and
+  // feet (the stance poses used to stay right-handed while a lefty's ball went to his left hip, so his hands missed it)
+  const HANDED = { triple: 'tripleL', shotPocket: 'shotPocketL' };
+  const MIR_ST = {};
+  function stanceOf(a, name) {
+    const st = A.STANCE[name] || A.STANCE.stand;
+    if (!a.lefty || !HANDED[name]) return st;
+    return MIR_ST[name] || (MIR_ST[name] = Object.assign({}, st, { pose: HANDED[name], L: [-st.R[0], st.R[1]], R: [-st.L[0], st.L[1]] }));
+  }
+  // follow-through springs (see _followThrough): [gain on the animated angular acceleration, half-life (s), largest
+  // offset (rad)]; further out along a chain = more gain, a softer spring and more room
+  const KC_PITCH = [CH.spFlex, CH.chFlex, CH.nkFlex, CH.hdFlex];
+  const KC_SPINE = [[0.12, 0.05, 1.5 * D], [0.2, 0.06, 2.5 * D], [0.34, 0.07, 4 * D], [0.42, 0.075, 5 * D]];
+  const KC_UA = [0.22, 0.06, 4 * D], KC_FA = [0.4, 0.07, 9 * D], KC_AB = [0.2, 0.06, 3 * D];
+  const KC_AMAX = 160; // (rad/s^2: a finite-difference acceleration capped, for a switch nothing upstream smoothed)
+  /** lag springs on world angles: offset o'' = -w^2 (o - eq) - 2w o', eq = -gain * (angle'' ) / w^2 (+ an outside
+   *  push), critically damped (D. Holden, "Spring-It-On: The Game Developer's Spring-Roll-Call") */
+  class KChain {
+    constructor(n) { this.w = new Float64Array(n); this.v = new Float64Array(n); this.o = new Float64Array(n); this.ov = new Float64Array(n); this.warm = 0; this.hz = 0; this.vz = 0; this.pvx = 0; this.pvy = 0; }
+    reset() { this.o.fill(0); this.ov.fill(0); this.v.fill(0); this.warm = 0; }
+    /** offset for quantity i at world angle W: stepped by dt when go, else the last one (or 0 after a reset) */
+    at(i, W, dt, go, spec, ext) {
+      if (!go) { if (this.warm === 0) { this.w[i] = W; this.v[i] = 0; } return this.o[i]; }
+      const v = (W - this.w[i]) / dt;
+      const a = this.warm >= 2 ? U.clamp((v - this.v[i]) / dt, -KC_AMAX, KC_AMAX) : 0;
+      this.w[i] = W; this.v[i] = this.warm >= 1 ? v : 0;
+      const y = 2 * Math.LN2 / spec[1];
+      const eq = U.clamp((-spec[0] * a + ext) / (y * y), -spec[2], spec[2]);
+      const j0 = this.o[i] - eq, j1 = this.ov[i] + j0 * y, e = Math.exp(-y * dt);
+      this.o[i] = U.clamp(e * (j0 + j1 * dt) + eq, -spec[2] * 1.4, spec[2] * 1.4);
+      this.ov[i] = e * (this.ov[i] - j1 * y * dt);
+      return this.o[i];
+    }
+  }
   const RT = { x: 0, y: 0, yaw: 0 };
   function frac(v) { return v - Math.floor(v); }
   /** did phase go through point p while moving from a to b (b>=a, may exceed 1)? */

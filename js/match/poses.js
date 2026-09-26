@@ -58,11 +58,13 @@
     rShF: 165, rShA: 12, rShT: 0, rElF: 10, rPro: 60, rWrF: -10, rFing: 0.05,
     both: { HipF: 24, HipA: 12, Knee: 30, Ank: 10 },
   });
-  // triple threat (ball on the right hip, left foot forward)
+  // triple threat (ball on the right hip, left foot forward), arms fitted to the rig so both palms are on the ball:
+  // the right hand behind and over its top with the elbow back, the left hand on its front-left side (fingers
+  // forward and up), the ball a little out in front of the hip where the left arm reaches it without crushing the belly
   def('triple', {
     rootZ: -0.075, pelPitch: 26, pelTwist: 10, spFlex: 12, spTwist: 6, chFlex: 8, chTwist: 6, nkFlex: -24, hdFlex: -4, hdTwist: -8,
-    lShF: 42, lShA: 8, lShT: 30, lElF: 70, lPro: 40, lWrF: 10,
-    rShF: 12, rShA: 18, rShT: 30, rElF: 80, rPro: 10, rWrF: -20,
+    lShF: 43.5, lShA: -26.5, lShT: 80, lElF: 61, lPro: 82, lWrF: -32, lWrD: 25,
+    rShF: -44, rShA: 10, rShT: -26, rElF: 126, rPro: 106.5, rWrF: -75, rWrD: 25,
     lHipF: 44, lHipA: 10, lKnee: 48, rHipF: 30, rHipA: 12, rKnee: 44, lAnk: 14, rAnk: 14,
   });
   // ball held at the chest (after a catch / looking to pass)
@@ -96,6 +98,10 @@
     rShF: 155, rShA: -0.5, rShT: 62, rElF: 6.5, rPro: 105, rWrF: 82, rWrD: -12, rFing: 0.2,
     both: { HipF: 10, HipA: 4, Knee: 16, Ank: -38 },
   });
+  // left-handed versions of the handed holds (a lefty's triple threat has the ball on the left hip and the right foot
+  // forward; his shot pocket is on the left of the chest)
+  lib.tripleL = RG.mirrorPose(lib.triple, new Float32Array(lib.triple.length));
+  lib.shotPocketL = RG.mirrorPose(lib.shotPocket, new Float32Array(lib.shotPocket.length));
   // running reference keys (used by viewer / tests)
   def('runA', {
     rootZ: -0.03, pelPitch: 10, pelTwist: -8, spFlex: 8, chTwist: 12, nkFlex: -6,

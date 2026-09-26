@@ -223,7 +223,16 @@
         elev = U.lerp(Math.acos(U.clamp(Math.cos(p[CH[pre + 'ShF']]) * Math.cos(p[CH[pre + 'ShA']]), -1, 1)), Math.acos(U.clamp(-Dz / dl, -1, 1)), Math.min(1, ik.on));
       } else elev = Math.acos(U.clamp(Math.cos(p[CH[pre + 'ShF']]) * Math.cos(p[CH[pre + 'ShA']]), -1, 1));
       const shrug = U.smooth((elev - 1.2) / 1.9) * 1.25;
-      this._shoulder(side, shrug);
+      // the shoulder blade goes with the arm: it slides forward round the ribs as the arm reaches out in front
+      // (protraction, the shoulder ~5-6 cm forward and a little in at a full reach) and back as the arm swings behind
+      // (retraction), from the animated upper arm and elbow; an arm held on the ball by IK takes 40% of it (its pose
+      // is the designed hold, and the hand must stay on the ball). Without it the arm turned on a shoulder bolted to
+      // a still chest
+      // (fading out as the arm goes overhead, where the blade rotates up instead: that is the shrug above)
+      const Fa = p[CH[pre + 'ShF']], hf = Math.sin(Fa) * Math.cos(p[CH[pre + 'ShA']]) * (1 - U.smooth((Fa - 95 * U.DEG) / (45 * U.DEG)));
+      const ext = U.clamp(1 - p[CH[pre + 'ElF']] / (150 * U.DEG), 0, 1);
+      const prot = (hf >= 0 ? Math.min(1.1, 1.1 * hf * (0.4 + 0.6 * ext)) : Math.max(-0.6, 0.5 * hf)) * (1 - 0.6 * Math.min(1, ik.on));
+      this._shoulder(side, shrug, prot);
       if (ik.on > 0.001) this._armIK(side, pre, sg, P[o], P[o + 1], P[o + 2]);
       else { ik.hf = null; ik.hb = null; }
       limitArm(p, pre);
@@ -292,11 +301,13 @@
       this._armFK(side);
       return true;
     }
-    _shoulder(side, shrug) {
+    _shoulder(side, shrug, prot) {
       const d = this.dims, H = d.H, P = this.P, R = this.R, p = this.pose;
       const sg = side === 0 ? -1 : 1, pre = side === 0 ? 'l' : 'r';
       const o = (side === 0 ? J.L_SH : J.R_SH) * 3;
-      xf(R, 18, P[6], P[7], P[8], sg * d.shX, -0.006 * H + p[CH[pre + 'ClvP']] * 0.03 * H, d.shZ + (p[CH[pre + 'ClvE']] + shrug) * 0.035 * H, P, o);
+      const pr = p[CH[pre + 'ClvP']] + (prot || 0);
+      // (protraction wraps the blade round the ribs: forward, and a little in)
+      xf(R, 18, P[6], P[7], P[8], sg * (d.shX - Math.max(0, pr) * 0.009 * H), -0.006 * H + pr * 0.03 * H, d.shZ + (p[CH[pre + 'ClvE']] + shrug) * 0.035 * H, P, o);
     }
     /** forward kinematics of one arm from the shoulder joint and the pose angles */
     _armFK(side) {

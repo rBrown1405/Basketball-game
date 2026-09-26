@@ -229,7 +229,9 @@
     overW: { r: [0.9, -0.6, -0.5], l: [-0.9, -0.6, -0.5] },
     overR: { r: [0.9, -0.8, -0.3], l: [-0.9, -0.8, -0.3] },
     hold: { r: [1.35, -0.45, -0.25], l: [-1.35, -0.45, -0.25] },
-    hip: { r: [0.85, -0.3, -1.1], l: [-1.2, 0.8, 0.1] },
+    // (triple threat, fitted with the triple pose's arms: right hand behind and over the top, left on the front-left)
+    hip: { r: [0.347, -1.217, 0.55], l: [-1.296, 0.054, -0.532] },
+    hipL: { r: [1.296, 0.054, -0.532], l: [-0.347, -1.217, 0.55] },
     // overhead two hands: palms on the sides of the ball, wrists a little below its centre
     over: { r: [1.2, -0.5, -0.6], l: [-1.2, -0.5, -0.6] },
     right: { r: [0.4, -1.2, -0.9], l: null },

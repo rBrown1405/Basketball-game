@@ -223,3 +223,14 @@ set by the engine's own sliders. The director reads them through `Director.slide
   one-hand dunk lift the ball outside the right shoulder with the left hand dropping off below the chin (`LAY.takeoff`,
   `LAY.lift`, grips `layLift`, `layLift2`, `layLiftR`); two-hand dunks, the putback dunk and the intercept take the ball
   up or catch it out in front; the rebound is chinned under the chin.
+* **One connected body**: `Actor._bodyTurn` (the hips take about a third of any upper-body turn over planted feet, none
+  boxing out, half on defense; while the body turns, the head and chest lead toward where the steering is taking it and
+  the hips follow last),
+  `Actor._followThrough` (`KChain` lag springs on the spine, neck, head, upper arm and forearm world angles, driven by
+  their animated acceleration and the body's own: follow-through and overlap, capped at a few degrees), a weight
+  shift over the standing foot on single steps, the hips going with a pass (and giving on a catch), and shoulder-blade
+  protraction and retraction in `Rig._arm` (the shoulder joint slides with the arm's reach).
+* **Triple threat and lefties**: the triple threat's arms are fitted to the rig (`Poses.lib.triple`, grip `hip`, ball at
+  [0.13, 0.2, 0.53] H) and its elbows follow the pose (`armIK.fkPole`); stances with a ball side (`triple`,
+  `shotPocket`) are mirrored for left-handers, pose and feet (`stanceOf`, `Poses.lib.tripleL` / `shotPocketL`), and so
+  is the pivot (grip `hipL`).
