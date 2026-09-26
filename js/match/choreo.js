@@ -1824,13 +1824,34 @@
       const rbA = reb.player != null ? this.A(reb.player) : null;
       const d = Math.hypot(spot.x - this.rim.x, spot.y - this.rim.y);
       const gapG = Math.max(0, (+reb.t || 0) - (+ev.t || 0));
-      // carom spot: long shots -> long rebounds, direction biased toward the rebounder
-      let ang;
-      if (rbA) ang = Math.atan2(rbA.y - this.rim.y, rbA.x - this.rim.x);
-      else ang = Math.atan2(spot.y - this.rim.y, spot.x - this.rim.x) + (Math.random() - 0.5);
+      // carom spot: where misses really go (NBA optical tracking: ~3-4 ft off the rim on shots at it, ~5 ft from mid
+      // range, ~8 ft from three with a long tail; a miss from the wing or the corner comes off to the weak side more
+      // often than back to the shooter's side), then, of a few such caroms, the one the engine's rebounder can get
+      // to: he is who gets it, the ball goes where a miss would
       const toCourt = Math.atan2(0, -this.dir); // direction from the rim toward half court
-      ang = U.angLerp(ang, toCourt, 0.15);
-      let cd = rbA ? U.clamp(Math.hypot(rbA.x - this.rim.x, rbA.y - this.rim.y) * 0.6 + (d > 20 ? 4 : 1), 3.5, 15) : 20;
+      const shotA = Math.atan2(spot.y - this.rim.y, spot.x - this.rim.x), relA = U.wrapPi(shotA - toCourt), weakA = toCourt - relA;
+      const mean = d < 8 ? 3.6 : d < 16 ? 5 : d < 22.5 ? 6.2 : 8;
+      let ang = shotA + (Math.random() - 0.5), cd = rbA ? mean : 20, best = Infinity;
+      if (rbA) {
+        for (let k = 0; k < 7; k++) {
+          const long = Math.random() < (Math.abs(relA) > 0.6 ? 0.62 : 0.5);
+          const a = (long ? weakA : shotA) + (Math.random() + Math.random() - 1) * 0.7;
+          const dist = U.clamp(mean * (long ? 1.1 : 0.85) * Math.exp((Math.random() + Math.random() + Math.random() - 1.5) * 0.45), 2.2, 16);
+          const cx = this.rim.x + Math.cos(a) * dist, cy = this.rim.y + Math.sin(a) * dist;
+          // (never behind the backboard)
+          if ((cx - this.rim.x) * this.dir > 0.6) continue;
+          const reach = Math.hypot(rbA.x - cx, rbA.y - cy);
+          if (reach < best) { best = reach; ang = a; cd = dist; }
+        }
+        if (best === Infinity) { ang = U.angLerp(Math.atan2(rbA.y - this.rim.y, rbA.x - this.rim.x), toCourt, 0.15); cd = mean; }
+        else if (best > 8) {
+          // (he is well away from every natural carom: it comes off his way, partway, so he gets under it)
+          const k = U.clamp((best - 8) / 12, 0, 0.45);
+          const cx = this.rim.x + Math.cos(ang) * cd, cy = this.rim.y + Math.sin(ang) * cd;
+          const nx = cx + (rbA.x - cx) * k, ny = cy + (rbA.y - cy) * k;
+          ang = Math.atan2(ny - this.rim.y, nx - this.rim.x); cd = U.clamp(Math.hypot(nx - this.rim.x, ny - this.rim.y), 2.2, 16);
+        }
+      }
       // an offensive rebound followed by a putback comes off short, near the rim
       const iR = this.events.indexOf(reb);
       const nxt = iR >= 0 ? this.events[iR + 1] : null;
@@ -1903,6 +1924,8 @@
         if (!result.made) { /* dunk miss: treat as rim miss */ }
         v.arena.cheer(this.off, 1, 3);
         if (v.sound) v.sound('dunk', 1);
+        // the stanchion takes the hit: a small jolt of the picture as the ball goes down
+        this.at(this.T + 0.12, () => { if (v.camRig && v.camRig.kick) v.camRig.kick(0.22); }, 'dunk jolt');
         this.at(this.T + 0.35, () => { this.hoop.hitRim(2); }, 'rim shake');
         this.crashBoards(sh, true);
         return;
@@ -1926,6 +1949,9 @@
         b.passTarget = pr.actor;
         this.scheduleRebounder(pr, info2.tEnd && pr.actor ? tContact + tCarom : tContact + tCarom);
         this.pendingRebound.tGrab = tContact + tCarom;
+        // box-outs hold until the ball comes off the rim, then everyone near the carom goes after it
+        const prC = this.pendingRebound;
+        this.at(this.T + Math.max(0.05, tContact - b.time), () => this.chaseCarom(prC), 'chase carom');
       }
       if (result.made) {
         const three = (+ev.pts === 3);
@@ -1943,7 +1969,35 @@
     caromTime(pr, tToContact) {
       const want = pr.gapG > 0 ? pr.gapG - tToContact : 0.9;
       const dist = Math.hypot(pr.x - this.rim.x, pr.y - this.rim.y);
-      return U.clamp(want, 0.45 + dist * 0.03, 1.5 + dist * 0.05);
+      // (off the rim the ball keeps ~half its speed (rim restitution ~0.5-0.6): a carom hangs ~0.5-1.2 s, never floats)
+      return U.clamp(want, 0.45 + dist * 0.03, 0.75 + dist * 0.06);
+    }
+    /** the ball is off the rim: the box-outs break and whoever is close goes after it; the engine's rebounder gets
+     *  there, the others arrive a step late, and the nearest opponent goes up with him */
+    chaseCarom(pr) {
+      if (!pr || !pr.actor || this.pendingRebound !== pr) return;
+      const cand = [];
+      for (const a of this.offActors().concat(this.defActors())) {
+        if (a === pr.actor || a.isBusy()) continue;
+        const dd = Math.hypot(a.x - pr.x, a.y - pr.y);
+        if (dd < 9) cand.push({ a, dd });
+      }
+      cand.sort((p, q) => p.dd - q.dd);
+      const ball = this.v.ball;
+      for (const c of cand.slice(0, 3)) {
+        const a = c.a, ang = Math.atan2(pr.y - a.y, pr.x - a.x), go = Math.max(0, c.dd - 2.8);
+        if (a.team === this.off) this.lockOff(a, 1.4); else this.lockDef(a, 1.4);
+        a.moveTo(a.x + Math.cos(ang) * go, a.y + Math.sin(ang) * go, { speed: 15, face: () => Math.atan2(ball.y - a.y, ball.x - a.x), stance: 'ready' });
+      }
+      const opp = cand.find((c) => c.a.team !== pr.actor.team && c.dd < 5.5);
+      if (opp && Math.random() < 0.6 && pr.tGrabT != null) {
+        const clip = M.Anims.get('contestJump'), up = clip.events.set || 0.18;
+        this.at(Math.max(this.T + 0.05, pr.tGrabT - up - 0.12), () => {
+          const a = opp.a;
+          if (a.isBusy() || !this.pendingRebound) return;
+          a.play('contestJump', { mirror: a.lefty, facing: Math.atan2(pr.y - a.y, pr.x - a.x) });
+        }, 'rebound contest');
+      }
     }
     reportScore(ev) {
       if (this.scored) return;

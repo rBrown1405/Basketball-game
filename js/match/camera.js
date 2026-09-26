@@ -84,9 +84,11 @@
       this.zoom = 0; // 0..1 blend toward the half-court framing ('auto' broadcast camera)
       this.zoomTarget = 0;
       this.auto = false;
-      this.shake = 0;
+      this.shake = 0; this.shakeT = 0;
       this.apply();
     }
+    /** a jolt (a dunk, a hard foul at the rim): a short, damped shake of the picture, amp in feet */
+    kick(amp) { this.shake = Math.max(this.shake, amp); this.shakeT = 0; }
     setPreset(name) {
       if (name === 'auto') { this.auto = true; this.preset = 'broadcast'; return; }
       this.auto = false;
@@ -125,10 +127,14 @@
         const fMax = c.W * d / (2 * 26);
         if (f > fMax) f = U.lerp(f, fMax, zk);
       }
-      c.setPose(this.pan.x, p.y, p.z, pitch, f);
+      // (the jolt: ~9 Hz, gone in ~0.4 s; a few inches at most, the picture never swims)
+      let sx = 0, sz = 0;
+      if (this.shake > 0.001) { const w = this.shakeT * 57; sx = Math.sin(w) * this.shake; sz = Math.sin(w * 1.37 + 1) * this.shake * 0.6; }
+      c.setPose(this.pan.x + sx, p.y, p.z + sz, pitch, f);
     }
     /** focus: {x, vx, snap} ; dt in presentation seconds */
     update(dt, focus) {
+      if (this.shake > 0.001) { this.shakeT += dt; this.shake *= Math.exp(-dt / 0.13); } else this.shake = 0;
       this.tight = U.approach(this.tight, this.tightTarget, dt * 0.9);
       this.zoom = U.approach(this.zoom, this.auto ? this.zoomTarget : 0, dt * 0.45);
       const tgt = this.target();

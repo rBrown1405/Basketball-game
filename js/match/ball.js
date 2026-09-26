@@ -591,14 +591,21 @@
       const v = this.view;
       if (s.w) { this.spin[0] = s.w[0]; this.spin[1] = s.w[1]; this.spin[2] = s.w[2]; }
       if (s.bounce && !s.roll) { this.squash = U.clamp(Math.abs(this.vz) / 20, 0.2, 1); this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1)); }
-      if (s.rim && this.shotHoop) { this.shotHoop.hitRim(s.soft ? 0.4 : 1); this.onRim && U.safe(() => this.onRim(this), null, 'onRim'); if (!s.w && !s.orbit) this.spin[2] += (Math.random() - 0.5) * 20; if (v && v.sound) v.sound('rim', s.soft ? 0.5 : 1); }
+      if (s.rim && this.shotHoop) {
+        // (the rim rings and the net jumps as hard as the ball came in: a flat line drive clangs, a soft touch ticks)
+        const hit = s.soft ? 0.4 : U.clamp(Math.hypot(this.vx, this.vy, this.vz) / 22, 0.55, 1.6);
+        this.shotHoop.hitRim(hit); this.onRim && U.safe(() => this.onRim(this), null, 'onRim');
+        if (!s.w && !s.orbit) this.spin[2] += (Math.random() - 0.5) * 20;
+        if (v && v.sound) v.sound('rim', s.soft ? 0.5 : U.clamp(hit, 0.6, 1));
+      }
       if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); if (v && v.sound) v.sound('board', 1); }
     }
     _fireSeg(s) {
       if (s.fired) return;
       s.fired = true;
       if (s.score) {
-        if (s.swish && this.shotHoop) this.shotHoop.swish(1);
+        // (a swish whips the net up hard, a make off the rim gives it a lighter snap)
+        if (this.shotHoop) this.shotHoop.swish(s.swish ? 1.3 : 0.6);
         if (this.view && this.view.sound) this.view.sound(s.swish ? 'swish' : 'net', 1);
         const cb = this.onScore; this.onScore = null;
         if (cb) U.safe(() => cb(this), null, 'onScore');
