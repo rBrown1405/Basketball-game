@@ -78,12 +78,13 @@
       if (v < 0) out[key + '_dec'] = -v; else out[key + '_inc'] = v;
     }
     const musc = U.clamp(st.musc || 0, -0.5, 0.5);
-    out.athlete_inc = U.clamp(1.0 + musc * 0.9, 0.3, 1.4) * (dims.fem ? 0.5 : 1);
+    // (pro athletes: the average player carries more muscle definition than an average fit person)
+    out.athlete_inc = U.clamp(1.15 + musc * 0.8, 0.5, 1.5) * (dims.fem ? 0.5 : 1);
     return out;
   }
   function comboWeights(st, dims) {
     const musc = U.clamp(st.musc || 0, -0.5, 0.5);
-    const m = U.clamp(0.55 + musc * 0.8, 0, 1);                   // average .. max muscle
+    const m = U.clamp(0.72 + musc * 0.6, 0, 1);                   // average .. max muscle (most pros near the top)
     const w = U.clamp((dims.bulk - 0.84) / (1.3 - 0.84), 0, 1);     // lean .. heavy
     const wmin = Math.max(0, 1 - w * 2.4), wmax = Math.max(0, w * 2 - 1), wavg = Math.max(0, 1 - wmin - wmax);
     // COMBOS order: avg-min, avg-avg, avg-max, max-min, max-avg, max-max

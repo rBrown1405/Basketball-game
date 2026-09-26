@@ -289,7 +289,13 @@
         this.time += h;
         d.update(h);
         if (!d.frozen) {
-          for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) a.update(h, this.time); }
+          for (const id in this.actors) {
+            const a = this.actors[id];
+            if (a.hidden) continue;
+            a.update(h, this.time);
+            // players warm up with a light sheen and glisten more the longer (and harder) they play
+            a.sweat = Math.min(0.92, (a.sweat == null ? 0.3 : a.sweat) + h * (0.0002 + 0.00005 * Math.min(25, a.speed || 0)));
+          }
           this.refAmbient(h);
           for (const r of this.refs) r.update(h, this.time);
           this.separate(h);

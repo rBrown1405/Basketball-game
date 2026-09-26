@@ -521,8 +521,9 @@
       a._trackOwner = this;
       a.track(() => {
         const p = this.guardPos(a);
-        // squared up a defender slides and backpedals (~13 ft/s at most); only once beaten does he turn and run
-        a.goal.speed = a._dface && a._dface.run ? a.maxSpeed : Math.min(a.maxSpeed, 13.5);
+        // squared up a defender slides and backpedals (~13 ft/s at most); only once beaten (or sprinting back in
+        // transition) does he turn and run
+        a.goal.speed = a._dface && (a._dface.run || a._dface.back) ? a.maxSpeed : Math.min(a.maxSpeed, 13.5);
         return p;
       }, { speed: a.maxSpeed, stance: 'defense' });
       a.setFace((me) => this.defFacing(me));
@@ -536,12 +537,19 @@
      */
     defFacing(me) {
       const b = this.v.ball;
-      const st = me._dface || (me._dface = { run: false });
+      const st = me._dface || (me._dface = { run: false, back: false });
       const lag = Math.hypot(me.goal.x - me.x, me.goal.y - me.y);
       if (!st.run && lag > 5 && me.speed > 9) st.run = true;
       else if (st.run && (lag < 2.2 || me.speed < 4)) st.run = false;
-      if (st.run) return me.speed > 3 ? Math.atan2(me.vy, me.vx) : null;
       const bx = b.holder ? b.holder.x : b.x, by = b.holder ? b.holder.y : b.y;
+      // getting back in transition: sprint facing the basket he defends, eyes on the ball over the shoulder,
+      // and square up to his man around the three-point line (nobody backpedals the length of the floor)
+      const u = this.U_(me.x), toRim = Math.atan2(this.rim.y - me.y, this.rim.x - me.x);
+      const headingHome = me.speed > 3 && Math.abs(U.wrapPi(Math.atan2(me.vy, me.vx) - toRim)) < 1.1;
+      if (!st.back && this.phase === 'start' && u > 34 && me.speed > 8 && headingHome && Math.abs(me.goal.x - me.x) > 8) st.back = true;
+      else if (st.back && (u < 29 || me.speed < 5 || this.phase !== 'start' || !headingHome)) st.back = false;
+      if (st.back) { me.lookAt({ x: bx, y: by }); return Math.atan2(me.vy, me.vx); }
+      if (st.run) return me.speed > 3 ? Math.atan2(me.vy, me.vx) : null;
       const zone = /zone|boxone/.test(this.scheme) && !(this.scheme === 'boxone' && this.v.onCourt[this.def].indexOf(me.id) === 0);
       const m = this.v.actor(this.matchup[me.id]);
       if (zone || !m) { me.lookAt(null); return Math.atan2(by - me.y, bx - me.x); }

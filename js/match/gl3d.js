@@ -130,15 +130,145 @@ float rim(vec3 N, vec3 V) { return pow(1.0 - max(dot(N, V), 0.0), 4.0) * max(N.z
 
 float th21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float ln(float d, float w, float aa) { return 1.0 - smoothstep(w, w + aa, abs(d)); }
+// ---- tattoos: black-and-grey sleeves built like real ones (a few shaded focal pieces joined by smoke, each with the
+// light glow artists leave around it), patchwork sleeves (separate pieces on bare skin), or bold tribal work
+float sdBox2(vec2 p, vec2 b) { vec2 d = abs(p) - b; return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0); }
+float sdStar5(vec2 p, float r, float rf) {
+  const vec2 k1 = vec2(0.809016994375, -0.587785252292);
+  const vec2 k2 = vec2(-k1.x, k1.y);
+  p.x = abs(p.x);
+  p -= 2.0 * max(dot(k1, p), 0.0) * k1;
+  p -= 2.0 * max(dot(k2, p), 0.0) * k2;
+  p.x = abs(p.x);
+  p.y -= r;
+  vec2 ba = rf * vec2(-k1.y, k1.x) - vec2(0.0, 1.0);
+  float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
+  return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
+}
+float edgeL(float d, float w, float aa) { return 1.0 - smoothstep(w, w + aa, abs(d)); }
+// rose: petals spiralling out, each dark where it tucks under the next and light at its rim, a black heart
+float tRose(vec2 f, float aa, float h) {
+  float r = length(f), a = atan(f.y, f.x);
+  float rimD = r - (0.9 + 0.07 * sin(a * 5.0 + h * 3.0));
+  float s = r * 3.1 + 0.33 * sin(a * 3.0 + r * 7.0 + h * 6.0) + a / 6.2832;
+  float pf = fract(s);
+  float body = mix(0.88, 0.12, smoothstep(0.0, 0.85, pf)) * 0.85 + edgeL(pf - 0.02, 0.03, aa * 3.0) * 0.9;
+  body = max(body, (1.0 - smoothstep(0.08, 0.24, r)) * 0.95);
+  return clamp(max(body * step(rimD, 0.0), edgeL(rimD, 0.035, aa)), 0.0, 1.0);
+}
+// pocket watch: heavy bezel, a shaded face, twelve ticks, two hands
+float tClock(vec2 f, float aa, float h) {
+  float r = length(f), a = atan(f.y, f.x);
+  float bez = max(edgeL(r - 0.87, 0.07, aa), edgeL(r - 0.74, 0.018, aa));
+  float face = step(r, 0.74) * mix(0.1, 0.5, smoothstep(-0.4, 0.9, r * 0.6 - f.y * 0.5));
+  float tick = edgeL(fract(a / 6.2832 * 12.0 + 0.5) - 0.5, 0.07, aa * 4.0) * step(0.56, r) * step(r, 0.7);
+  vec2 d1 = vec2(cos(h * 6.2832), sin(h * 6.2832)), d2 = vec2(cos(h * 41.0), sin(h * 41.0));
+  float hands = max(edgeL(dot(f, vec2(-d1.y, d1.x)), 0.035, aa) * step(0.0, dot(f, d1)) * step(r, 0.4),
+                    edgeL(dot(f, vec2(-d2.y, d2.x)), 0.022, aa) * step(0.0, dot(f, d2)) * step(r, 0.62));
+  float hub = 1.0 - smoothstep(0.06, 0.06 + aa, r);
+  return clamp(max(max(bez, face), max(max(tick, hands), hub)), 0.0, 1.0) * step(r, 0.97);
+}
+// skull: bone shaded from the upper left, solid black sockets and nose, a row of teeth
+float tSkull(vec2 f, float aa, float h) {
+  vec2 p = f;
+  float head = min(length(p - vec2(0.0, 0.2)) - 0.6, sdBox2(p - vec2(0.0, -0.4), vec2(0.3, 0.2)) - 0.08);
+  float eyes = min(length((p - vec2(-0.24, -0.02)) * vec2(1.0, 1.3)) - 0.18, length((p - vec2(0.24, -0.02)) * vec2(1.0, 1.3)) - 0.18);
+  float nose = max(abs(p.x) * 1.8 + (p.y + 0.2), -(p.y + 0.33));
+  float inside = step(head, 0.0);
+  float bone = inside * mix(0.1, 0.62, smoothstep(0.05, 0.75, length(p - vec2(-0.18, 0.32))));
+  float holes = max(step(eyes, 0.0), step(nose, 0.0)) * 0.97;
+  float teeth = step(abs(p.y + 0.46), 0.1) * step(abs(p.x), 0.27) * edgeL(fract(p.x * 7.0) - 0.5, 0.06, aa * 7.0);
+  float jawL = edgeL(p.y + 0.46, 0.012, aa) * step(abs(p.x), 0.3);
+  return clamp(max(max(bone, holes), max(edgeL(head, 0.035, aa), max(teeth, jawL) * inside)), 0.0, 1.0);
+}
+// nautical star: every point split into a black half and a bare half, outlined
+float tNautical(vec2 f, float aa, float h) {
+  float d = sdStar5(f, 0.95, 0.45);
+  float a = atan(f.y, f.x) - 1.5708;
+  float k = 6.2832 / 5.0, an = mod(a + 0.5 * k, k) - 0.5 * k;
+  float fill = step(d, 0.0) * (an > 0.0 ? 0.93 : 0.08);
+  return clamp(max(fill, edgeL(d, 0.03, aa)), 0.0, 1.0);
+}
+// compass rose: two rings, four long and four short points, each shaded half dark
+float tCompass(vec2 f, float aa, float h) {
+  float r = length(f), a = atan(f.y, f.x);
+  float rings = max(edgeL(r - 0.9, 0.028, aa), edgeL(r - 0.8, 0.014, aa) * 0.8);
+  float k = 6.2832 / 8.0;
+  float idx = floor((a + 0.5 * k) / k), an = a - idx * k;
+  float len = mod(idx, 2.0) < 0.5 ? 0.97 : 0.6;
+  float w = 0.17 * (1.0 - r / len);
+  float pt = step(abs(an) * r, w) * step(r, len);
+  float out1 = edgeL(abs(an) * r - w, 0.014, aa) * step(r, len);
+  return clamp(max(rings, max(pt * (an > 0.0 ? 0.9 : 0.22), out1)), 0.0, 1.0);
+}
+// crown: a jewelled band, five spikes with balls on the tips, metal shaded left to right
+float tCrown(vec2 f, float aa, float h) {
+  float band = sdBox2(f - vec2(0.0, -0.45), vec2(0.62, 0.13));
+  float x = f.x / 0.62;
+  float tri = 1.0 - abs(fract(x * 2.0 + 0.5) - 0.5) * 2.0;
+  float top = -0.32 + 0.72 * tri;
+  float spikes = step(abs(x), 1.0) * step(-0.34, f.y) * step(f.y, top);
+  float xs = (floor(x * 2.0 + 0.5)) / 2.0 * 0.62;
+  float ball = length(f - vec2(xs, 0.47)) - 0.075;
+  float metal = mix(0.2, 0.7, smoothstep(-0.6, 0.6, f.x + f.y * 0.3));
+  float gem = step(length(vec2(fract(x * 2.5) - 0.5, (f.y + 0.45) * 3.0)), 0.22) * step(abs(x), 0.95);
+  float inside = max(step(band, 0.0), spikes);
+  float outl = max(edgeL(band, 0.025, aa), edgeL(f.y - top, 0.025, aa) * step(abs(x), 1.0) * step(-0.34, f.y));
+  return clamp(max(max(inside * metal, gem * inside * 0.95), max(outl, step(ball, 0.0) * 0.9)), 0.0, 1.0);
+}
+// mandala in dotwork: petal rings drawn in line, stippled shading between them
+float tMandala(vec2 f, float aa, float h) {
+  float r = length(f), a = atan(f.y, f.x);
+  float n = 8.0 + floor(h * 3.0) * 2.0;
+  float petal = r - (0.62 + 0.28 * abs(cos(a * n * 0.5)));
+  float inner = r - (0.34 + 0.1 * abs(cos(a * n)));
+  float lines = max(edgeL(petal, 0.022, aa), edgeL(inner, 0.02, aa));
+  float shade = step(petal, 0.0) * smoothstep(0.0, -0.25, petal) * step(0.0, inner);
+  vec2 dc = fract(f * 20.0) - 0.5;
+  float dots = 1.0 - smoothstep(0.42 * shade, 0.42 * shade + aa * 20.0, length(dc));
+  float core = 1.0 - smoothstep(0.12, 0.12 + aa, r);
+  return clamp(max(max(lines, dots * 0.9), max(core, edgeL(r - 0.2, 0.015, aa))), 0.0, 1.0) * step(petal, 0.03);
+}
+// banner: a ribbon with folded tails and a line of script
+float tBanner(vec2 f, float aa, float h) {
+  float y = f.y - 0.12 * sin(f.x * 2.5 + h * 6.0);
+  float body = step(abs(y), 0.2) * step(abs(f.x), 0.82);
+  float edge = edgeL(abs(y) - 0.2, 0.02, aa) * step(abs(f.x), 0.82);
+  float wv = sin(f.x * 26.0 + sin(f.x * 7.0 + h * 20.0) * 1.5) * 0.08;
+  float letters = edgeL(y - wv, 0.02, aa) * step(0.22, fract(f.x * 2.2 + h)) * step(abs(f.x), 0.7);
+  float tail = step(0.82, abs(f.x)) * step(abs(f.x), 1.0) * step(abs(y + 0.07), 0.17) * 0.75;
+  return clamp(max(max(body * 0.1, edge), max(letters * body, tail)), 0.0, 1.0);
+}
+// the smoke that ties a black-and-grey sleeve together: soft grey clouds with bright curling edges
+float smokeInk(vec2 q, float seed) {
+  vec2 w = vec2(noise(vec3(q * 0.35, seed * 7.0)), noise(vec3(q * 0.35 + 5.2, seed * 3.0))) - 0.5;
+  vec2 p = q * 0.8 + w * 2.2;
+  float n = noise(vec3(p, seed * 11.0)) * 0.6 + noise(vec3(p * 2.3, seed * 2.0)) * 0.3 + noise(vec3(p * 6.0, seed)) * 0.1;
+  float wisp = 1.0 - smoothstep(0.0, 0.07, abs(n - 0.5));
+  return clamp(mix(0.22, 0.85, smoothstep(0.3, 0.7, n)) - wisp * 0.45, 0.0, 1.0);
+}
+// tribal: bold black blades that wrap the limb, swelling and tapering to points, skin showing between them
+float tTribal(vec2 q, float seed) {
+  vec2 p = q * 1.1;
+  float w = noise(vec3(p * 0.45, seed * 5.0)) * 2.4;
+  float s1 = p.y * 1.8 + p.x * 1.6 + w * 1.6;
+  float t1 = 0.5 + 0.5 * sin(p.x * 1.3 - p.y * 0.7 + seed * 20.0);
+  float b1 = abs(fract(s1 / 6.2832) - 0.5) * 2.0;
+  float s2 = p.y * 1.0 - p.x * 2.1 + w * 2.0 + 1.7;
+  float t2 = 0.5 + 0.5 * sin(p.x * 0.9 + p.y * 0.8 + seed * 13.0);
+  float b2 = abs(fract(s2 / 6.2832) - 0.5) * 2.0;
+  float w1 = 0.2 * t1 * t1, w2 = 0.16 * t2 * t2;
+  // (a blade ends in a point: where it gets thinner than the edge softening it is gone, no hairline left)
+  float m1 = (1.0 - smoothstep(w1, w1 + 0.03, b1)) * smoothstep(0.015, 0.05, w1);
+  float m2 = (1.0 - smoothstep(w2, w2 + 0.03, b2)) * smoothstep(0.015, 0.05, w2);
+  return max(m1, m2) * 0.95;
+}
 // tattoo ink density at tattoo coords t (x: around the limb 0..1, y: along it 0..1 upper arm to wrist; y >= 2: chest)
 float tattooInk(vec2 t, float H, float seed) {
   bool chest = t.y > 1.5;
   vec2 q = chest ? vec2(t.x * 0.4 * H, (t.y - 2.0) * 0.15 * H) : vec2(t.x * 0.29 * H, t.y * 0.34 * H);
-  q /= 0.3;                                   // ~0.3 ft motif cells
+  q /= 0.3;                                   // units of ~0.3 ft
   float aa = max(fwidth(q.x) + fwidth(q.y), 0.01);
-  // smoke / shading between the pieces
-  float sm = noise(vec3(q * 1.1, seed * 9.0)) * 0.6 + noise(vec3(q * 3.1, seed * 5.0)) * 0.3 + noise(vec3(q * 9.0, seed)) * 0.1;
-  float ink = smoothstep(0.3, 0.72, sm) * 0.62;
   if (chest) {
     // script across the chest: two lines of looping strokes
     float row = abs(q.y - 0.9) < 0.28 ? 1.0 : 0.0;
@@ -146,51 +276,44 @@ float tattooInk(vec2 t, float H, float seed) {
     float tx = step(0.18, fract(q.x * 0.7 + seed)) ;
     return clamp(row * tx * ln(q.y - 0.9 - w, 0.03, aa * 0.5) + row * 0.15, 0.0, 1.0) * step(abs(q.x - 0.5 * 0.4 * H / 0.3), 1.6);
   }
-  vec2 cell = floor(q + vec2(0.0, 0.5 * mod(floor(q.x), 2.0)));
-  vec2 f = fract(q + vec2(0.0, 0.5 * mod(floor(q.x), 2.0))) - 0.5;
-  float h = th21(cell + seed * 17.3), h2 = th21(cell * 1.7 + 3.1 + seed);
-  float ang = h2 * 6.2832, ca = cos(ang), sa = sin(ang);
-  f = mat2(ca, -sa, sa, ca) * f * (1.05 + 0.3 * h2);
-  float r = length(f), a = atan(f.y, f.x);
-  float m = 0.0;
-  if (h < 0.22) {
-    // rose: petal rings inside a scalloped outline, darker toward the heart
-    float petal = ln(fract(r * 8.0 + 0.22 * sin(a * 3.0 + r * 10.0)) - 0.5, 0.07, aa * 8.0) * step(r, 0.36);
-    float rim = ln(r - 0.36 - 0.03 * sin(a * 5.0), 0.022, aa);
-    m = max(max(petal * 0.8, rim), (0.55 - r) * 0.8 * step(r, 0.36));
-  } else if (h < 0.36) {
-    // five-point star, outlined and filled
-    float k = 6.2832 / 5.0, an = mod(a, k) - 0.5 * k;
-    float st = r * cos(an) - mix(0.18, 0.36, pow(abs(cos(an * 2.5)), 6.0));
-    m = max(ln(st, 0.02, aa), step(st, 0.0) * 0.7);
-  } else if (h < 0.5) {
-    // clock face: ring, ticks and hands
-    float ring = ln(r - 0.34, 0.024, aa);
-    float tick = ln(fract(a / 6.2832 * 12.0 + 0.5) - 0.5, 0.06, aa * 6.0) * step(0.26, r) * step(r, 0.32);
-    vec2 h1 = vec2(cos(h2 * 9.0), sin(h2 * 9.0)), h3 = vec2(cos(h * 40.0), sin(h * 40.0));
-    float hand = max(ln(dot(f, vec2(-h1.y, h1.x)), 0.015, aa) * step(0.0, dot(f, h1)) * step(r, 0.2),
-                     ln(dot(f, vec2(-h3.y, h3.x)), 0.012, aa) * step(0.0, dot(f, h3)) * step(r, 0.28));
-    m = max(max(ring, tick), hand);
-    m = max(m, 0.18 * step(r, 0.34));
-  } else if (h < 0.64) {
-    // tribal blade: a solid crescent
-    float c1 = length(f - vec2(0.06, 0.0)) - 0.36, c2 = length(f - vec2(-0.1, 0.07)) - 0.3;
-    m = smoothstep(aa, -aa, max(c1, -c2));
-  } else if (h < 0.76) {
-    // lettering band around the limb
-    float band = step(abs(f.y), 0.14);
-    float w = sin(f.x * 40.0 + h * 30.0) * 0.06;
-    m = band * ln(f.y - w, 0.02, aa) + band * step(abs(f.y), 0.16) * ln(abs(f.y) - 0.16, 0.012, aa);
-  } else if (h < 0.84) {
-    // cross
-    vec2 g = abs(f);
-    m = step(max(g.x - 0.06, g.y - 0.3), 0.0) + step(max(g.x - 0.2, abs(f.y - 0.1) - 0.05), 0.0);
-    m = min(m, 1.0) * 0.9;
+  float style = fract(seed * 13.7);
+  if (style > 0.86) return tTribal(q, seed);
+  bool bg = style < 0.6;
+  // pieces on a jittered grid of ~0.55 ft cells: the most-inside piece wins
+  vec2 g = q / 1.8, c0 = floor(g);
+  float bd = 9.0, bh = 0.0, br = 1.0; vec2 bf = vec2(0.0);
+  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+    vec2 c = c0 + vec2(float(i), float(j));
+    float hc = th21(c + seed * 17.3);
+    if (hc > (bg ? 0.86 : 0.7)) continue;
+    vec2 jit = vec2(th21(c * 1.31 + 7.7 + seed), th21(c * 0.77 + 3.3 + seed)) - 0.5;
+    vec2 ctr = (c + 0.5 + jit * 0.45) * 1.8;
+    float rad = 1.8 * mix(0.36, 0.56, th21(c * 2.1 + 1.9 + seed));
+    float d = length(q - ctr) / rad;
+    if (d < bd) { bd = d; bf = (q - ctr) / rad; bh = hc; br = rad; }
   }
-  // negative space around each piece keeps the design readable
-  float halo = smoothstep(0.46, 0.4, r) * step(h, 0.84);
-  ink = mix(ink, 0.0, halo * 0.75);
-  return clamp(max(ink, m), 0.0, 1.0);
+  float ink = 0.0;
+  if (bd < 1.0) {
+    float fa = aa / br;
+    float kind = floor(fract(bh * 9.73 + seed * 3.1) * 8.0);
+    float ang = (fract(bh * 37.0) - 0.5) * (kind > 6.5 ? 0.3 : 0.9);
+    vec2 f = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * bf;
+    float hh = fract(bh * 5.31);
+    if (kind < 0.5) ink = tRose(f, fa, hh);
+    else if (kind < 1.5) ink = tClock(f, fa, hh);
+    else if (kind < 2.5) ink = tSkull(f, fa, hh);
+    else if (kind < 3.5) ink = tNautical(f, fa, hh);
+    else if (kind < 4.5) ink = tCompass(f, fa, hh);
+    else if (kind < 5.5) ink = tCrown(f, fa, hh);
+    else if (kind < 6.5) ink = tMandala(f, fa, hh);
+    else ink = tBanner(f, fa, hh);
+  }
+  if (bg) {
+    // smoke everywhere else, held back into a soft glow around each piece so the pieces read
+    float glow = smoothstep(0.95, 1.45, bd);
+    ink = max(ink, smokeInk(q, seed) * mix(0.12, 1.0, glow));
+  }
+  return clamp(ink, 0.0, 1.0);
 }
 // skin micro relief (pores, fine creases) for the specular only; fades out as soon as a pixel covers more than
 // a millimetre or so (no shimmer at broadcast distance)
@@ -206,7 +329,7 @@ vec3 poreNormal(vec3 N) {
   vec3 g2 = vec3(noise(q + vec3(e, 0.0, 0.0)) - c0, noise(q + vec3(0.0, e, 0.0)) - c0, noise(q + vec3(0.0, 0.0, e)) - c0) / e;
   return normalize(N - (g * 0.1 + g2 * 0.05) * pk);
 }
-vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
+vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil, float wet) {
   vec3 w = vec3(0.36, 0.2, 0.15);
   vec3 Ns = poreNormal(N);
   vec3 dif = vec3(0.0), spc = vec3(0.0);
@@ -222,6 +345,8 @@ vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
     float band = smoothstep(0.0, 0.3, t) * smoothstep(0.62, 0.3, t);
     dif += Cs[i] * (wrapD(ndl, w) + band * vec3(0.07, 0.015, 0.008));
     spc += Cs[i] * rs * ((1.0 - mu) * ksk(Ns, Ls[i], V, m1) + mu * ksk(Ns, Ls[i], V, m2));
+    // sweat film: a thin layer of water and oil over the skin with its own sharp reflection
+    spc += Cs[i] * wet * 0.42 * ksk(N, Ls[i], V, 0.085);
   }
   vec3 c = alb * (dif + amb(N, ao)) + spc * mix(0.6, 1.0, ao);
   c += alb * rim(N, V) * uC1 * 0.9 + vec3(0.02) * rim(N, V) * (1.0 + oil);
@@ -373,7 +498,11 @@ void main() {
       oil *= 1.0 - 0.8 * dens;
       oil = clamp(oil + sweat * 0.35 * smoothstep(3.0, 7.0, lc.z) * step(9.0, lc.y), 0.0, 1.0);
     }
-    col = shadeSkin(alb, N, V, ao, oil);
+    // sweat builds over the game: beads and streaks (a patchy film, finer than the pores' scale at broadcast
+    // distance), a touch darker where the skin is wet
+    float wet = smoothstep(0.35, 0.9, sweat) * (0.45 + 0.55 * smoothstep(0.35, 0.7, noise(vB * vec3(70.0, 70.0, 30.0))));
+    alb *= 1.0 - 0.08 * wet;
+    col = shadeSkin(alb, N, V, ao, oil, wet);
   } else if (mat == 2 || mat == 3 || mat == 14) {
     vec3 base = mat == 2 ? uJersey : mat == 3 ? uShorts : vec3(0.012);
     float rough = 0.55, sheen = 0.9;
