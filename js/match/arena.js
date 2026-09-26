@@ -12,16 +12,22 @@
   const APX = 26; // atlas pixels per foot
   const CELL_W = 52, CELL_H = 184; // pixels
   const SEAT_Y = 118; // seat point y inside cell (pixels from top)
-  const NVAR = 44, NPOSE = 6;
+  const NVAR = 44, NPOSE = 10;
+  // poses: 0 hands in the lap, 1 hands to the face, 2 clapping, 3 standing clapping, 4 both arms up, 5 fist pump,
+  // 6 holding a drink, 7 looking at a phone, 8 arms folded, 9 leaning in with the elbows on the knees
   const FONT = '"Arial Black", "Helvetica Neue", Impact, Arial, sans-serif';
+
+  // how a fan sits between plays (share of the crowd): hands in the lap, a drink, a phone, arms folded, leaning in
+  const CALM = [[0, 0.45], [6, 0.15], [7, 0.15], [8, 0.15], [9, 0.1]];
+  function calmPose(r) { for (const [p, w] of CALM) { if (r < w) return p; r -= w; } return 0; }
 
   // ---------------------------------------------------------------- fan sprite painter
   function drawFan(g, ox, oy, look, pose) {
     // ox, oy: seat point in pixels. Units: feet * APX, z up => y = oy - z*APX
     const P = (x, z) => [ox + x * APX, oy - z * APX];
-    const standing = pose >= 3;
+    const standing = pose >= 3 && pose <= 5;
     const lift = standing ? 1.55 : 0;
-    const lean = pose === 1 ? 0.22 : 0;
+    const lean = pose === 1 || pose === 9 ? 0.22 : 0;
     const skin = look.skin, shirt = look.shirt, pants = look.pants;
     const dk = U.shade(shirt, -0.35), lt = U.shade(shirt, 0.18);
     g.lineCap = 'round'; g.lineJoin = 'round';
@@ -115,15 +121,22 @@
     const ey = hc[1] - hr * 0.02;
     g.fillRect(hc[0] - hr * 0.42, ey, hr * 0.2, hr * 0.14);
     g.fillRect(hc[0] + hr * 0.22, ey, hr * 0.2, hr * 0.14);
-    if (pose >= 3) { g.fillStyle = 'rgba(60,10,10,0.8)'; g.beginPath(); g.ellipse(hc[0], hc[1] + hr * 0.5, hr * 0.2, hr * 0.17, 0, 0, U.TAU); g.fill(); }
+    if (pose >= 3 && pose <= 5) { g.fillStyle = 'rgba(60,10,10,0.8)'; g.beginPath(); g.ellipse(hc[0], hc[1] + hr * 0.5, hr * 0.2, hr * 0.17, 0, 0, U.TAU); g.fill(); }
     // arms
     const shL = P(-sw + 0.06, shZ - 0.1), shR = P(sw - 0.06, shZ - 0.1);
     let hands;
-    if (pose === 0) hands = [[-0.3, 0.02, -0.56, 0.95], [0.3, 0.02, 0.56, 0.95]];
+    const lap = (sd) => [0.3 * sd, 0.02, 0.56 * sd, 0.95];
+    if (pose === 0) hands = [lap(-1), lap(1)];
     else if (pose === 1) hands = [[-0.08, shZ + 0.2, -0.46, shZ - 0.55], [0.08, shZ + 0.2, 0.46, shZ - 0.55]];
-    else if (pose === 2 || pose === 3) hands = [[-0.03, shZ - 0.35, -0.56, shZ - 0.6], [0.03, shZ - 0.3, 0.56, shZ - 0.6]];
+    // clapping: elbows down by the sides, forearms up to the hands meeting in front of the chest (with the elbows
+    // out level with the hands the forearms crossed and read as folded arms)
+    else if (pose === 2 || pose === 3) hands = [[-0.05, shZ - 0.32, -0.42, shZ - 1.0], [0.05, shZ - 0.28, 0.42, shZ - 1.0]];
     else if (pose === 4) hands = [[-0.78, shZ + 1.45, -0.72, shZ + 0.62], [0.78, shZ + 1.45, 0.72, shZ + 0.62]];
-    else hands = [[-0.45, shZ - 1.0, -0.6, shZ - 0.55], [0.42, shZ + 1.55, 0.62, shZ + 0.72]];
+    else if (pose === 5) hands = [[-0.45, shZ - 1.0, -0.6, shZ - 0.55], [0.42, shZ + 1.55, 0.62, shZ + 0.72]];
+    else if (pose === 6) hands = [lap(-1), [0.17, shZ - 0.62, 0.5, shZ - 1.08]];
+    else if (pose === 7) hands = [[-0.1, shZ - 0.92, -0.5, shZ - 0.82], [0.1, shZ - 0.92, 0.5, shZ - 0.82]];
+    else if (pose === 8) hands = [[0.3, shZ - 0.5, -0.52, shZ - 0.62], [-0.3, shZ - 0.63, 0.52, shZ - 0.66]];
+    else hands = [[-0.05, 0.62, -0.42, 0.78], [0.05, 0.6, 0.42, 0.78]];
     const shs = [shL, shR];
     for (let i = 0; i < 2; i++) {
       const h = hands[i];
@@ -137,14 +150,27 @@
       g.fillStyle = skin;
       g.beginPath(); g.arc(hd[0], hd[1], 0.12 * APX, 0, U.TAU); g.fill();
     }
-    if (look.towel && pose >= 4) { // rally towel twirled overhead
+    if (pose === 6) { // a drink: paper cup with a band in the team colour
+      const hd = P(hands[1][0], hands[1][1]);
+      g.fillStyle = look.cup;
+      g.fillRect(hd[0] - 0.1 * APX, hd[1] - 0.34 * APX, 0.2 * APX, 0.36 * APX);
+      g.fillStyle = look.cupBand;
+      g.fillRect(hd[0] - 0.1 * APX, hd[1] - 0.24 * APX, 0.2 * APX, 0.1 * APX);
+    } else if (pose === 7) { // a phone between the hands, its screen lit
+      const c = P(0, shZ - 0.86);
+      g.fillStyle = '#101418';
+      g.fillRect(c[0] - 0.1 * APX, c[1] - 0.15 * APX, 0.2 * APX, 0.3 * APX);
+      g.fillStyle = 'rgba(170,215,255,0.9)';
+      g.fillRect(c[0] - 0.075 * APX, c[1] - 0.12 * APX, 0.15 * APX, 0.24 * APX);
+    }
+    if (look.towel && pose >= 4 && pose <= 5) { // rally towel twirled overhead
       const hd = P(hands[1][0], hands[1][1]);
       g.fillStyle = look.towel;
       g.save(); g.translate(hd[0], hd[1]); g.rotate(pose === 4 ? -0.5 : 0.35);
       g.fillRect(-0.05 * APX, -1.05 * APX, 0.62 * APX, 0.95 * APX);
       g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(-0.05 * APX, -0.2 * APX, 0.62 * APX, 0.1 * APX);
       g.restore();
-    } else if (look.finger && pose >= 4) { // foam finger
+    } else if (look.finger && pose >= 4 && pose <= 5) { // foam finger
       const hd = P(hands[1][0], hands[1][1]);
       g.fillStyle = look.finger;
       g.fillRect(hd[0] - 0.14 * APX, hd[1] - 0.95 * APX, 0.28 * APX, 0.95 * APX);
@@ -183,6 +209,7 @@
         wide: rnd() < 0.25,
         finger: rnd() < 0.08 ? (fanTeam === 1 ? ac.secondary : hc.secondary) : null,
         towel: null,
+        cup: rnd() < 0.7 ? '#eeeae0' : '#c9302c', cupBand: fanTeam === 1 ? ac.primary : hc.primary,
       };
       // playoff nights: the home crowd wears the giveaway shirt and waves rally towels
       if (atm.playoff && fanTeam === 0) {
@@ -288,6 +315,7 @@
         team: look.fanTeam,
         ph: rnd() * 100, thr: 0.35 + rnd() * 0.55, delay: rnd() * 0.45, fidget: rnd(),
         alt: rnd() < 0.2, d: 0,
+        calm: calmPose(rnd()),
       };
     }
 
@@ -348,11 +376,14 @@
       if (this.atm && this.atm.playoff && f.team === 0 && this.atlas.looks[f.v].towel && e >= f.thr * 0.75) {
         return ((t * (1.4 + f.fidget) + f.ph) | 0) % 2 ? 4 : 5;
       }
+      // between plays everyone sits his own way (hands in the lap, a drink, a phone, arms folded, leaning in) and now
+      // and then shifts; the keen ones clap when something happens and the building only claps as one on big plays
       if (e < 0.25) {
-        if (f.alt && cycle < 3) return 1;
-        return e > 0.15 && f.fidget < 0.4 ? 2 : 0;
+        if (f.alt && cycle < 1.2) return 1;
+        if (e > 0.15 && f.fidget < 0.25) return 2;
+        return cycle < 7.2 ? f.calm : 0;
       }
-      if (e < f.thr) return f.fidget < 0.55 ? 2 : (cycle < 4.5 ? 0 : 2);
+      if (e < f.thr) return f.fidget < 0.35 ? 2 : f.fidget < 0.6 ? 9 : (cycle < 6 ? f.calm : 2);
       if (e > 0.72) {
         const k = ((t * 1.6 + f.ph) | 0) % 3;
         return k === 0 ? 4 : k === 1 ? (f.fidget < 0.5 ? 5 : 3) : 4;
@@ -367,7 +398,7 @@
       if (pt.x + w < 0 || pt.x - w > cam.W) return;
       const pose = this.fanPose(f);
       let bob = Math.sin(this.time * 1.3 + f.ph) * 0.35;
-      if (pose >= 4) bob += Math.abs(Math.sin(this.time * 7 + f.ph)) * 5;
+      if (pose === 4 || pose === 5) bob += Math.abs(Math.sin(this.time * 7 + f.ph)) * 5;
       else if (pose === 3 || pose === 2) bob += Math.abs(Math.sin(this.time * 9 + f.ph)) * 1.2;
       const h = CELL_H * k;
       g.drawImage(atlasCanvas, f.v * CELL_W, pose * CELL_H, CELL_W, CELL_H,
