@@ -761,7 +761,7 @@
     // --- inbound
     p_inbound(ev, beat, gap) {
       const v = this.v;
-      const by = this.A(ev.by) || this.nearestTo(this.off, ev.x || 47, ev.y || 0);
+      let by = this.A(ev.by) || this.nearestTo(this.off, ev.x || 47, ev.y || 0);
       const to = this.A(ev.to) || v.actor(v.onCourt[this.off][0]);
       if (!by || !to) return 0.2;
       const start = this.poss.start;
@@ -781,6 +781,26 @@
       const b = v.ball;
       const ballFree = !b.holder || b.holder.team !== this.off;
       const pickup = baseline && (start === 'made_basket' || start === 'ft_made') && ballFree;
+      // after a make the ball is still dropping out of the net or bouncing: aim for where it will be, not where it is
+      const ahead = pickup && b.segs ? b.posAt(b.time + 0.8, TMPA) : [b.x, b.y, b.z];
+      const ballSpot = { x: U.clamp(ahead[0], -2, 96), y: U.clamp(ahead[1], -1, 51) };
+      // time to get to the ball: the run there, plus stopping and turning around when he is running the other way
+      const reachT = (a) => {
+        const dx = ballSpot.x - a.x, dy = ballSpot.y - a.y, d = Math.hypot(dx, dy) || 1;
+        return d / 13 + 0.1 + Math.max(0, -((a.vx || 0) * dx + (a.vy || 0) * dy) / d) / 9 + (a.isBusy() ? 0.4 : 0);
+      };
+      if (pickup) {
+        // whoever can get the ball out fastest takes it (coaches have the closest player grab it rather than wait for
+        // a designated inbounder); the sim's pick, usually a big, keeps the job when he is about as close
+        let bt = reachT(by) - 0.6;
+        for (const id of v.onCourt[this.off]) {
+          const a = v.actor(id);
+          if (!a || a === to || a === by) continue;
+          const t = reachT(a);
+          if (t < bt) { bt = t; by = a; }
+        }
+      }
+      beat.by = by;
       // receiver spot: step toward the ball
       const inDir = baseline ? (ix < 47 ? 1 : -1) : 0;
       // receiver comes back to the ball on the same side, 15-20 ft away (near the free throw line extended)
@@ -792,8 +812,7 @@
       const flight = Math.hypot(rcv.x - ix, rcv.y - iy) / 30;
       // after a made basket the inbounder has to reach the ball, pick it up and step back out of bounds before
       // the pass: budget each part (the pass used to fire from inside the court with the ball still loose)
-      const ballSpot = { x: U.clamp(b.x, 1, 93), y: U.clamp(b.y, 2, 48) };
-      const tToBall = pickup ? Math.hypot(by.x - ballSpot.x, by.y - ballSpot.y) / 13 + 0.1 : 0;
+      const tToBall = pickup ? reachT(by) : 0;
       const tOut = pickup ? Math.hypot(ballSpot.x - ix, ballSpot.y - iy) / 8 + 0.2 : 0;
       let need = pickup ? Math.max(tToBall + 0.55 + tOut + 0.35, tWalkTo + 0.4) : Math.max(tWalkBy + 0.6, tWalkTo) + 0.4;
       if (dead) need += 0.6;
@@ -810,41 +829,70 @@
           // height on the way down, or bend and pick it up once it is on the floor (a floor pickup for a ball that
           // is still in the air had the hands jump from the floor to the ball)
           const tLast = fireAt - 0.35 - tOut;
+          // the throw-in waits up to 3 s for him (beat.waitFor): keep after the ball until then instead of pulling it
+          // into his hands from across the floor
+          const tHard = fireAt + 2.4;
+          const near = () => Math.hypot(b.x - by.x, b.y - by.y) < 2.8 && b.z < 5.4;
           const grab = () => {
-            if (b.holder && b.holder.team === this.off) return;
-            const late = this.T > Math.min(tPick + 0.8, tLast - 0.35);
+            if (b.holder === by || (b.holder && b.holder.team === this.off)) return;
+            if (this.T > tHard) { this.giveBall(by, 'chest'); return; }
             const dh = Math.hypot(b.x - by.x, b.y - by.y);
-            if (!late && (dh > 2.3 || b.z > 5.2)) {
-              if (dh > 1.0) by.moveTo(U.clamp(b.x, 0.5, 93.5), U.clamp(b.y, 1, 49), { speed: 14, face: 'move' });
+            // lead the ball: run to where it will be when he gets there
+            const p = b.segs ? b.posAt(b.time + U.clamp(dh / 13, 0, 0.8), TMPB) : [b.x, b.y, b.z];
+            if (dh > 2.3 || b.z > 5.2) {
+              if (Math.hypot(p[0] - by.x, p[1] - by.y) > 0.8) by.moveTo(U.clamp(p[0], -2.5, 96.5), U.clamp(p[1], -2.5, 52.5), { speed: 14, face: 'move' });
               this.at(this.T + 0.05, grab, 'pickup wait');
               return;
             }
-            if (b.z > 1.8) { if (!by.isBusy()) by.play('catch', { mirror: false }); this.giveBall(by, 'chest'); return; }
-            by.play('pickup', { onEvent: (n) => { if (n === 'grab') this.giveBall(by, 'chest'); } });
-            this.at(this.T + 0.45, () => { if (b.holder !== by) this.giveBall(by, 'chest'); }, 'pickup safety');
+            // highest the ball gets over the next third of a second: a ball still bouncing is caught at waist or
+            // chest height, one that stays low is picked up off the floor
+            let zHi = b.z;
+            if (b.segs) for (let k = 1; k <= 4; k++) zHi = Math.max(zHi, b.posAt(b.time + k * 0.09, TMPB)[2]);
+            if (b.z > 1.6) { if (!by.isBusy()) by.play('catch', { mirror: false }); this.giveBall(by, 'chest'); return; }
+            if (zHi > 1.5) { by.moveTo(by.x, by.y, { speed: 4, face: { x: b.x, y: b.y } }); this.at(this.T + 0.05, grab, 'pickup bounce'); return; }
+            by.stop({ x: b.x, y: b.y });
+            by.play('pickup', { facing: Math.atan2(b.y - by.y, b.x - by.x), onEvent: (n) => { if (n === 'grab' && b.holder !== by && near()) this.giveBall(by, 'chest'); } });
+            this.at(this.T + 0.45, () => {
+              if (b.holder === by || (b.holder && b.holder.team === this.off)) return;
+              if (near()) { this.giveBall(by, 'chest'); return; }
+              // it got away from him: go after it again
+              by.stopClip();
+              grab();
+            }, 'pickup safety');
           };
           this.at(tPick, grab, 'pickup');
           // once he has it: back out of bounds facing the court, then set up to pass
           const stepOut = () => {
-            if (b.holder !== by && this.T < tLast) { this.at(this.T + 0.05, stepOut, 'step out wait'); return; }
-            if (by.clip && by.clip.clip.name === 'pickup' && by.clip.t < 0.6 && this.T < tLast) { this.at(this.T + 0.05, stepOut, 'step out wait'); return; }
+            if (b.holder !== by && this.T < tHard) { this.at(this.T + 0.05, stepOut, 'step out wait'); return; }
+            if (by.clip && by.clip.clip.name === 'pickup' && by.clip.t < 0.6 && this.T < tHard) { this.at(this.T + 0.05, stepOut, 'step out wait'); return; }
             by.stopClip();
             if (b.holder !== by) this.giveBall(by, 'chest');
-            by.moveTo(ix, iy, { speed: 8, by: fireAt - 0.3, face: { x: rcv.x, y: rcv.y } });
+            by.moveTo(ix, iy, { speed: 8, by: Math.max(fireAt - 0.3, this.T + Math.hypot(ix - by.x, iy - by.y) / 8), face: { x: rcv.x, y: rcv.y } });
           };
           this.at(Math.min(tPick + 0.5, tLast), stepOut, 'step out');
         } else {
+          // this beat takes charge of the ball: a retrieval the foul or violation left pending would take it away
+          // from the inbounder again after it was handed to him
+          this.jobs = this.jobs.filter((j) => j.tag !== 'ref retrieve' && j.tag !== 'ref picks up');
           if (!b.holder || b.holder.team !== this.off) {
             // referee takes the ball to the spot and bounces it to the inbounder
             const ref = v.nearestRef(ix, iy);
             if (ref) {
-              if (b.holder !== ref) this.giveBall(ref, 'chest');
+              const h = b.holder;
+              // a player holding it tosses it to him (it used to fly into his hands on its own)
+              if (h && h.kind === 'player' && !h.isBusy()) {
+                if (b.state === 'dribble') b.give(h, 'chest');
+                this.passBall(h, ref, 'chest', U.clamp(Math.hypot(ref.x - h.x, ref.y - h.y) / 22, 0.3, 1.0), null);
+              } else if (b.holder !== ref && !(b.state === 'flight' && b.passTarget === ref)) this.giveBall(ref, 'chest');
               ref.moveTo(ix + (ix < 47 ? 4 : -4) * (baseline ? 0 : 1), U.clamp(iy + (baseline ? 4 : (iy < 25 ? 3 : -3)), -2, 52), { speed: 10 });
-              this.at(Math.max(this.T + 0.3, fireAt - 1.3), () => {
+              const bounce = () => {
+                if (b.holder === by || (b.state === 'flight' && b.passTarget === by)) return;
+                if (b.state === 'flight' && b.passTarget === ref && this.T < fireAt) { this.at(this.T + 0.05, bounce, 'ref bounce wait'); return; }
                 if (b.holder !== ref) this.giveBall(ref, 'chest');
                 const d = Math.hypot(by.x - ref.x, by.y - ref.y);
                 this.passBall(ref, by, 'bounce', U.clamp(d / 24, 0.35, 0.9), () => { by.ballHold = 'over'; });
-              }, 'ref bounce to inbounder');
+              };
+              this.at(Math.max(this.T + 0.3, fireAt - 1.3), bounce, 'ref bounce to inbounder');
             } else this.at(Math.max(this.T + 0.3, fireAt - 1.0), () => this.giveBall(by, 'over'), 'hand ball');
           } else if (b.holder !== by) this.ensureBall(by);
           by.moveTo(ix, iy, { speed: dead ? 8 : 14, by: fireAt - 0.8, face: { x: rcv.x, y: rcv.y } });
