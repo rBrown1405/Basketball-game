@@ -84,7 +84,8 @@
   // ------------------------------------------------------------ finishes at the rim
   // right-hand layup (the user's reference frames): gathered off the dribble at the right hip with both hands, carried
   // up the outside over the right-left steps, lifted over the right shoulder at the left-foot take-off with the right
-  // knee driving, then the body goes vertical, the right arm straight up and the ball rolls off the finger pads at the
+  // knee driving (out beside the shoulder, a forearm clear of the face: the left hand comes off under the chin and
+  // the right hand alone takes it up, so no frame has the forearms folded across the face), then the body goes vertical, the right arm straight up and the ball rolls off the finger pads at the
   // top while the left arm goes out for balance. Arms fitted to the rig at each phase (grips lay* in anims.js). The
   // take-off gets the hand up to the rim (~0.37 H, 24-33 in by athleticism, a guard's running one-foot jump) and the
   // airtime matches that height (T = sqrt(8h/g) ~ 0.76 s), so the rise and fall look like real gravity
@@ -92,11 +93,12 @@
     gather: { rShF: 7.5, rShA: 12, rShT: -14, rElF: 59.5, rPro: 21.5, rWrF: -3.5, rWrD: 25, lShF: 47.5, lShA: -18.5, lShT: 79.5, lElF: 64.5, lPro: 95, lWrF: -51, lWrD: -20 },
     carry: { rShF: 0.5, rShA: 17.5, rShT: -22.5, rElF: 108, rPro: 117.5, rWrF: -75, rWrD: 25, lShF: 80.5, lShA: -26.5, lShT: 80, lElF: 64.5, lPro: 70, lWrF: -52.5, lWrD: -20 },
     step2: { rShF: 8, rShA: 27, rShT: -37, rElF: 123.5, rPro: 106.5, rWrF: -75, rWrD: 25, lShF: 99.5, lShA: -33, lShT: 80, lElF: 65, lPro: 72.5, lWrF: -64.5, lWrD: -20 },
-    takeoff: { rShF: 86, rShA: 8, rShT: 2, rElF: 96, rPro: 157.5, rWrF: -60, rWrD: 5.5, lShF: 120, lShA: -15.5, lShT: 46.5, lElF: 50.5, lPro: 64.5, lWrF: -36, lWrD: -8.5 },
+    takeoff: { rShF: 17, rShA: 37.5, rShT: -19, rElF: 103, rPro: 100, rWrF: -75, rWrD: 25, lShF: 73.5, lShA: -41, lShT: 64, lElF: 33.5, lPro: 29, lWrF: -50, lWrD: 25 },
+    lift: { rShF: 80.5, rShA: 28, rShT: 8, rElF: 66.5, rPro: 117.5, rWrF: -75, rWrD: 25, lShF: 67, lShA: -16.5, lShT: 46.5, lElF: 32.5, lPro: 134.5, lWrF: 7, lWrD: -11.5 },
     reach: { rShF: 122.5, rShA: -4.5, rShT: -5.5, rElF: 24, rPro: 154.5, rWrF: -75, rWrD: 25, lShF: 75, lShA: 55, lShT: 44.5, lElF: 42.5, lPro: 121, lWrF: 19, lWrD: -25, lFing: 0.3 },
     release: { rShF: 141, rShA: -6, rShT: 33.5, rElF: 0, rPro: 156, rWrF: -62.5, rWrD: -12.5, rFing: 0.15, lShF: 63.5, lShA: 58.5, lShT: 41.5, lElF: 40.5, lPro: 115, lWrF: 9.5, lWrD: -25, lFing: 0.3 },
   };
-  const LAY_B = { gather: [0.14, 0.21, 0.5], carry: [0.17, 0.26, 0.6], step2: [0.2, 0.23, 0.72], takeoff: [0.13, 0.135, 1.04], reach: [0.1, 0.14, 1.16], release: [0.09, 0.15, 1.235] };
+  const LAY_B = { gather: [0.14, 0.21, 0.5], carry: [0.17, 0.26, 0.6], step2: [0.2, 0.23, 0.72], takeoff: [0.2, 0.2, 0.86], lift: [0.19, 0.2, 1.03], reach: [0.1, 0.14, 1.16], release: [0.09, 0.15, 1.235] };
   A.LAY = LAY; A.LAY_B = LAY_B;
   clip('layup', {
     dur: 1.52, events: { gather: 0.04, set: 0.46, release: 0.8 },
@@ -109,7 +111,8 @@
       { t: 0.12, p: Object.assign({ rootZ: -0.06, pelPitch: 18, spFlex: 10, chTwist: 10, nkFlex: -10 }, LAY.gather), ball: LAY_B.gather, grip: 'layGather' },
       { t: 0.26, p: Object.assign({ rootZ: -0.065, pelPitch: 16.8, pelRoll: 2.1, spFlex: 8.4, spLat: -1.1, chFlex: 1.3, chTwist: 8.9, nkFlex: -9.4, hdFlex: 5.3, lHipF: 20.2, lHipA: 3.7, lHipT: -5.9, lKnee: 29.3, lAnk: 1.8, rHipF: 5, rHipA: 1.5, rHipT: -5.9, rKnee: 29.1, rAnk: -1.5 }, LAY.carry), ball: LAY_B.carry, grip: 'layCarry' },
       { t: 0.4, p: Object.assign({ rootZ: -0.06, pelPitch: 14, spFlex: 6, chTwist: 6, nkFlex: -10, lHipF: 30, lKnee: 45, rHipF: 20, rKnee: 60 }, LAY.step2), ball: LAY_B.step2, grip: 'layStep' },
-      { t: 0.52, p: Object.assign({ rootZ: 0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -14, hdFlex: -8, rHipF: 95, rKnee: 100, rAnk: 10, lHipF: -5, lKnee: 12, lAnk: -35 }, LAY.takeoff), ball: LAY_B.takeoff, grip: 'layLift' },
+      { t: 0.52, p: Object.assign({ rootZ: 0, pelPitch: 2, spFlex: -2, chFlex: -6, chTwist: 8, nkFlex: -14, hdFlex: -8, rHipF: 95, rKnee: 100, rAnk: 10, lHipF: -5, lKnee: 12, lAnk: -35 }, LAY.takeoff), ball: LAY_B.takeoff, grip: 'layLift' },
+      { t: 0.59, p: Object.assign({ rootZ: 0.006, pelPitch: 0.3, pelRoll: 2, spFlex: -3.3, spLat: -1, chFlex: -7.2, chTwist: 4, nkFlex: -15.5, hdFlex: -10.1, lHipF: -7.6, lHipA: 4, lHipT: -6, lKnee: 10.5, lAnk: -39.7, rHipF: 100.9, rHipA: 2, rHipT: -6, rKnee: 103.7, rAnk: 8.7 }, LAY.lift), ball: LAY_B.lift, grip: 'layLift2' },
       { t: 0.66, p: Object.assign({ rootZ: 0.004, pelPitch: 0, pelRoll: 2, spFlex: -3.7, spLat: -1, chFlex: -7.6, nkFlex: -16.6, hdFlex: -10.8, lHipF: -5.6, lHipA: 4, lHipT: -6, lKnee: 13.4, lAnk: -39.8, rHipF: 97, rHipA: 2, rHipT: -6, rKnee: 102, rAnk: 5.7 }, LAY.reach), ball: LAY_B.reach, grip: 'layReach' },
       { t: 0.8, p: Object.assign({ rootZ: 0, pelPitch: 0, spFlex: -4, chFlex: -8, nkFlex: -18, hdFlex: -10, rHipF: 85, rKnee: 95, lHipF: 0, lKnee: 20, lAnk: -35 }, LAY.release), ball: LAY_B.release, grip: 'layRel' },
       // follow-through: the wrist has flicked the ball up off the fingers, the arm stays up, the left arm out
@@ -128,10 +131,15 @@
     yaw: [[0, 0], [0.46, 0], [0.82, 40], [1.22, 60], [1.56, 60]],
     keys: [
       { t: 0.0, p: { base: 'ready', rootZ: -0.05, pelPitch: 16, spFlex: 10, rShF: 20, rShA: 22, rElF: 70, rPro: 60, lShF: 50, lShA: 30, lElF: 85, lPro: 20 }, ball: [0.15, 0.2, 0.4], grip: 'right' },
-      { t: 0.12, p: { rootZ: -0.06, pelPitch: 18, spFlex: 10, nkFlex: -10, lShF: 40, lShA: 20, lShT: 25, lElF: 95, lPro: 20, rShF: 30, rShA: 18, rShT: 30, rElF: 100, rPro: 0, rWrF: -20 }, ball: [0.1, 0.16, 0.55], grip: 'hold' },
-      { t: 0.38, p: { rootZ: -0.06, pelPitch: 14, spFlex: 6, nkFlex: -10, lShF: 60, lShA: 24, lShT: 25, lElF: 100, lPro: 10, rShF: 60, rShA: 16, rShT: 20, rElF: 110, rPro: 0, rWrF: -30, lHipF: 30, lKnee: 45, rHipF: 20, rKnee: 60 }, ball: [0.1, 0.16, 0.75], grip: 'hold' },
-      { t: 0.58, p: { rootZ: 0, pelPitch: 0, spFlex: -6, chFlex: -8, chTwist: -20, nkFlex: -20, nkTwist: -30, lShF: 100, lShA: 30, lElF: 80, rShF: 150, rShA: 40, rElF: 40, rWrF: -30, rHipF: 90, rKnee: 100, lHipF: -5, lKnee: 12, lAnk: -35 }, ball: [0.15, 0.05, 1.15], grip: 'shoot' },
-      { t: 0.82, p: { rootZ: 0, pelPitch: -4, spFlex: -10, chFlex: -8, chTwist: -30, nkFlex: -25, nkTwist: -35, lShF: 80, lShA: 40, lElF: 60, rShF: 170, rShA: 30, rElF: 10, rPro: 60, rWrF: 20, rHipF: 70, rKnee: 90, lKnee: 20 }, ball: [0.12, -0.02, 1.36], grip: 'rightTop' },
+      // (the layup's gather at the hip and carry up the outside, so the ball never comes across the face)
+      { t: 0.12, p: Object.assign({ rootZ: -0.06, pelPitch: 18, spFlex: 10, chTwist: 10, nkFlex: -10 }, LAY.gather), ball: LAY_B.gather, grip: 'layGather' },
+      { t: 0.26, p: Object.assign({ rootZ: -0.065, pelPitch: 16.8, spFlex: 8.4, chFlex: 1.3, chTwist: 8.9, nkFlex: -9.4, hdFlex: 5.3, lHipF: 20, lKnee: 29, rHipF: 5, rKnee: 29 }, LAY.carry), ball: LAY_B.carry, grip: 'layCarry' },
+      { t: 0.4, p: Object.assign({ rootZ: -0.06, pelPitch: 14, spFlex: 6, chTwist: 6, nkFlex: -10, lHipF: 30, lKnee: 45, rHipF: 20, rKnee: 60 }, LAY.step2), ball: LAY_B.step2, grip: 'layStep' },
+      { t: 0.52, p: Object.assign({ rootZ: 0, pelPitch: 2, spFlex: -2, chFlex: -6, chTwist: 8, nkFlex: -14, hdFlex: -8, rHipF: 95, rKnee: 100, rAnk: 10, lHipF: -5, lKnee: 12, lAnk: -35 }, LAY.takeoff), ball: LAY_B.takeoff, grip: 'layLift' },
+      { t: 0.58, p: Object.assign({ rootZ: 0.006, pelPitch: 0.3, spFlex: -3.5, chFlex: -7.2, chTwist: 2, nkFlex: -15.5, nkTwist: -8, hdFlex: -10, lHipF: -6, lKnee: 11, lAnk: -38, rHipF: 96, rKnee: 101, rAnk: 8 }, LAY.lift), ball: LAY_B.lift, grip: 'layLift2' },
+      // over the far side of the rim: the trunk turns back, the arm reaches up and back, the left arm out
+      { t: 0.68, p: Object.assign({ rootZ: 0, pelPitch: 0, spFlex: -6, chFlex: -8, chTwist: -20, nkFlex: -20, nkTwist: -30, rHipF: 90, rKnee: 100, lHipF: -5, lKnee: 12, lAnk: -35 }, LAY.reach), ball: [0.12, 0.06, 1.18], grip: 'layReach' },
+      { t: 0.82, p: { rootZ: 0, pelPitch: -4, spFlex: -10, chFlex: -8, chTwist: -30, nkFlex: -25, nkTwist: -35, lShF: 60, lShA: 60, lShT: 40, lElF: 40, lPro: 110, rShF: 170, rShA: 30, rElF: 10, rPro: 60, rWrF: 20, rHipF: 70, rKnee: 90, lKnee: 20 }, ball: [0.12, -0.02, 1.36], grip: 'rightTop' },
       { t: 1.22, p: { rootZ: -0.05, pelPitch: 14, spFlex: 6, lShF: 45, lShA: 26, lElF: 55, rShF: 70, rShA: 20, rElF: 45, both: { HipF: 30, HipA: 8, Knee: 42, Ank: 10 } } },
       { t: 1.56, p: 'ready' },
     ],
@@ -145,8 +153,13 @@
     root: [[0, 0, 0], [0.26, 2.2, 0], [0.32, 2.7, 0], [0.8, 4.2, 0], [1.1, 4.5, 0]],
     keys: [
       { t: 0.0, p: { base: 'ready', rootZ: -0.06, pelPitch: 18, spFlex: 10, rShF: 20, rShA: 22, rElF: 70, rPro: 60, lShF: 50, lShA: 30, lElF: 85, lPro: 20 }, ball: [0.15, 0.2, 0.4], grip: 'right' },
-      { t: 0.22, p: { rootZ: -0.08, pelPitch: 16, spFlex: 8, lShF: 60, lShA: 24, lElF: 100, rShF: 60, rShA: 16, rElF: 110, rPro: 0, rWrF: -30, lHipF: 30, lKnee: 45, rHipF: 30, rKnee: 60 }, ball: [0.08, 0.16, 0.75], grip: 'hold' },
-      { t: 0.36, p: { rootZ: 0, pelPitch: 4, spFlex: -2, chFlex: -6, nkFlex: -12, lShF: 100, lShA: 34, lElF: 70, rShF: 130, rShA: 14, rElF: 80, rPro: 0, rWrF: -60, rHipF: 60, rKnee: 70, lKnee: 15, lAnk: -30 }, ball: [0.06, 0.12, 1.05], grip: 'shoot' },
+      // (up the jump shot's line: the ball in front of the chest, the hand under it past the face, set over the
+      // forehead, pushed up and flicked early)
+      { t: 0.12, p: arms('dip', { rootZ: -0.08, pelPitch: 16, spFlex: 8, lHipF: 30, lKnee: 45, rHipF: 30, rKnee: 60 }), ball: SB.dip, grip: 'jsLow' },
+      { t: 0.22, p: arms('rise', { rootZ: -0.06, pelPitch: 10, spFlex: 4, chFlex: -2, nkFlex: -10, lHipF: 30, lKnee: 40, rHipF: 40, rKnee: 60 }), ball: SB.rise, grip: 'jsRise' },
+      { t: 0.3, p: arms('load', { rootZ: -0.02, pelPitch: 5, spFlex: 0, chFlex: -4, nkFlex: -10, rHipF: 55, rKnee: 68, lKnee: 20, lAnk: -20 }), ball: SB.load, grip: 'jsLoad' },
+      { t: 0.36, p: arms('set', { rootZ: 0, pelPitch: 4, spFlex: -2, chFlex: -6, nkFlex: -12, rHipF: 60, rKnee: 70, lKnee: 15, lAnk: -30 }), ball: SB.set, grip: 'jsSet' },
+      { t: 0.44, p: arms('push', { rootZ: 0, pelPitch: 3, spFlex: -3, chFlex: -6, nkFlex: -13, rHipF: 58, rKnee: 68, lKnee: 16, lAnk: -30 }), ball: SB.push, grip: 'jsPush' },
       { t: 0.5, p: { rootZ: 0, pelPitch: 2, spFlex: -4, chFlex: -6, nkFlex: -14, lShF: 90, lShA: 40, lElF: 50, rShF: 155, rShA: 12, rElF: 25, rPro: 10, rWrF: 60, rFing: 0.3, rHipF: 55, rKnee: 65, lKnee: 18, lAnk: -30 }, ball: [0.05, 0.2, 1.22], grip: 'shootRel' },
       { t: 0.8, p: { rootZ: -0.04, pelPitch: 10, spFlex: 2, lShF: 50, lShA: 30, lElF: 50, rShF: 110, rShA: 14, rElF: 20, rWrF: 60, both: { HipF: 24, Knee: 34, Ank: 8 } } },
       { t: 1.1, p: 'ready' },
@@ -162,7 +175,9 @@
     yaw: [[0, 0], [0.3, -20], [0.62, -35], [1.3, -30]],
     keys: [
       { t: 0.0, p: { base: 'holdChest', rootZ: -0.07, pelPitch: 20, spFlex: 8 }, ball: [0.04, 0.16, 0.62], grip: 'hold' },
-      { t: 0.28, p: { rootZ: -0.08, pelPitch: 14, spFlex: 6, spLat: 8, chTwist: 10, nkFlex: -12, nkTwist: 25, lShF: 70, lShA: 50, lElF: 90, rShF: 60, rShA: 50, rElF: 100, rWrF: -30, both: { HipF: 30, Knee: 45 } }, ball: [0.12, 0.08, 0.8], grip: 'right' },
+      // (the ball goes out to the right side, away from the defender, while the off arm comes up to shield it; it
+      // never passes in front of the face)
+      { t: 0.28, p: { rootZ: -0.08, pelPitch: 14, spFlex: 6, spLat: 8, chTwist: 10, nkFlex: -12, nkTwist: 25, lShF: 70, lShA: 50, lElF: 90, rShF: 45, rShA: 55, rElF: 95, rWrF: -30, both: { HipF: 30, Knee: 45 } }, ball: [0.22, 0.1, 0.74], grip: 'right' },
       { t: 0.44, p: { rootZ: 0, pelPitch: 4, spLat: 16, chLat: 8, nkFlex: -10, nkTwist: 30, lShF: 50, lShA: 60, lElF: 80, rShF: 60, rShA: 130, rElF: 40, rWrF: -20, rHipF: 70, rKnee: 80, lKnee: 15, lAnk: -30 }, ball: [0.35, 0.04, 1.2], grip: 'rightTop' },
       { t: 0.62, p: { rootZ: 0, pelPitch: 2, spLat: 18, chLat: 10, nkFlex: -14, nkTwist: 30, lShF: 40, lShA: 55, lElF: 70, rShF: 40, rShA: 165, rElF: 10, rWrF: 40, rFing: 0.3, rHipF: 60, rKnee: 70, lKnee: 18 }, ball: [0.1, 0.02, 1.4], grip: 'rightTop' },
       { t: 0.88, p: { rootZ: -0.04, pelPitch: 10, spLat: 6, lShF: 40, lShA: 30, lElF: 50, rShF: 90, rShA: 60, rElF: 30, both: { HipF: 24, Knee: 34 } } },
@@ -180,7 +195,9 @@
       { t: 0.0, p: { base: 'ready', rootZ: -0.05, pelPitch: 16, spFlex: 10, rShF: 20, rShA: 22, rElF: 70, rPro: 60, lShF: 50, lShA: 30, lElF: 85, lPro: 20 }, ball: [0.15, 0.2, 0.4], grip: 'right' },
       { t: 0.14, p: { rootZ: -0.07, pelPitch: 18, spFlex: 10, nkFlex: -10, lShF: 40, lShA: 20, lShT: 25, lElF: 95, lPro: 20, rShF: 30, rShA: 18, rShT: 30, rElF: 100, rPro: 0, rWrF: -20 }, ball: [0.1, 0.16, 0.55], grip: 'hold' },
       { t: 0.4, p: { rootZ: -0.09, pelPitch: 20, spFlex: 8, nkFlex: -14, lShF: -20, lShA: 20, lElF: 40, rShF: 40, rShA: 20, rElF: 90, rWrF: -20, both: { HipF: 45, Knee: 70, Ank: 20 } }, ball: [0.14, 0.12, 0.55], grip: 'right' },
-      { t: 0.6, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -8, nkFlex: -20, lShF: 120, lShA: 30, lElF: 40, rShF: 175, rShA: 20, rElF: 70, rPro: 20, rWrF: -40, rHipF: 60, rKnee: 90, lHipF: 10, lKnee: 40, lAnk: -30 }, ball: [0.1, -0.04, 1.35], grip: 'rightTop' },
+      // (up the outside of the right shoulder on the palm, the left arm out for balance rather than across the face)
+      { t: 0.5, p: Object.assign({ rootZ: -0.02, pelPitch: 8, spFlex: 0, chFlex: -4, chTwist: 6, nkFlex: -16, rHipF: 70, rKnee: 90, lHipF: 5, lKnee: 30, lAnk: -25 }, LAY.takeoff, { lShF: 60, lShA: 55, lShT: 30, lElF: 50, lPro: 90, lWrF: 0, lWrD: 0 }), ball: [0.2, 0.2, 0.9], grip: 'layLiftR' },
+      { t: 0.6, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -8, nkFlex: -20, lShF: 75, lShA: 60, lShT: 30, lElF: 40, rShF: 175, rShA: 20, rElF: 70, rPro: 20, rWrF: -40, rHipF: 60, rKnee: 90, lHipF: 10, lKnee: 40, lAnk: -30 }, ball: [0.1, -0.04, 1.35], grip: 'rightTop' },
       { t: 0.86, p: { rootZ: 0, pelPitch: 4, spFlex: 4, chFlex: 0, nkFlex: -24, lShF: 110, lShA: 36, lElF: 40, rShF: 150, rShA: 16, rElF: 10, rPro: 20, rWrF: 30, rFing: 0.5, rHipF: 40, rKnee: 70, lHipF: 20, lKnee: 60 }, ball: [0.1, 0.3, 1.32], grip: 'slam' },
       { t: 1.0, p: { rootZ: 0, pelPitch: 0, spFlex: -2, nkFlex: -30, lShF: 90, lShA: 40, lElF: 40, rShF: 170, rShA: 14, rElF: 6, rWrF: 20, rFing: 0.9, rHipF: 30, rKnee: 60, lHipF: 30, lKnee: 60 } },
       { t: 1.26, p: { rootZ: -0.08, pelPitch: 18, spFlex: 8, lShF: 60, lShA: 40, lElF: 70, rShF: 80, rShA: 30, rElF: 60, rFing: 0.9, both: { HipF: 40, HipA: 8, Knee: 55, Ank: 14 } } },
@@ -198,6 +215,7 @@
       { t: 0.0, p: { base: 'ready', rootZ: -0.05, pelPitch: 16, spFlex: 10, rShF: 20, rShA: 22, rElF: 70, rPro: 60, lShF: 50, lShA: 30, lElF: 85, lPro: 20 }, ball: [0.15, 0.2, 0.4], grip: 'right' },
       { t: 0.14, p: { rootZ: -0.07, pelPitch: 18, spFlex: 10, nkFlex: -10, both: { ShF: 34, ShA: 20, ShT: 30, ElF: 100, Pro: 5, WrF: -30 } }, ball: [0.0, 0.16, 0.6], grip: 'hold' },
       { t: 0.4, p: { rootZ: -0.095, pelPitch: 24, spFlex: 10, nkFlex: -16, both: { ShF: 30, ShA: 20, ShT: 30, ElF: 90, Pro: 5, WrF: -30, HipF: 50, Knee: 75, Ank: 20 } }, ball: [0.0, 0.2, 0.45], grip: 'hold' },
+      { t: 0.52, p: { rootZ: -0.02, pelPitch: 8, spFlex: 0, chFlex: -4, nkFlex: -16, both: { ShF: 105, ShA: 18, ShT: 10, ElF: 45, Pro: 10, WrF: -30, HipF: 45, Knee: 70, Ank: -10 } }, ball: [0.0, 0.3, 1.0], grip: 'over' },
       { t: 0.64, p: { rootZ: 0, pelPitch: -4, spFlex: -14, chFlex: -8, nkFlex: -20, both: { ShF: 170, ShA: 22, ShT: 0, ElF: 60, Pro: 10, WrF: -30, HipF: 40, Knee: 80, Ank: -30 } }, ball: [0.0, -0.06, 1.4], grip: 'over' },
       { t: 0.86, p: { rootZ: 0, pelPitch: 6, spFlex: 8, chFlex: 4, nkFlex: -26, both: { ShF: 140, ShA: 22, ShT: 0, ElF: 14, Pro: 10, WrF: 30, Fing: 0.5, HipF: 30, Knee: 70 } }, ball: [0.0, 0.3, 1.3], grip: 'over' },
       { t: 1.0, p: { rootZ: 0, pelPitch: 0, spFlex: -2, nkFlex: -30, both: { ShF: 165, ShA: 20, ElF: 8, Fing: 0.9, HipF: 30, Knee: 60 } } },
@@ -231,7 +249,8 @@
     keys: [
       { t: 0.0, p: { base: 'holdChest', rootZ: -0.06, pelPitch: 20, spFlex: 8 }, ball: [0.02, 0.16, 0.62], grip: 'hold' },
       { t: 0.24, p: { base: 'holdChest', rootZ: -0.12, pelPitch: 26, spFlex: 10, nkFlex: -24, both: { ShF: 40, ShA: 24, ElF: 100, HipF: 48, Knee: 72, Ank: 20 } }, ball: [0.04, 0.18, 0.55], grip: 'hold' },
-      { t: 0.42, p: { rootZ: 0, pelPitch: 2, spFlex: -6, chFlex: -6, nkFlex: -26, lShF: 100, lShA: 30, lElF: 70, rShF: 150, rShA: 16, rElF: 60, rWrF: -40, both: { HipF: 14, Knee: 26, Ank: -30 } }, ball: [0.08, 0.1, 1.15], grip: 'shoot' },
+      { t: 0.42, p: Object.assign({ rootZ: 0, pelPitch: 2, spFlex: -6, chFlex: -6, chTwist: 8, nkFlex: -26, both: { HipF: 14, Knee: 26, Ank: -30 } }, LAY.takeoff), ball: LAY_B.takeoff, grip: 'layLift' },
+      { t: 0.51, p: Object.assign({ rootZ: 0, pelPitch: 1, spFlex: -6, chFlex: -7, chTwist: 4, nkFlex: -27, both: { HipF: 13, Knee: 25, Ank: -31 } }, LAY.lift), ball: LAY_B.lift, grip: 'layLift2' },
       { t: 0.63, p: { rootZ: 0, pelPitch: 0, spFlex: -6, chFlex: -8, nkFlex: -28, lShF: 70, lShA: 36, lElF: 60, rShF: 168, rShA: 12, rShT: 20, rElF: 12, rPro: 150, rWrF: 30, rFing: 0.2, both: { HipF: 12, Knee: 24, Ank: -32 } }, ball: [0.08, 0.2, 1.36], grip: 'rightTop' },
       { t: 0.99, p: { rootZ: -0.06, pelPitch: 16, spFlex: 6, lShF: 45, lShA: 26, lElF: 55, rShF: 80, rShA: 20, rElF: 40, both: { HipF: 32, HipA: 8, Knee: 44, Ank: 10 } } },
       { t: 1.33, p: 'ready' },
@@ -245,6 +264,7 @@
     keys: [
       { t: 0.0, p: { base: 'holdChest', rootZ: -0.06, pelPitch: 20, spFlex: 8 }, ball: [0.0, 0.16, 0.62], grip: 'hold' },
       { t: 0.24, p: { base: 'holdChest', rootZ: -0.12, pelPitch: 26, spFlex: 10, nkFlex: -24, both: { ShF: 36, ShA: 22, ElF: 100, HipF: 50, Knee: 74, Ank: 20 } }, ball: [0.0, 0.2, 0.5], grip: 'hold' },
+      { t: 0.34, p: { rootZ: -0.03, pelPitch: 8, spFlex: 0, chFlex: -4, nkFlex: -18, both: { ShF: 100, ShA: 18, ShT: 10, ElF: 45, Pro: 10, WrF: -30, HipF: 35, Knee: 60, Ank: -10 } }, ball: [0.0, 0.3, 0.98], grip: 'over' },
       { t: 0.46, p: { rootZ: 0, pelPitch: -4, spFlex: -12, chFlex: -8, nkFlex: -24, both: { ShF: 172, ShA: 22, ElF: 50, Pro: 10, WrF: -30, HipF: 30, Knee: 60, Ank: -30 } }, ball: [0.0, -0.04, 1.42], grip: 'over' },
       { t: 0.62, p: { rootZ: 0, pelPitch: 6, spFlex: 8, chFlex: 4, nkFlex: -26, both: { ShF: 145, ShA: 22, ElF: 12, WrF: 30, Fing: 0.5, HipF: 30, Knee: 60 } }, ball: [0.0, 0.3, 1.32], grip: 'over' },
       { t: 0.78, p: { rootZ: 0, pelPitch: 0, spFlex: -2, nkFlex: -30, both: { ShF: 166, ShA: 20, ElF: 8, Fing: 0.9, HipF: 26, Knee: 56 } } },
@@ -277,9 +297,10 @@
       { t: 0.2, p: { rootZ: -0.12, pelPitch: 26, spFlex: 8, nkFlex: -30, both: { ShF: 40, ShA: 30, ElF: 60, HipF: 50, Knee: 76, Ank: 20 } } },
       { t: 0.4, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -6, nkFlex: -40, hdFlex: -10, both: { ShF: 172, ShA: 20, ShT: 0, ElF: 20, Pro: 20, WrF: -20, Fing: 0.1, HipF: 20, Knee: 34, Ank: -30 } } },
       { t: 0.5, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -6, nkFlex: -38, both: { ShF: 170, ShA: 18, ElF: 26, Pro: 15, WrF: -10, HipF: 22, Knee: 36, Ank: -30 } }, ball: [0.0, 0.08, 1.42], grip: 'over' },
-      { t: 0.7, p: { rootZ: 0, pelPitch: 8, spFlex: 6, chFlex: 4, nkFlex: -18, both: { ShF: 70, ShA: 55, ShT: 30, ElF: 120, Pro: 10, WrF: -30, HipF: 30, Knee: 44 } }, ball: [0.0, 0.18, 0.86], grip: 'hold' },
-      { t: 0.8, p: { rootZ: -0.08, pelPitch: 22, spFlex: 10, chFlex: 6, nkFlex: -16, both: { ShF: 60, ShA: 60, ShT: 30, ElF: 125, Pro: 10, WrF: -30, HipF: 44, HipA: 10, Knee: 62, Ank: 18 } }, ball: [0.0, 0.2, 0.74], grip: 'hold' },
-      { t: 1.25, p: { base: 'holdChest', rootZ: -0.06, both: { ShA: 40 } }, ball: [0.0, 0.18, 0.7], grip: 'hold' },
+      { t: 0.6, p: { rootZ: 0, pelPitch: 4, spFlex: -1, chFlex: -1, nkFlex: -24, both: { ShF: 110, ShA: 20, ShT: 10, ElF: 35, Pro: 15, WrF: -20, HipF: 26, Knee: 40, Ank: -20 } }, ball: [0.0, 0.3, 1.08], grip: 'over' },
+      { t: 0.7, p: { rootZ: 0, pelPitch: 8, spFlex: 6, chFlex: 4, nkFlex: -18, both: { ShF: 55, ShA: 50, ShT: 30, ElF: 105, Pro: 10, WrF: -30, HipF: 30, Knee: 44 } }, ball: [0.0, 0.22, 0.8], grip: 'hold' },
+      { t: 0.8, p: { rootZ: -0.08, pelPitch: 22, spFlex: 10, chFlex: 6, nkFlex: -16, both: { ShF: 50, ShA: 55, ShT: 30, ElF: 100, Pro: 10, WrF: -30, HipF: 44, HipA: 10, Knee: 62, Ank: 18 } }, ball: [0.0, 0.33, 0.66], grip: 'hold' },
+      { t: 1.25, p: { base: 'holdChest', rootZ: -0.06, both: { ShA: 40 } }, ball: [0.0, 0.24, 0.7], grip: 'hold' },
     ],
   });
   // closeout contest with a jump (tight contest)
@@ -348,8 +369,9 @@
     steps: [{ t0: 0.02, t1: 0.3, foot: 'r', to: [3.0, 0.4], lift: 0.08 }, { t0: 0.36, t1: 0.62, foot: 'l', to: [4.3, -0.4], lift: 0.06 }],
     keys: [
       { t: 0.0, p: 'defense' },
-      { t: 0.34, p: { base: 'holdChest', rootZ: -0.1, pelPitch: 30, spFlex: 12, nkFlex: -20, both: { ShF: 75, ShA: 16, ElF: 30, Pro: 10, HipF: 50, Knee: 60 } }, ball: [0.0, 0.34, 0.66], grip: 'hold' },
-      { t: 0.6, p: { base: 'holdChest', rootZ: -0.06 }, ball: [0.0, 0.18, 0.68], grip: 'hold' },
+      { t: 0.34, p: { base: 'holdChest', rootZ: -0.1, pelPitch: 30, spFlex: 12, nkFlex: -20, both: { ShF: 75, ShA: 16, ElF: 30, Pro: 10, HipF: 50, Knee: 60 } }, ball: [0.0, 0.44, 0.6], grip: 'hold' },
+      { t: 0.47, p: { base: 'holdChest', rootZ: -0.08, pelPitch: 22, spFlex: 9, nkFlex: -16, both: { ShF: 55, ShA: 20, ElF: 70, Pro: 10, HipF: 36, Knee: 44 } }, ball: [0.0, 0.33, 0.64], grip: 'hold' },
+      { t: 0.6, p: { base: 'holdChest', rootZ: -0.06 }, ball: [0.0, 0.2, 0.68], grip: 'hold' },
       { t: 0.9, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
     ],
   });

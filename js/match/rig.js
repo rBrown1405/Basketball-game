@@ -326,19 +326,25 @@
       let Dz = R[20] * wx + R[23] * wy + R[26] * wz;
       const w = Math.min(1, ik.on);
       let px = 0, py = 0, pz = 0, pole = ik.pole;
-      if (w < 0.999) {
-        // part weight: blend where the WRIST goes (from the animated arm's wrist to the target) and solve the arm
-        // fully; blending the two solutions' joint angles swung the arm through odd, even flipping, paths
+      if (w < 0.999 || ik.fkPole) {
         this._armFK(side);
         const o = (side === 0 ? J.L_SH : J.R_SH) * 3;
-        const ax = P[o + 6] - sx, ay = P[o + 7] - sy, az = P[o + 8] - sz;
-        const fx = R[18] * ax + R[21] * ay + R[24] * az, fy = R[19] * ax + R[22] * ay + R[25] * az, fz = R[20] * ax + R[23] * ay + R[26] * az;
-        Dx = fx + (Dx - fx) * w; Dy = fy + (Dy - fy) * w; Dz = fz + (Dz - fz) * w;
-        if (pole) {
+        if (w < 0.999) {
+          // part weight: blend where the WRIST goes (from the animated arm's wrist to the target) and solve the arm
+          // fully; blending the two solutions' joint angles swung the arm through odd, even flipping, paths
+          const ax = P[o + 6] - sx, ay = P[o + 7] - sy, az = P[o + 8] - sz;
+          const fx = R[18] * ax + R[21] * ay + R[24] * az, fy = R[19] * ax + R[22] * ay + R[25] * az, fz = R[20] * ax + R[23] * ay + R[26] * az;
+          Dx = fx + (Dx - fx) * w; Dy = fy + (Dy - fy) * w; Dz = fz + (Dz - fz) * w;
+        }
+        const ex = P[o + 3] - sx, ey = P[o + 4] - sy, ez = P[o + 5] - sz;
+        const qx = R[18] * ex + R[21] * ey + R[24] * ez, qy = R[19] * ex + R[22] * ey + R[25] * ez, qz = R[20] * ex + R[23] * ey + R[26] * ez;
+        const ql = Math.hypot(qx, qy, qz) || 1;
+        if (ik.fkPole) {
+          // the elbow bulges the way the animated arm's elbow does (a clip's key poses, and everything between)
+          px = qx / ql; py = qy / ql; pz = qz / ql; pole = PFK;
+        } else if (pole) {
           // and the elbow turns from where the animated elbow points to the pole
-          const ex = P[o + 3] - sx, ey = P[o + 4] - sy, ez = P[o + 5] - sz;
-          const qx = R[18] * ex + R[21] * ey + R[24] * ez, qy = R[19] * ex + R[22] * ey + R[25] * ez, qz = R[20] * ex + R[23] * ey + R[26] * ez;
-          const ql = Math.hypot(qx, qy, qz) || 1, pl = Math.hypot(pole[0], pole[1], pole[2]) || 1;
+          const pl = Math.hypot(pole[0], pole[1], pole[2]) || 1;
           px = qx / ql * (1 - w) + pole[0] * sg / pl * w; py = qy / ql * (1 - w) + pole[1] / pl * w; pz = qz / ql * (1 - w) + pole[2] / pl * w;
         }
       } else if (pole) { px = pole[0] * sg; py = pole[1]; pz = pole[2]; }
@@ -547,6 +553,7 @@
 
   // ------------------------------------------------------------ arm vs body
   const SWIVELS = [0.2, 0.4, 0.65, 0.9, 1.2];
+  const PFK = [0, 0, 0]; // marker: the pole comes from the animated elbow
   /** how deep (feet) the arm from shoulder joint offset o is inside the trunk (capsules round the pelvis-chest-neck
    *  line, r 0.075 H) or the head (sphere, r 0.068 H): elbow, forearm and hand, limb radii ~0.024 / 0.02 H, a
    *  little skin contact allowed */

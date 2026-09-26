@@ -1157,8 +1157,9 @@
         // crouch and clears the belly)
         case 'triple': out[0] = 0.095 * H * m; out[1] = 0.12 * H; out[2] = 0.53 * H; break;
         case 'over': out[0] = 0; out[1] = 0.05 * H; out[2] = 1.1 * H; break;
-        // (on the shot's line: ~6-7 in off the belly, just right of the middle)
-        case 'pocket': out[0] = 0.06 * H * m; out[1] = 0.165 * H; out[2] = 0.55 * H; break;
+        // (on the shot's line: ~6 in off the belly and a little more, so the straight line up clears the face; just
+        // right of the middle)
+        case 'pocket': out[0] = 0.06 * H * m; out[1] = 0.19 * H; out[2] = 0.55 * H; break;
         case 'low': out[0] = 0.02 * H * m; out[1] = 0.17 * H; out[2] = 0.36 * H; break;
         default: out[0] = 0; out[1] = 0.16 * H; out[2] = 0.66 * H;
       }
@@ -1496,7 +1497,7 @@
       const grip = this._grip || (this._grip = [0, 0]);
       grip[0] = grip[1] = 0;
       const src = this._armSrc || (this._armSrc = [null, null]);
-      for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; src[side] = null; }
+      for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; sk.armIK[side].fkPole = false; src[side] = null; }
       // explicit
       for (let side = 0; side < 2; side++) {
         const t = this.handTarget[side];
@@ -1570,17 +1571,30 @@
       // holding the ball: grips from the active clip or hold mode
       if (this.hasBall && this.view && this.view.ball && !this.dribble) {
         const b = this.view.ball;
-        let gripName = null, pole = null;
-        const cs = this.clip || this.upper;
-        if (cs && cs.clip.ballKeys) gripName = A.clipGrip(cs.clip, Math.min(cs.t, cs.clip.dur));
-        // (a plain hold: elbows down and out, palms on the sides of the ball; clips keep their authored elbows)
-        if (!gripName) { gripName = this.ballHold === 'triple' ? 'hip' : this.ballHold === 'over' ? 'over' : 'hold'; pole = HOLD_POLE[gripName] || null; }
-        let grip = A.GRIP[gripName];
-        if (grip) {
-          const mir = cs ? cs.mirror : this.lefty;
-          const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        const cs = this.clip && this.clip.clip.ballKeys ? this.clip : this.upper && this.upper.clip.ballKeys ? this.upper : null;
+        const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        const gi = cs ? A.clipGripAt(cs.clip, Math.min(cs.t, cs.clip.dur), GI) : null;
+        if (gi && (gi.wr > 0.001 || gi.wl > 0.001)) {
+          // a clip's grips, eased from key to key, with the elbows where the clip's own arms have them (the arm is
+          // solved toward its animated elbow, so between key poses it keeps their shape instead of twisting)
+          const mir = cs.mirror;
           for (let side = 0; side < 2; side++) {
-            let g = mir ? (side ? grip.l : grip.r) : (side ? grip.r : grip.l);
+            const g = mir ? (side ? gi.l : gi.r) : (side ? gi.r : gi.l), w = mir ? (side ? gi.wl : gi.wr) : (side ? gi.wr : gi.wl);
+            if (!g || w <= 0.001) continue;
+            const gx = mir ? -g[0] : g[0];
+            const ik = sk.armIK[side];
+            ik.on = w; this._grip[side] = w; src[side] = 'grip'; ik.pole = null; ik.fkPole = true;
+            ik.x = b.x + (s * gx + c * g[1]) * BALL_R;
+            ik.y = b.y + (-c * gx + s * g[1]) * BALL_R;
+            ik.z = b.z + g[2] * BALL_R;
+          }
+        } else if (!cs) {
+          // a plain hold: elbows down and out, palms on the sides of the ball
+          const gripName = this.ballHold === 'triple' ? 'hip' : this.ballHold === 'over' ? 'over' : 'hold';
+          const grip = A.GRIP[gripName], pole = HOLD_POLE[gripName] || null;
+          const mir = this.lefty;
+          for (let side = 0; grip && side < 2; side++) {
+            const g = mir ? (side ? grip.l : grip.r) : (side ? grip.r : grip.l);
             if (!g) continue;
             const gx = mir ? -g[0] : g[0];
             const ik = sk.armIK[side];
@@ -1636,10 +1650,10 @@
           ik.x = wx; ik.y = wy; ik.z = wz;
           // remember the hand's spot (body frame) for a later hand-over or release
           bl(wx, wy, wz, v); st.ox = v[0]; st.oy = v[1]; st.oz = v[2]; st.onBall = false;
-          st.has = true; st.src = cur; st.pole = ik.pole;
+          st.has = true; st.src = cur; st.pole = ik.pole; st.fk = !!ik.fkPole;
         } else if (st.w > 0.001 && st.has) {
           // letting go: hold the last spot in the body frame while the weight fades
-          ik.pole = st.pole;
+          ik.pole = st.pole; ik.fkPole = !!st.fk;
           ik.x = this.x + s * st.ox + c * st.oy; ik.y = this.y - c * st.ox + s * st.oy; ik.z = st.oz + this.jumpZ;
           st.src = null; st.xf = null;
         } else { st.has = false; st.src = null; st.xf = null; st.t.reset(); }
@@ -1656,7 +1670,7 @@
   }
 
   const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3), BL = new Float64Array(3);
-  const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3), DSH = {};
+  const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3), DSH = {}, GI = {};
   // body centre lines kept for clearBall: pelvis, chest, neck, head centre, left hip / knee / ankle, right hip / knee / ankle
   const BODY_J = [RG.J.PEL, RG.J.CHS, RG.J.NCK, RG.J.HC, RG.J.L_HIP, RG.J.L_KN, RG.J.L_AN, RG.J.R_HIP, RG.J.R_KN, RG.J.R_AN];
   /** move point l out to at least `min` from the segment between body points a and b (a == b: a sphere) */

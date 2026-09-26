@@ -217,3 +217,9 @@ set by the engine's own sliders. The director reads them through `Director.slide
   bodies meet with speed (`Actor.impact`): each is knocked off his line and off balance by his share of the
   momentum, in the air too, without changing the engine's result. Rim defenders set up in the driver's path and go
   straight up with both arms (`wallUp`).
+* **In-between frames**: clip grips are eased from key to key (`Anims.clipGripAt`: a hand moving round the ball goes round
+  its surface, a hand coming on or off fades) and a hand held on the ball by IK bends its elbow toward the clip's own
+  animated elbow (`armIK.fkPole`), so the arms keep the key poses' shape between keys. The layup, reverse, putback and
+  one-hand dunk lift the ball outside the right shoulder with the left hand dropping off below the chin (`LAY.takeoff`,
+  `LAY.lift`, grips `layLift`, `layLift2`, `layLiftR`); two-hand dunks, the putback dunk and the intercept take the ball
+  up or catch it out in front; the rebound is chinned under the chin.

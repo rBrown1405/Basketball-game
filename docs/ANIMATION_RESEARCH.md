@@ -249,3 +249,19 @@ hands off a held ball, carom distances by shot distance. The web searches behind
 | Box-outs and the chase | box-outs hold until the ball is off the rim, then the closest players go after it and the nearest opponent goes up | https://www.sloansportsconference.com/research-papers/deconstructing-the-rebound-with-optical-tracking-data |
 | Rim, net and camera | the rim rings and the net jumps with the impact speed (the rim absorbs 35-50% of it); a swish whips the net harder; a small jolt of the picture on a dunk | https://www.athleticbusiness.com/facilities/gym-fieldhouse/article/15140811/manufacturers-continue-to-improve-the-basketball-goal , https://patents.google.com/patent/US8000947 , https://www.gdcvault.com/play/1016487/juice-it-or-lose |
 
+
+## In-between frames (anims.js, rig.js, actor.js, clips.js)
+
+The user flagged frames between the key poses of the two-motion jumper and the layup (and said it happened in other
+animations too) where the forearms folded across the face. Every clip that carries the ball was then swept frame by
+frame with an automatic check (a forearm, hand or the ball inside a window in front of the face, or the ball inside
+the head) before and after the fix.
+
+| Topic | What the code does | Source |
+|---|---|---|
+| Hands between grips | a hand moving round the ball between two keys travels on the ball's surface (direction slerped, distance lerped) and a hand coming onto or off it fades in or out over the interval; grips used to switch at the key time, throwing the hands round the ball in a frame or two | https://theorangeduck.com/page/spring-roll-call |
+| Elbows between keys | a hand held on the ball by IK bends its elbow toward the animated arm's elbow (the pole comes from the clip pose), so every in-between keeps the key poses' shape instead of twisting to a fixed pole | https://docs.unity3d.com/Packages/com.unity.animation.rigging@1.3/manual/constraints/TwoBoneIKConstraint.html , https://mkallmann.github.io/papers/08-cavw-bodyik.pdf |
+| Layup, putback and one-hand dunk lift | at take-off the ball is out beside the right shoulder and a forearm's length in front of the face, the left hand under its inside below the chin; the right hand alone takes it over the shoulder while the left hand drops off across the chest and goes out for balance (arms fitted to the rig) | user's layup reference and flagged frames, https://www.coachesclipboard.net/Layup.html |
+| Two-hand dunks, putback dunk, intercept | the ball goes up (or is caught) out in front at arm's length instead of straight up the face | user's flagged frames |
+| Rebound | pulled down out in front, then chinned: under the chin, elbows out (it used to come down onto the face) | https://www.coachesclipboard.net/Rebounding.html , https://www.ussportscamps.com/tips/basketball/4-offensive-rebounding-drills |
+| Results | frames with an arm across the face: layup 16 to 0, putback 7 to 0, intercept 22 to 0, reverse 26 to 15 and rebound 25 to 12 (what is left is the eyes following the ball up at the rim); ball inside the head on dunks 2 to 0; in games, ball through the head 31 to 10 and arm through the head 41 to 12 | face and clipping audits |
