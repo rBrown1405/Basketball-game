@@ -126,6 +126,70 @@ float keyShadow() {
 }
 float rim(vec3 N, vec3 V) { return pow(1.0 - max(dot(N, V), 0.0), 4.0) * max(N.z, 0.0); }
 
+float th21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float ln(float d, float w, float aa) { return 1.0 - smoothstep(w, w + aa, abs(d)); }
+// tattoo ink density at tattoo coords t (x: around the limb 0..1, y: along it 0..1 upper arm to wrist; y >= 2: chest)
+float tattooInk(vec2 t, float H, float seed) {
+  bool chest = t.y > 1.5;
+  vec2 q = chest ? vec2(t.x * 0.4 * H, (t.y - 2.0) * 0.15 * H) : vec2(t.x * 0.29 * H, t.y * 0.34 * H);
+  q /= 0.3;                                   // ~0.3 ft motif cells
+  float aa = max(fwidth(q.x) + fwidth(q.y), 0.01);
+  // smoke / shading between the pieces
+  float sm = noise(vec3(q * 1.1, seed * 9.0)) * 0.6 + noise(vec3(q * 3.1, seed * 5.0)) * 0.3 + noise(vec3(q * 9.0, seed)) * 0.1;
+  float ink = smoothstep(0.3, 0.72, sm) * 0.62;
+  if (chest) {
+    // script across the chest: two lines of looping strokes
+    float row = abs(q.y - 0.9) < 0.28 ? 1.0 : 0.0;
+    float w = sin(q.x * 18.0 + sin(q.x * 5.0 + seed * 20.0) * 2.0) * 0.12;
+    float tx = step(0.18, fract(q.x * 0.7 + seed)) ;
+    return clamp(row * tx * ln(q.y - 0.9 - w, 0.03, aa * 0.5) + row * 0.15, 0.0, 1.0) * step(abs(q.x - 0.5 * 0.4 * H / 0.3), 1.6);
+  }
+  vec2 cell = floor(q + vec2(0.0, 0.5 * mod(floor(q.x), 2.0)));
+  vec2 f = fract(q + vec2(0.0, 0.5 * mod(floor(q.x), 2.0))) - 0.5;
+  float h = th21(cell + seed * 17.3), h2 = th21(cell * 1.7 + 3.1 + seed);
+  float ang = h2 * 6.2832, ca = cos(ang), sa = sin(ang);
+  f = mat2(ca, -sa, sa, ca) * f * (1.05 + 0.3 * h2);
+  float r = length(f), a = atan(f.y, f.x);
+  float m = 0.0;
+  if (h < 0.22) {
+    // rose: petal rings inside a scalloped outline, darker toward the heart
+    float petal = ln(fract(r * 8.0 + 0.22 * sin(a * 3.0 + r * 10.0)) - 0.5, 0.07, aa * 8.0) * step(r, 0.36);
+    float rim = ln(r - 0.36 - 0.03 * sin(a * 5.0), 0.022, aa);
+    m = max(max(petal * 0.8, rim), (0.55 - r) * 0.8 * step(r, 0.36));
+  } else if (h < 0.36) {
+    // five-point star, outlined and filled
+    float k = 6.2832 / 5.0, an = mod(a, k) - 0.5 * k;
+    float st = r * cos(an) - mix(0.18, 0.36, pow(abs(cos(an * 2.5)), 6.0));
+    m = max(ln(st, 0.02, aa), step(st, 0.0) * 0.7);
+  } else if (h < 0.5) {
+    // clock face: ring, ticks and hands
+    float ring = ln(r - 0.34, 0.024, aa);
+    float tick = ln(fract(a / 6.2832 * 12.0 + 0.5) - 0.5, 0.06, aa * 6.0) * step(0.26, r) * step(r, 0.32);
+    vec2 h1 = vec2(cos(h2 * 9.0), sin(h2 * 9.0)), h3 = vec2(cos(h * 40.0), sin(h * 40.0));
+    float hand = max(ln(dot(f, vec2(-h1.y, h1.x)), 0.015, aa) * step(0.0, dot(f, h1)) * step(r, 0.2),
+                     ln(dot(f, vec2(-h3.y, h3.x)), 0.012, aa) * step(0.0, dot(f, h3)) * step(r, 0.28));
+    m = max(max(ring, tick), hand);
+    m = max(m, 0.18 * step(r, 0.34));
+  } else if (h < 0.64) {
+    // tribal blade: a solid crescent
+    float c1 = length(f - vec2(0.06, 0.0)) - 0.36, c2 = length(f - vec2(-0.1, 0.07)) - 0.3;
+    m = smoothstep(aa, -aa, max(c1, -c2));
+  } else if (h < 0.76) {
+    // lettering band around the limb
+    float band = step(abs(f.y), 0.14);
+    float w = sin(f.x * 40.0 + h * 30.0) * 0.06;
+    m = band * ln(f.y - w, 0.02, aa) + band * step(abs(f.y), 0.16) * ln(abs(f.y) - 0.16, 0.012, aa);
+  } else if (h < 0.84) {
+    // cross
+    vec2 g = abs(f);
+    m = step(max(g.x - 0.06, g.y - 0.3), 0.0) + step(max(g.x - 0.2, abs(f.y - 0.1) - 0.05), 0.0);
+    m = min(m, 1.0) * 0.9;
+  }
+  // negative space around each piece keeps the design readable
+  float halo = smoothstep(0.46, 0.4, r) * step(h, 0.84);
+  ink = mix(ink, 0.0, halo * 0.75);
+  return clamp(max(ink, m), 0.0, 1.0);
+}
 vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
   vec3 w = vec3(0.36, 0.2, 0.15);
   vec3 dif = vec3(0.0), spc = vec3(0.0);
@@ -177,6 +241,7 @@ vec3 shadeGloss(vec3 alb, vec3 N, vec3 V, float ao, float m, float ks) {
 float kk(vec3 T, vec3 H, float n) { float th = dot(T, H); return clamp(th + 1.0, 0.0, 1.0) * (n + 2.0) / (2.0 * PI) * pow(max(1.0 - th * th, 0.0), 0.5 * n); }
 vec3 shadeHair(vec3 alb, vec3 N, vec3 V, float ao, vec3 T, float shift, float coil) {
   vec3 dif = vec3(0.0), spc = vec3(0.0);
+  float shift2 = clamp(0.35 + 2.2 * (shift + 0.15), 0.2, 1.4);
   vec3 t1 = normalize(T + (0.12 + shift) * N), t2 = normalize(T + (-0.08 + shift) * N);
   float n1 = mix(90.0, 18.0, coil), n2 = mix(28.0, 8.0, coil);
   vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey, uC1, uC2);
@@ -185,7 +250,9 @@ vec3 shadeHair(vec3 alb, vec3 N, vec3 V, float ao, vec3 T, float shift, float co
     dif += Cs[i] * mix(0.25, 1.0, clamp(ndl, 0.0, 1.0));
     vec3 H = normalize(Ls[i] + V);
     float vis = smoothstep(-0.15, 0.25, ndl);
-    spc += Cs[i] * vis * (0.05 * kk(t1, H, n1) * mix(1.0, 0.35, coil) + 0.035 * kk(t2, H, n2) * (alb * 2.0 + 0.2));
+    // (a shell has no strands to break the highlight up, so it is kept low and broken by the strand noise;
+    // tightly coiled hair scatters it into a soft sheen)
+    spc += Cs[i] * vis * (0.014 * kk(t1, H, n1) * mix(1.0, 0.3, coil) * shift2 + 0.02 * kk(t2, H, n2) * (alb * 2.0 + 0.15));
   }
   return alb * (dif * 0.75 + amb(N, ao)) + spc * ao * uHairF.z;
 }
@@ -224,13 +291,10 @@ void main() {
     float nz = noise(vB * 38.0);
     alb *= 0.94 + 0.12 * nz;
     if (mat == 0 && a1 > 0.01 && uFlags.y > 0.0) {
-      // tattoo ink: organic tribal / script patterns
-      // ink: bold contour lines and filled shapes from layered noise (reads like a sleeve of line work)
-      float t1 = noise(vB * vec3(14.0, 14.0, 6.0)) + 0.35 * noise(vB * 38.0);
-      float lines = smoothstep(0.035, 0.0, abs(fract(t1 * 3.0) - 0.5) - 0.44);
-      float fill = smoothstep(0.9, 0.95, t1);
-      float ink = clamp(max(lines * 0.85, fill), 0.0, 1.0);
-      alb = mix(alb, vec3(0.035, 0.04, 0.05), ink * a1 * uFlags.y * 0.85);
+      // black-and-grey sleeve: motifs (roses, stars, clocks, script, tribal blades) over smoke shading,
+      // blue-black ink softened under the skin
+      float ink = tattooInk(vec2(vUV.x, vUV.y * 3.0), H, fract(uFlags.y * 7.31));
+      alb = mix(alb, vec3(0.03, 0.036, 0.05), ink * a1 * 0.9);
     }
     if (mat == 1 && uMaskP.x > 0.5) {  // face paint from the UV masks
       vec3 lc = (vB - uHeadO.xyz) / uHeadO.w;          // head-local centimetres (MakeHuman scale)
@@ -319,11 +383,22 @@ void main() {
     col = shadeCloth(base, N, V, ao, 0.6, 0.6);
   } else if (mat == 7) {
     vec3 lc = (vB - uHeadO.xyz) / uHeadO.w;
-    float g = noise(lc * vec3(3.0, 3.0, 14.0)) * 0.5 + noise(lc * vec3(40.0, 40.0, 11.0)) * 0.5;
-    vec3 alb = uHair * (0.72 + 0.5 * g);
-    vec3 T = normalize(cross(uRight, N) + 1e-4);
+    // clumps (cm scale) and strand-scale streaks (~1.5 mm) that a pixel can still resolve up close
+    float g = noise(lc * vec3(3.0, 3.0, 14.0)) * 0.5 + noise(lc * vec3(7.0, 7.0, 2.2)) * 0.5;
+    vec3 alb = uHair * (0.7 + 0.55 * g);
     float coil = a1 > 0.5 ? 0.85 : uHairF.x;
+    if (coil > 0.75) {
+      // coily volume (afro, puffs, twists, curls): clumps as bumps in the shading, not a smooth helmet
+      vec3 pc = lc * 2.3;
+      float n0 = noise(pc), e = 0.2;
+      vec3 gN = vec3(noise(pc + vec3(e, 0.0, 0.0)) - n0, noise(pc + vec3(0.0, e, 0.0)) - n0, noise(pc + vec3(0.0, 0.0, e)) - n0) / e;
+      N = normalize(N - gN * 0.45 * (coil - 0.5));
+      alb *= 0.8 + 0.4 * n0;
+    }
+    vec3 T = normalize(cross(uRight, N) + 1e-4);
     col = shadeHair(alb, N, V, 1.0, T, (g - 0.5) * 0.3, coil);
+    // fuzz: flyaway strands catch light at the silhouette
+    col += uHair * (0.25 + 0.5 * coil) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * amb(N, 1.0) * 2.0;
     // fuzzy edge darkening where the shell is thin
     col *= 0.85 + 0.15 * g;
   } else if (mat == 8) {
@@ -918,7 +993,7 @@ void main() { oCol = vec4(1.0); }`;
       const F = st.F || {};
       gl.uniform4f(u.uGaze, 0, 0, 0, 0);
       const sweat = c.pp.a && c.pp.a.sweat != null ? c.pp.a.sweat : 0.35;
-      gl.uniform4f(u.uFlags, st.kind === 'ref' ? 1 : 0, st.tattoo && st.tattoo !== 'none' ? 1 : 0, sk.dims.H, sweat);
+      gl.uniform4f(u.uFlags, st.kind === 'ref' ? 1 : 0, st.tattoo && st.tattoo !== 'none' ? 1 + ((st.seed || 0) % 997) / 997 : 0, sk.dims.H, sweat);
       gl.uniform4f(u.uHairF, cache.coil, st.hair === 'fade' ? 0.35 : 1, cache.shine, 0);
       const hr = (BD.B.HED) * 9, SR = sk.R;
       gl.uniform3f(u.uRight, SR[4 * 9], SR[4 * 9 + 3], SR[4 * 9 + 6]);
@@ -961,7 +1036,8 @@ void main() { oCol = vec4(1.0); }`;
       const sk = v3.uSkin, lr = st.fem ? [0.86, 0.6, 0.62] : [0.8, 0.6, 0.6];
       v3.uLip = new Float32Array([sk[0] * lr[0] + 0.012, sk[1] * lr[1], sk[2] * lr[2]]);
       const coily = { afro: 1, curly: 0.9, twists: 0.95, locs: 0.8, puffs: 1, braids: 0.6, hightop: 0.9, fade: 0.7, buzz: 0.6, waves: 0.5 };
-      return { v3, coil: coily[st.hair] != null ? coily[st.hair] : 0.2, shine: st.hair === 'waves' ? 1.4 : 1, panel: (st.seed >> 1) & 1 ? 1 : 0, stripe: (st.seed >> 4) & 1 ? 1 : 0, sockStripe: (st.seed >> 6) & 1 ? 1 : 0 };
+      const shine = { waves: 1.2, buzz: 0.55, fade: 0.6, hightop: 0.6, braids: 0.8, locs: 0.6, twists: 0.6, afro: 0.5, puffs: 0.5, curly: 0.7 }[st.hair];
+      return { v3, coil: coily[st.hair] != null ? coily[st.hair] : 0.2, shine: shine != null ? shine : 1, panel: (st.seed >> 1) & 1 ? 1 : 0, stripe: (st.seed >> 4) & 1 ? 1 : 0, sockStripe: (st.seed >> 6) & 1 ? 1 : 0 };
     }
   }
 

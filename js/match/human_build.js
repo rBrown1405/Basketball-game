@@ -54,6 +54,49 @@
     }
     void n;
   }
+  /**
+   * Shorts over the crotch and seat. Loose fabric hangs: below the most protruding point above it (belly, seat,
+   * front of the thigh) each panel drops nearly straight down instead of following the body into folds and the
+   * fork between the legs; below the crotch the inner sides of the two leg tubes meet (loose legs touch there)
+   * and separate toward the hem, the inverted V of real basketball shorts.
+   */
+  function hangShorts(P, sel, pos, nrm, H) {
+    let zc = 1e9;
+    for (const i of sel) { const z = pos[i * 3 + 2]; if (Math.abs(pos[i * 3]) < 0.014 * H && z > 0.38 * H && z < 0.56 * H && z < zc) zc = z; }
+    if (!(zc < 1e8)) return;
+    // hang, column by column from the waistband down
+    const NC = 24, cw = 0.24 * H / NC, zTop = 0.6 * H, zBot = zc - 0.04 * H;
+    const ids = [];
+    for (const i of sel) { const z = P[i * 3 + 2]; if (z <= zTop && z >= zBot && Math.abs(P[i * 3]) < 0.12 * H && Math.abs(nrm[i * 3 + 1]) > 0.15) ids.push(i); }
+    ids.sort((a, b) => P[b * 3 + 2] - P[a * 3 + 2]);
+    const runF = new Float64Array(NC).fill(-1e9), runB = new Float64Array(NC).fill(1e9);
+    for (const i of ids) {
+      const c = Math.max(0, Math.min(NC - 1, Math.floor((P[i * 3] + 0.12 * H) / cw)));
+      const y = P[i * 3 + 1], ny = nrm[i * 3 + 1], z = P[i * 3 + 2];
+      const k = 0.88 * U.smooth((z - zBot) / (0.03 * H));
+      if (ny > 0) { if (y > runF[c]) runF[c] = y; else P[i * 3 + 1] = y + (runF[c] - y) * k * U.smooth((ny - 0.15) / 0.25); }
+      else { if (y < runB[c]) runB[c] = y; else P[i * 3 + 1] = y + (runB[c] - y) * k * U.smooth((-ny - 0.15) / 0.25); }
+    }
+    // below the crotch: close the thigh gap at the inner sides (a touch of overlap so no light shows between the
+    // leg tubes), less and less toward the hem
+    const z0 = zc - 0.09 * H, NB = 24, band = (zc - z0) / NB;
+    const gl = new Float64Array(NB).fill(-1e9), gr = new Float64Array(NB).fill(1e9);
+    for (const i of sel) {
+      const z = P[i * 3 + 2]; if (z < z0 || z >= zc) continue;
+      const b = Math.min(NB - 1, Math.floor((z - z0) / band)), x = P[i * 3];
+      if (x < 0) { if (x > gl[b]) gl[b] = x; } else if (x < gr[b]) gr[b] = x;
+    }
+    for (const i of sel) {
+      const z = P[i * 3 + 2]; if (z < z0 || z >= zc) continue;
+      const b = Math.min(NB - 1, Math.floor((z - z0) / band)), x = P[i * 3];
+      const wz = U.smooth((z - z0) / (0.05 * H));
+      const g = (x < 0 ? -gl[b] : gr[b]) + 0.004 * H;
+      if (wz > 0 && g > 0 && g < 0.065 * H) {
+        const fall = U.smooth((0.075 * H - (Math.abs(x) - g)) / (0.055 * H));
+        P[i * 3] = x - Math.sign(x) * g * wz * fall;
+      }
+    }
+  }
   function maskAt(img, u, v, ch) {
     const x = Math.min(img.w - 1, Math.max(0, Math.floor(u * img.w))), y = Math.min(img.h - 1, Math.max(0, Math.floor((1 - v) * img.h)));
     return img.d[(y * img.w + x) * 4 + ch] / 255;
@@ -75,6 +118,7 @@
       const sub = new Set(); for (const i of sel) if (opts.extra(i) > 0.01) sub.add(i);
       if (sub.size) smoothPos(P, sub, adj, opts.extraIters || 16, 0.5, null);
     }
+    if (opts.bridge) opts.bridge(P, sel);
     // keep the layer outside the skin after smoothing
     if (opts.minOff != null) for (const i of sel) {
       const dx = P[i * 3] - pos[i * 3], dy = P[i * 3 + 1] - pos[i * 3 + 1], dz = P[i * 3 + 2] - pos[i * 3 + 2];
@@ -338,6 +382,31 @@
       mat[i] = m;
     }
     const skinPos = pos;
+    // tattoo coordinates in the UV slot of inked body skin (the body skin has no other use for it): around the
+    // limb (u, the seam on the inner side facing the body) and along it (v: upper arm 0..0.5, forearm 0.5..1);
+    // chest pieces get v = 2 + height
+    const tatUV = new Float32Array(np * 2).fill(-1);
+    for (let i = 0; i < np; i++) {
+      if (!aux1[i]) continue;
+      const d = dom[i];
+      if (ARMS.has(d)) {
+        const r = d * 9, ax = [-RF[r + 2], -RF[r + 5], -RF[r + 8]];
+        const rx = pos[i * 3] - O[d * 3], ry = pos[i * 3 + 1] - O[d * 3 + 1], rz = pos[i * 3 + 2] - O[d * 3 + 2];
+        const len = lens[d] || 0.16 * H;
+        const al = rx * ax[0] + ry * ax[1] + rz * ax[2];
+        const px = rx - ax[0] * al, py = ry - ax[1] * al, pz = rz - ax[2] * al;
+        let ox = Math.sign(O[d * 3]) || 1, oy = 0, oz = 0;
+        const od = ox * ax[0]; ox -= ax[0] * od; oy -= ax[1] * od; oz -= ax[2] * od;
+        const ol = Math.hypot(ox, oy, oz) || 1; ox /= ol; oy /= ol; oz /= ol;
+        const qx = ax[1] * oz - ax[2] * oy, qy = ax[2] * ox - ax[0] * oz, qz = ax[0] * oy - ax[1] * ox;
+        const th = Math.atan2(px * qx + py * qy + pz * qz, px * ox + py * oy + pz * oz);
+        tatUV[i * 2] = 0.5 + th / (2 * Math.PI);
+        tatUV[i * 2 + 1] = (d === B.L_UA || d === B.R_UA ? 0 : 0.5) + 0.5 * U.clamp(al / len, 0, 1);
+      } else {
+        tatUV[i * 2] = U.clamp(0.5 + pos[i * 3] / (0.4 * H), 0, 1);
+        tatUV[i * 2 + 1] = 2 + U.clamp((pos[i * 3 + 2] - 0.7 * H) / (0.15 * H), 0, 1);
+      }
+    }
     {
       const rv = a.rvPos, tr = a.tris, nr = D.meta.nr;
       const map = new Int32Array(nr).fill(-1);
@@ -350,7 +419,7 @@
           const tw = [twf[p * 4], twf[p * 4 + 1], twf[p * 4 + 2], twf[p * 4 + 3]];
           map[r] = out.v(skinPos[p * 3], skinPos[p * 3 + 1], skinPos[p * 3 + 2], nrm[p * 3], nrm[p * 3 + 1], nrm[p * 3 + 2],
             [wb[p * 4], wb[p * 4 + 1], wb[p * 4 + 2], wb[p * 4 + 3]], [ww[p * 4], ww[p * 4 + 1], ww[p * 4 + 2], ww[p * 4 + 3]], tw,
-            mat[p], 1, 0, aux1[p], a.rvUV[r * 2] / 65535, a.rvUV[r * 2 + 1] / 65535);
+            mat[p], 1, 0, aux1[p], tatUV[p * 2] >= 0 && mat[p] === MAT.SKIN ? tatUV[p * 2] : a.rvUV[r * 2] / 65535, tatUV[p * 2] >= 0 && mat[p] === MAT.SKIN ? tatUV[p * 2 + 1] / 3 : a.rvUV[r * 2 + 1] / 65535);
           return map[r];
         });
         out.t(ids[0], ids[1], ids[2]);
@@ -393,13 +462,12 @@
         const waist = U.smooth((z - 0.57) / 0.03);
         // the crotch hangs low and loose instead of following the body
         const crotch = U.smooth((0.06 - Math.abs(pos[i * 3] / H)) / 0.03) * U.smooth((z - 0.43) / 0.04) * U.smooth((0.56 - z) / 0.04);
-        return H * (ref ? 0.008 + 0.006 * leg : (0.013 + 0.024 * leg) * (1 - 0.55 * inner) + 0.01 * waist + 0.022 * crotch);
+        return H * (ref ? 0.008 + 0.006 * leg : (0.013 + 0.024 * leg) * (1 - 0.55 * inner) + 0.01 * waist + 0.008 * crotch);
       };
       const crotchW = i => { const z = pos[i * 3 + 2] / H; return U.smooth((0.075 - Math.abs(pos[i * 3] / H)) / 0.03) * U.smooth((z - 0.4) / 0.05) * U.smooth((0.575 - z) / 0.04); };
-      // the front panel hangs forward over the crotch instead of following it
-      const drape = ref ? null : (i => { const w = crotchW(i); return w > 0.01 ? [0, H * 0.022 * w * U.smooth(nrm[i * 3 + 1] + 0.3), -H * 0.008 * w] : null; });
       layer(out, ctx, sel, ease, pantsG, ref ? MAT.PANTS : MAT.SHORTS, {
-        smooth: 6, minOff: i => H * 0.005, extra: ref ? null : crotchW, extraIters: 24, lift: drape,
+        smooth: 6, minOff: i => H * 0.005, extra: ref ? null : crotchW, extraIters: 24,
+        bridge: ref ? null : (P, sl) => hangShorts(P, sl, pos, nrm, H),
         attr: (i, g) => ({ ao: 1, a0: ref ? 0.1 : U.smooth((0.53 - pos[i * 3 + 2] / H) / 0.17), a1: U.sat(g / 0.04) }),
       });
     }
@@ -429,7 +497,8 @@
           case 'fade': return 0.08 + 1.15 * top(i, EZ + 6.2);
           case 'curly': return 1.1 + 1.9 * top(i, EZ + 3.5) + 0.5 * (nz(i) - 0.5);
           case 'twists': return 1.4 + 1.4 * top(i, EZ + 3.5) + 0.9 * (BD.util.vnoise(p[0] * 1.6, p[1] * 1.6, p[2] * 1.6) - 0.5);
-          case 'afro': return 2.5 + 4.2 * U.smooth((scalpD(i) + 0.5) / 3.5) + 1.2 * top(i, EZ + 4);
+          // (volume rises from the hairline into a round dome: no cliff at the front edge)
+          case 'afro': return 0.5 + 6.4 * U.smooth((scalpD(i) + 0.3) / 4.8) + 1.2 * top(i, EZ + 4) + 0.6 * (nz(i) - 0.5);
           case 'puffs': return 0.4;
           case 'hightop': return 0.12 + 0.4 * top(i, EZ + 5);
           case 'mohawk': return Math.abs(p[0]) < 2.2 ? 0.25 + 3.6 * U.smooth((2.2 - Math.abs(p[0])) / 0.9) * U.smooth((p[1] + 7) / 3) : 0.1;
