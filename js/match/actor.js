@@ -270,7 +270,11 @@
       const el = Math.sqrt(ex * ex + ey * ey);
       const spd = Math.hypot(this.vx, this.vy);
       const slowing = (dvx * this.vx + dvy * this.vy) < spd * spd;
-      const amax = (slowing ? this.decel : this.accel) * dt;
+      // how hard a player pushes off depends on how fast he wants to go: a walk starts gently (walking speed within
+      // a step or two), a sprint with everything he has (every start used to be a sprinter's push, even into a
+      // walk, and the upper body lurched ahead of the legs)
+      const accelNow = Math.min(this.accel, 3 + 1.4 * Math.max(Math.hypot(dvx, dvy), spd));
+      const amax = (slowing ? this.decel : accelNow) * dt;
       if (el > amax) { ex *= amax / el; ey *= amax / el; }
       this.ax = ex / Math.max(dt, 1e-4); this.ay = ey / Math.max(dt, 1e-4);
       // a smoothed copy for predicting where the feet land (the raw value flips sign as a player settles to a stop)
@@ -279,11 +283,13 @@
       this.vx += ex; this.vy += ey;
       this.x += this.vx * dt; this.y += this.vy * dt;
       this.speed = Math.hypot(this.vx, this.vy);
-      // lean into acceleration / turns (smoothed)
+      // lean into acceleration / turns (smoothed): only part of the tilt a push-off needs is the trunk bending at the
+      // hips (most of it is the legs driving from behind the body), ~12 deg at most; it used to reach ~23 deg even on a
+      // walk start and read as the head and shoulders being dragged ahead of the legs
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
       const aF = this.ax * c + this.ay * s, aR = this.ax * s - this.ay * c;
-      this.leanF = U.damp(this.leanF, U.clamp(aF / 32.2, -0.35, 0.4), 6, dt);
-      this.lean = U.damp(this.lean, U.clamp(aR / 32.2, -0.3, 0.3), 6, dt);
+      this.leanF = U.damp(this.leanF, U.clamp(aF / 32.2 * 0.5, -0.18, 0.21), 6, dt);
+      this.lean = U.damp(this.lean, U.clamp(aR / 32.2 * 0.6, -0.2, 0.2), 6, dt);
     }
 
     _desiredFacing() {
@@ -864,10 +870,14 @@
         if (lat > 0.001) A.applySlide(p, this.phase, this.gaitK * lat);
         if (back > 0.001) { p[CH.spFlex] -= 6 * D * this.gaitK * back; p[CH.pelPitch] -= 4 * D * this.gaitK * back; }
       }
-      // lean from acceleration and turns
+      // lean from acceleration and turns: the trunk tilts mostly at the hips, and the neck and head take most of it
+      // back so the eyes stay level (runners hold the head steady; a head nodding with every change of pace looked
+      // like it was being pulled along)
       if (!this.clip) {
-        p[CH.pelPitch] += this.leanF * 0.5; p[CH.spFlex] += this.leanF * 0.6;
+        p[CH.pelPitch] += this.leanF * 0.6; p[CH.spFlex] += this.leanF * 0.4;
+        p[CH.nkFlex] -= this.leanF * 0.5; p[CH.hdFlex] -= this.leanF * 0.3;
         p[CH.pelRoll] += -this.lean * 0.6; p[CH.spLat] += -this.lean * 0.4;
+        p[CH.nkLat] += this.lean * 0.4;
       }
       // 3. upper-body overlay clip
       if (this.upper) {
