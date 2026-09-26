@@ -28,7 +28,7 @@ uniform mat4 uVP;
 uniform vec3 uFlut;
 uniform vec3 uSway;
 uniform mat4 uShM;      // world -> shadow tile (xy in atlas uv, z depth 0..1)
-out vec3 vW; out vec3 vN; out vec3 vB; out vec3 vBN; out vec4 vM; out vec2 vUV; out vec3 vSh;
+out vec3 vW; out vec3 vN; out vec3 vB; out vec3 vBN; out vec4 vM; out vec2 vUV; out vec3 vSh; flat out float vMat;
 void main() {
   vec3 p = vec3(0.0), n = vec3(0.0);
   vec4 P4 = vec4(aPos, 1.0);
@@ -56,7 +56,7 @@ void main() {
   float f = aMat.z;
   if (mat == 2 || mat == 3) p += uFlut * f * f;       // shorts / jersey hem sway
   if (mat == 7) p += uSway * f * f;                  // hanging hair
-  vW = p; vN = n; vB = aPos; vBN = aNrm; vM = aMat; vUV = aUV;
+  vW = p; vN = n; vB = aPos; vBN = aNrm; vM = aMat; vUV = aUV; vMat = aMat.x;
   // normal offset against acne
   vec4 sp = uShM * vec4(p + normalize(n) * 0.035, 1.0);
   vSh = sp.xyz;
@@ -65,7 +65,7 @@ void main() {
 
   const FS = `#version 300 es
 precision highp float;
-in vec3 vW; in vec3 vN; in vec3 vB; in vec3 vBN; in vec4 vM; in vec2 vUV; in vec3 vSh;
+in vec3 vW; in vec3 vN; in vec3 vB; in vec3 vBN; in vec4 vM; in vec2 vUV; in vec3 vSh; flat in float vMat;
 uniform highp sampler2DShadow uShadow;
 uniform vec4 uShTile;   // atlas tile: u0, v0, du, dv
 uniform float uShOn;
@@ -190,8 +190,23 @@ float tattooInk(vec2 t, float H, float seed) {
   ink = mix(ink, 0.0, halo * 0.75);
   return clamp(max(ink, m), 0.0, 1.0);
 }
+// skin micro relief (pores, fine creases) for the specular only; fades out as soon as a pixel covers more than
+// a millimetre or so (no shimmer at broadcast distance)
+vec3 poreNormal(vec3 N) {
+  float fp = length(fwidth(vB));
+  float pk = smoothstep(0.005, 0.0015, fp);
+  if (pk <= 0.0) return N;
+  vec3 pp = vB * 520.0;
+  float n0 = noise(pp), e = 0.35;
+  vec3 g = vec3(noise(pp + vec3(e, 0.0, 0.0)) - n0, noise(pp + vec3(0.0, e, 0.0)) - n0, noise(pp + vec3(0.0, 0.0, e)) - n0) / e;
+  vec3 q = vB * 140.0;
+  float c0 = noise(q);
+  vec3 g2 = vec3(noise(q + vec3(e, 0.0, 0.0)) - c0, noise(q + vec3(0.0, e, 0.0)) - c0, noise(q + vec3(0.0, 0.0, e)) - c0) / e;
+  return normalize(N - (g * 0.1 + g2 * 0.05) * pk);
+}
 vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
   vec3 w = vec3(0.36, 0.2, 0.15);
+  vec3 Ns = poreNormal(N);
   vec3 dif = vec3(0.0), spc = vec3(0.0);
   float mu = mix(0.16, 0.5, oil);
   float m1 = mix(0.42, 0.34, oil), m2 = mix(0.19, 0.1, oil);
@@ -202,7 +217,7 @@ vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil) {
     float t = ndl + 0.25;
     float band = smoothstep(0.0, 0.3, t) * smoothstep(0.62, 0.3, t);
     dif += Cs[i] * (wrapD(ndl, w) + band * vec3(0.07, 0.015, 0.008));
-    spc += Cs[i] * rs * ((1.0 - mu) * ksk(N, Ls[i], V, m1) + mu * ksk(N, Ls[i], V, m2));
+    spc += Cs[i] * rs * ((1.0 - mu) * ksk(Ns, Ls[i], V, m1) + mu * ksk(Ns, Ls[i], V, m2));
   }
   vec3 c = alb * (dif + amb(N, ao)) + spc * mix(0.6, 1.0, ao);
   c += alb * rim(N, V) * uC1 * 0.9 + vec3(0.02) * rim(N, V) * (1.0 + oil);
@@ -276,7 +291,10 @@ vec3 toSRGB(vec3 c) { c = max(c, vec3(0.0)); return mix(c * 12.92, 1.055 * pow(c
 
 void main() {
   gKey = keyShadow();
-  int mat = int(vM.x * 255.0 + 0.5);
+  int mat = int(vMat * 255.0 + 0.5);   // per triangle: no dotted seams where two materials meet
+  // skin is a closed surface: a back face showing is only ever a sliver at a silhouette (the jaw's underside
+  // seen edge-on), which the flipped normal would light as bright dots
+  if (!gl_FrontFacing && (mat == 0 || mat == 1)) discard;
   float ao = vM.y, a0 = vM.z, a1 = vM.w;
   vec3 N = normalize(vN);
   if (!gl_FrontFacing) N = -N;
@@ -300,7 +318,7 @@ void main() {
       vec3 lc = (vB - uHeadO.xyz) / uHeadO.w;          // head-local centimetres (MakeHuman scale)
       vec4 m1 = texture(uMask1, vUV), m2 = texture(uMask2, vUV);
       // lips (a touch darker and redder than the skin), mouth corners
-      alb = mix(alb, uLip, m1.a * 0.88);
+      alb = mix(alb, uLip, smoothstep(0.3, 0.8, m1.a) * 0.75);
       // cavities: nostrils
       alb *= 1.0 - 0.55 * m2.a;
       // brows: a distance-coded band, broken into hair strokes
@@ -311,7 +329,7 @@ void main() {
       alb *= 1.0 - uMaskP.w * smoothstep(0.45, 0.9, m2.b);
       // beard: full shape, mustache, goatee; stubble uses the full shape at low density
       float bd = max(max(m1.g * uBeardW.x, m2.r * uBeardW.y), m2.g * uBeardW.z);
-      float st = m1.g * uBeardW.w;
+      float st = smoothstep(0.15, 0.6, m1.g) * uBeardW.w;
       float g = noise(lc * 6.0) * 0.55 + noise(lc * 21.0) * 0.45;
       float cover = clamp(smoothstep(0.1, 0.7, bd) * (0.55 + 0.4 * g) + st * (0.35 + 0.65 * smoothstep(0.3, 0.8, g)), 0.0, 1.0);
       alb = mix(alb, uHair * 0.7, cover * 0.85);
@@ -417,7 +435,9 @@ void main() {
     vec3 ic = uIris * (0.7 + 0.6 * noise(vec3(atan(dd.x, dd.z) * 6.0, r * 20.0, 1.0)));
     alb = mix(alb, ic * (1.0 - 0.55 * ring), iris);
     alb = mix(alb, vec3(0.01), smoothstep(0.2, 0.16, r));
-    vec3 c = alb * (uC0 * max(dot(N, uL0), 0.15) * 0.6 + amb(N, 1.0) * 1.2);
+    // the upper lid shades the top of the eyeball; the corners sit in the socket's shadow
+    float lid = mix(0.45, 1.0, smoothstep(0.55, -0.05, dd.z)) * mix(0.7, 1.0, smoothstep(0.75, 0.35, abs(dd.x)));
+    vec3 c = alb * (uC0 * max(dot(N, uL0), 0.15) * 0.6 + amb(N, 1.0) * 1.2) * lid;
     // cornea glint
     vec3 R = reflect(-V, N);
     c += vec3(1.2) * pow(max(dot(R, uL0), 0.0), 180.0) + vec3(0.5) * pow(max(dot(R, uL2), 0.0), 120.0);
@@ -1004,7 +1024,7 @@ void main() { oCol = vec4(1.0); }`;
       const bald = st.hair === 'bald';
       gl.uniform4f(u.uMaskP, m.human && this.masksReady ? 1 : 0, bald ? 2 : 0.5 + hlShift / 6, 0.62 - 0.26 * (F.browThick == null ? 0.5 : F.browThick) + (st.fem ? 0.1 : 0), st.fem ? 0.75 : 0.45);
       const bd = st.fem ? 'none' : st.beard;
-      gl.uniform4f(u.uBeardW, bd === 'full' ? 1 : 0, bd === 'full' || bd === 'goatee' || bd === 'mustache' ? 1 : 0, bd === 'goatee' || bd === 'full' ? 1 : 0, bd === 'stubble' ? 0.55 : bd === 'none' ? 0.12 : 0.3);
+      gl.uniform4f(u.uBeardW, bd === 'full' ? 1 : 0, bd === 'full' || bd === 'goatee' || bd === 'mustache' ? 1 : 0, bd === 'goatee' || bd === 'full' ? 1 : 0, bd === 'stubble' ? 0.55 : bd === 'none' ? 0.0 : 0.3);
       const fadeSides = { fade: 0.55, hightop: 0.5, mohawk: 0.25, buzz: 1, waves: 1 }[st.hair];
       gl.uniform4f(u.uScalpP, fadeSides == null ? 1 : fadeSides, (m.head.eye ? m.head.eye.z : 3) + 5.5, 2.2, 0);
       gl.uniform4f(u.uCloth, cache.panel, 1, cache.stripe, cache.sockStripe);

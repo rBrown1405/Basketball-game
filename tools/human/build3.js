@@ -61,7 +61,19 @@ function scalpD(h) { // signed cm above the hairline (positive = hair)
 }
 // mouth / lips from landmarks
 const mC = toHead(AJ('mouthC')), chin = toHead(AJ('chin'));
-const MZ = mC[2], MW = 2.35;
+// the 'oris06' landmark sits in the philtrum; the mouth line (stomion) is the deepest point of the midline between
+// the upper and lower lips' most forward points
+const MZ = (() => {
+  let best = null;
+  for (let i = 0; i < NP; i++) {
+    const h = toHead([AP[i * 3], AP[i * 3 + 1], AP[i * 3 + 2]]);
+    if (Math.abs(h[0]) > 0.35 || h[1] < mC[1] - 0.4 || h[2] > mC[2] - 0.4 || h[2] < mC[2] - 2.6) continue;
+    if (!best || h[1] < best[1]) best = h;
+  }
+  return best ? best[2] : mC[2];
+})();
+const MW = 2.35;
+console.log('mouth line', MZ.toFixed(2), 'cm (landmark', mC[2].toFixed(2) + ')');
 function lipMask(h) {
   if (h[1] < EY + 1.2) return 0;
   const dx = Math.abs(h[0]) / MW;
