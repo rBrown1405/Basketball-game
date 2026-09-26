@@ -1,0 +1,5 @@
+{
+  "clips": [
+    { "name": "spinMocap", "file": "102_11.bvh", "f0": 1, "f1": 130, "fps": 30, "events": { "turn": 0.45 } }
+  ]
+}

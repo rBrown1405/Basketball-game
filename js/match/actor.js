@@ -362,10 +362,15 @@
         const latK = U.smooth((0.88 - Math.abs(fwdDot)) / 0.4);
         if (latK > 0) {
           const slideW = U.lerp(0.12, 0.2, this.stP.slide);
-          const slideSps = 2 * U.clamp(1.7 + 0.19 * sp, 1.9, 3.6);
+          // cadence checked against a motion-captured defensive slide (CMU 102_27): at 10-12 ft/s it is a lateral
+          // bound (both feet land nearly together, ~2 bounds/s) with the gap between the feet swinging from ~0.14 H to
+          // ~0.66 H; with alternating steps that width range needs ~5 steps/s at 10 ft/s (the old ~7 was a pitter-patter)
+          // (only the defensive slide: a sidestep in any other stance keeps the quicker, shorter steps)
+          const ks = this.stP.slide;
+          const slideSps = U.lerp(2 * U.clamp(1.7 + 0.19 * sp, 1.9, 3.6), U.clamp(2.8 + 0.24 * sp, 3.4, 5.4), ks);
           gp.halfW = U.lerp(gp.halfW, slideW, latK);
           gp.reach = U.lerp(gp.reach, 0.5, latK);
-          gp.lift = U.lerp(gp.lift, 0.035, latK);
+          gp.lift = U.lerp(gp.lift, 0.035 + 0.02 * ks * U.smooth((sp - 6) / 6), latK);
           gp.beta = U.lerp(gp.beta, 0.56, latK);
           gp.toePitch = U.lerp(gp.toePitch, 12 * D, latK);
           gp.landPitch = U.lerp(gp.landPitch, 4 * D, latK);

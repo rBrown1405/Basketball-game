@@ -1035,6 +1035,16 @@
           this.at(Math.max(this.T + extra, fireAt - 0.8), () => { if (b.holder === a) { b.dribble(a); b.dribbleMove('btl'); } }, 'sizeup');
         } else if (mv === 'jab') {
           this.at(Math.max(this.T + extra, fireAt - 0.2), () => { if (b.holder === a && b.state === 'dribble') b.give(a, 'triple'); a.ballHold = 'triple'; a.setStance('triple'); a.play('jab', { facing: this.rimAngleFrom(a.x, a.y) }); }, 'jab');
+        } else if (mv === 'spin' && M.Anims.get('spinMocap')) {
+          // the motion-captured spin plays from the start of the beat and the move lands when it is done
+          const sc = M.Anims.get('spinMocap');
+          a.setStance('dribble');
+          a.moveTo(a.x + (this.rim.x - a.x) * 0.08, a.y, { speed: 5, face: this.rim, stance: 'dribble' });
+          this.at(Math.max(this.T + extra, fireAt - sc.dur), () => {
+            if (b.holder === a && b.state !== 'dribble') b.dribble(a);
+            a.play('spinMocap', { facing: this.rimAngleFrom(a.x, a.y), fadeIn: 0.12 });
+            if (b.dr) b.dribbleMove('cross', { period: 0.62 });
+          }, 'spin');
         } else if (mv === 'backdown') {
           a.setStance('postUp');
           a.setFace(this.rimAngleFrom(a.x, a.y) + Math.PI);
@@ -1057,7 +1067,7 @@
         } else if (mv === 'hesi') {
           a.play('hesi');
           a.moveTo(a.x + (this.rim.x - a.x) * 0.25, a.y + (this.rim.y - a.y) * 0.25, { speed: 17, face: 'move', stance: 'dribble' });
-        } else if (mv === 'spin') {
+        } else if (mv === 'spin' && !M.Anims.get('spinMocap')) {
           if (b.holder === a && b.state !== 'dribble') b.dribble(a);
           a.play('spin', { facing: this.rimAngleFrom(a.x, a.y) });
           if (b.dr) b.dribbleMove('cross', { period: 0.6 });
@@ -1078,7 +1088,8 @@
           a.moveTo(a.x - (this.rim.x - a.x) * 0.1, a.y, { speed: 8, face: this.rim, stance: 'dribble' });
         }
       };
-      return Math.max(0.5, extra + (mv === 'size_up' ? 1.0 : 0.3));
+      const spinC = mv === 'spin' ? M.Anims.get('spinMocap') : null;
+      return Math.max(0.5, extra + (mv === 'size_up' ? 1.0 : spinC ? spinC.dur : 0.3));
     }
     // --- pass
     p_pass(ev, beat, gap) {

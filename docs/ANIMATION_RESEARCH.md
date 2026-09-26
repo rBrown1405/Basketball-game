@@ -127,6 +127,23 @@ project released under CC0 1.0 (https://github.com/makehumancommunity/makehuman,
 | Free throws | the official catches the ball out of the net and walks to the lane before bouncing it to the shooter (~16 s between free throws in the NBA, compressed) | https://thef5.substack.com/p/long-time-short-king |
 | Camera | the ball always stays inside the middle ~60 % of the frame; faster pans when it runs out of the picture | https://openaccess.thecvf.com/content_cvpr_2016/papers/Chen_Learning_Online_Smooth_CVPR_2016_paper.pdf |
 
+## Motion capture (tools/mocap, clips_mocap.js)
+
+Real captures from the CMU Graphics Lab Motion Capture Database (free for research and commercial use; BVH release by
+Bruce Hahne) are retargeted onto the rig by `tools/mocap/retarget.js`: pelvis, spine, chest, neck and head from each
+joint's rotation relative to the take's T-pose, arms and legs from bone directions (so the captured person's
+proportions do not matter; limb directions match the capture to ~0.1 deg median), the facing from the pelvis
+heading, the root from the pelvis's ground point, and the feet's real contacts turned into planted phases and
+scripted steps (pivots become zero-lift steps about the ball of the foot) so planted feet never slide. The data used
+in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217.
+https://raw.githubusercontent.com/una-dinosauria/cmu-mocap/master/READMEFIRST.txt
+
+| Take | Use | Notes |
+|---|---|---|
+| 102_11 (OffensiveMoveSpinLeft) | the spin move (`spinMocap`) | low stance, a hop into the pivot, ~260 deg of rotation in ~1.1 s with the real footwork; replaces the three-key procedural spin |
+| 102_27 (DefensiveMoveSideToSide) | tuning of the defensive slide and stances | at 10-12 ft/s a slide is a lateral bound (both feet land nearly together ~2 times a second, a brief flight on each push-off) with the gap between the feet swinging ~0.14-0.66 H; hips ~0.115 H below standing, hip abduction ~35 deg, knees 58-96 deg, arms out with elbows bent ~75 deg. The slide's steps are now ~25% slower and the stance lower and wider with the low hand's elbow bent |
+| 124_04 / 124_05 / 124_06 (free throw, jump shot, lay up) | reviewed, not used | an amateur's form (a deep bend-over gather); the research-tuned shooting clips stay |
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the
