@@ -193,3 +193,24 @@ engine's own sliders. The director reads them through `Director.sliderK(key, lo,
 | Defensive Awareness (`defIQ`) | how much defenders anticipate their man's movement, how tight help stays |
 | On-Ball Pressure (`defPressure`) | the cushion off the ball handler (NBA tracking by distance from the rim at 50) |
 | Help Defense (`helpD`) | how far help defenders may sag off their man toward the ball |
+
+## Movement, handling, the post and contact
+
+* **Strides**: a foot only lifts once the other one is planted, so players never hop on both feet while moving.
+* **Shots**: every jump shot family clip (catch-and-shoot, pull-up, step-back, fadeaway, free throw) uses the same
+  fitted arm phases (`M.Anims.SHOT_ARMS`, `SHOT_BALL`): dip, rise, set point (the "L"), push, release,
+  follow-through and hold, with the whole arm in the vertical plane through the rim.
+* **Passes**: the passer squares to the receiver before the throw; two-hand passes finish with the forearms
+  turned in (thumbs down, palms out).
+* **Handling**: `Director.handleBall` (flow.js) runs every frame for the dribbler. It moves the ball to the other
+  hand when his man gets to the ball side (between the legs or behind the back when close in front), and works
+  combos while sizing him up. How often and how fancy follows the `handle` rating. The off arm guards the ball
+  toward the nearest defender, as much as the handle rating allows.
+* **Catches**: after a catch with time to spare the receiver faces up into the triple threat, pivoting on a planted
+  foot (`Actor.pivotTo`) when he caught it with his back or side to the basket; not for a post-up.
+* **Post**: a back-down is two or three bumps that knock the defender back; a post jumper or fadeaway is the
+  turnaround post fade (`postFadeL` / `postFadeR`); a post finish at the rim starts with a drop step.
+* **Contact**: the view's body separation (feet and chest circles scaled by height) also produces impacts when
+  bodies meet with speed (`Actor.impact`): each is knocked off his line and off balance by his share of the
+  momentum, in the air too, without changing the engine's result. Rim defenders set up in the driver's path and go
+  straight up with both arms (`wallUp`).

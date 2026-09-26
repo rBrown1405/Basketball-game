@@ -137,6 +137,7 @@
       if (this.frozen) return;
       if (this.wrap && this.T >= this.wrap.t0 + this.wrap.dur && (!this.wrap.waitFor || this.wrap.waitFor() || this.T > this.wrap.t0 + this.wrap.dur + 4)) this.finish();
       U.safe(() => this.ambient(dt), this, 'ambient');
+      if (this.handleBall) U.safe(() => this.handleBall(), this, 'handle ball');
       if (this.T > this.watch && this.active) { U.warn('possession watchdog', this.poss && this.poss.n); this.forceFinish(); }
     }
 
@@ -391,6 +392,7 @@
         b.give(to, 'chest');
         to.lookAt(null);
         if (onCatch) onCatch();
+        this.afterCatch(to);
       } });
       b.passTarget = to;
       to.lookAt({ x: from.x, y: from.y });
@@ -398,6 +400,24 @@
         const t0 = this.T + dur - 0.22;
         this.at(t0, () => { if (!to.isBusy() && b.passTarget === to) to.play('catch', { mirror: false }); }, 'catch');
       }
+    }
+
+    /** after a catch: into the triple threat facing the rim, pivoting on a foot when he caught it with his back or
+     *  side to the basket (the face-up); not when his next action comes right away, not for a post-up (he backs
+     *  down with his back to the basket instead) and not far from the basket */
+    afterCatch(a) {
+      const b = this.v.ball;
+      this.at(this.T + 0.14, () => {
+        if (b.holder !== a || b.state !== 'held' || a.isBusy()) return;
+        const bt = this.beat, ev = bt && !bt.fired ? bt.ev : null;
+        if (ev && (ev.shooter === a.id || ev.from === a.id || ev.player === a.id) && bt.fireAt - this.T < 1.5) return;
+        const nx = this.nextFor(a.id);
+        if (nx && nx.type === 'move' && (nx.move === 'backdown' || nx.move === 'spin')) return;
+        if (nx && nx.type === 'shot' && /hook|post/.test(nx.kind || '')) return;
+        if (Math.hypot(a.x - this.rim.x, a.y - this.rim.y) > 30) return;
+        a.stop();
+        if (!a.pivotTo(this.rimAngleFrom(a.x, a.y))) { a.ballHold = 'triple'; b.give(a, 'triple'); a.setStance('triple'); a.setFace(this.rim); }
+      }, 'face up');
     }
 
     // ============================================================ ambient behaviour
@@ -1221,7 +1241,21 @@
           a.setFace(this.rimAngleFrom(a.x, a.y) + Math.PI);
           const pd = this.guardOf(a.id);
           if (pd) { this.dtask[pd.id] = { until: fireAt + 1.5 }; pd.setStance('postD'); pd.track(() => { const dx = this.rim.x - a.x, dy = this.rim.y - a.y, dl = Math.hypot(dx, dy) || 1; return { x: a.x + dx / dl * 2.1, y: a.y + dy / dl * 2.1, vx: a.vx, vy: a.vy }; }, { stance: 'postD' }); pd.setFace(() => Math.atan2(a.y - pd.y, a.x - pd.x)); }
-          this.at(Math.max(this.T + extra, fireAt - 0.8), () => { if (b.holder === a) b.dribble(a, a.lefty ? 0 : 1, { low: 1 }); a.play('backdown', { facing: this.rimAngleFrom(a.x, a.y) + Math.PI }); }, 'backdown');
+          // backing him down: two or three bumps when there is time (a low dribble, the shoulder and hip into his
+          // chest), gaining a foot each; his man is knocked back a step on every bump and gives ground
+          const room = fireAt - 0.8 - (this.T + extra);
+          const nBump = room > 1.4 ? 3 : room > 0.7 ? 2 : 1;
+          for (let k = 0; k < nBump; k++) {
+            this.at(Math.max(this.T + extra, fireAt - 0.8 - (nBump - 1 - k) * 0.72), () => {
+              if (b.holder !== a || a.isBusy()) return;
+              if (b.state !== 'dribble') b.dribble(a, a.lefty ? 0 : 1, { low: 1 });
+              a.play('backdown', { facing: this.rimAngleFrom(a.x, a.y) + Math.PI, onEvent: (name) => {
+                if (name !== 'bump' || !pd) return;
+                const dx = this.rim.x - pd.x, dy = this.rim.y - pd.y, dl = Math.hypot(dx, dy) || 1;
+                pd.vx += dx / dl * 4.5; pd.vy += dy / dl * 4.5;
+              } });
+            }, 'backdown');
+          }
         } else {
           a.setStance('dribble');
           a.moveTo(a.x + (this.rim.x - a.x) * 0.08, a.y, { speed: 5, face: this.rim, stance: 'dribble' });
@@ -1367,7 +1401,9 @@
         // the passer turns to the catch spot first (the feet over ~0.4 s, the trunk at once) and throws squared up
         // to it: the throw used to start wherever he happened to face, and the body pointed away from the pass
         this.at(Math.max(this.T + extra * 0.5, fireAt - windup - 0.45), () => {
-          if (v.ball.holder !== from || from.isBusy()) return;
+          // (a face-up pivot still going is cut short: he turns to the pass instead)
+          if (v.ball.holder === from && from.clip && from.clip.clip.name === 'pivot') from.stopClip(0.1);
+          if (v.ball.holder !== from || (from.isBusy() && !(from.clip && from.clip.ending))) return;
           from.setFace({ x: cs.x, y: cs.y }); from.aimAt(cs, fireAt + 0.2);
         }, 'pass turn');
         this.at(Math.max(this.T + extra, fireAt - windup - 0.02), () => {
@@ -1457,6 +1493,18 @@
       let clipName = SHOT_CLIP[kind] || 'jumpshot';
       if (kind === 'dunk' && sh.H < 6.2 && sh.rVert < 0.6) clipName = 'layup';
       if (kind === 'dunk' && Math.random() < 0.35) clipName = 'dunk2';
+      // posting up (back to the basket after a back-down or a post entry): a fadeaway or jumper is the turnaround
+      // post fade, over the shoulder that turns him to the rim quicker; a finish at the rim starts with a drop step
+      const rimA0 = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x);
+      const backTurn = U.wrapPi(rimA0 - sh.facing);
+      const postUp = (sh.stance === 'postUp' || Math.abs(backTurn) > 1.9) && Math.hypot(sh.x - this.rim.x, sh.y - this.rim.y) < 18 && v.ball.holder === sh;
+      let postTurn = false;
+      if (postUp && (kind === 'fadeaway' || kind === 'jumper')) {
+        // (the clip is mirrored for a lefty, which also mirrors its turn)
+        const left = (backTurn > 0) !== !!sh.lefty;
+        clipName = left ? 'postFadeL' : 'postFadeR';
+        postTurn = true;
+      }
       const b = v.ball;
       const catchAndShoot = kind === 'catch_shoot' || (kind === 'jumper' && b.state === 'flight');
       // already under the basket (putbacks, short rolls): standing finish where he is
@@ -1567,13 +1615,13 @@
           const dv = sh._drive;
           if (dv && !dv.st.fin && this.T < dv.tEnd && this.T < clipStart - 0.7 && b.holder === sh) { this.at(this.T + 0.05, approach, 'approach after drive'); return; }
           if (r) { r.until = fireAt + 2.5; r.probe = null; r.probeAnchor = null; r.path = null; }
-          sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: rimShot ? 'move' : this.rim, stance: b.holder === sh ? 'dribble' : 'ready', pace: rimShot ? 8 : 5.5 });
+          sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: postTurn ? Math.atan2(this.rim.y - origin.y, this.rim.x - origin.x) + Math.PI : rimShot ? 'move' : this.rim, stance: postTurn ? 'postUp' : b.holder === sh ? 'dribble' : 'ready', pace: rimShot ? 8 : 5.5 });
           if (b.holder === sh && b.state === 'held' && !catchAndShoot && Math.hypot(sh.x - origin.x, sh.y - origin.y) > 2) b.dribble(sh);
         };
         // a long wait with the ball in his hands: he works it (probe dribbles around his spot) and only then
         // goes into the shot, instead of creeping to the spot in slow motion
         const tApp = clipStart - (Math.hypot(sh.x - origin.x, sh.y - origin.y) / (sh.maxSpeed * 0.7) + 0.7);
-        if (r && b.holder === sh && !catchAndShoot && !standFinish && tApp - this.T > 1.2 && this.flowOK && this.flowOK() && !this.driving(sh)) {
+        if (r && b.holder === sh && !catchAndShoot && !standFinish && !postUp && tApp - this.T > 1.2 && this.flowOK && this.flowOK() && !this.driving(sh)) {
           r.until = 0; r.probe = null; r.probeAnchor = { x: origin.x, y: origin.y };
           this.at(tApp, approach, 'shot approach');
         } else approach();
@@ -1645,6 +1693,15 @@
           dk.waiting = false;
           startClip();
         };
+        // the drop step: from the post-up he swings his free leg around his man on a planted pivot foot, then goes
+        // up strong off two feet
+        if (postUp && (RIM_SHOTS[kind] || clipName === 'putback' || clipName === 'putbackDunk')) {
+          this.at(Math.max(this.T + 0.05, clipStart - 0.55), () => {
+            if (b.holder !== sh || sh.isBusy()) return;
+            if (b.state === 'dribble') b.give(sh, 'triple');
+            sh.pivotTo(Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x), { hold: 'postUp' });
+          }, 'drop step');
+        }
         this.at(clipStart, tryClip, 'shot clip');
         this.planContest(ev, sh, spot, fireAt);
         this.planRebound(ev, sh, spot, fireAt, result);
@@ -1699,7 +1756,11 @@
         // NBA player tracking's buckets (tight 2-4 ft, contested 4-6 ft, open 6+ ft; a contested look used to land
         // at 2-4 ft two times in three and read as smothered)
         const contest = ev.contest || 'contested';
-        const gap = contest === 'tight' ? 2.9 : contest === 'contested' ? 4.9 : 7.5;
+        // at the rim the contest is a body in the driver's path: set on his line just short of where he goes up,
+        // so the two meet as he rises (the contact is the collision of the bodies themselves: a bump, both knocked
+        // off balance a little, harder when it is a foul)
+        const atRim = !!RIM_SHOTS[ev.kind] || ev.kind === 'floater';
+        const gap = atRim ? (ev.fouled ? 1.2 : contest === 'tight' ? 1.5 : contest === 'contested' ? 2.8 : 7.5) : contest === 'tight' ? 2.9 : contest === 'contested' ? 4.9 : 7.5;
         const dx = this.rim.x - spot.x, dy = this.rim.y - spot.y, dl = Math.hypot(dx, dy) || 1;
         const cp = this.clampCourt({ x: spot.x + dx / dl * gap, y: spot.y + dy / dl * gap }, 0.5);
         const arrive = contest === 'open' ? fireAt + 0.35 : fireAt - 0.3;
@@ -1715,7 +1776,9 @@
         this.at(this.T + 0.15, chop, 'chop');
         this.at(fireAt - (contest === 'tight' ? 0.22 : 0.3), () => {
           if (df.isBusy()) return;
-          if (contest === 'tight' && Math.hypot(df.x - spot.x, df.y - spot.y) < 5) df.play('contestJump', { mirror: df.lefty, facing: Math.atan2(spot.y - df.y, spot.x - df.x) });
+          const near = Math.hypot(df.x - spot.x, df.y - spot.y) < 5;
+          if (atRim && near && (contest !== 'open' || ev.fouled)) df.play('wallUp', { mirror: false, facing: Math.atan2(spot.y - df.y, spot.x - df.x) });
+          else if (contest === 'tight' && near) df.play('contestJump', { mirror: df.lefty, facing: Math.atan2(spot.y - df.y, spot.x - df.x) });
           else { df.setStance('ready'); df.play('contestUp', { mirror: false }); }
         }, 'contest');
       }

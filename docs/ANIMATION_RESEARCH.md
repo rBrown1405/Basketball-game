@@ -196,3 +196,32 @@ solution, landing spots re-predicted wildly, and airborne legs handed from IK to
 | Contact | a light touch between players takes the closing speed off over ~0.1 s, a deep one at once | https://www.red3d.com/cwr/papers/1999/gdc99steer.html |
 | Inbounds after a make | the inbounder catches the ball as it drops out of the net or picks it up once it is on the floor; whoever can get to the ball first takes it out (the sim's pick, usually a big, keeps the job when he is about as close), he runs to where the bouncing ball will be rather than where it is, catches a live bounce at waist or chest height and only bends for a ball that stays low, and chases it down instead of having it fly into his hands from several feet away; after a foul the referee's retrieval no longer takes the ball back once it was handed to the inbounder | https://hoopstudent.com/basketball-inbound-pass/ , https://videorulebook.nba.com/archive/inbound-violation-takes-more-than-5-secs-to-inbound , https://www.breakthroughbasketball.com/coaching/transition-inbounder-rule.html |
 
+
+## Strides, shooting form, passing, handling, the post and contact (actor.js, anims.js, clips.js, choreo.js, flow.js, view.js)
+
+Arm poses for shots and passes are no longer hand-typed angles: a fitter solves the rig's own forward kinematics for
+where the elbow, wrist and palm must be (palm under the ball, guide hand flat on its side, thumbs down on a pass
+finish) inside human joint ranges, and the grips are the wrist offsets those arms produce, so the hand IK only
+holds the hands on the ball instead of bending the arms into other shapes.
+
+| Topic | What the code does | Source |
+|---|---|---|
+| Strides | running has a flight phase with the legs about half a cycle apart: a foot only lifts once the other is planted (and not too soon after it lifted), so nobody hops on both feet | https://www.physio-pedia.com/Running_Biomechanics |
+| Set point | ball above the forehead and clear of it, on the palm and finger pads; shooting elbow bent ~90 deg under the ball with the forearm vertical; wrist cocked back; guide hand flat on the side of the ball | https://www.coachesclipboard.net/Shooting.html , https://arxiv.org/pdf/2501.05378 |
+| Release | elbow not locked (~152-158 deg at the release); the shoulder mostly lifts the ball, the elbow and wrist drive it forward; forearm and hand nearly vertical | https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2026.1834844/full , https://www.sciencedirect.com/science/article/pii/S187770581501471X |
+| Wrist flick | ~50 deg cocked back to ~70 deg flexed (120 deg arc) at 2,500-3,100 deg/s; the guide-hand wrist moves only ~32 deg | https://link.springer.com/chapter/10.1007/978-4-431-65874-0_5 |
+| Guide hand | rests on the side of the ball, comes off first, never pushes; stays up after the release | https://www.breakthroughbasketball.com/fundamentals/shooting/fix-guide-hand |
+| Follow-through | gooseneck with the fingers at the rim, held until the ball reaches it (~1 s) | https://www.coachesclipboard.net/Shooting.html , https://www.breakthroughbasketball.com/fundamentals/shooting-technique |
+| Layup height | release at the top of the jump, arm extended; a one-foot take-off of ~0.37 x height (24-33 in by athleticism) with an airtime that matches it (T = sqrt(8h/g)) | https://www.coachesclipboard.net/Layup.html , https://athletecalculator.com/average-nba-vertical-jump |
+| Dunk reach | fingers ~6 in over the rim for one hand, ~9 in for two; standing reach ~1.335 x height | https://www.thehoopsgeek.com/dunk-calculator/ , https://www.thehoopsgeek.com/standing-reach/ |
+| Forearm range | about 90 deg of supination and 90 deg of pronation from neutral; now a joint limit | https://www.physio-pedia.com/Elbow |
+| Chest and bounce pass | step in, extend the elbows, turn the forearms in: finish thumbs down, palms out; bounce two thirds of the way | https://us.humankinetics.com/blogs/excerpt/stationary-partner-passing |
+| Overhead pass | ball at the forehead with the thumbs back, elbows and wrists snap forward together | https://us.humankinetics.com/blogs/excerpt/stationary-partner-passing |
+| Weak hand | guards put 37-43% of their dribbles in the non-dominant hand; control dribbles ~1.35 Hz | https://pmc.ncbi.nlm.nih.gov/articles/PMC10674553/ , https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0238318 |
+| Crossover / between the legs / behind the back | crossover low, knee to knee; between the legs as the opposite foot steps; behind the back just behind the hips | https://www.levelupbasket.com/crossover-dribble , https://www.sportplan.net/drills/Basketball/Dribbling-Techniques/Basic-between-the-legs-dribbling-Basket48.jsp , https://www.levelupbasket.com/basketball-drills/ball-handling-drills/stationary-behind-the-back-dribbling |
+| Back-down and drop step | back-down with low dribbles on the far side from the defender; drop step swings the free leg around the defender to the front of the rim on one power dribble | http://www.hoopsplaybook.ca/post%20play/post_dribble_moves.html , https://www.breakthroughbasketball.com/drills/drop-step , https://www.coachesclipboard.net/PostMoves.html |
+| Post fade | turn over a shoulder into the fade (Nowitzki's one-legged fade: drift away, plant, square up) | https://www.dallasnews.com/sports/mavericks/2019/04/03/signature-shot-breaking-down-how-dirk-nowitzki-s-one-legged-fadeaway-has-beaten-defenders-for-decades/ |
+| Post-ups | about 4.7% of NBA possessions (2019-20) | https://www.theringer.com/2019/12/02/nba/post-up-dead-nba-brooklyn-nets-joel-embiid |
+| Verticality | set before the shooter goes up, jump straight up, body perpendicular to the floor, arms straight up | https://official.nba.com/nba-rule-authority-restricted-area-and-verticality-plays/ |
+| Contact | collisions resolved as they happen (not canned animations); both bodies knocked by their share of the momentum | https://blog.playstation.com/2020/10/14/nba-2k21-gameplay-deep-dive-movement-impact-and-more/ , https://nba.2k.com/2k26/courtside-report/gameplay/ |
+| Finishing through contact | shoulder into the defender on the gather, stay balanced over the base, still finish | https://athletesuntapped.com/blog/the-and-one-mentality-mastering-finishing-through-contact-in-basketball/ |

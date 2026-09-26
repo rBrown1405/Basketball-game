@@ -352,6 +352,16 @@
           // them around one another instead of re-penetrating every frame; bodies are soft, so a light touch takes
           // the closing speed off over ~0.1 s (all at once, a runner lost half his speed in one frame and his stride
           // jumped), a deep one at once
+          // an impact: bodies meeting with speed (a driver into a help defender at the rim, hips on a drive, a
+          // screen) knock each other off balance, each by the other's share of the momentum
+          // (off-ball players brushing past each other only stagger when they really run into each other)
+          const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          const committed = la === 0 || lb === 0 || a.hasBall || b.hasBall;
+          if (vn < (committed ? -3 : -8.5) && a.kind === 'player' && b.kind === 'player' && a.impact) {
+            const ma = a.H * a.H * a.H * (a.dims.bulk || 1), mb = b.H * b.H * b.H * (b.dims.bulk || 1);
+            a.impact(-nx, -ny, -vn * mb / (ma + mb));
+            b.impact(nx, ny, -vn * ma / (ma + mb));
+          }
           const rv = ((b.vx - a.vx) * nx + (b.vy - a.vy) * ny) * Math.max(1 - Math.exp(-h / 0.05), U.clamp(push / (0.3 * minD), 0, 1));
           if (rv < 0) {
             a.vx += nx * rv * la / tot; a.vy += ny * rv * la / tot;

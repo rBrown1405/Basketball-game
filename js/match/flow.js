@@ -354,6 +354,51 @@
     return true;
   };
 
+  // ------------------------------------------------------------ working the ball (hand switches)
+  /** the dribbler switches hands like a real handler: when his man gets to the ball side it goes to the other hand
+   *  (between the legs or behind the back when he is close in front, a crossover otherwise), and sizing up a
+   *  defender he works combos; how often and how fancy goes with his handle (research: guards put 37-43 % of their
+   *  dribbles in the weak hand; a big who can't dribble just crosses it over now and then) */
+  P.handleBall = function () {
+    const b = this.v.ball, a = b.holder, T = this.T;
+    if (!a || b.state !== 'dribble' || !b.dr || b.dr.actor !== a || b.dr.move || b.dr.pendingMove || a.isBusy()) return;
+    if (a._drive && T < a._drive.tEnd) return;
+    const hs = a._hs || (a._hs = { next: T + 0.3 + Math.random() * 0.5 });
+    if (T < hs.next) return;
+    const skill = a.rHandle == null ? 0.5 : a.rHandle;
+    let d = null, dd = 99;
+    for (const id of this.v.onCourt[1 - a.team] || []) {
+      const o = this.v.actors[id]; if (!o) continue;
+      const q = Math.hypot(o.x - a.x, o.y - a.y);
+      if (q < dd) { dd = q; d = o; }
+    }
+    const c = Math.cos(a.facing), s = Math.sin(a.facing);
+    const fwd = d ? (d.x - a.x) * c + (d.y - a.y) * s : 0, lat = d ? (d.x - a.x) * s - (d.y - a.y) * c : 0;
+    const ballSide = b.dr.hand ? 1 : -1; // +1: the right hand (to his right)
+    const speed = Math.hypot(a.vx, a.vy);
+    let type = null;
+    if (d && dd < 6.5 && lat * ballSide > 0.25 * dd && fwd > -1) {
+      // his man is on the ball side: protect it, get it to the other hand
+      const r = Math.random();
+      type = dd < 4.2 && fwd > 0.5 && skill > 0.4 ? (r < 0.55 ? 'btl' : 'btb') : speed > 10 && skill > 0.55 && r < 0.4 ? 'btb' : 'cross';
+    } else if (d && dd < 9.5 && speed < 7 && Math.random() < 0.15 + 0.55 * skill) {
+      // sizing him up
+      const r = Math.random();
+      type = skill > 0.55 && r < 0.32 ? 'btl' : skill > 0.65 && r < 0.46 ? 'btb' : 'cross';
+    }
+    if (type) {
+      b.dribbleMove(type, { period: type === 'cross' ? 0.36 : 0.44 });
+      // the body goes with it: a short push step toward the new ball side (only when he is not headed somewhere)
+      const g = a.goal;
+      const idle = g.mode === 'idle' || (g.mode === 'move' && g.by == null && Math.hypot(g.x - a.x, g.y - a.y) < 1.5);
+      if (idle && speed < 7) {
+        const k = -ballSide * (0.6 + 0.6 * skill);
+        a.moveTo(a.x + s * k, a.y - c * k, { speed: 7, stance: 'dribble' });
+      }
+    }
+    hs.next = T + (type ? U.lerp(2.2, 0.9, skill) : 0.5) * (0.8 + Math.random() * 0.5);
+  };
+
   // ------------------------------------------------------------ ball movement (cosmetic swings)
   /** who must hold the ball when the current beat's key moment comes, and by when */
   P.flowBallNeed = function () {

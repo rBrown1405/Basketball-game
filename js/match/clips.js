@@ -276,6 +276,20 @@
       { t: 0.95, p: 'defense' },
     ],
   });
+  // verticality at the rim: set in the driver's path, straight up with both arms straight overhead and the body
+  // vertical (NBA verticality: set before the shooter goes up, jump straight up, no leaning or jackknifing)
+  clip('wallUp', {
+    dur: 0.9, events: { set: 0.14 },
+    jump: { t0: 0.14, t1: 0.62, h: 0.16 },
+    feet: [[0, 'plant'], [0.14, 'air'], [0.62, 'plant']],
+    keys: [
+      { t: 0.0, p: { base: 'contest', rootZ: -0.08, pelPitch: 14, both: { ShF: 150, ShA: 12, ElF: 30, HipF: 34, Knee: 48 } } },
+      { t: 0.2, p: { rootZ: 0, pelPitch: 0, spFlex: -2, chFlex: -2, nkFlex: -14, both: { ShF: 174, ShA: 8, ShT: 0, ElF: 4, Pro: 90, WrF: -12, Fing: 0.05, HipF: 10, Knee: 18, Ank: -28 } } },
+      { t: 0.48, p: { rootZ: 0, pelPitch: 2, spFlex: 0, nkFlex: -12, both: { ShF: 172, ShA: 10, ElF: 6, Pro: 90, WrF: -10, HipF: 14, Knee: 24, Ank: -20 } } },
+      { t: 0.62, p: { rootZ: -0.06, pelPitch: 12, spFlex: 4, both: { ShF: 140, ShA: 16, ElF: 24, HipF: 30, Knee: 44, Ank: 10 } } },
+      { t: 0.9, p: 'defense' },
+    ],
+  });
   // contest without leaving the floor: high hand up toward the shooter
   clip('contestUp', {
     dur: 0.9, mask: 'upper',
@@ -656,4 +670,31 @@
     refStand: { pose: 'refStand', L: [-0.075, 0.085], R: [0.075, 0.085], yaw: 9, gaitArms: 1, gaitTorso: 1 },
     dribble: { pose: 'dribbleLow', L: [-0.125, 0.16], R: [0.125, 0.07], yaw: 12, gaitArms: 0.4, gaitTorso: 0.45 },
   });
+
+  // post fade (turnaround fadeaway): back to the basket, he turns over a shoulder on the balls of his feet while
+  // gathering (the ball comes up to the set point as he comes around), rises squared to the rim and fades away
+  // from his man. postFadeL turns left (counter-clockwise from above), postFadeR right
+  const postFade = (name, sgn) => clip(name, {
+    dur: 1.7, events: { set: 0.56, release: 0.8 },
+    jump: { t0: 0.56, t1: 1.1, h: 0.15 },
+    feet: [[0, 'plant'], [0.56, 'air'], [1.1, 'plant']],
+    pivot: { side: 2, t0: 0, t1: 0.44 },
+    yaw: [[0, -180 * sgn], [0.14, -120 * sgn], [0.3, -40 * sgn], [0.44, 0], [1.7, 0]],
+    root: [[0, 0, 0], [0.44, 0.1, 0], [0.56, 0, 0], [1.1, -1.9, 0.1], [1.34, -2.1, 0.1], [1.7, -2.1, 0.1]],
+    keys: [
+      { t: 0.0, p: { base: 'postUp' }, ball: [0.07, 0.16, 0.62], grip: 'hold' },
+      { t: 0.16, p: arms('dip', { rootZ: -0.1, pelPitch: 22, spFlex: 6, chFlex: 3, nkFlex: -14, chTwist: 18 * sgn, both: { HipF: 36, Knee: 54, Ank: 16 } }), ball: SB.dip, grip: 'jsLow' },
+      { t: 0.32, p: arms('rise', { rootZ: -0.05, pelPitch: 10, spFlex: 2, chFlex: -2, nkFlex: -10, chTwist: 8 * sgn, both: { HipF: 20, Knee: 30, Ank: 4 } }), ball: SB.rise, grip: 'jsRise' },
+      { t: 0.56, p: { base: 'shotSet', spFlex: -8, chFlex: -8 }, ball: SB.set, grip: 'jsSet' },
+      { t: 0.7, p: arms('push', { rootZ: 0, pelPitch: -5, spFlex: -12, chFlex: -8, nkFlex: 2, hdFlex: -4, lHipF: 10, lKnee: 16, rHipF: 50, rKnee: 66, both: { Ank: -30 } }), ball: SB.push, grip: 'jsPush' },
+      { t: 0.8, p: arms('release', { rootZ: 0, pelPitch: -6, spFlex: -14, chFlex: -8, nkFlex: 4, hdFlex: -4, rShF: 124, lHipF: 10, lKnee: 16, rHipF: 55, rKnee: 70, both: { Ank: -30 } }), ball: SB.release, grip: 'shootRel' },
+      { t: 0.86, p: { base: 'shotFollow', pelPitch: -6, spFlex: -14, chFlex: -8, rShF: 126, rHipF: 50, rKnee: 65 } },
+      { t: 1.1, p: arms('hold', { rootZ: -0.03, pelPitch: 4, spFlex: -2, chFlex: -4, rShF: 136, both: { HipF: 20, HipA: 6, Knee: 30 } }) },
+      { t: 1.34, p: arms('relax', { rootZ: -0.04, pelPitch: 8, spFlex: 3, both: { HipF: 22, Knee: 30, Ank: 8 } }) },
+      { t: 1.5, p: arms('down', { rootZ: -0.04, pelPitch: 10, spFlex: 4, both: { HipF: 24, Knee: 30, Ank: 8 } }) },
+      { t: 1.7, p: 'ready' },
+    ],
+  });
+  postFade('postFadeL', 1);
+  postFade('postFadeR', -1);
 })();

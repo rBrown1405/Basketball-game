@@ -70,7 +70,7 @@
       this.style = M.Figure.makeStyle(this.look, teamLook, this.kind);
       this.lefty = this.look.hand === 'L';
       const r = (k, d) => U.clamp(((this.look[k] == null ? d : this.look[k]) - 25) / 74, 0, 1);
-      this.rSpeed = r('speed', 70); this.rAgi = r('agility', 70); this.rVert = r('vert', 65);
+      this.rSpeed = r('speed', 70); this.rAgi = r('agility', 70); this.rVert = r('vert', 65); this.rHandle = r('handle', 55);
       this.maxSpeed = this.kind === 'ref' ? 16 : 19 + this.rSpeed * 7;
       this.accel = this.kind === 'ref' ? 12 : 14 + this.rAgi * 7;
       this.decel = this.accel * 1.5;
@@ -224,6 +224,69 @@
       if (this.clip) { this.clip.ending = true; if (fade === 0) this._endClip(); }
     }
     isBusy() { return !!(this.clip && !this.clip.done); }
+    /** a body contact: pushed along (nx, ny) with `speed` ft/s of the closing speed. The body is knocked a little off
+     *  its line and thrown off balance (the torso goes with the push, the arms come out, the head lags), then he
+     *  recovers; in the air too, where it does not stop the shot, only how it looks getting there */
+    impact(nx, ny, speed) {
+      if (!(speed > 3)) return;
+      const s = Math.min(speed, 12), h = this.hit;
+      if (h && h.t < 0.2 && h.s >= s) return;
+      // (how much it shows: a brush barely, a real collision clearly; up to ~0.5 ft off his line)
+      this.hit = { nx, ny, s, k: U.smooth((s - 2.5) / 7), t: 0 };
+    }
+    /**
+     * pivot to face `angle` on a planted foot (a face-up after a catch, the post turn): the pivot foot keeps its spot
+     * and turns on its ball, the body swings around it and the free foot steps around (two steps for a big turn, so
+     * it never crosses the pivot foot). Turning left pivots on the left foot, right on the right. The ball stays in
+     * the triple threat at the hip. Returns false when the turn is small enough to just face that way
+     */
+    pivotTo(angle, o) {
+      o = o || {};
+      const delta = U.wrapPi(angle - this.facing);
+      if (Math.abs(delta) < 0.55) { this.setFace(angle); return false; }
+      const side = delta > 0 ? 0 : 1; // turning left: pivot on the left foot
+      const pf = this.feet[side], ff = this.feet[1 - side];
+      if (pf.state !== 'plant' || ff.state === 'air') { this.setFace(angle); return false; }
+      const c = Math.cos(this.facing), s = Math.sin(this.facing);
+      const loc = (x, y) => [(x - this.x) * c + (y - this.y) * s, (x - this.x) * s - (y - this.y) * c]; // [fwd, lat]
+      const P = loc(pf.x, pf.y), F0 = loc(ff.x, ff.y);
+      // rotate a clip-frame point about the pivot by phi (+ = left): in (fwd, lat), a left turn takes fwd toward -lat
+      const rot = (q, phi) => { const dx = q[0] - P[0], dy = q[1] - P[1], cp = Math.cos(phi), sp = Math.sin(phi); return [P[0] + dx * cp + dy * sp, P[1] - dx * sp + dy * cp]; };
+      const dur = 0.2 + 0.26 * Math.abs(delta) / Math.PI * (1.15 - 0.3 * (this.rAgi || 0.5));
+      const n = 4, root = [], yaw = [];
+      for (let i = 0; i <= n; i++) {
+        const u = i / n, ue = U.smooth(u), phi = delta * ue;
+        const r = rot([0, 0], phi);
+        root.push([dur * u, r[0], r[1]]);
+        yaw.push([dur * u, phi / D]);
+      }
+      root.push([dur + 0.12, root[n][1], root[n][2]]); yaw.push([dur + 0.12, delta / D]);
+      const big = Math.abs(delta) > 2.0;
+      const steps = [];
+      const fSide = side ? 'l' : 'r';
+      if (big) {
+        const m = rot(F0, delta * 0.5), e = rot(F0, delta);
+        steps.push({ t0: 0.03, t1: dur * 0.5, foot: fSide, to: m, yaw: delta * 0.5 / D, lift: 0.05 });
+        steps.push({ t0: dur * 0.52, t1: dur, foot: fSide, to: e, yaw: delta / D, lift: 0.05 });
+      } else {
+        steps.push({ t0: 0.03, t1: dur, foot: fSide, to: rot(F0, delta), yaw: delta / D, lift: 0.06 });
+      }
+      const hold = o.hold || 'triple';
+      const clip = A.buildClip({
+        name: 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
+        pivot: { side, t0: 0, t1: dur + 0.12 },
+        keys: [
+          { t: 0, p: hold, ball: [0.13, 0.06, 0.5], grip: 'hip' },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.13, 0.07, 0.52], grip: 'hip' },
+          { t: dur + 0.12, p: hold, ball: [0.13, 0.06, 0.5], grip: 'hip' },
+        ],
+      });
+      this.ballHold = 'triple';
+      // (built for this player's own feet and turn: never mirrored for a lefty)
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: this.facing, fadeIn: 0.08, mirror: false });
+      if (cs) cs.onEnd = () => { this.setStance(hold); this.setFace(o.faceAfter != null ? o.faceAfter : angle); };
+      return !!cs;
+    }
     /**
      * Square the upper body to a point for a moment (a pass: the chest and arms go at the receiver while the feet
      * turn the rest of the way): the trunk twists up to ~70 deg, easing in over ~0.15 s and out after `until`.
@@ -237,6 +300,17 @@
     // ============================================================ update
     update(dt, now) {
       this.time = now;
+      const hit = this.hit;
+      if (hit) {
+        hit.t += dt;
+        if (hit.t > 0.6) this.hit = null;
+        else {
+          // knocked off his line: most of it in the first ~0.2 s, ~0.05 ft per ft/s of the impact in all
+          const push = hit.k * 0.5 * Math.exp(-hit.t / 0.09) / 0.09 * dt;
+          if (this.clip) { this.clip.ox += hit.nx * push; this.clip.oy += hit.ny * push; }
+          else { this.x += hit.nx * push; this.y += hit.ny * push; }
+        }
+      }
       if (this.clip) this._updateClip(dt);
       if (this.upper) this._updateUpper(dt);
       if (!this.clip) {
@@ -762,6 +836,14 @@
           }
         }
         // generic planted-stance correction when the clip holds a stance for long
+        // pivoting: the pivot foot keeps its spot and turns on the ball of the foot with the body
+        // (side 2: both feet turn on their balls, the turnaround of a post fade)
+        const pv = clip.pivot;
+        if (pv && cs.t >= pv.t0 && cs.t <= pv.t1) {
+          if (!cs.pivotYaw0) { cs.pivotYaw0 = [this.feet[0].yaw, this.feet[1].yaw]; cs.pivotFace0 = this.facing; }
+          const turn = U.wrapPi(this.facing - cs.pivotFace0);
+          for (const f of this.feet) if ((pv.side === 2 || f.side === pv.side) && f.state === 'plant') f.yaw = cs.pivotYaw0[f.side] + turn;
+        }
       }
       // hands on the spot (a dunker grabbing the rim): an explicit IK target, eased in and out
       const rh = cs.reach;
@@ -836,6 +918,33 @@
       }
       const l = this._holdLocalS(HL);
       return this.local(l[0], l[1], l[2], out);
+    }
+    /** where the nearest opponent is for a ball handler: w = threat (0 beyond ~8 ft, 1 inside ~4 ft, less when he
+     *  is behind), side = 0 in front .. 1 out on the off-hand side; eased so the guard arm does not twitch */
+    _guardDir(dt) {
+      const g = this._gd || (this._gd = { w: 0, side: 0 });
+      let best = null, bd = 1e9;
+      const v = this.view;
+      if (v && v.onCourt && v.actors && this.team >= 0) {
+        for (const id of v.onCourt[1 - this.team] || []) {
+          const o = v.actors[id]; if (!o) continue;
+          const d = Math.hypot(o.x - this.x, o.y - this.y);
+          if (d < bd) { bd = d; best = o; }
+        }
+      }
+      let w = 0, side = 0;
+      if (best && bd < 9) {
+        const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        const dx = best.x - this.x, dy = best.y - this.y;
+        const fwd = (dx * c + dy * s) / (bd || 1), lat = (dx * s - dy * c) / (bd || 1);
+        // (lat > 0: he is to the right; the off arm is on the left while the right hand dribbles)
+        const offDir = this.dribble && this.dribble.hand ? -1 : 1;
+        w = U.smooth((8 - bd) / 4) * U.clamp(0.4 + fwd, 0, 1);
+        side = U.clamp(offDir * lat * 1.4, 0, 1);
+      }
+      const k = dt > 0 ? 1 - Math.exp(-dt / 0.18) : 1;
+      g.w += (w - g.w) * k; g.side += (side - g.side) * k;
+      return g;
     }
     /** a world point pulled in to within an arm's length (plus `extra`) of the shoulder on `side`. The shoulder is
      *  placed from the root (glenohumeral centre ~0.80 H up, a touch forward, plus any jump), not read from the last
@@ -1008,6 +1117,18 @@
       }
       // 5. head look-at
       if (this.look_) this._applyLook(p);
+      // 5b. knocked off balance by a contact: the torso goes with the push, the head lags, the arms come out
+      const hit = this.hit;
+      if (hit) {
+        const a = hit.t < 0.07 ? hit.t / 0.07 : Math.exp(-(hit.t - 0.07) / 0.18);
+        const k = hit.k * a;
+        const c = Math.cos(this.facing), sn = Math.sin(this.facing);
+        const lat = hit.nx * sn - hit.ny * c, fwd = hit.nx * c + hit.ny * sn;
+        p[CH.spLat] += lat * 9 * D * k; p[CH.chLat] += lat * 7 * D * k; p[CH.pelRoll] += lat * 3 * D * k;
+        p[CH.spFlex] += fwd * 8 * D * k; p[CH.chFlex] += fwd * 5 * D * k;
+        p[CH.nkLat] -= lat * 7 * D * k; p[CH.nkFlex] -= fwd * 6 * D * k;
+        p[CH.lShA] += 16 * D * k; p[CH.rShA] += 16 * D * k; p[CH.lElF] += 10 * D * k; p[CH.rElF] += 10 * D * k;
+      }
       // 6. procedural overlays (dribble arm etc.) handled in IK stage
     }
 
@@ -1159,16 +1280,19 @@
         pp[CH[pre + 'Pro']] = U.lerp(pp[CH[pre + 'Pro']], 150 * D, wAll);
         pp[CH[pre + 'WrD']] = U.lerp(pp[CH[pre + 'WrD']], 8 * D, wAll);
         pp[CH[pre + 'Fing']] = U.lerp(pp[CH[pre + 'Fing']], 0.12, wAll);
-        // off arm: an "arm bar" guard, forearm up in front toward the defender, elbow ~90 deg (not pushing)
+        // off arm: guards the ball from the nearest defender, forearm up with the palm toward him (between him and
+        // the ball, not pushing), in front or out to the side depending on where he is; as well as the handler's
+        // skill allows: a guard keeps it up and turned at his man, a big who can't dribble barely lifts it; with
+        // nobody close it is carried loosely in front
         const off = hand ? 'l' : 'r';
-        const wOff = 0.8 * wAll;
-        pp[CH[off + 'ShF']] = U.lerp(pp[CH[off + 'ShF']], 42 * D, wOff);
-        pp[CH[off + 'ShA']] = U.lerp(pp[CH[off + 'ShA']], 26 * D, wOff);
-        pp[CH[off + 'ShT']] = U.lerp(pp[CH[off + 'ShT']], -6 * D, wOff);
-        pp[CH[off + 'ElF']] = U.lerp(pp[CH[off + 'ElF']], 88 * D, wOff);
-        pp[CH[off + 'Pro']] = U.lerp(pp[CH[off + 'Pro']], 60 * D, wOff);
-        pp[CH[off + 'WrF']] = U.lerp(pp[CH[off + 'WrF']], -10 * D, wOff);
-        pp[CH[off + 'Fing']] = U.lerp(pp[CH[off + 'Fing']], 0.2, wOff);
+        const wOff = 0.85 * wAll;
+        const gd = this._guardDir(this._inDt);
+        const wG = gd.w * (0.2 + 0.8 * this.rHandle);
+        for (let k = 0; k < GUARD_CH.length; k++) {
+          const c = GUARD_CH[k], g = GUARD_FRONT[k] + (GUARD_SIDE[k] - GUARD_FRONT[k]) * gd.side;
+          const v = GUARD_CARRY[k] + (g - GUARD_CARRY[k]) * wG;
+          pp[CH[off + c]] = U.lerp(pp[CH[off + c]], c === 'Fing' ? v : v * D, wOff);
+        }
         // shoulders turn a little toward the ball side; the dribbling shoulder dips as the push goes down
         pp[CH.chTwist] += (hand ? -1 : 1) * 5 * D * wAll;
         if (d.ph === 'push') pp[CH.chLat] += (hand ? 1 : -1) * 2.5 * D * Math.sin(Math.PI * (d.s || 0)) * wAll;
@@ -1302,6 +1426,13 @@
     return pa > a && pa <= b;
   }
   const RT2 = new Float64Array(3), RT3 = new Float64Array(3);
+  // the dribbler's off (guard) arm, fitted to the rig in the low dribble stance (degrees, finger curl 0..1): the
+  // forearm up with the palm to a defender in front, the arm out to the side for one on the off-hand side, and a
+  // loose carry in front when nobody is close
+  const GUARD_CH = ['ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD', 'Fing'];
+  const GUARD_FRONT = [79, 8.5, 12, 110, 166, -26.5, -9, 0.15];
+  const GUARD_SIDE = [40, 44, -49, 107, 166, -30.5, 5, 0.15];
+  const GUARD_CARRY = [25, 21, 0, 93.5, 69, -1.5, 10.5, 0.25];
   const MASKS = {};
   function maskOf(name) {
     if (MASKS[name]) return MASKS[name];
