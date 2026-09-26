@@ -228,6 +228,69 @@
       else { ik.hf = null; ik.hb = null; }
       limitArm(p, pre);
       this._armFK(side);
+      this._armClear(side);
+    }
+    /** keeps an arm out of the body: an elbow or forearm sunk into the chest or belly, a hand in the trunk, or an arm
+     *  through the head swivels out: the elbow turns about the shoulder-wrist line and the wrist stays where it is,
+     *  by the smallest turn that clears (a search over the swivel angle for a collision-free arm, as in M. Kallmann,
+     *  "Analytical inverse kinematics with body posture control", 2008), eased in over ~2 frames and out over ~6
+     *  (this.dt: time since the last frame, set by the owner; 0 = the same frame solved again) */
+    _armClear(side) {
+      const d = this.dims, H = d.H, P = this.P, p = this.pose;
+      const sg = side === 0 ? -1 : 1, pre = side === 0 ? 'l' : 'r';
+      const o = (side === 0 ? J.L_SH : J.R_SH) * 3;
+      const sv = this._swv || (this._swv = [0, 0]);
+      const iF = CH[pre + 'ShF'], iA = CH[pre + 'ShA'], iT = CH[pre + 'ShT'];
+      const F0 = p[iF], A0 = p[iA], T0 = p[iT];
+      const pen0 = armPen(P, o, H);
+      let want = 0;
+      if (pen0 > 0.002 * H) {
+        let best = pen0, bestPhi = 0;
+        const s0 = sv[side] < 0 ? -1 : 1;
+        for (const m of SWIVELS) {
+          for (const sgn of [s0, -s0]) {
+            if (!this._swivel(side, sgn * m)) continue;
+            const pe = armPen(P, o, H);
+            p[iF] = F0; p[iA] = A0; p[iT] = T0;
+            if (pe < best - 0.001 * H) { best = pe; bestPhi = sgn * m; }
+            if (pe <= 0.002 * H) break;
+          }
+          if (best <= 0.002 * H) break;
+        }
+        // (only a turn that really helps: a third of the way out at least)
+        if (bestPhi && best < pen0 * 0.67) want = bestPhi;
+        this._armFK(side);
+      }
+      const dt = this.dt;
+      let cur = sv[side];
+      if (dt == null || !(dt >= 0) || dt > 0.12) cur = want;
+      else if (dt > 0) cur += (want - cur) * (1 - Math.exp(-dt / (Math.abs(want) > Math.abs(cur) ? 0.025 : 0.09)));
+      sv[side] = cur;
+      if (Math.abs(cur) > 0.004 && this._swivel(side, cur)) { limitArm(p, pre); this._armFK(side); }
+    }
+    /** turn the arm's elbow by phi (rad) about the shoulder-wrist line, the wrist fixed: sets the shoulder angles
+     *  (the elbow bend and the forearm and hand angles stay) and runs the arm's FK; false if the arm is straight */
+    _swivel(side, phi) {
+      const d = this.dims, P = this.P, R = this.R, p = this.pose;
+      const sg = side === 0 ? -1 : 1, pre = side === 0 ? 'l' : 'r';
+      const o = (side === 0 ? J.L_SH : J.R_SH) * 3;
+      const sx = P[o], sy = P[o + 1], sz = P[o + 2];
+      const ch = (x, y, z, i) => R[18 + i] * x + R[21 + i] * y + R[24 + i] * z;
+      const wx = P[o + 6] - sx, wy = P[o + 7] - sy, wz = P[o + 8] - sz, ex = P[o + 3] - sx, ey = P[o + 4] - sy, ez = P[o + 5] - sz;
+      const nx = ch(wx, wy, wz, 0), ny = ch(wx, wy, wz, 1), nz = ch(wx, wy, wz, 2);
+      const qx = ch(ex, ey, ez, 0), qy = ch(ex, ey, ez, 1), qz = ch(ex, ey, ez, 2);
+      const dd = Math.hypot(nx, ny, nz);
+      if (dd < 1e-6) return false;
+      const ux = nx / dd, uy = ny / dd, uz = nz / dd, k = qx * ux + qy * uy + qz * uz;
+      const px = qx - k * ux, py = qy - k * uy, pz = qz - k * uz;
+      if (Math.hypot(px, py, pz) < 0.02 * d.ua) return false;
+      const c = Math.cos(phi), s = Math.sin(phi);
+      // Rodrigues: the elbow's offset from the line turned about it
+      const rx = px * c + (uy * pz - uz * py) * s, ry = py * c + (uz * px - ux * pz) * s, rz = pz * c + (ux * py - uy * px) * s;
+      const sol = armPole(nx, ny, nz, dd, d.ua, d.fa, rx, ry, rz, sg, p[CH[pre + 'ShF']], -sg * p[CH[pre + 'ShA']]);
+      p[CH[pre + 'ShF']] = sol.f; p[CH[pre + 'ShA']] = -sg * sol.b; p[CH[pre + 'ShT']] = sg * sol.t;
+      this._armFK(side);
+      return true;
     }
     _shoulder(side, shrug) {
       const d = this.dims, H = d.H, P = this.P, R = this.R, p = this.pose;
@@ -481,6 +544,34 @@
   const LEG_INERT = ['HipF', 'HipA', 'HipT', 'Knee', 'Ank', 'Toe'];
   const LEG_INERT_IDX = [0, 1, 2, 3, 4, 5], LEG_INERT_ANG = [1, 1, 1, 1, 1, 1];
   const LEG_INERT_THR = [0.165, 0.165, 0.19, 0.165, 0.25, 0.3];
+
+  // ------------------------------------------------------------ arm vs body
+  const SWIVELS = [0.2, 0.4, 0.65, 0.9, 1.2];
+  /** how deep (feet) the arm from shoulder joint offset o is inside the trunk (capsules round the pelvis-chest-neck
+   *  line, r 0.075 H) or the head (sphere, r 0.068 H): elbow, forearm and hand, limb radii ~0.024 / 0.02 H, a
+   *  little skin contact allowed */
+  function armPen(P, o, H) {
+    let worst = 0;
+    const a0 = J.PEL * 3, a1 = J.CHS * 3, a2 = J.NCK * 3, hc = J.HC * 3;
+    for (let i = 0; i < 6; i++) {
+      // i 0..3 along elbow -> wrist, 4..5 along wrist -> hand
+      let x, y, z, r;
+      if (i < 4) { const t = i / 3; x = P[o + 3] + (P[o + 6] - P[o + 3]) * t; y = P[o + 4] + (P[o + 7] - P[o + 4]) * t; z = P[o + 5] + (P[o + 8] - P[o + 5]) * t; r = 0.024 * H; }
+      else { const t = i === 4 ? 0.5 : 1; x = P[o + 6] + (P[o + 9] - P[o + 6]) * t; y = P[o + 7] + (P[o + 10] - P[o + 7]) * t; z = P[o + 8] + (P[o + 11] - P[o + 8]) * t; r = 0.02 * H; }
+      const dT = Math.min(segDist(P, a0, a1, x, y, z), segDist(P, a1, a2, x, y, z));
+      const pT = 0.075 * H + r - 0.016 * H - dT;
+      const pH = 0.068 * H + r - 0.012 * H - Math.hypot(x - P[hc], y - P[hc + 1], z - P[hc + 2]);
+      if (pT > worst) worst = pT;
+      if (pH > worst) worst = pH;
+    }
+    return worst;
+  }
+  function segDist(P, a, b, x, y, z) {
+    const ax = P[a], ay = P[a + 1], az = P[a + 2], bx = P[b] - ax, by = P[b + 1] - ay, bz = P[b + 2] - az;
+    const l2 = bx * bx + by * by + bz * bz;
+    const t = l2 > 1e-9 ? Math.max(0, Math.min(1, ((x - ax) * bx + (y - ay) * by + (z - az) * bz) / l2)) : 0;
+    return Math.hypot(x - ax - bx * t, y - ay - by * t, z - az - bz * t);
+  }
 
   // ------------------------------------------------------------ pole-vector arm IK
   const PSOL = { f: 0, b: 0, t: 0 };

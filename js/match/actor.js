@@ -276,9 +276,9 @@
         name: 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
         pivot: { side, t0: 0, t1: dur + 0.12 },
         keys: [
-          { t: 0, p: hold, ball: [0.13, 0.06, 0.5], grip: 'hip' },
-          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.13, 0.07, 0.52], grip: 'hip' },
-          { t: dur + 0.12, p: hold, ball: [0.13, 0.06, 0.5], grip: 'hip' },
+          { t: 0, p: hold, ball: [0.13, 0.09, 0.5], grip: 'hip' },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: (delta > 0 ? 1 : -1) * 12, nkTwist: (delta > 0 ? 1 : -1) * 10 }, ball: [0.13, 0.1, 0.52], grip: 'hip' },
+          { t: dur + 0.12, p: hold, ball: [0.13, 0.09, 0.5], grip: 'hip' },
         ],
       });
       this.ballHold = 'triple';
@@ -1060,7 +1060,17 @@
         if (cs.mirror) bx = -bx;
         const w = cs.w;
         const base = this._holdLocalS(HL);
-        this.local(U.lerp(base[0], bx * H, w), U.lerp(base[1], by * H, w), U.lerp(base[2], bz * H, w), out);
+        // the ball path is set for the body the clip was made with: when the body sits lower than that (the pelvis let
+        // down so the legs reach planted feet, a crouched stance under an upper-body clip) the ball comes down with
+        // the chest, and forward with a lean, instead of ending up in the chest or the face
+        const q = this.pose;
+        let dz = 0, dy = 0;
+        if (cs === this.clip) dz = Math.min(0, q[CH.rootZ] - this.clipPose[CH.rootZ]) * H * 0.9;
+        else { dz = -Math.max(0, -q[CH.rootZ] - 0.03) * H * 0.85; dy = Math.sin(Math.max(0, q[CH.pelPitch] + q[CH.spFlex] - 14 * D)) * 0.3 * H; }
+        const L = BL;
+        L[0] = U.lerp(base[0], bx * H, w); L[1] = U.lerp(base[1], by * H + dy, w); L[2] = U.lerp(base[2], bz * H + dz, w);
+        this.clearBall(L, BALL_R, true);
+        this.local(L[0], L[1], L[2], out);
         // going up to the rim: the ball ends the rise at the spot, as close as the arm reaches
         const r = cs.reach;
         if (r && r.t1 != null) {
@@ -1073,6 +1083,7 @@
         return out;
       }
       const l = this._holdLocalS(HL);
+      this.clearBall(l, BALL_R, true);
       return this.local(l[0], l[1], l[2], out);
     }
     /** where the nearest opponent is for a ball handler: w = threat (0 beyond ~8 ft, 1 inside ~4 ft, less when he
@@ -1130,7 +1141,8 @@
     _holdLocal(out) {
       const H = this.H, m = this.lefty ? -1 : 1;
       switch (this.ballHold) {
-        case 'triple': out[0] = 0.13 * H * m; out[1] = 0.06 * H; out[2] = 0.5 * H; break;
+        // (on the front of the hip: a little further out than flush, so the guide hand across it clears the belly)
+        case 'triple': out[0] = 0.13 * H * m; out[1] = 0.09 * H; out[2] = 0.5 * H; break;
         case 'over': out[0] = 0; out[1] = 0.05 * H; out[2] = 1.1 * H; break;
         // (on the shot's line: ~6-7 in off the belly, just right of the middle)
         case 'pocket': out[0] = 0.06 * H * m; out[1] = 0.165 * H; out[2] = 0.55 * H; break;
@@ -1378,7 +1390,9 @@
       this._armTargets();
       // pose channels that jump between frames (stance and clip switches, dribble arm poses, look-at flips) glide
       this._inTorso.apply(p, dtI);
+      sk.dt = dtI;
       sk.solve(p, this.x, this.y, this.facing);
+      sk.dt = 0;
       // holding the ball up high (dunks, lobs, rebounds, overhead holds) where the grip is out of the arms'
       // reach: the ball goes where the hands can actually hold it instead of floating above them
       const gr = this._grip, vb = this.view && this.view.ball;
@@ -1410,6 +1424,38 @@
       }
       // legs leaving the floor (take-off): the IK pose eases into the clip's air pose instead of switching in one frame
       sk.inertLegs(dtI, this.feet[0].state === 'air' || this.fall > 0.5, this.feet[1].state === 'air' || this.fall > 0.5);
+      this._cacheBody();
+    }
+
+    /** the solved body's trunk, head and leg centre lines in the body frame (x right, y forward, z up from the root
+     *  ground point, jump taken out), read by clearBall until the next solve */
+    _cacheBody() {
+      const P = this.sk.P, c = Math.cos(this.facing), s = Math.sin(this.facing), n = BODY_J.length * 3;
+      if (!this._bodyNow) { this._bodyNow = new Float64Array(n); this._bodyPrev = new Float64Array(n); this._body = new Float64Array(n); this._bodyN = 0; }
+      const Bn = this._bodyNow, Bp = this._bodyPrev, B = this._body, dt = this._inDt;
+      // (a new frame: this one becomes the previous; the same frame solved again only refreshes it)
+      if (dt > 0) { Bp.set(Bn); this._bodyN++; } else if (!(dt >= 0) || dt > 0.12) this._bodyN = 0;
+      for (let i = 0; i < BODY_J.length; i++) {
+        const j = BODY_J[i] * 3, rx = P[j] - this.x, ry = P[j + 1] - this.y;
+        Bn[i * 3] = rx * s - ry * c; Bn[i * 3 + 1] = rx * c + ry * s; Bn[i * 3 + 2] = P[j + 2] - this.jumpZ;
+      }
+      // the ball is placed before the next solve: where the body will be one frame on (legs swing fast when running)
+      const ok = this._bodyN > 1 && dt > 0 && dt < 0.05;
+      for (let i = 0; i < n; i++) B[i] = ok ? Bn[i] + U.clamp(Bn[i] - Bp[i], -0.3, 0.3) : Bn[i];
+    }
+    /** a ball this player holds or dribbles (centre l = [x, y, z] in the body frame, radius r) pushed out of his own
+     *  trunk, head and legs as last solved, so it never sinks into him (the hands hold it where it ends up); legs
+     *  false while it goes between them on purpose. Returns how far it moved. */
+    clearBall(l, r, legs) {
+      const B = this._body;
+      if (!B) return 0;
+      const H = this.H, x0 = l[0], y0 = l[1], z0 = l[2];
+      for (let it = 0; it < 2; it++) {
+        pushSeg(B, 0, 1, 0.063 * H + r, l); pushSeg(B, 1, 2, 0.063 * H + r, l);
+        pushSeg(B, 3, 3, 0.06 * H + r, l);
+        if (legs) { pushSeg(B, 4, 5, 0.044 * H + r, l); pushSeg(B, 7, 8, 0.044 * H + r, l); pushSeg(B, 5, 6, 0.032 * H + r, l); pushSeg(B, 8, 9, 0.032 * H + r, l); }
+      }
+      return Math.hypot(l[0] - x0, l[1] - y0, l[2] - z0);
     }
 
     _armTargets() {
@@ -1569,8 +1615,23 @@
     depth(cam) { return cam.depth(this.y, 3); }
   }
 
-  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3);
+  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3), BL = new Float64Array(3);
   const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3);
+  // body centre lines kept for clearBall: pelvis, chest, neck, head centre, left hip / knee / ankle, right hip / knee / ankle
+  const BODY_J = [RG.J.PEL, RG.J.CHS, RG.J.NCK, RG.J.HC, RG.J.L_HIP, RG.J.L_KN, RG.J.L_AN, RG.J.R_HIP, RG.J.R_KN, RG.J.R_AN];
+  /** move point l out to at least `min` from the segment between body points a and b (a == b: a sphere) */
+  function pushSeg(B, a, b, min, l) {
+    const ax = B[a * 3], ay = B[a * 3 + 1], az = B[a * 3 + 2];
+    const bx = B[b * 3] - ax, by = B[b * 3 + 1] - ay, bz = B[b * 3 + 2] - az;
+    const l2 = bx * bx + by * by + bz * bz;
+    const t = l2 > 1e-9 ? U.clamp(((l[0] - ax) * bx + (l[1] - ay) * by + (l[2] - az) * bz) / l2, 0, 1) : 0;
+    let dx = l[0] - ax - bx * t, dy = l[1] - ay - by * t, dz = l[2] - az - bz * t;
+    const d = Math.hypot(dx, dy, dz);
+    if (d >= min) return;
+    if (d < 1e-6) { dx = 0; dy = 1; dz = 0; } else { dx /= d; dy /= d; dz /= d; }
+    const k = min - d;
+    l[0] += dx * k; l[1] += dy * k; l[2] += dz * k;
+  }
   // dribbling elbow swivel: behind the elbow with a small outward bias (x = outward, y = forward, z = up)
   const DRIB_POLE = [0.28, -0.85, -0.45];
   // holding the ball without a clip: elbows down and out (chest), out and forward (overhead), back (hip pocket)

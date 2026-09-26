@@ -671,6 +671,11 @@
         lx = U.lerp(pl.qx, pl.qtx, s); ly = U.lerp(pl.qy, pl.qty, s);
       }
       const sd = pl.side; // +1: right hand side of the body
+      // never through the dribbler himself (a knee coming through, a crossover in front of the shins): the ball keeps
+      // out of his legs and trunk, except going between the legs on purpose, and the hand meets it where it is
+      const lb = TL;
+      lb[0] = sd * lx; lb[1] = ly; lb[2] = lz;
+      if (a.clearBall(lb, R, !(moving && d.move.type === 'btl')) > 1e-6) { lx = lb[0] * sd; ly = lb[1]; lz = Math.max(R, lb[2]); }
       const wp = a.local(sd * lx, ly, lz, TB);
       this.x = wp[0]; this.y = wp[1]; this.z = wp[2];
       if (u0 < uB && d.u >= uB) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1)); }
@@ -834,7 +839,7 @@
     }
   }
 
-  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), TMP3 = [0, 0, 0];
+  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), TL = new Float64Array(3), TMP3 = [0, 0, 0];
   const HO1 = { x: 0, y: 0, z: 0 }, HO2 = { x: 0, y: 0, z: 0 };
   const RM = new Float64Array(9);
   /** rot = R(axis, ang) * rot */
