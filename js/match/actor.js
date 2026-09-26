@@ -799,12 +799,27 @@
         case 'low': out[0] = 0.02 * H * m; out[1] = 0.17 * H; out[2] = 0.36 * H; break;
         default: out[0] = 0; out[1] = 0.16 * H; out[2] = 0.66 * H;
       }
+      // the holds are set for a player standing tall: sitting lower and leaning in, the chest (and the ball held in
+      // front of it) comes down and forward with him (a fixed spot ended up inside a crouched player's chest)
+      const q = this.pose;
+      if (q) {
+        const drop = Math.max(0, -q[CH.rootZ] - 0.03) * H;
+        const lean = Math.max(0, q[CH.pelPitch] + q[CH.spFlex] - 14 * D);
+        out[2] -= drop * 0.85;
+        out[1] += Math.sin(lean) * 0.3 * H;
+      }
       return out;
+    }
+    /** how low he dribbles (0..1): sitting down in the dribbling stance keeps the ball at the lowered hips (a speed
+     *  dribble on the run comes back up), deeper still when protecting it */
+    dribbleDepth() {
+      const st = this.stance === 'dribble' ? 0.35 * (1 - U.smooth((this.speed - 5) / 7)) : 0;
+      return Math.max(this.dribbleLow || 0, st);
     }
     /** where the ball sits at the top of the dribble: hip height, outside the dribble-side foot, a little in front */
     dribbleTop(hand, out) {
       const H = this.H, side = hand ? 1 : -1;
-      const low = this.dribbleLow || 0;
+      const low = this.dribbleDepth();
       const spK = U.smooth((this.speed - 6) / 12);
       return this.local(side * 0.2 * H, (0.13 + 0.14 * spK) * H, (0.5 - low * 0.2 + 0.09 * spK) * H, out);
     }
@@ -835,6 +850,16 @@
         const w = U.smooth(this.stanceBlend);
         for (let i = 0; i < RG.NCH; i++) p[i] = this.prevStancePose[i] + (sp[i] - this.prevStancePose[i]) * w;
       } else p.set(sp);
+      // the dribble picked up (holding the ball to pass or shoot): he comes partway up out of the dribbling crouch
+      const tNow = this.time || 0, dtB = U.clamp(tNow - (this._bpT != null ? this._bpT : tNow), 0, 0.1); this._bpT = tNow;
+      const holdUp = this.stance === 'dribble' && this.hasBall && !this.dribble ? 1 : 0;
+      this._holdRise = (this._holdRise || 0) + (holdUp - (this._holdRise || 0)) * (1 - Math.exp(-dtB / 0.18));
+      if (this._holdRise > 0.001) {
+        const k = 0.45 * U.smooth(this._holdRise);
+        p[CH.rootZ] *= 1 - k; p[CH.pelPitch] *= 1 - k * 0.8;
+        for (const c of ['lHipF', 'rHipF', 'lKnee', 'rKnee', 'lAnk', 'rAnk']) p[CH[c]] *= 1 - k;
+        p[CH.nkFlex] *= 1 - k * 0.8;
+      }
       // breathing
       const br = Math.sin(this.time * 1.7 + this.breath);
       p[CH.chFlex] += br * 0.8 * D; p[CH.lClvE] += br * 0.08; p[CH.rClvE] += br * 0.08;

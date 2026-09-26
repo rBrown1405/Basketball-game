@@ -533,7 +533,7 @@
       const side = d.hand ? 1 : -1;
       const recv = moving ? d.move.toHand : d.hand;
       const rside = recv ? 1 : -1;
-      const low = U.clamp(Math.max(d.low || 0, a.dribbleLow || 0), 0, 1);
+      const low = U.clamp(Math.max(d.low || 0, a.dribbleDepth ? a.dribbleDepth() : a.dribbleLow || 0), 0, 1);
       const spK = U.smooth((a.speed - 6) / 12);
       // heights of the ball centre: top of the ride ~hip height (0.52 H), catch ~0.07 H lower, release
       // ~0.14 H below the top; low/protect dribble at the knees; speed dribble waist to chest
