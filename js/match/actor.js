@@ -52,7 +52,7 @@
   const POSE_INERT = TORSO_INERT.concat(['ClvE', 'ClvP', 'ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD', 'Fing'].reduce((a, k) => a.concat([RG.CH['l' + k], RG.CH['r' + k]]), []));
   const POSE_INERT_LIN = { [RG.CH.rootX]: 0.02, [RG.CH.rootY]: 0.02, [RG.CH.lClvE]: 0.3, [RG.CH.rClvE]: 0.3, [RG.CH.lClvP]: 0.3, [RG.CH.rClvP]: 0.3, [RG.CH.lFing]: 0.3, [RG.CH.rFing]: 0.3 };
   const POSE_INERT_ARM = new Set(['ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD'].reduce((a, k) => a.concat([RG.CH['l' + k], RG.CH['r' + k]]), []));
-  const GAIT_SMOOTH = ['beta', 'lift', 'reach', 'halfW', 'liftPow', 'drop', 'toePitch', 'heelOff', 'landPitch', 'roll'];
+  const GAIT_SMOOTH = ['beta', 'lift', 'reach', 'halfW', 'liftPow', 'drop', 'toePitch', 'heelOff', 'landPitch', 'roll', 'run'];
   const IDLE_SHIFT = { stand: 1, ready: 1, handsHips: 1, handsKnees: 0.5, holdChest: 1, triple: 0.6, refStand: 1 };
 
   class Actor {
@@ -398,7 +398,8 @@
       const moveA = Math.atan2(this.vy, this.vx);
       const diff = Math.abs(U.wrapPi(moveA - face));
       const st = A.STANCE[this.stance] || A.STANCE.stand;
-      const slideMax = this.faceLock && this.faceMode === 'fn' ? 16 : st.slide ? 13 : 7.5;
+      // (a defensive slide tops out ~10-11 ft/s, a backpedal a little faster: past that a defender opens up and runs)
+      const slideMax = this.faceLock && this.faceMode === 'fn' ? 13.5 : st.slide ? 12 : 7.5;
       if (sp > slideMax && diff > 0.9) {
         const k = U.smooth((sp - slideMax) / 4);
         face = U.angLerp(face, moveA, k);
@@ -468,7 +469,9 @@
           gp.halfW = U.lerp(gp.halfW, slideW, latK);
           gp.reach = U.lerp(gp.reach, 0.5, latK);
           gp.lift = U.lerp(gp.lift, 0.035 + 0.02 * ks * U.smooth((sp - 6) / 6), latK);
-          gp.beta = U.lerp(gp.beta, 0.56, latK);
+          // (a slide's feet share the floor for long, but faster than a slide goes, a shuffle's ground contact
+          // shortens like a runner's: at 0.56 a foot stayed down over ~3 ft at 16 ft/s)
+          gp.beta = U.lerp(gp.beta, U.lerp(0.56, 0.36, U.smooth((sp - 8) / 6)), latK);
           gp.toePitch = U.lerp(gp.toePitch, 12 * D, latK);
           gp.landPitch = U.lerp(gp.landPitch, 4 * D, latK);
           sps = U.lerp(sps, slideSps, latK);
@@ -479,19 +482,60 @@
         const gs = this.gpS || (this.gpS = {});
         const kg = gs.beta == null ? 1 : 1 - Math.exp(-dt / 0.08), kb = gs.beta == null ? 1 : 1 - Math.exp(-dt / 0.035);
         for (const k of GAIT_SMOOTH) { gs[k] = gs[k] == null ? gp[k] : gs[k] + (gp[k] - gs[k]) * (k === 'beta' ? kb : kg); gp[k] = gs[k]; }
+        // a planted foot falling behind (a cut, a burst out of a stop): the steps quicken, the way a player's feet
+        // hurry to get back under him, so the swinging foot lands and the one behind can go
+        let lagMax = 0;
+        for (const f of this.feet) {
+          if (f.state !== 'plant') continue;
+          const side = f.side ? 1 : -1;
+          const an = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TD);
+          lagMax = Math.max(lagMax, -((an[0] - this.x - s * side * this.dims.hipX) * this.moveDirX + (an[1] - this.y + c * side * this.dims.hipX) * this.moveDirY));
+        }
+        // (measured against where this stride's toe-off normally is, so a steady run is never hurried; eased: it
+        // used to drop back in one frame as the foot behind lifted, and the swinging foot lurched)
+        const lagOn = Math.min(0.26 * H, (1 - gp.reach) * gp.beta * sp * 2 / sps + 0.05 * H);
+        const bT = 1 + 0.8 * U.smooth((lagMax - lagOn) / (0.1 * H));
+        this._boost = (this._boost || 1) + (bT - (this._boost || 1)) * (1 - Math.exp(-dt / (bT > (this._boost || 1) ? 0.05 : 0.15)));
+        sps *= this._boost;
         const dphi = sps * 0.5 * dt;
-        const ph0 = this.phase, ph1 = ph0 + dphi;
+        let ph0 = this.phase, ph1 = ph0 + dphi;
         this.phase = ph1 - Math.floor(ph1);
+        // (whole cycles since the gait started: which stride a foot's toe-off belongs to)
+        this.phaseN = (this.phaseN || 0) + Math.floor(ph1);
         const cycleT = 2 / sps;
         const strideLen = sp * cycleT;
         // one leg at a time: a foot leaves the floor only while the other one is down, or has been in its stride for
         // over half a step, and never twice running while the other has not moved (a catch-up step of one foot
         // starting with the other's stride, or two lifts in one frame, read as a two-footed hop)
         const stepT = cycleT / 2, minLag = 0.55 * stepT;
+        // (a runner's feet are both off the floor for a moment between strides, so running a foot may leave once the
+        // other is well into its swing; a quick step of the other foot (a recovery or stance step) counts once most
+        // of it is done)
+        // (a runner's rear foot leaves as the front one reaches out to land, ~2/3 through its swing; a walker's
+        // only as the front one comes down)
+        const swOk = U.lerp(0.85, 0.6, U.smooth((sp - 5) / 5));
+        const behindOf = (q) => -((q.x - this.x) * this.moveDirX + (q.y - this.y) * this.moveDirY);
+        // the same foot twice running: never two strides; after a small stance or clip step only if it is clearly
+        // the foot left behind (blocking it outright kept it planted behind for most of the first stride)
+        const repeat = (f) => {
+          if (this._lastSwing !== f.side || this.time - (f.liftT == null ? -9 : f.liftT) >= 1.6 * stepT) return false;
+          if (f.liftKind === 'gait') return true;
+          const o = this.feet[1 - f.side];
+          return o.state === 'plant' && behindOf(f) < behindOf(o) + 0.06 * H;
+        };
         const canLift = (f) => {
           const o = this.feet[1 - f.side];
-          if (o.state !== 'plant' && (o.mode !== 'gait' || this.time - (o.liftT == null ? -9 : o.liftT) < minLag)) return false;
-          return !(this._lastSwing === f.side && this.time - (f.liftT == null ? -9 : f.liftT) < 1.6 * stepT);
+          if (o.state !== 'plant') {
+            const since = this.time - (o.liftT == null ? -9 : o.liftT);
+            if (o.mode === 'gait' ? since < Math.max(minLag, 0.09) || (o.sw || 0) < swOk : (o.s || 0) < 0.6) return false;
+            // (and it really is out in front: a swing that started far back, a foot catching up, can be most of the
+            // way through its time still level with this one, and both feet were in the air side by side)
+            if (o.mode === 'gait' && (o.sw || 0) < 0.92) {
+              const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TF);
+              if ((o.ax - a[0]) * this.moveDirX + (o.ay - a[1]) * this.moveDirY < 0.14 * H) return false;
+            }
+          }
+          return !repeat(f);
         };
         for (const f of this.feet) {
           const cph = f.side ? 0 : 0.5;
@@ -515,18 +559,58 @@
             // targets place the ankle; the ball of the foot (f.x, f.y) is one foot-length-to-ball further along the foot
             const tx = this.x + vx * lead + this.moveDirX * gp.reach * gp.beta * strideLen + rx * side * gp.halfW * H + c * this.dims.ball;
             const ty = this.y + vy * lead + this.moveDirY * gp.reach * gp.beta * strideLen + ry * side * gp.halfW * H + s * this.dims.ball;
-            this._beginStep(f, tx, ty, this.facing + (f.side ? -1 : 1) * 7 * D, 0.17, Math.max(0.03, gp.lift * 0.5));
+            this._sepTarget(f, tx, ty, TD);
+            this._beginStep(f, TD[0], TD[1], this.facing + (f.side ? -1 : 1) * 7 * D, 0.17, Math.max(0.03, gp.lift * 0.5));
+            // (the spot keeps up with the body while the foot is in the air: a player speeding up left a step aimed
+            // at where he was going to be behind him)
+            f.trk = { reach: gp.reach * gp.beta * strideLen, lat: side * gp.halfW * H }; f.liftKind = 'gait';
           }
           // a stance foot left behind the hip and out of the leg's reach even up on its toes lifts now, a little
           // before its scheduled toe-off (dragging it on the toes read as skating)
           const relNow = frac(this.phase - cph);
           const early = f.state === 'plant' && !tooFar && relNow < gp.beta && relNow > 0.45 * gp.beta &&
             (sp > 9 || this.feet[1 - f.side].state === 'plant') && this._stanceOutOfReach(f, c, s);
+          // a planted foot the body has run away from (a burst, a cut, a stride planned for a slower speed) goes now
+          // instead of dragging behind with the leg stretched out: a walker's toe-off is ~0.24 H behind the hip, a
+          // runner's ~0.2 H; past ~0.3 H it lifts, once the other foot is down (running: well into its swing)
+          let late = false;
+          if (f.state === 'plant' && sp > 2.5) {
+            const side = f.side ? 1 : -1;
+            const hx = this.x + s * side * this.dims.hipX, hy = this.y - c * side * this.dims.hipX;
+            const an = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TD);
+            const behind = -((an[0] - hx) * this.moveDirX + (an[1] - hy) * this.moveDirY);
+            late = behind > U.lerp(0.3, 0.27, U.smooth((sp - 6) / 6)) * H;
+          }
           // (a toe-off held back by the one-leg-at-a-time rule goes as soon as it is allowed, while there is still
           // most of a swing left before the contact; later than that the foot waits for its next stride)
-          if (f.liftPending && (f.state !== 'plant' || relNow < gp.beta || relNow > 0.82)) f.liftPending = false;
-          const due = crossed(ph0, ph1, lph);
-          if (f.state === 'plant' && (early || due || f.liftPending)) {
+          if (f.liftPending && (f.state !== 'plant' || relNow > 0.82)) f.liftPending = false;
+          // the toe-off is due when the phase passes it, or when the toe-off point passed the phase: speeding up
+          // shortens the stance share faster than the phase moves, and the lift was skipped (the foot stayed down
+          // for a whole stride while the body ran away from it)
+          const cyc = (this.phaseN || 0) + Math.floor(this.phase - cph);
+          const due = crossed(ph0, ph1, lph) || (f.state === 'plant' && f.liftCyc !== cyc && relNow >= gp.beta && relNow < gp.beta + 0.2 &&
+            !(f.tStep != null && this.time - f.tStep < 0.15));
+          if (f.state === 'plant' && (early || late || due || f.liftPending)) {
+            // the stride's turn says this foot, but the other one is planted further behind: that one goes (the
+            // stride flips half a cycle), else it would be dragged through this whole swing
+            const o = this.feet[1 - f.side];
+            if (due && !late && o.state === 'plant' && sp > 1) {
+              // (also when this one just made a small step and the other is no further ahead: the other goes)
+              const bF = behindOf(f), bO = behindOf(o);
+              if ((bO > bF + 0.1 * H || (repeat(f) && bO > bF - 0.05 * H)) && canLift(o)) {
+                this.phase = frac(this.phase + 0.5);
+                ph0 = frac(ph0 + 0.5); ph1 = ph0 + dphi;
+                const a = this._ankleFromBall(o.x, o.y, o.yaw, o.pitch, TA);
+                o.state = 'swing'; o.mode = 'gait';
+                o.x0 = a[0]; o.y0 = a[1]; o.z0 = a[2]; o.yaw0 = o.yaw; o.p0 = o.pitch;
+                o.nSwing = (o.nSwing || 0) + 1;
+                o.liftRel = frac(this.phase - (o.side ? 0 : 0.5));
+                o.liftPending = false; o.liftT = this.time; this._lastSwing = o.side; o.liftKind = 'gait'; o.liftWhy = 'flip';
+                o.liftCyc = (this.phaseN || 0) + Math.floor(this.phase - (o.side ? 0 : 0.5));
+                f.liftPending = false;
+                continue;
+              }
+            }
             if (canLift(f)) {
               // lift off
               const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
@@ -535,8 +619,10 @@
               f.nSwing = (f.nSwing || 0) + 1;
               // the swing runs from here to the contact (its share of the stride fixed now, so later changes of
               // speed do not move the foot)
-              f.liftRel = early || f.liftPending ? relNow : Math.min(relNow, gp.beta);
-              f.liftPending = false; f.liftT = this.time; this._lastSwing = f.side;
+              f.liftRel = early || late || f.liftPending ? relNow : Math.min(relNow, gp.beta);
+              // (why it went, for the audits)
+              f.liftWhy = early ? 'early' : late ? 'late' : f.liftPending ? 'pend' : crossed(ph0, ph1, lph) ? 'due' : 'missed';
+              f.liftPending = false; f.liftT = this.time; this._lastSwing = f.side; f.liftCyc = cyc; f.liftKind = 'gait';
             } else if (due) f.liftPending = true;
           }
           if (crossed(ph0, ph1, cph) && f.state === 'swing' && f.mode === 'gait') {
@@ -567,6 +653,8 @@
             // `reach` places the ankle ahead of the body at contact; the ball of the foot lies d.ball further along the foot
             let ntx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
             let nty = py + this.moveDirY * reach + ry * side * gp.halfW * H + Math.sin(f.tyaw) * this.dims.ball;
+            // (on its own side of the other foot: moving sideways or on a diagonal the stride used to land it across)
+            this._sepTarget(f, ntx, nty, TD); ntx = TD[0]; nty = TD[1];
             // a foot in the air can re-aim, but only so fast (no teleporting landing spot on a cut or a stop)
             if (f.swT === this._swingId(f) && f.swLastT != null) {
               const mv = (14 + sp) * Math.max(dt, 1 / 240), ddx = ntx - f.tx, ddy = nty - f.ty, dl = Math.hypot(ddx, ddy);
@@ -579,9 +667,16 @@
             const e = U.smooth(sw);
             // sin^2 starts with zero vertical speed (the old sin^1.1 of sw^0.62 threw the foot up ~0.4 ft in the first
             // frame after toe-off, snapping the knee), and still peaks early in the swing (~40 %)
-            const lift = gp.lift * H * Math.pow(Math.sin(Math.PI * Math.pow(sw, Math.max(0.75, gp.liftPow || 0.8))), 2);
+            // a runner's heel comes up behind first (the knee folds toward the buttock), stays up while the foot passes
+            // under the hip (the knee drives through high), then the shank reaches forward and down to land under
+            // the hips with no vertical speed left; a walker keeps a low arc
+            const pw = Math.pow(Math.sin(Math.PI * Math.pow(sw, Math.max(0.75, gp.liftPow || 0.8))), 2);
+            // (the rise eases in with no jolt at toe-off: smootherstep starts with zero acceleration)
+            const ur = Math.min(1, sw / 0.36), pr = sw < 0.36 ? ur * ur * ur * (ur * (ur * 6 - 15) + 10) : 1 - Math.pow(U.smooth((sw - 0.36) / 0.64), 1.5);
+            const lift = gp.lift * H * U.lerp(pw, pr, gp.run || 0);
             f.ax = f.x0 + (a1[0] - f.x0) * e;
             f.ay = f.y0 + (a1[1] - f.y0) * e;
+            this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1]);
             f.az = f.z0 + (a1[2] - f.z0) * e + lift;
             f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
             f.pitchNow = U.lerp(f.p0 || gp.toePitch, gp.landPitch, U.smooth(sw * 1.15)) + Math.sin(Math.PI * sw) * gp.toePitch * 0.25;
@@ -609,6 +704,44 @@
     }
 
     _swingId(f) { return f.nSwing || 0; }
+    /** keeps a foot's landing spot (ball of the foot) on its own side of the other foot: never across it (the left
+     *  foot lands left of the right one) and ~6 in apart sideways where the two would sit side by side (feet a
+     *  stride apart may land nearly in line, as a runner's do) */
+    _sepTarget(f, tx, ty, out) {
+      out[0] = tx; out[1] = ty;
+      const o = this.feet[1 - f.side];
+      let ox, oy;
+      if (o.state === 'plant') { ox = o.x; oy = o.y; }
+      else if (o.state === 'swing') { ox = o.tx; oy = o.ty; }
+      else return out;
+      const H = this.H, c = Math.cos(this.facing), s = Math.sin(this.facing), side = f.side ? 1 : -1;
+      const dx = tx - ox, dy = ty - oy;
+      const fwd = dx * c + dy * s, lat = dx * s - dy * c;
+      const need = U.lerp(0.075, 0.025, U.smooth((Math.abs(fwd) - 0.12 * H) / (0.16 * H))) * H;
+      const def = need - side * lat;
+      if (def > 0) { out[0] += s * side * def; out[1] -= c * side * def; }
+      return out;
+    }
+    /** a swinging foot goes around the planted one: where its straight path (x0,y0 -> x1,y1, ankle) would pass
+     *  closer than ~6 in beside it (or through it: a turn, a cut, a sidestep), the whole path bows out to its own
+     *  side, sin-shaped over the swing (e: 0..1 along the path), just enough to clear it everywhere; one smooth
+     *  bow instead of a nudge where the feet pass (at a sprint that nudge came and went in two frames) */
+    _swingClear(f, e, x0, y0, x1, y1) {
+      const o = this.feet[1 - f.side];
+      if (o.state !== 'plant') return;
+      const H = this.H, c = Math.cos(this.facing), s = Math.sin(this.facing), side = f.side ? 1 : -1;
+      const a = this._ankleFromBall(o.x, o.y, o.yaw, o.pitch, TE);
+      let D = 0;
+      for (let i = 1; i < 10; i++) {
+        const u = i / 10, dx = x0 + (x1 - x0) * u - a[0], dy = y0 + (y1 - y0) * u - a[1];
+        const fwd = dx * c + dy * s, lat = dx * s - dy * c;
+        const def = U.lerp(0.08, 0, U.smooth((Math.abs(fwd) - 0.1 * H) / (0.18 * H))) * H - side * lat;
+        if (def > 0) D = Math.max(D, def / Math.sin(Math.PI * u));
+      }
+      if (D <= 0) return;
+      D = Math.min(D, 0.14 * H) * Math.sin(Math.PI * U.clamp(e, 0, 1));
+      f.ax += s * side * D; f.ay -= c * side * D;
+    }
     /** is a planted foot behind the hip and beyond the leg's reach even with the heel fully up? (last solve's pelvis) */
     _stanceOutOfReach(f, c, s) {
       const P = this.sk.P, H = this.H, side = f.side ? 1 : -1;
@@ -648,6 +781,7 @@
     _startGait() {
       this.gaitOn = true;
       this.gpS = null;
+      this.phaseN = 0; this.feet[0].liftCyc = this.feet[1].liftCyc = null;
       // choose the foot that is further behind (relative to movement) to lift first
       const mx = this.vx / (this.speed || 1), my = this.vy / (this.speed || 1);
       const f0 = this.feet[0], f1 = this.feet[1];
@@ -664,8 +798,10 @@
       // (from a standstill either foot may go first; one still finishing a step keeps the other down meanwhile)
       if (f0.state === 'plant' && f1.state === 'plant' && this.time - Math.max(f0.liftT == null ? -9 : f0.liftT, f1.liftT == null ? -9 : f1.liftT) > 0.15) this._lastSwing = -1;
       const gp = A.gaitParams(this.speed, this.gp);
-      // right lifts at beta, left at 0.5+beta
-      this.phase = d1 < d0 ? gp.beta - 0.001 : frac(0.5 + gp.beta - 0.001);
+      // right lifts at beta, left at 0.5+beta (a foot still finishing a small step lands and the planted one makes the
+      // first stride: the stepping foot going again at once read as a stutter)
+      const rFirst = f0.state !== 'plant' && f1.state === 'plant' ? true : f1.state !== 'plant' && f0.state === 'plant' ? false : d1 < d0;
+      this.phase = rFirst ? gp.beta - 0.001 : frac(0.5 + gp.beta - 0.001);
     }
 
     _stanceFeet(dt) {
@@ -688,6 +824,14 @@
       }
       if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       if (this.clip) return;
+      // turning on the spot: the planted feet pivot on the balls of the feet with the body (the heels swing round)
+      // instead of staying put while the hips turn away above them (the legs twisted into each other); steps take
+      // up the rest
+      for (const f of this.feet) {
+        const iyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
+        const ye = U.wrapPi(iyaw - f.yaw);
+        if (Math.abs(ye) > 14 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 14 * D, 8 * dt));
+      }
       // error-driven stepping
       let worst = null, worstE = 0;
       for (const f of this.feet) {
@@ -708,13 +852,14 @@
           const de = Math.hypot(other.x - other._ix, other.y - other._iy) / H;
           if (de > 0.05) worst = other;
         }
-        this._beginStep(worst, worst._ix + this.vx * 0.12, worst._iy + this.vy * 0.12, worst._iyaw, 0.24, 0.035);
+        this._sepTarget(worst, worst._ix + this.vx * 0.12, worst._iy + this.vy * 0.12, TD);
+        this._beginStep(worst, TD[0], TD[1], worst._iyaw, 0.24, 0.035);
       }
     }
 
     _beginStep(f, tx, ty, tyaw, dur, lift) {
       const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-      f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur;
+      f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur; f.trk = null; f.liftKind = 'step';
       f.liftT = this.time; this._lastSwing = f.side; f.liftPending = false;
       f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
       f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H;
@@ -722,14 +867,25 @@
     }
     _advanceStep(f, dt) {
       f.s = Math.min(1, f.s + dt / Math.max(0.05, f.dur));
+      const tk = f.trk;
+      if (tk && this.gaitOn && !this.clip) {
+        const tLeft = (1 - f.s) * f.dur, c = Math.cos(this.facing), s = Math.sin(this.facing);
+        let tx = this.x + this.vx * tLeft + this.moveDirX * tk.reach + s * tk.lat + c * this.dims.ball;
+        let ty = this.y + this.vy * tLeft + this.moveDirY * tk.reach - c * tk.lat + s * this.dims.ball;
+        this._sepTarget(f, tx, ty, TD); tx = TD[0]; ty = TD[1];
+        const mv = (14 + this.speed) * Math.max(dt, 1 / 240), ddx = tx - f.tx, ddy = ty - f.ty, dl = Math.hypot(ddx, ddy);
+        if (dl > mv) { tx = f.tx + ddx * mv / dl; ty = f.ty + ddy * mv / dl; }
+        f.tx = tx; f.ty = ty;
+      }
       const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, 0, TB);
       const e = U.smooth(f.s);
       f.ax = f.x0 + (a1[0] - f.x0) * e;
       f.ay = f.y0 + (a1[1] - f.y0) * e;
+      this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1]);
       f.az = f.z0 + (a1[2] - f.z0) * e + f.h * Math.sin(Math.PI * f.s);
       f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
       f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * 0.18;
-      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; }
+      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; }
     }
 
     // ============================================================ clips
@@ -976,7 +1132,8 @@
       switch (this.ballHold) {
         case 'triple': out[0] = 0.13 * H * m; out[1] = 0.06 * H; out[2] = 0.5 * H; break;
         case 'over': out[0] = 0; out[1] = 0.05 * H; out[2] = 1.1 * H; break;
-        case 'pocket': out[0] = 0.07 * H * m; out[1] = 0.14 * H; out[2] = 0.53 * H; break;
+        // (on the shot's line: ~6-7 in off the belly, just right of the middle)
+        case 'pocket': out[0] = 0.06 * H * m; out[1] = 0.165 * H; out[2] = 0.55 * H; break;
         case 'low': out[0] = 0.02 * H * m; out[1] = 0.17 * H; out[2] = 0.36 * H; break;
         default: out[0] = 0; out[1] = 0.16 * H; out[2] = 0.66 * H;
       }
@@ -1413,6 +1570,7 @@
   }
 
   const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3);
+  const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3);
   // dribbling elbow swivel: behind the elbow with a small outward bias (x = outward, y = forward, z = up)
   const DRIB_POLE = [0.28, -0.85, -0.45];
   // holding the ball without a clip: elbows down and out (chest), out and forward (overhead), back (hip pocket)

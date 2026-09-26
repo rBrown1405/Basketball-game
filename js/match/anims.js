@@ -124,7 +124,11 @@
     // stance share of the stride (ground contact): walking ~60%, running ~31-33%, sprinting ~22-25% (gait studies)
     out.beta = gw.walk * 0.6 + gw.jog * 0.33 + gw.sprint * 0.24;
     // (swing foot height: a captured 10-13 ft/s run tucks the knee to ~106-117 deg with the thigh ~45-50 deg up)
-    out.lift = gw.walk * 0.05 + gw.jog * 0.17 + gw.sprint * 0.27;
+    // (higher than the capture's averages on purpose, the user's jogging references: the rear heel kicks up toward
+    // the buttock, ~knee height on a jog, and the knee drives through high; see the swing arc in the actor)
+    out.lift = gw.walk * 0.05 + gw.jog * 0.21 + gw.sprint * 0.32;
+    // share of a runner's swing shape (heel up behind first) vs a walker's low arc
+    out.run = gw.jog + gw.sprint;
     // how far ahead of the body the ankle lands, as a share of the contact length: a walker's heel strikes about
     // 0.16 x height ahead of the hip (leg ~20 deg forward), runners land close under the body, not reaching out
     out.reach = gw.walk * 0.37 + gw.jog * 0.34 + gw.sprint * 0.31;
@@ -201,15 +205,16 @@
     none: null,
     shoot: { r: [0.35, -1.1, -0.95], l: [-1.45, -0.25, 0.05] },
     // jump shot / free throw, fitted to the rig with the arms in SHOT_ARMS (wrist offsets where those arms put
-    // them, so the IK only holds the hands on the ball instead of bending the arms into other shapes):
-    // dip (ball at the hip: shooting hand behind and beside it, guide hand on the side), rise, set point (palm
-    // under the ball, guide hand flat on its side), push (both hands carry it up), release (ball on the finger pads,
-    // guide hand off)
-    jsLow: { r: [0.83, -1.12, 0.0], l: [-1.27, -0.17, -0.54] },
-    jsRise: { r: [0.13, -0.35, -1.34], l: [-1.27, -0.05, -0.74] },
-    jsSet: { r: [-0.05, 0.2, -1.38], l: [-1.25, -0.07, -0.72] },
-    jsPush: { r: [-0.05, -0.02, -1.39], l: [-1.34, -0.13, -0.87] },
-    shootRel: { r: [0.01, -1.5, -1.13], l: null },
+    // them, so the IK only holds the hands on the ball instead of bending the arms into other shapes): dip (ball at
+    // the belly, shooting hand on its side), rise and load (the hand turns under it on the way up past the face),
+    // set point (palm under the ball, guide hand flat on its side), push (both hands carry it up over the head),
+    // release (ball on the finger pads, guide hand off)
+    jsLow: { r: [0.79, -1.08, -0.03], l: [-1.26, -0.16, -0.56] },
+    jsRise: { r: [-0.06, -0.27, -1.5], l: [-1.26, -0.07, -0.76] },
+    jsLoad: { r: [-0.07, 0.13, -1.38], l: [-1.27, -0.07, -0.74] },
+    jsSet: { r: [-0.05, 0.19, -1.43], l: [-1.24, -0.05, -0.71] },
+    jsPush: { r: [-0.09, -0.06, -1.47], l: [-1.24, -0.13, -1.17] },
+    shootRel: { r: [-0.18, -0.37, -1.53], l: null },
     // two-hand passes (fitted with the pass arms): wind-up with the hands on the back and sides of the ball, thumbs
     // behind it; release as the arms extend (bounce: the hands a little over the top to push it down)
     passW: { r: [0.95, -0.55, -0.4], l: [-0.95, -0.55, -0.4] },
@@ -302,32 +307,36 @@
   // gooseneck: fingers pointing at the rim) and the hold. Forearm rotation stays inside the human range (the rig's
   // neutral is ~76: the palm faces the body with the arm hanging)
   const SHOT_ARMS = {
-    dip: { rShF: -19.5, rShA: 4.5, rShT: 10.5, rElF: 92.5, rPro: 40, rWrF: -11.5, rWrD: 12, rFing: 0.15, lShF: 15, lShA: 6, lShT: 49, lElF: 70, lPro: 91.5, lWrF: -44, lWrD: 15, lFing: 0.1 },
-    rise: { rShF: 66.5, rShA: -14.5, rShT: 7, rElF: 107.5, rPro: 150, rWrF: -63.5, rWrD: 9, rFing: 0.12, lShF: 84, lShA: -9, lShT: 25, lElF: 89, lPro: 101.5, lWrF: -24.5, lWrD: 7.5, lFing: 0.05 },
-    set: { rShF: 97, rShA: -16, rShT: -4, rElF: 78, rPro: 150, rWrF: -72, rWrD: 11, rFing: 0.12, lShF: 114, lShA: -13, lShT: 23, lElF: 57.5, lPro: 91, lWrF: -24, lWrD: -6.5, lFing: 0.05 },
-    push: { rShF: 114, rShA: -13.5, rShT: -9.5, rElF: 48, rPro: 150, rWrF: -75, rWrD: 12, rFing: 0.1, lShF: 134, lShA: -13, lShT: 47, lElF: 15.5, lPro: 50.5, lWrF: -24, lWrD: 15, lFing: 0.05 },
-    release: { rShF: 136, rShA: -6, rShT: 34, rElF: 6, rPro: 145, rWrF: -20, rWrD: -12, rFing: 0.05, lShF: 135, lShA: -15.5, lShT: 43.5, lElF: 12, lPro: 54.5, lWrF: -23, lWrD: 15, lFing: 0.05 },
-    follow: { rShF: 138.5, rShA: -6.5, rShT: 35.5, rElF: 3, rPro: 132, rWrF: 80, rWrD: -12, rFing: 0.2, lShF: 137.5, lShA: -16, lShT: 42.5, lElF: 11.5, lPro: 55, lWrF: -23, lWrD: 15, lFing: 0.05 },
-    hold: { rShF: 143.5, rShA: -7, rShT: 37.5, rElF: 5, rPro: 132, rWrF: 78.5, rWrD: -12, rFing: 0.2, lShF: 142, lShA: -13, lShT: 24.5, lElF: 30.5, lPro: 77.5, lWrF: -23, lWrD: 3.5, lFing: 0.05 },
+    dip: { rShF: -30.5, rShA: -0.5, rShT: 4, rElF: 133, rPro: 58, rWrF: -25, rWrD: -7.5, rFing: 0.15, lShF: 6.5, lShA: -0.5, lShT: 39.5, lElF: 108, lPro: 121.5, lWrF: -39.5, lWrD: 15, lFing: 0.1 },
+    rise: { rShF: 18.5, rShA: -4, rShT: 30.5, rElF: 133, rPro: 166, rWrF: -74, rWrD: 4.5, rFing: 0.12, lShF: 40.5, lShA: -26, lShT: 37.5, lElF: 126.5, lPro: 126.5, lWrF: -20, lWrD: 7, lFing: 0.05 },
+    load: { rShF: 62, rShA: -27, rShT: 2, rElF: 110, rPro: 153.5, rWrF: -72.5, rWrD: 15, rFing: 0.12, lShF: 81, lShA: -12, lShT: 25.5, lElF: 100.5, lPro: 109.5, lWrF: -20, lWrD: -14, lFing: 0.05 },
+    set: { rShF: 92, rShA: -15.5, rShT: -2.5, rElF: 74.5, rPro: 147, rWrF: -74, rWrD: 15, rFing: 0.12, lShF: 109.5, lShA: -13, lShT: 21, lElF: 54, lPro: 90.5, lWrF: -23, lWrD: 1, lFing: 0.05 },
+    push: { rShF: 122, rShA: -13, rShT: -2, rElF: 35, rPro: 166, rWrF: -74, rWrD: -4.5, rFing: 0.1, lShF: 135, lShA: -13, lShT: 35.5, lElF: 13, lPro: 61, lWrF: -20, lWrD: 15, lFing: 0.05 },
+    release: { rShF: 147, rShA: -11.5, rShT: 60.5, rElF: 3, rPro: 129, rWrF: -55, rWrD: -15, rFing: 0.05, lShF: 127.5, lShA: -15, lShT: 9.5, lElF: 29, lPro: 91.5, lWrF: -17, lWrD: 9, lFing: 0.05 },
+    follow: { rShF: 155, rShA: -0.5, rShT: 62, rElF: 6.5, rPro: 105, rWrF: 82, rWrD: -12, rFing: 0.2, lShF: 131, lShA: -13, lShT: 32, lElF: 24.5, lPro: 68, lWrF: -23.5, lWrD: 12.5, lFing: 0.05 },
+    hold: { rShF: 160, rShA: -3, rShT: 62, rElF: 4, rPro: 105, rWrF: 82, rWrD: -12, rFing: 0.2, lShF: 131.5, lShA: -13, lShT: 14.5, lElF: 53.5, lPro: 94, lWrF: -18, lWrD: -11, lFing: 0.05 },
     // holding the pose while the ball is in the air, then both arms come down together
-    relax: { rShF: 128, rShA: -6, rShT: 30, rElF: 14, rPro: 120, rWrF: 60, rWrD: -8, rFing: 0.25, lShF: 118, lShA: -12, lShT: 20, lElF: 40, lPro: 78, lWrF: -15, lWrD: 2, lFing: 0.1 },
+    relax: { rShF: 138, rShA: -2, rShT: 50, rElF: 14, rPro: 100, rWrF: 60, rWrD: -8, rFing: 0.25, lShF: 110, lShA: -12, lShT: 15, lElF: 55, lPro: 90, lWrF: -12, lWrD: -4, lFing: 0.1 },
     down: { rShF: 70, rShA: 10, rShT: 10, rElF: 45, rPro: 90, rWrF: 25, rWrD: 0, rFing: 0.3, lShF: 50, lShA: 10, lShT: 10, lElF: 60, lPro: 80, lWrF: 0, lWrD: 0, lFing: 0.2 },
   };
-  // where the ball is at each phase (H fractions from the root ground point): on the shooting palm
-  const SHOT_BALL = { dip: [0.05, 0.138, 0.43], rise: [0.063, 0.245, 0.893], set: [0.069, 0.138, 1.079], push: [0.08, 0.153, 1.135], release: [0.071, 0.249, 1.162] };
+  // where the ball is at each phase (H fractions from the root ground point): a straight line up ~6-7 in off the
+  // belly, just right of the nose (the shooting eye), from the dip at the belly past the face to over the head
+  const SHOT_BALL = { dip: [0.06, 0.17, 0.52], rise: [0.06, 0.165, 0.8], load: [0.06, 0.16, 0.95], set: [0.065, 0.155, 1.07], push: [0.065, 0.15, 1.16], release: [0.07, 0.14, 1.21] };
   const arms = (phase, torso) => Object.assign({}, torso || {}, SHOT_ARMS[phase]);
 
-  // ---- jump shot (catch-and-shoot / pull-up). Release near the apex, gooseneck follow-through.
+  // ---- jump shot (catch-and-shoot / pull-up). One motion: the ball comes straight up from the belly past the face
+  // to over the head, the arm finishes nearly straight up, release near the apex, gooseneck follow-through.
   clip('jumpshot', {
     dur: 1.5, events: { set: 0.4, release: 0.56 },
     jump: { t0: 0.4, t1: 0.86, h: 0.13 },
     feet: [[0, 'plant'], [0.4, 'air'], [0.86, 'plant']],
     keys: [
-      { t: 0.0, p: 'shotPocket', ball: [0.07, 0.14, 0.53], grip: 'hold' },
-      // bottom of the dip: knees ~100 deg included, ball at the hip (research: elite shooters dip to the hip, +7-9% accuracy)
-      { t: 0.16, p: arms('dip', { rootZ: -0.12, pelPitch: 24, spFlex: 8, chFlex: 4, nkFlex: -16, both: { HipF: 46, Knee: 72, Ank: 20 } }), ball: SHOT_BALL.dip, grip: 'jsLow' },
-      { t: 0.3, p: arms('rise', { rootZ: -0.035, pelPitch: 10, spFlex: 3, chFlex: -2, nkFlex: -10, both: { HipF: 16, Knee: 22, Ank: 0 } }), ball: SHOT_BALL.rise, grip: 'jsRise' },
-      { t: 0.4, p: 'shotSet', ball: SHOT_BALL.set, grip: 'jsSet' },
+      { t: 0.0, p: 'shotPocket', ball: [0.06, 0.17, 0.56], grip: 'hold' },
+      // bottom of the dip: knees bent, ball at the belly (research: elite shooters dip to the hip/belly)
+      { t: 0.16, p: arms('dip', { rootZ: -0.1, pelPitch: 18, spFlex: 6, chFlex: 3, nkFlex: -14, both: { HipF: 38, Knee: 62, Ank: 18 } }), ball: SHOT_BALL.dip, grip: 'jsLow' },
+      { t: 0.3, p: arms('rise', { rootZ: -0.04, pelPitch: 8, spFlex: 2, chFlex: -2, nkFlex: -10, both: { HipF: 16, Knee: 24, Ank: 2 } }), ball: SHOT_BALL.rise, grip: 'jsRise' },
+      { t: 0.36, p: arms('load', { rootZ: -0.02, pelPitch: 4, spFlex: 0, chFlex: -4, nkFlex: -9, hdFlex: -3, both: { HipF: 10, Knee: 14, Ank: -12 } }), ball: SHOT_BALL.load, grip: 'jsLoad' },
+      { t: 0.42, p: 'shotSet', ball: SHOT_BALL.set, grip: 'jsSet' },
       { t: 0.5, p: arms('push', { rootZ: 0, pelPitch: 1, spFlex: -3, chFlex: -6, nkFlex: -9, hdFlex: -4, both: { HipF: 6, HipA: 4, Knee: 12, Ank: -34 } }), ball: SHOT_BALL.push, grip: 'jsPush' },
       { t: 0.56, p: arms('release', { rootZ: 0, pelPitch: 0, spFlex: -2, chFlex: -5, nkFlex: -8, hdFlex: -2, both: { HipF: 8, HipA: 4, Knee: 14, Ank: -36 } }), ball: SHOT_BALL.release, grip: 'shootRel' },
       { t: 0.62, p: 'shotFollow' },
@@ -339,16 +348,18 @@
       { t: 1.5, p: 'ready' },
     ],
   });
-  // ---- free throw: small dip, rise onto toes (no jump), the same set point, push and flick, hold the follow-through
+  // ---- free throw: small dip, rise onto the toes (no jump), the same straight line up, push and flick, hold the
+  // follow-through
   clip('freethrow', {
     dur: 1.7, events: { set: 0.46, release: 0.64 },
     feet: [[0, 'plant']],
     keys: [
-      { t: 0.0, p: 'shotPocket', ball: [0.06, 0.15, 0.55], grip: 'hold' },
-      { t: 0.22, p: arms('dip', { rootZ: -0.075, pelPitch: 18, spFlex: 6, chFlex: 3, nkFlex: -14, both: { HipF: 30, Knee: 44, Ank: 14 } }), ball: SHOT_BALL.dip, grip: 'jsLow' },
-      { t: 0.36, p: arms('rise', { rootZ: -0.02, pelPitch: 8, spFlex: 2, chFlex: -2, nkFlex: -10, both: { HipF: 12, Knee: 16, Ank: 2 } }), ball: SHOT_BALL.rise, grip: 'jsRise' },
-      { t: 0.46, p: arms('set', { rootZ: 0.01, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -8, hdFlex: -4, both: { HipF: 4, Knee: 6, Ank: -18 } }), ball: SHOT_BALL.set, grip: 'jsSet' },
-      { t: 0.57, p: arms('push', { rootZ: 0.02, pelPitch: 1, spFlex: -3, chFlex: -6, nkFlex: -9, hdFlex: -4, both: { HipF: 4, Knee: 4, Ank: -20 } }), ball: SHOT_BALL.push, grip: 'jsPush' },
+      { t: 0.0, p: 'shotPocket', ball: [0.06, 0.17, 0.56], grip: 'hold' },
+      { t: 0.22, p: arms('dip', { rootZ: -0.07, pelPitch: 14, spFlex: 5, chFlex: 3, nkFlex: -12, both: { HipF: 28, Knee: 42, Ank: 14 } }), ball: SHOT_BALL.dip, grip: 'jsLow' },
+      { t: 0.36, p: arms('rise', { rootZ: -0.02, pelPitch: 6, spFlex: 2, chFlex: -2, nkFlex: -10, both: { HipF: 12, Knee: 16, Ank: 2 } }), ball: SHOT_BALL.rise, grip: 'jsRise' },
+      { t: 0.43, p: arms('load', { rootZ: 0, pelPitch: 3, spFlex: 0, chFlex: -4, nkFlex: -9, hdFlex: -3, both: { HipF: 6, Knee: 8, Ank: -10 } }), ball: SHOT_BALL.load, grip: 'jsLoad' },
+      { t: 0.5, p: arms('set', { rootZ: 0.01, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -8, hdFlex: -4, both: { HipF: 4, Knee: 6, Ank: -18 } }), ball: SHOT_BALL.set, grip: 'jsSet' },
+      { t: 0.58, p: arms('push', { rootZ: 0.02, pelPitch: 1, spFlex: -3, chFlex: -6, nkFlex: -9, hdFlex: -4, both: { HipF: 4, Knee: 4, Ank: -20 } }), ball: SHOT_BALL.push, grip: 'jsPush' },
       { t: 0.64, p: arms('release', { rootZ: 0.02, pelPitch: 0, spFlex: -3, chFlex: -6, nkFlex: -10, both: { HipF: 4, Knee: 4, Ank: -22 } }), ball: SHOT_BALL.release, grip: 'shootRel' },
       { t: 0.7, p: arms('follow', { rootZ: 0.02, pelPitch: 0, spFlex: -3, chFlex: -6, nkFlex: -10, both: { HipF: 4, Knee: 4, Ank: -20 } }) },
       { t: 1.3, p: arms('hold', { rootZ: 0.012, pelPitch: 2, spFlex: -2, chFlex: -5, nkFlex: -8, both: { HipF: 4, Knee: 5, Ank: -8 } }) },

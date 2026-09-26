@@ -83,8 +83,8 @@
   // hand flat on the side of the ball, fingers up, its elbow bent too
   def('shotSet', {
     rootZ: 0.0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -8, hdFlex: -4,
-    lShF: 114, lShA: -13, lShT: 23, lElF: 57.5, lPro: 91, lWrF: -24, lWrD: -6.5, lFing: 0.05,
-    rShF: 97, rShA: -16, rShT: -4, rElF: 78, rPro: 150, rWrF: -72, rWrD: 11, rFing: 0.12,
+    lShF: 109.5, lShA: -13, lShT: 21, lElF: 54, lPro: 90.5, lWrF: -23, lWrD: 1, lFing: 0.05,
+    rShF: 92, rShA: -15.5, rShT: -2.5, rElF: 74.5, rPro: 147, rWrF: -74, rWrD: 15, rFing: 0.12,
     both: { HipF: 4, HipA: 4, Knee: 8, Ank: -30 },
   });
   // release / gooseneck follow-through: arm extended up-and-out toward the rim, wrist snapped down, fingers at the
@@ -92,8 +92,8 @@
   // steadied the ball and never pushes (it comes off first)
   def('shotFollow', {
     rootZ: 0.0, pelPitch: 0, spFlex: -2, chFlex: -5, nkFlex: -8, hdFlex: -2,
-    lShF: 137.5, lShA: -16, lShT: 42.5, lElF: 11.5, lPro: 55, lWrF: -23, lWrD: 15, lFing: 0.05,
-    rShF: 138.5, rShA: -6.5, rShT: 35.5, rElF: 3, rPro: 132, rWrF: 80, rWrD: -12, rFing: 0.2,
+    lShF: 131, lShA: -13, lShT: 32, lElF: 24.5, lPro: 68, lWrF: -23.5, lWrD: 12.5, lFing: 0.05,
+    rShF: 155, rShA: -0.5, rShT: 62, rElF: 6.5, rPro: 105, rWrF: 82, rWrD: -12, rFing: 0.2,
     both: { HipF: 10, HipA: 4, Knee: 16, Ank: -38 },
   });
   // running reference keys (used by viewer / tests)
