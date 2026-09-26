@@ -67,6 +67,10 @@
 <script src="js/core/names.js"></script>
 <script src="js/core/config.js"></script>
 <script src="js/core/player.js"></script>
+<script src="js/core/identity.js"></script>
+<script src="js/core/persona.js"></script>
+<script src="js/core/tendency.js"></script>
+<script src="js/core/sliders.js"></script>
 <script src="js/core/league.js"></script>
 <script src="js/core/stats.js"></script>
 <script src="js/core/ai.js"></script>
@@ -79,11 +83,19 @@
 <script src="js/match/rig.js"></script>
 <script src="js/match/poses.js"></script>
 <script src="js/match/figure.js"></script>
+<script src="js/match/body3d.js"></script>
+<script src="js/match/body3d_parts.js"></script>
+<script src="js/match/human_data.js"></script>
+<script src="js/match/human.js"></script>
+<script src="js/match/human_build.js"></script>
+<script src="js/match/gl3d.js"></script>
 <script src="js/match/anims.js"></script>
 <script src="js/match/clips.js"></script>
+<script src="js/match/clips_mocap.js"></script>
 <script src="js/match/actor.js"></script>
 <script src="js/match/ball.js"></script>
 <script src="js/match/choreo.js"></script>
+<script src="js/match/flow.js"></script>
 <script src="js/match/view.js"></script>
 <script src="js/match/viewer.js"></script>
 <script src="js/match/mock.js"></script>
@@ -175,7 +187,7 @@
     const g = PBC.Sim.createGame(S0, 0, 1, {});
     const uniformFor = (t, home) => { const p = t.colors.primary, s = t.colors.secondary; return home ? { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' } : { jersey: p, number: EU.textOn && EU.textOn(p) === '#ffffff' ? '#ffffff' : s, trim: s, shorts: p }; };
     const teamLook = (t, home) => ({ id: t.id, abbr: t.abbr, city: t.city, name: t.name, colors: Object.assign({}, t.colors), uniform: uniformFor(t, home), court: { paint: t.colors.primary, logoText: t.abbr, wood: t.wood || 'light' } });
-    const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle });
+    const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral' });
     const L = PBC.League.cfg(S0);
     const players = {};
     g.t.forEach((T, i) => T.players.forEach((c) => { players[c.id] = playerLook(c.p, i); }));

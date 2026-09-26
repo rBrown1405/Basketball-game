@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Procedural Basketball Animation</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0d1320; color: #dfe6f3; font: 14px/1.4 system-ui, sans-serif; }
+  #bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; align-items: center; }
+  button { background: #1d2a44; color: #e8eefb; border: 1px solid #33456b; border-radius: 8px; padding: 7px 12px; cursor: pointer; font: inherit; }
+  button:hover { background: #26375a; }
+  #info { opacity: .75; margin-left: auto; font-variant-numeric: tabular-nums; }
+  canvas { display: block; width: 100%; height: calc(100vh - 54px); }
+  label { display: flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <button data-a="dribble">Dribble</button>
+  <button data-a="cross">Crossover</button>
+  <button data-a="stop">Pick up</button>
+  <button data-a="pass">Chest pass</button>
+  <button data-a="layup">Layup</button>
+  <button data-a="reset">Reset</button>
+  <label><input type="checkbox" id="slow"> Slow motion</label>
+  <label><input type="checkbox" id="orbit" checked> Orbit camera</label>
+  <span id="info"></span>
+</div>
+<canvas id="c"></canvas>
+<script src="js/lib/procanim.js"></script>
+<script>
+/* A stick-figure viewer for js/lib/procanim.js. Everything drawn comes from anim.getState() (world joints). */
+(function () {
+  'use strict';
+  const PA = window.ProceduralBasketball, V = PA.Vector3;
+  const cv = document.getElementById('c'), g = cv.getContext('2d');
+  const rig = { root: { position: new V(0, 0, 0), rotation: { x: 0, y: 0, z: 0 } } };
+  let anim = new PA.BasketballAnimator(rig);
+  const teammate = new V(3.2, 1.3, 3.0), rim = new V(0.2, 3.05, 3.4);
+  let camYaw = location.hash === '#side' ? 1.45 : 0.9, last = performance.now(), running = 0;
+  function reset() { rig.root.position.set(0, 0, 0); rig.root.rotation.y = 0; running = 0; anim = new PA.BasketballAnimator(rig); }
+  document.getElementById('bar').addEventListener('click', e => {
+    const a = e.target.dataset && e.target.dataset.a;
+    if (!a) return;
+    if (a === 'dribble') anim.dribble();
+    if (a === 'cross') anim.crossover();
+    if (a === 'stop') anim.stopDribble();
+    if (a === 'pass') { if (!anim.getState().ball.held) anim.giveBall(); else anim.pass(teammate); }
+    if (a === 'layup') {
+      if (!anim.getState().ball.held) anim.giveBall();
+      rig.root.position.set(-0.3, 0, -1.6); rig.root.rotation.y = 0; running = 2.8; // run in, then take off
+      setTimeout(() => { running = 0; anim.layup(rim, { curve: 0.2 }); }, 350);
+    }
+    if (a === 'reset') reset();
+  });
+  // camera
+  let camDist = 4.6;
+  const camTarget = new V(0, 1.05, 0.9);
+  function project(p, W, H) {
+    // look-at camera orbiting the court around camTarget
+    const eye = new V(Math.sin(camYaw) * camDist, 1.75, Math.cos(camYaw) * camDist).add(new V(camTarget.x, 0, camTarget.z));
+    const fwd = new V().subVectors(camTarget, eye).normalize(), right = new V().crossVectors(fwd, new V(0, 1, 0)).normalize(), up = new V().crossVectors(right, fwd);
+    const rel = new V().subVectors(p, eye), d = rel.dot(fwd);
+    if (d < 0.1) return null;
+    const f = H * 1.1;
+    return { x: W / 2 + (rel.dot(right) / d) * f, y: H / 2 - (rel.dot(up) / d) * f, s: f / d };
+  }
+  function line(a, b, w, col) { if (!a || !b) return; g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const slow = document.getElementById('slow').checked ? 0.25 : 1;
+    if (running) rig.root.position.z += running * dt * slow;
+    if (document.getElementById('orbit').checked) camYaw += dt * 0.15;
+    const st = anim.update(dt * slow);
+    // the camera eases after the player (so the layup stays in frame)
+    const k = 1 - Math.exp(-4 * dt);
+    camTarget.x += (st.root.position.x - camTarget.x) * k; camTarget.z += (st.root.position.z + 0.6 - camTarget.z) * k;
+    const W = cv.width = cv.clientWidth * devicePixelRatio, H = cv.height = cv.clientHeight * devicePixelRatio;
+    g.fillStyle = '#0d1320'; g.fillRect(0, 0, W, H);
+    // floor grid
+    g.lineWidth = 1; g.strokeStyle = 'rgba(160,180,220,.13)';
+    for (let i = -6; i <= 6; i++) { line(project(new V(i, 0, -4), W, H), project(new V(i, 0, 8), W, H), 1, 'rgba(160,180,220,.13)'); line(project(new V(-6, 0, i + 2), W, H), project(new V(6, 0, i + 2), W, H), 1, 'rgba(160,180,220,.13)'); }
+    // rim and teammate marker
+    const rc = []; for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2; rc.push(project(new V(rim.x + Math.cos(a) * 0.23, rim.y, rim.z + Math.sin(a) * 0.23), W, H)); }
+    for (let i = 0; i < 24; i++) line(rc[i], rc[i + 1], 3, '#ff7a2f');
+    line(project(new V(rim.x, 3.95, rim.z + 0.4), W, H), project(new V(rim.x, 2.9, rim.z + 0.4), W, H), 4, '#9fb2d4');
+    const tm = project(teammate, W, H); if (tm) { g.fillStyle = '#3ddc84'; g.beginPath(); g.arc(tm.x, tm.y, 6, 0, 7); g.fill(); }
+    // body: root, pelvis (crouch), spine from the torso orientation, head, arms from the IK
+    const J = st.joints.world, root = st.root.position, yaw = st.root.yaw;
+    const toW = v => v.clone().rotateY(yaw).add(root);
+    const crouch = st.pose.crouch;
+    const pelvis = toW(new V(0, 1.02 - crouch, 0));
+    const neck = J.left.shoulder.clone().add(J.right.shoulder).multiplyScalar(0.5);
+    const headP = neck.clone().add(new V(0, 0.2, 0));
+    const P = p => project(p, W, H);
+    // legs (static stance with the crouch folding the knees)
+    for (const s of [-1, 1]) {
+      const hip = toW(new V(s * 0.12, 1.02 - crouch - 0.05, 0)), foot = toW(new V(s * 0.17, 0.02, s * 0.05));
+      const knee = hip.clone().lerp(foot, 0.5).add(toW(new V(0, 0, 0.05 + crouch * 1.3)).sub(root));
+      line(P(hip), P(knee), 7, '#445a86'); line(P(knee), P(foot), 7, '#445a86');
+    }
+    line(P(pelvis), P(neck), 11, '#5b77ad');
+    line(P(J.left.shoulder), P(J.right.shoulder), 8, '#5b77ad');
+    const hp = P(headP); if (hp) { g.fillStyle = '#c99a72'; g.beginPath(); g.arc(hp.x, hp.y, 0.11 * hp.s, 0, 7); g.fill(); }
+    for (const [h, col] of [['left', '#e2b48c'], ['right', '#f0c49c']]) {
+      line(P(J[h].shoulder), P(J[h].elbow), 7, col); line(P(J[h].elbow), P(J[h].wrist), 6, col); line(P(J[h].wrist), P(J[h].palm), 5, '#ffd9b3');
+      const e = P(J[h].elbow); if (e) { g.fillStyle = '#fff'; g.beginPath(); g.arc(e.x, e.y, 3, 0, 7); g.fill(); }
+    }
+    // ball (with a seam line so the spin is visible)
+    const bp = P(st.ball.position);
+    if (bp) {
+      const r = 0.12 * bp.s;
+      g.fillStyle = '#e8732c'; g.beginPath(); g.arc(bp.x, bp.y, r, 0, 7); g.fill();
+      const seam = new V(0, 0.12, 0).applyQuaternion(st.ball.quaternion).add(st.ball.position), sp2 = P(seam);
+      line(bp, sp2, 2, '#3a1a08');
+      const sh = P(new V(st.ball.position.x, 0.001, st.ball.position.z)); if (sh) { g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(sh.x, sh.y, r, r * 0.3, 0, 0, 7); g.fill(); }
+    }
+    document.getElementById('info').textContent = `${st.action}${st.phase ? ' · ' + st.phase : ''}${st.dribbleHand ? ' · ' + st.dribbleHand + ' hand' : ''} · ball ${st.ball.held ? 'held' : st.ball.inFlight ? 'in flight' : 'loose'}`;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  anim.dribble();
+  window.__anim = () => anim;
+})();
+</script>
+</body>
+</html>
