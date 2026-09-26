@@ -216,6 +216,24 @@ feet left behind and planted-foot slide at the same level as before.
 | Turning in place | a standing turn of more than ~55 deg is a pivot: the whole body goes round together on one foot (turning left on the left foot) while the other foot steps round it (twice for a big turn), the head and shoulders a little ahead and the hips with the feet, so the legs never cross; a move order stops it and the run starts from where the turn got to | http://www.amherst-basketball.com/AYB/pivoting |
 | Defensive slide | a push and a reach, not a patter. The feet never cross, so a step can only open the gap between them from nearly together to a wide reach: the body goes ~0.3 H per step at most. A slow slide takes ~1.2 ft steps ~4 times a second, a quick one (~11-12 ft/s, the top pace elite players hold over a 5 m shuffle test) ~2 ft steps ~6 times a second. In games, steps at 3-5 ft/s grew from ~1.0 to ~1.14 ft at ~3.6 steps/s instead of ~4; the lab's slide test now runs 12 ft each way (it used to turn back after 7 ft, before the slide got going) | https://pmc.ncbi.nlm.nih.gov/articles/PMC9697629/ , https://www.breakthroughbasketball.com/defense/Debunking-Cross-Feet |
 
+## Key poses and body weight (anims.js, actor.js)
+
+The walk, jog and sprint are drawn as four key poses per step, named in code and mirrored for the other leg: walking
+CONTACT (heel strike), DOWN (loading, body lowest), PASSING (mid-stance, body highest over a straight leg), UP (heel
+off); running CONTACT (the foot lands a little ahead of the hips on a slightly bent knee), DOWN (mid-stance, knee most
+bent, body lowest), PUSH-OFF (toe-off) and UP (mid-flight, body highest). A run's stance gets shorter the faster it
+goes, so the running key poses are moved to where this stride's touchdown, mid-stance and toe-off really are. The
+Animation Lab shows the key pose a stride is at and steps to the next one (`P`).
+
+| Rule | How | Sources |
+|---|---|---|
+| Contact time shrinks with speed | the foot stays on the floor over about the same distance at any running pace (~0.82 of the leg's length), so the stance share is that distance over the stride: ~0.25 s jogging, ~0.19 s at 15 ft/s, ~0.1 s sprinting. A set share (24 % at a sprint) kept the foot down over ~4 ft at 28 ft/s: it landed ~1.2 ft ahead of the hips, the hips sank through the end of each flight to meet it, popped up ~0.13 ft in a frame after it landed, and the foot behind was dragged out of reach | https://speedendurance.com/2011/03/25/velocity-contact-length-ground-contact-time/ , https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0163023 |
+| The bounce of a spring | running, the hips are lowest at mid-stance (knee ~45 deg), rise through the push-off and are highest early in the flight (a thrown body's arc), then come down to a touchdown the landing leg can reach; measured in the lab the sprint now lands ~0.7 ft ahead of the hips instead of ~1.2 ft, and the hips follow the key poses through the whole stride. Walking stays an inverted pendulum (lowest in double support, highest at mid-stance) | https://pubmed.ncbi.nlm.nih.gov/15685471/ , https://www.physio-pedia.com/Running_Biomechanics |
+| Weight over the standing foot | the pelvis sways toward the foot on the floor, furthest at mid-stance and back across the middle in double support: ~5 cm side to side walking (4-7 cm measured, less the faster), ~2 cm jogging, ~1 cm sprinting | https://pubmed.ncbi.nlm.nih.gov/15685471/ , https://www.researchgate.net/publication/8047842_The_effect_of_walking_speed_on_center_of_mass_displacement |
+| Momentum on springs | the lean into a push, a brake or a turn follows the body's acceleration on critically damped springs (~0.1 s half-life), so it builds and eases off smoothly with no overshoot instead of starting and stopping with a kink each time the push changes | https://theorangeduck.com/page/spring-roll-call |
+| A runner's foot leaves moving | the swing starts with the ankle already moving forward at about a third of the body's speed (the foot rolls off the toes); eased out of a standstill, at a sprint it hung ~1 ft behind the body and pulled the hip past its range (frames with a hip held at its limit in the lab's sprint: ~36 per leg -> 0-3) | |
+| On time at any stance share | a sprinter's rear foot leaves when the front one is only half way through its swing (0.5 / (1 - stance share)); held until a set 60 %, it stayed down past its reach and was dragged | |
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the

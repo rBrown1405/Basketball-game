@@ -15,7 +15,8 @@ Double-click **`lab.html`** (next to `index.html`) to test the player animation 
 play it in slow motion, **pause and step frame by frame** (forward and back), orbit the camera, and turn on
 debug overlays: planted-foot locks with a slide meter, the gait phase and duty factor, cadence and stride, and
 joints held at their limits. **Copy report** gives the exact scenario, frame and settings so a problem can be
-replayed exactly. Keys: Space pause, arrows step, `[` `]` speed, `R` restart, `1`-`7` camera angles.
+replayed exactly. Keys: Space pause, arrows step, `P` next gait key pose, `[` `]` speed, `R` restart, `1`-`7` camera
+angles.
 
 ## Saving
 

@@ -24,11 +24,36 @@
   // helper: opposite-phase copy for the left side
   function opp(keys) { return keys.map(([p, v]) => [(p + 0.5) % 1, v]); }
 
+  // the key poses of each gait, as phases of the right foot's cycle (0 = the right foot touches down; the left
+  // foot's come half a cycle later), and the stance share each gait set is drawn for (`beta`; a run's stance gets
+  // shorter the faster it goes, so its key poses are moved to where the real touchdown, mid-stance and toe-off are,
+  // see applyGait). Walking is an inverted pendulum: CONTACT (heel strike, legs apart), DOWN (loading: the knee takes
+  // the weight, the body lowest), PASSING (mid-stance: the swing leg passes the straight standing one, the body
+  // highest), UP (the heel comes off and the body rolls forward over the toes as the other heel reaches out).
+  // Running is a bouncing spring: CONTACT (the foot lands a little ahead of the hips, knee slightly bent), DOWN
+  // (mid-stance: the knee most bent, the body lowest), PUSH-OFF (toe-off) and UP (the middle of the flight, both
+  // feet off the floor, the body highest)
+  const KEYS = {
+    walk: { beta: 0.6, poses: [['contact', 0], ['down', 0.08], ['passing', 0.3], ['up', 0.42]] },
+    jog: { beta: 0.33, poses: [['contact', 0], ['down', 0.165], ['push-off', 0.33], ['up', 0.39]] },
+    sprint: { beta: 0.2, poses: [['contact', 0], ['down', 0.1], ['push-off', 0.2], ['up', 0.33]] },
+  };
+  // (a key pose's phase by name)
+  const kp = (g, name) => KEYS[g].poses.find(q => q[0] === name)[1];
+  const KW = { contact: kp('walk', 'contact'), down: kp('walk', 'down'), passing: kp('walk', 'passing') };
+  const KJ = { contact: 0, down: kp('jog', 'down'), push: kp('jog', 'push-off'), up: kp('jog', 'up') };
+  const KS = { contact: 0, down: kp('sprint', 'down'), push: kp('sprint', 'push-off'), up: kp('sprint', 'up') };
+  // (a curve through the four key poses of the right step and the same four of the left one)
+  const both = (v) => { const o = []; for (const [ph, x] of v) { o.push([ph, x]); o.push([ph + 0.5, x]); } return o; };
   const WALK = gaitSet({
     pelPitch: 4, spFlex: 3, chFlex: 2, nkFlex: -3, hdFlex: 2,
     // pelvis: lowest just after heel strike (double support), highest in midstance (inverted pendulum); the
     // reach limit keeps the stance knee near straight (~5 deg), the dip lets it flex ~15 deg in loading response
-    rootZ: [[0, -0.016], [0.08, -0.019], [0.3, 0.006], [0.5, -0.016], [0.58, -0.019], [0.8, 0.006]],
+    rootZ: both([[KW.contact, -0.016], [KW.down, -0.019], [KW.passing, 0.006]]),
+    // the weight goes over the standing foot: the pelvis sways toward it, furthest at mid-stance and back across
+    // the middle in double support, ~5 cm side to side in all (4-7 cm measured, less the faster the walk); feet,
+    // + = to the right
+    rootX: [[KW.contact + 0.05, 0], [KW.passing, 0.08], [KW.contact + 0.55, 0], [KW.passing + 0.5, -0.08]],
     pelTwist: [[0, 5], [0.25, 0], [0.5, -5], [0.75, 0]],
     pelRoll: [[0.1, -4], [0.32, 0], [0.6, 4], [0.82, 0]],
     chTwist: [[0, -7], [0.25, 0], [0.5, 7], [0.75, 0]],
@@ -43,9 +68,14 @@
   });
   const JOG = gaitSet({
     pelPitch: 6, spFlex: 5, chFlex: 2, nkFlex: -7, hdFlex: 0, // ~9 deg forward lean (running studies)
-    // (a deeper dip in midstance: captured runs at 10-13 ft/s, CMU subjects 9 and 16, bounce 0.05-0.075 H; the top
-    // stays where the stance leg can still reach the floor)
-    rootZ: [[0, -0.013], [0.17, -0.035], [0.36, -0.01], [0.43, 0.008], [0.5, -0.013], [0.67, -0.035], [0.86, -0.01], [0.93, 0.008]],
+    // the bounce of a spring: landing with the knee a little bent (~20 deg) and the foot ~0.8 ft ahead of the hips
+    // (as low as the leg can reach that far forward), sinking to the lowest at mid-stance (knee ~45 deg), rising
+    // onto the toes with the leg nearly straight at the push-off and highest early in the flight (a thrown body's
+    // arc: up ~0.04 ft from toe-off, then down to the next landing); ~5 cm up and down in all. (The old curve's top
+    // was higher than a landing leg can reach from: the hips sank through the end of each flight to meet the foot
+    // and popped back up after it landed)
+    rootZ: both([[KJ.contact, -0.025], [KJ.down, -0.04], [KJ.push, -0.012], [KJ.up, -0.006]]),
+    rootX: [[KJ.contact, 0], [KJ.down, 0.03], [KJ.contact + 0.5, 0], [KJ.down + 0.5, -0.03]],
     pelTwist: [[0, 8], [0.25, 0], [0.5, -8], [0.75, 0]],
     pelRoll: [[0.1, -5], [0.35, 2], [0.6, 5], [0.85, -2]],
     spTwist: [[0, -5], [0.5, 5]],
@@ -65,7 +95,10 @@
   });
   const SPRINT = gaitSet({
     pelPitch: 9, spFlex: 8, chFlex: 3, nkFlex: -11, hdFlex: 0, // ~14 deg at top speed; more only while accelerating
-    rootZ: [[0, -0.016], [0.13, -0.038], [0.26, -0.014], [0.38, 0.01], [0.5, -0.016], [0.63, -0.038], [0.76, -0.014], [0.88, 0.01]],
+    // (lower and a longer flight: the foot lands ~0.8 ft ahead of the hips on a bent knee, the stance is short and
+    // the body flies ~0.2 s between steps, rising ~0.15 ft from the push-off; ~8 cm up and down in all)
+    rootZ: both([[KS.contact, -0.034], [KS.down, -0.044], [KS.push, -0.02], [KS.up, 0.002]]),
+    rootX: [[KS.contact, 0], [KS.down, 0.02], [KS.contact + 0.5, 0], [KS.down + 0.5, -0.02]],
     pelTwist: [[0, 10], [0.25, 0], [0.5, -10], [0.75, 0]],
     pelRoll: [[0.08, -5], [0.3, 2], [0.58, 5], [0.8, -2]],
     spTwist: [[0, -6], [0.5, 6]],
@@ -134,7 +167,7 @@
     out.run = gw.jog + gw.sprint;
     // how far ahead of the body the ankle lands, as a share of the contact length: a walker's heel strikes about
     // 0.16 x height ahead of the hip (leg ~20 deg forward), runners land close under the body, not reaching out
-    out.reach = gw.walk * 0.37 + gw.jog * 0.34 + gw.sprint * 0.31;
+    out.reach = gw.walk * 0.37 + gw.jog * 0.34 + gw.sprint * 0.29;
     // step width: ~8-10 cm between the feet when walking (a wide base is a toddler trait), narrower when running
     out.halfW = gw.walk * 0.024 + gw.jog * 0.02 + gw.sprint * 0.016;
     out.liftPow = gw.walk * 0.85 + gw.jog * 0.62 + gw.sprint * 0.58;
@@ -154,24 +187,34 @@
   /** write gait upper-body/pelvis channels into pose `out` blended by weight k (0..1) */
   const ARMCH = new Uint8Array(RG.NCH);
   for (const i of RG.GROUP.arms) ARMCH[i] = 1;
-  function applyGait(out, phase, speed, k, backwards, kArms) {
+  /** a running set's phase moved so its key poses fall where this stride's are: its stance drawn for a share b0 of
+   *  the cycle, the real one b (touchdown stays at 0 and 0.5, mid-stance and toe-off move with the real stance, the
+   *  flight's middle with the real flight) */
+  function warpPhase(ph, b0, b) {
+    if (!(b > 0.05 && b < 0.49) || Math.abs(b - b0) < 1e-3) return ph;
+    const h = ph >= 0.5 ? 0.5 : 0, q = ph - h;
+    return h + (q < b ? q * b0 / b : b0 + (q - b) * (0.5 - b0) / (0.5 - b));
+  }
+  function applyGait(out, phase, speed, k, backwards, kArms, beta) {
     if (kArms == null) kArms = k;
     if (k <= 0.001 && kArms <= 0.001) return;
     const gw = gaitWeights(speed, TMPW);
-    const sets = [[WALK, gw.walk], [JOG, gw.jog], [SPRINT, gw.sprint]];
+    const sets = [[WALK, gw.walk, KEYS.walk.beta], [JOG, gw.jog, KEYS.jog.beta], [SPRINT, gw.sprint, KEYS.sprint.beta]];
     // backwards: 0..1 (or boolean); in between, the forward and the reversed cycles are mixed
     const bw = backwards === true ? 1 : +backwards || 0;
-    const ph = bw >= 1 ? 1 - phase : phase;
     const mixB = bw > 0 && bw < 1;
     const acc = applyGait._acc || (applyGait._acc = new Float32Array(RG.NCH));
     const has = applyGait._has || (applyGait._has = new Uint8Array(RG.NCH));
     acc.fill(0); has.fill(0);
-    for (const [set, w] of sets) {
+    for (const [set, w, b0] of sets) {
       if (w <= 0.001) continue;
+      const pf = b0 < 0.5 && beta != null ? warpPhase(phase, b0, beta) : phase;
+      const pr = 1 - pf;
+      const ph = bw >= 1 ? pr : pf;
       for (const key in set) {
         const i = CH[key];
         const v = set[key];
-        const val = typeof v === 'number' ? v : mixB ? U.loopSample(v, phase) * (1 - bw) + U.loopSample(v, 1 - phase) * bw : U.loopSample(v, ph);
+        const val = typeof v === 'number' ? v : mixB ? U.loopSample(v, pf) * (1 - bw) + U.loopSample(v, pr) * bw : U.loopSample(v, ph);
         acc[i] += (RG.LINEAR[key] ? val : val * D) * w;
         has[i] = 1;
       }
@@ -478,9 +521,20 @@
   });
 
   function get(name) { return CLIPS[name] || null; }
+  /** the gait key pose a stride is at or nearest before (for the lab's readout): { name, side, gait } */
+  function keyPoseAt(speed, phase, beta) {
+    const gw = gaitWeights(speed, {});
+    const g = gw.walk >= 0.5 ? 'walk' : gw.sprint > gw.jog ? 'sprint' : 'jog';
+    const K = KEYS[g], ph = g === 'walk' || beta == null ? phase : warpPhase(phase, K.beta, beta);
+    const side = ph >= 0.5 ? 'L' : 'R', q = ph % 0.5;
+    let name = K.poses[0][0];
+    for (const [n, at] of K.poses) if (q + 1e-6 >= at) name = n;
+    return { name, side, gait: g };
+  }
 
   M.Anims = {
     WALK, JOG, SPRINT, SLIDE, STANCE, GRIP, CLIPS, clip, buildClip, get, SHOT_ARMS, SHOT_BALL,
     stepsPerSec, gaitWeights, gaitParams, applyGait, applySlide, sampleClip, clipGrip, clipGripAt, clipFeet,
+    GAIT_KEYS: KEYS, keyPoseAt, warpPhase,
   };
 })();

@@ -120,7 +120,7 @@
       this.breath = Math.random() * 10;
       this.hidden = false;
       this.alpha = 1;
-      this.lean = 0; this.leanF = 0;
+      this.lean = 0; this.leanF = 0; this.leanv = 0; this.leanFv = 0;
       this.hasBall = false;
       this.ballHold = null; // 'chest' | 'triple' | 'over' | 'pocket' | null
       this.dribble = null; // set by ball controller: {hand:0|1, u (0..1 phase), top:[x,y,z]}
@@ -519,8 +519,16 @@
       // walk start and read as the head and shoulders being dragged ahead of the legs
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
       const aF = this.ax * c + this.ay * s, aR = this.ax * s - this.ay * c;
-      this.leanF = U.damp(this.leanF, U.clamp(aF / 32.2 * 0.5, -0.18, 0.21), 6, dt);
-      this.lean = U.damp(this.lean, U.clamp(aR / 32.2 * 0.6, -0.2, 0.2), 6, dt);
+      // (on critically damped springs, ~0.1 s half-life: the lean builds and eases off smoothly with no overshoot;
+      // eased toward the push directly, it started and stopped with a kink every time the push changed)
+      if (dt > 0) {
+        const y = 2 * Math.LN2 / 0.1, e = Math.exp(-y * dt);
+        const tF = U.clamp(aF / 32.2 * 0.5, -0.18, 0.21), tR = U.clamp(aR / 32.2 * 0.6, -0.2, 0.2);
+        let j0 = this.leanF - tF, j1 = this.leanFv + j0 * y;
+        this.leanF = e * (j0 + j1 * dt) + tF; this.leanFv = e * (this.leanFv - j1 * y * dt);
+        j0 = this.lean - tR; j1 = this.leanv + j0 * y;
+        this.lean = e * (j0 + j1 * dt) + tR; this.leanv = e * (this.leanv - j1 * y * dt);
+      }
     }
 
     _desiredFacing() {
@@ -620,6 +628,16 @@
         // steps out of a start while the step length keeps growing for many more)
         const accF = Math.max(0, this.ax * this.moveDirX + this.ay * this.moveDirY);
         let sps = A.stepsPerSec(Math.min(this.maxSpeed, sp + accF * 0.3), H);
+        // running, the foot is on the floor over about the same distance at any pace (the leg sweeps a set arc under
+        // the hips, ~0.82 of its length: from ~0.8 ft ahead of them to ~1.8 ft behind), so the faster the run, the
+        // shorter the contact: ~0.25 s jogging, ~0.19 s at 15 ft/s, ~0.1 s sprinting. (A set share of the stride kept
+        // the foot down longer than the leg could reach at speed: it landed reaching out ahead, the hips sank to meet
+        // it through the end of each flight, and the foot behind had to leave early)
+        const runW = gp.w.jog + gp.w.sprint;
+        if (runW > 0.001 && sp > 1) {
+          const bGeo = U.clamp(0.82 * (this.dims.th + this.dims.sh) * sps / (2 * sp), 0.15, 0.37);
+          gp.beta = gp.w.walk * 0.6 + runW * bGeo;
+        }
         // (blended, not switched: a hard switch changed the swing foot's lift and timing in a single frame)
         const nfw = U.smooth((0.6 - fwdDot) / 0.2);
         if (nfw > 0) { sps *= 1 + 0.12 * nfw; gp.lift *= 1 - 0.45 * nfw; gp.beta = U.lerp(gp.beta, Math.max(gp.beta, 0.45), nfw); gp.toePitch *= 1 - 0.4 * nfw; }
@@ -695,7 +713,9 @@
         // of it is done)
         // (a runner's rear foot leaves as the front one reaches out to land, ~2/3 through its swing; a walker's
         // only as the front one comes down)
-        const swOk = U.lerp(0.85, 0.6, U.smooth((sp - 5) / 5));
+        // (a sprinter's stance is short: the rear foot's toe-off comes when the front one is only half way through
+        // its swing, 0.5 / (1 - stance share) of it; held for a set 60 % it stayed down past its reach and dragged)
+        const swOk = Math.min(U.lerp(0.85, 0.6, U.smooth((sp - 5) / 5)), 0.5 / (1 - gp.beta) - 0.05);
         const behindOf = (q) => -((q.x - this.x) * this.moveDirX + (q.y - this.y) * this.moveDirY);
         // the same foot twice running: never two strides; after a small stance or clip step only if it is clearly
         // the foot left behind (blocking it outright kept it planted behind for most of the first stride)
@@ -854,7 +874,10 @@
             f.tx = ntx; f.ty = nty;
             const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, Math.min(0, gp.landPitch), TB);
             f.sw = sw; f.lax = a1[0]; f.lay = a1[1]; f.laz = a1[2]; f.lpx = px; f.lpy = py;
-            const e = U.smooth(sw);
+            // (a runner's ankle is already moving forward as the foot rolls off the toes, at about a third of the
+            // body's speed; eased out of a standstill, the foot hung back behind the body at speed and pulled the hip
+            // past its range just after toe-off)
+            const e = U.smooth(sw) + 0.35 * (gp.run || 0) * sw * (1 - sw) * (1 - sw);
             // sin^2 starts with zero vertical speed (the old sin^1.1 of sw^0.62 threw the foot up ~0.4 ft in the first
             // frame after toe-off, snapping the knee), and still peaks early in the swing (~40 %)
             // a runner's heel comes up behind first (the knee folds toward the buttock), stays up while the foot passes
@@ -1525,7 +1548,7 @@
         const lat = this.latK || 0;
         const kT = this.gaitK * U.lerp(U.lerp(stp.gaitTorso, 1, U.smooth((this.speed - 6) / 6)), U.lerp(0.35, 0.25, stp.slide), lat);
         const kA = this.gaitK * U.lerp(U.lerp(stp.gaitArms, 1, U.smooth((this.speed - 7) / 6)), U.lerp(0.16, 0.1, stp.slide), Math.max(lat, back * 0.6));
-        A.applyGait(p, this.phase, this.speed, kT, back, kA);
+        A.applyGait(p, this.phase, this.speed, kT, back, kA, this.gaitDbg ? this.gaitDbg.beta : null);
         if (lat > 0.001) A.applySlide(p, this.phase, this.gaitK * lat);
         if (back > 0.001) { p[CH.spFlex] -= 6 * D * this.gaitK * back; p[CH.pelPitch] -= 4 * D * this.gaitK * back; }
       }

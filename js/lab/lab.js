@@ -339,6 +339,20 @@
       this.ui.sync();
     }
     seek(t) { this.rebuild(Math.max(0, Math.min(this.sc.dur, t))); }
+    /** paused, step on frame by frame to the gait's next key pose (contact, down, passing or push-off, up) */
+    nextKeyPose() {
+      const a = this.ctx && this.ctx.a, A = M.Anims;
+      if (!a || !A.keyPoseAt) return;
+      this.playing = false;
+      const at = () => a.gaitOn ? A.keyPoseAt(a.speed, a.phase || 0, a.gaitDbg && a.gaitDbg.beta) : null;
+      const k0 = at(), id = (k) => k ? k.name + k.side : '-';
+      for (let i = 0; i < 180 && this.simT < this.sc.dur - FRAME; i++) {
+        this.advanceTo(this.simT + FRAME);
+        const k = at();
+        if (k && id(k) !== id(k0)) break;
+      }
+      this.ui.sync();
+    }
 
     // ---- main loop
     loop(now) {
@@ -745,7 +759,7 @@
       P.appendChild(rp);
       // keys
       const ks = this.el('div', { class: 'sec' }, [this.el('h2', { text: 'Keys' })]);
-      ks.appendChild(this.el('div', { class: 'note', html: '<kbd>Space</kbd> play / pause &nbsp; <kbd>←</kbd><kbd>→</kbd> one frame &nbsp; <kbd>Shift</kbd>+arrows 10 frames<br><kbd>[</kbd><kbd>]</kbd> slower / faster &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>1</kbd>-<kbd>7</kbd> camera<br><kbd>Q</kbd> 4 views &nbsp; <kbd>T</kbd> orbit 360 &nbsp; <kbd>F</kbd> follow<br>drag to turn the camera, wheel or pinch to zoom' }));
+      ks.appendChild(this.el('div', { class: 'note', html: '<kbd>Space</kbd> play / pause &nbsp; <kbd>←</kbd><kbd>→</kbd> one frame &nbsp; <kbd>Shift</kbd>+arrows 10 frames<br><kbd>[</kbd><kbd>]</kbd> slower / faster &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>1</kbd>-<kbd>7</kbd> camera<br><kbd>Q</kbd> 4 views &nbsp; <kbd>T</kbd> orbit 360 &nbsp; <kbd>F</kbd> follow<br><kbd>P</kbd> next gait key pose (contact, down, passing or push-off, up)<br>drag to turn the camera, wheel or pinch to zoom' }));
       P.appendChild(ks);
       // transport bar
       const B = this.bar;
@@ -753,6 +767,7 @@
       this.btnBack = this.el('button', { text: '◀|', title: 'Back one frame (←)', onclick: () => L.stepFrames(-1) });
       this.btnPlay = this.el('button', { class: 'primary', text: '⏸', title: 'Play / pause (Space)', onclick: () => this.togglePlay() });
       this.btnFwd = this.el('button', { text: '|▶', title: 'Forward one frame (→)', onclick: () => L.stepFrames(1) });
+      this.btnPose = this.el('button', { text: 'pose ▶', title: 'Step to the next gait key pose: contact, down, passing or push-off, up (P)', onclick: () => L.nextKeyPose() });
       this.rateSel = this.el('select', { title: 'Playback speed ([ and ])', onchange: (e) => { set.rate = +e.target.value; save(); } }, [2, 1, 0.5, 0.25, 0.1, 0.05].map(r => this.el('option', { value: r, text: r + 'x' })));
       this.rateSel.style.flex = '0 0 auto';
       this.rateSel.value = String(set.rate);
@@ -761,7 +776,7 @@
       this.scrub.addEventListener('input', () => { L.playing = false; L.seek(+this.scrub.value / 1000 * L.sc.dur); this.sync(); });
       this.timeTxt = this.el('span', { class: 'time' });
       this.loopBtn = this.el('button', { text: 'Loop', onclick: () => { set.loop = !set.loop; save(); this.sync(); } });
-      [this.btnRestart, this.btnBack, this.btnPlay, this.btnFwd, this.rateSel, this.scrub, this.timeTxt, this.loopBtn].forEach(e => B.appendChild(e));
+      [this.btnRestart, this.btnBack, this.btnPlay, this.btnFwd, this.btnPose, this.rateSel, this.scrub, this.timeTxt, this.loopBtn].forEach(e => B.appendChild(e));
       this.sync();
     }
     toggle(label, get, setv) {
@@ -806,6 +821,8 @@
       if (a.gaitOn) {
         const step = gd.stride ? gd.stride / 2 : 0;
         lines.push('gait    phase ' + (a.phase || 0).toFixed(2) + '  duty ' + (gd.beta != null ? gd.beta.toFixed(2) : '-') + '  cadence ' + (gd.sps ? gd.sps.toFixed(2) : '-') + ' steps/s');
+        const kp = M.Anims.keyPoseAt ? M.Anims.keyPoseAt(a.speed, a.phase || 0, gd.beta) : null;
+        if (kp) lines.push('pose    ' + kp.name.toUpperCase() + ', ' + (kp.side === 'R' ? 'right' : 'left') + ' foot  <span class="dim">(' + kp.gait + ' key poses; P steps to the next)</span>');
         lines.push('step    ' + step.toFixed(2) + ' ft = ' + (step / leg).toFixed(2) + ' x leg (' + leg.toFixed(2) + ' ft)');
         lines.push('support flight ' + Math.round(fl * 100) + '%  double ' + Math.round(db * 100) + '%  (last 2 s)');
       } else lines.push('gait    <span class="dim">off (standing)</span>');
@@ -887,6 +904,7 @@
         else if (k === 'c' || k === 'C') { this.copyReport(); }
         else if (k === 'q' || k === 'Q') { set.quad = !set.quad; save(); this.sync(); }
         else if (k === 't' || k === 'T') { set.orbit = !set.orbit; save(); this.sync(); }
+        else if (k === 'p' || k === 'P') { L.nextKeyPose(); }
       });
     }
     mouse() {
