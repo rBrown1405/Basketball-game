@@ -337,10 +337,10 @@
         const dur = U.clamp(Math.hypot(actor.x - via.x, actor.y - via.y) / 36, 0.25, 1.2);
         this.at(this.T + left, () => {
           if (b.holder === actor) return;
-          if (b.holder && b.holder.team === actor.team && !b.holder.isBusy()) this.passBall(b.holder, actor, 'chest', dur, null);
+          if (b.holder && b.holder.team === actor.team && !b.holder.isBusy()) this.throwBall(b.holder, actor, dur, null);
           else if (!(b.state === 'flight' && b.passTarget === actor)) this.giveBall(actor, 'chest');
         }, 'relay pass');
-        return left + dur + 0.05;
+        return left + 0.18 + dur + 0.05;
       }
       if (b.state === 'flight' && b.passTarget === actor) return Math.max(0, b.flightEnd() - b.time);
       const h = b.holder;
@@ -350,21 +350,34 @@
         const dur = U.clamp(Math.hypot(actor.x - h.x, actor.y - h.y) / 36, 0.25, 1.2);
         this.at(this.T + left, () => {
           if (b.holder === actor) return;
-          if (b.holder === h) { if (h.isBusy()) h.stopClip(); this.passBall(h, actor, 'chest', dur, null); }
+          if (b.holder === h) { if (h.isBusy()) h.stopClip(); this.throwBall(h, actor, dur, null); }
           else if (!(b.state === 'flight' && b.passTarget === actor)) this.giveBall(actor, 'chest');
         }, 'pass when free');
-        return left + dur + 0.05;
+        return left + 0.18 + dur + 0.05;
       }
       if (h && h.team === actor.team && !h.isBusy()) {
-        // implicit quick pass
+        // implicit quick pass: squared up to him, thrown with a one-hand push (the ball used to leave the hands with
+        // no throw at all)
         const d = Math.hypot(actor.x - h.x, actor.y - h.y);
         const dur = U.clamp(d / 36, 0.25, 1.2);
-        this.passBall(h, actor, 'chest', dur, null);
-        return dur + 0.05;
+        const rel = this.throwBall(h, actor, dur, null);
+        return rel + dur + 0.05;
       }
       // teleport-safe fallback: hand it over
       this.giveBall(actor, 'chest');
       return 0.1;
+    }
+    /** a pass thrown the way a player throws it: squared up to the receiver, the throw, the ball out at its release;
+     *  returns the time to the release */
+    throwBall(from, to, dur, onCatch) {
+      const b = this.v.ball;
+      const tgt = { x: to.x + (to.vx || 0) * 0.3, y: to.y + (to.vy || 0) * 0.3 };
+      const clip = M.Anims.get('passPush'), rel = clip ? clip.events.release : 0.18;
+      if (b.state === 'dribble') b.give(from, 'chest');
+      from.setFace(tgt); from.aimAt(tgt, this.T + rel + 0.2);
+      from.play('passPush', { speed: 1 });
+      this.at(this.T + rel, () => { if (b.holder === from) this.passBall(from, to, 'chest', dur, onCatch); else if (b.holder !== to && !(b.state === 'flight' && b.passTarget === to)) this.giveBall(to, 'chest'); }, 'quick throw');
+      return rel;
     }
     passBall(from, to, kind, dur, onCatch) {
       const b = this.v.ball;
@@ -531,8 +544,10 @@
     }
     /** release per-beat locks so nobody freezes after a dead ball / free throws */
     unlockAll(exceptIds) {
-      for (const id in this.role) { if (exceptIds && exceptIds.indexOf(id) >= 0) continue; this.role[id].until = 0; }
-      for (const id in this.dtask) { if (exceptIds && exceptIds.indexOf(id) >= 0) continue; this.dtask[id] = null; }
+      // (role keys are strings, player ids are usually numbers: compare as strings or nobody is ever kept)
+      const keep = exceptIds ? exceptIds.map(String) : null;
+      for (const id in this.role) { if (keep && keep.indexOf(id) >= 0) continue; this.role[id].until = 0; }
+      for (const id in this.dtask) { if (keep && keep.indexOf(id) >= 0) continue; this.dtask[id] = null; }
     }
     handlerAmbient(a, r, dt) {
       const b = this.v.ball;
@@ -1006,6 +1021,7 @@
         if (b.holder !== by) this.giveBall(by, 'over');
         by.ballHold = 'chest';
         const dur = Math.max(0.35, Math.hypot(to.x - by.x, to.y - by.y) / 30);
+        by.aimAt(to, this.T + 0.4);
         by.play(baseline ? 'passChest' : 'passInbound', { t0: 0.24, fadeIn: 0.05 });
         this.passBall(by, to, 'chest', dur, () => { to.ballHold = 'chest'; });
         by.setStance('ready');
@@ -1325,7 +1341,7 @@
             rf.until = 0;
             this.at(tLock, () => {
               rf.until = fireAt + 0.3; rf.probe = null; rf.path = null;
-              if (!from.isBusy() && v.ball.holder === from) from.moveTo(from.x, from.y, { speed: 3, face: { x: to.x, y: to.y }, stance: 'dribble' });
+              if (!from.isBusy() && v.ball.holder === from) from.moveTo(from.x, from.y, { speed: 3, face: { x: cs.x, y: cs.y }, stance: 'dribble' });
             }, 'passer set');
           } else rf.until = fireAt + 0.3;
         }
@@ -1348,11 +1364,17 @@
           to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move', pace: 5.5 });
         }
         this.at(fireAt + flight - 0.45, () => to.setFace({ x: from.x, y: from.y }), 'face passer');
+        // the passer turns to the catch spot first (the feet over ~0.4 s, the trunk at once) and throws squared up
+        // to it: the throw used to start wherever he happened to face, and the body pointed away from the pass
+        this.at(Math.max(this.T + extra * 0.5, fireAt - windup - 0.45), () => {
+          if (v.ball.holder !== from || from.isBusy()) return;
+          from.setFace({ x: cs.x, y: cs.y }); from.aimAt(cs, fireAt + 0.2);
+        }, 'pass turn');
         this.at(Math.max(this.T + extra, fireAt - windup - 0.02), () => {
           const b = v.ball;
           if (b.holder !== from) return;
           if (b.state === 'dribble') b.give(from, 'chest');
-          from.setFace({ x: to.x, y: to.y });
+          from.setFace({ x: cs.x, y: cs.y }); from.aimAt(cs, fireAt + 0.2);
           from.play(clipName, { speed: 1 });
           from.moveTo(from.x, from.y, { speed: 3 });
         }, 'pass windup');
@@ -1527,7 +1549,10 @@
       const alleyLob = catchT != null && tBall > 0;
       const dk = { waiting: false, cs: null };
       const dunkWait = DUNK_CLIPS[clipName] && !standFinish && !alleyLob;
-      if (dunkWait) beat.waitFor = () => !dk.waiting && (!dk.cs || dk.cs.done || dk.cs.t >= clip.events.release - 0.02);
+      // a driving layup waits for its take-off run the same way (started wherever the driver was held up, it went
+      // up from 7-10 ft out and never got near the rim)
+      const layWait = (clipName === 'layup' || clipName === 'reverse') && !standFinish && !alleyLob;
+      if (dunkWait || layWait) beat.waitFor = () => !dk.waiting && (!dk.cs || dk.cs.done || dk.cs.t >= clip.events.release - 0.02);
       const need = (alleyLob ? clipLead : Math.max(tReach * 1.25 + 0.25, clipLead)) + rel;
       if (alleyLob) beat.maxDur = need;
       const pending = !!ev.pending;
@@ -1576,9 +1601,26 @@
             }
           }
           const lift = clip.jump ? clip.jump.h * sh.H * (0.85 + sh.rVert * 0.3) * (jumper ? 0.88 + ((style * 7.3) % 1) * 0.26 : 1) : null;
+          const noHang = Math.random() < 0.6;
+          // up to the rim: a layup ends its rise with the ball just in front of the rim (a reverse just past it), a
+          // dunk puts it over the middle of the rim and the hand(s) then grab the front of the rim until he drops (the
+          // clips alone left the hand short of the rim); every spot is pulled in to what his arm can reach
+          let reach = null;
+          const ev0 = clip.events, ux = -Math.cos(of), uy = -Math.sin(of);
+          if (clipName === 'layup' || clipName === 'putback' || clipName === 'reverse') {
+            const k = clipName === 'reverse' ? -1.0 : 1.15;
+            reach = { x: this.rim.x + ux * k, y: this.rim.y + uy * k, z: 10.45, t0: ev0.set != null ? ev0.set : ev0.release - 0.25, t1: ev0.release };
+          } else if (dunkClip) {
+            const hang = clip.jump && clip.jump.hang;
+            reach = {
+              x: this.rim.x + ux * 0.35, y: this.rim.y + uy * 0.35, z: 10.8, t0: ev0.set != null ? ev0.set : ev0.release - 0.3, t1: ev0.release,
+              hx: this.rim.x + ux * 0.72, hy: this.rim.y + uy * 0.72, hz: 10.12, h0: ev0.release + 0.03, h1: hang && !noHang ? hang[1] : ev0.release + 0.16,
+              hands: clipName === 'dunk' ? null : [0, 1],
+            };
+          }
           const cs = sh.play(clipName, {
             x: ox, y: oy, facing: of, mirror, fadeIn: 0.08, speed: spk, jumpH: lift, blendT: blendT == null ? undefined : blendT,
-            noHang: Math.random() < 0.6,
+            noHang, reach,
             hold: pending ? clip.events.set : null,
             onEvent: (name) => {
               if (name === 'set' && pending && !this.resumeReq) this.freeze(ev, sh);
@@ -1591,8 +1633,11 @@
         // a dunk waits for the dunker to reach his take-off run (the release waits with it) instead of starting from
         // wherever he happens to be; an alley-oop's jump is timed to the lob in the air and cannot wait
         const tryClip = () => {
-          if (dunkWait && (Math.hypot(sh.x - origin.x, sh.y - origin.y) > 3 || !this.inPaint(sh, 0)) && this.T < clipStart + 2.0) {
+          const off = Math.hypot(sh.x - origin.x, sh.y - origin.y);
+          if (((dunkWait && (off > 3 || !this.inPaint(sh, 0))) || (layWait && off > 2.2)) && this.T < clipStart + 2.0) {
             dk.waiting = true;
+            const rw = this.role[sh.id];
+            if (rw) { rw.until = Math.max(rw.until || 0, this.T + 0.5); rw.probe = null; rw.probeAnchor = null; rw.path = null; }
             if (!sh.isBusy()) sh.moveTo(origin.x, origin.y, { speed: sh.maxSpeed, face: 'move', stance: b.holder === sh ? 'dribble' : 'ready' });
             this.at(this.T + 0.05, tryClip, 'dunk approach');
             return;
@@ -2009,7 +2054,7 @@
             this.at(fireAt - flight * f - 0.26, () => {
               if (b.holder !== who) return;
               if (b.state === 'dribble') b.give(who, 'chest');
-              who.setFace({ x: tgt.x, y: tgt.y }); who.play('passChest');
+              who.setFace({ x: tgt.x, y: tgt.y }); who.aimAt(tgt, this.T + 0.5); who.play('passChest');
             }, 'bad pass windup');
             this.at(fireAt - flight * f, () => {
               if (b.holder !== who) this.giveBall(who, 'chest');

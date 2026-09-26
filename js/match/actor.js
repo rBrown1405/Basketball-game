@@ -38,6 +38,9 @@
       this.noHang = !!o.noHang;
       this.lastT = this.t;
       this.data = o.data || null;
+      // reaching for a spot in the world (the rim): { x, y, z, t0, t1 } eases the held ball there over the rise;
+      // { hx, hy, hz, h0, h1, hands } holds the hand(s) on it (a dunker's grip on the rim)
+      this.reach = o.reach || null;
     }
   }
 
@@ -221,6 +224,15 @@
       if (this.clip) { this.clip.ending = true; if (fade === 0) this._endClip(); }
     }
     isBusy() { return !!(this.clip && !this.clip.done); }
+    /**
+     * Square the upper body to a point for a moment (a pass: the chest and arms go at the receiver while the feet
+     * turn the rest of the way): the trunk twists up to ~70 deg, easing in over ~0.15 s and out after `until`.
+     */
+    aimAt(pt, until) {
+      if (!pt) { if (this.aim_) this.aim_.until = 0; return; }
+      const w = this.aim_ && this.aim_.w > 0 ? this.aim_.w : 0;
+      this.aim_ = { x: pt.x, y: pt.y, until, w };
+    }
 
     // ============================================================ update
     update(dt, now) {
@@ -233,6 +245,11 @@
         this._locomote(dt);
       }
       if (this.stanceBlend < 1) this.stanceBlend = Math.min(1, this.stanceBlend + dt / 0.28);
+      if (this.aim_) {
+        const a = this.aim_;
+        a.w = this.time < a.until ? Math.min(1, a.w + dt / 0.15) : a.w - dt / 0.25;
+        if (a.w <= 0) this.aim_ = null;
+      }
       this._stanceParams();
       for (const f of this.feet) if (f.land) this._settleLanding(f, dt);
       if (this.fall > 0 && !this.clip) this.fall = Math.max(0, this.fall - dt * 0.5);
@@ -393,6 +410,15 @@
         this.phase = ph1 - Math.floor(ph1);
         const cycleT = 2 / sps;
         const strideLen = sp * cycleT;
+        // one leg at a time: a foot leaves the floor only while the other one is down, or has been in its stride for
+        // over half a step, and never twice running while the other has not moved (a catch-up step of one foot
+        // starting with the other's stride, or two lifts in one frame, read as a two-footed hop)
+        const stepT = cycleT / 2, minLag = 0.55 * stepT;
+        const canLift = (f) => {
+          const o = this.feet[1 - f.side];
+          if (o.state !== 'plant' && (o.mode !== 'gait' || this.time - (o.liftT == null ? -9 : o.liftT) < minLag)) return false;
+          return !(this._lastSwing === f.side && this.time - (f.liftT == null ? -9 : f.liftT) < 1.6 * stepT);
+        };
         for (const f of this.feet) {
           const cph = f.side ? 0 : 0.5;
           const lph = cph + gp.beta;
@@ -408,7 +434,7 @@
             const d = Math.hypot(f.x - hx, f.y - hy);
             tooFar = inWindow ? d > 0.5 * H : d > 0.3 * H;
           }
-          if (f.state === 'plant' && tooFar && !crossed(ph0, ph1, lph)) {
+          if (f.state === 'plant' && tooFar && !crossed(ph0, ph1, lph) && this.feet[1 - f.side].state === 'plant' && canLift(f)) {
             // recovery step: foot left too far behind (sharp speed change / turn)
             const side = f.side ? 1 : -1, rx = s, ry = -c;
             const lead = 0.18;
@@ -422,15 +448,22 @@
           const relNow = frac(this.phase - cph);
           const early = f.state === 'plant' && !tooFar && relNow < gp.beta && relNow > 0.45 * gp.beta &&
             (sp > 9 || this.feet[1 - f.side].state === 'plant') && this._stanceOutOfReach(f, c, s);
-          if (f.state === 'plant' && (early || crossed(ph0, ph1, lph))) {
-            // lift off
-            const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-            f.state = 'swing'; f.mode = 'gait';
-            f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
-            f.nSwing = (f.nSwing || 0) + 1;
-            // the swing runs from here to the contact (its share of the stride fixed now, so later changes of
-            // speed do not move the foot)
-            f.liftRel = early ? relNow : Math.min(relNow, gp.beta);
+          // (a toe-off held back by the one-leg-at-a-time rule goes as soon as it is allowed, while there is still
+          // most of a swing left before the contact; later than that the foot waits for its next stride)
+          if (f.liftPending && (f.state !== 'plant' || relNow < gp.beta || relNow > 0.82)) f.liftPending = false;
+          const due = crossed(ph0, ph1, lph);
+          if (f.state === 'plant' && (early || due || f.liftPending)) {
+            if (canLift(f)) {
+              // lift off
+              const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
+              f.state = 'swing'; f.mode = 'gait';
+              f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
+              f.nSwing = (f.nSwing || 0) + 1;
+              // the swing runs from here to the contact (its share of the stride fixed now, so later changes of
+              // speed do not move the foot)
+              f.liftRel = early || f.liftPending ? relNow : Math.min(relNow, gp.beta);
+              f.liftPending = false; f.liftT = this.time; this._lastSwing = f.side;
+            } else if (due) f.liftPending = true;
           }
           if (crossed(ph0, ph1, cph) && f.state === 'swing' && f.mode === 'gait') {
             // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down
@@ -554,6 +587,8 @@
       }
       const d0 = (f0.x - this.x) * mx + (f0.y - this.y) * my;
       const d1 = (f1.x - this.x) * mx + (f1.y - this.y) * my;
+      // (from a standstill either foot may go first; one still finishing a step keeps the other down meanwhile)
+      if (f0.state === 'plant' && f1.state === 'plant' && this.time - Math.max(f0.liftT == null ? -9 : f0.liftT, f1.liftT == null ? -9 : f1.liftT) > 0.15) this._lastSwing = -1;
       const gp = A.gaitParams(this.speed, this.gp);
       // right lifts at beta, left at 0.5+beta
       this.phase = d1 < d0 ? gp.beta - 0.001 : frac(0.5 + gp.beta - 0.001);
@@ -606,6 +641,7 @@
     _beginStep(f, tx, ty, tyaw, dur, lift) {
       const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
       f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur;
+      f.liftT = this.time; this._lastSwing = f.side; f.liftPending = false;
       f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
       f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H;
       this._lastStepT = this.time; this._lastFoot = f.side;
@@ -727,6 +763,19 @@
         }
         // generic planted-stance correction when the clip holds a stance for long
       }
+      // hands on the spot (a dunker grabbing the rim): an explicit IK target, eased in and out
+      const rh = cs.reach;
+      if (rh && rh.h0 != null) {
+        const w = cs.t < rh.h0 ? 0 : cs.t < rh.h0 + 0.07 ? (cs.t - rh.h0) / 0.07 : cs.t < rh.h1 ? 1 : Math.max(0, 1 - (cs.t - rh.h1) / 0.16);
+        const hands = rh.hands || [cs.mirror ? 0 : 1];
+        for (const side of hands) {
+          if (w <= 0.001) { if (this.handTarget[side] && this.handTarget[side].reach) this.handTarget[side] = null; continue; }
+          const off = hands.length > 1 ? (side ? 1 : -1) * 0.34 : 0;
+          const c = Math.cos(this.facing), s = Math.sin(this.facing);
+          const t = this.handTarget[side] || (this.handTarget[side] = { x: 0, y: 0, z: 0, w: 0, reach: true });
+          t.x = rh.hx + s * off; t.y = rh.hy - c * off; t.z = rh.hz; t.w = w; t.reach = true;
+        }
+      }
       if (cs.t >= clip.dur && !clip.loop && cs.hold == null) {
         cs.done = true;
         this._endClip();
@@ -736,6 +785,7 @@
       const cs = this.clip;
       this.clip = null;
       if (!cs) return;
+      for (let side = 0; side < 2; side++) if (this.handTarget[side] && this.handTarget[side].reach) this.handTarget[side] = null;
       this.jumpZ = 0;
       for (const f of this.feet) if (f.state === 'air') this._landFoot(f, this.facing);
       this.vx *= 0.5; this.vy *= 0.5;
@@ -772,10 +822,32 @@
         if (cs.mirror) bx = -bx;
         const w = cs.w;
         const base = this._holdLocalS(HL);
-        return this.local(U.lerp(base[0], bx * H, w), U.lerp(base[1], by * H, w), U.lerp(base[2], bz * H, w), out);
+        this.local(U.lerp(base[0], bx * H, w), U.lerp(base[1], by * H, w), U.lerp(base[2], bz * H, w), out);
+        // going up to the rim: the ball ends the rise at the spot, as close as the arm reaches
+        const r = cs.reach;
+        if (r && r.t1 != null) {
+          const k = cs.t <= r.t0 ? 0 : cs.t >= r.t1 ? 1 : U.smooth((cs.t - r.t0) / Math.max(0.01, r.t1 - r.t0));
+          if (k > 0.001) {
+            const tg = this._reachClamp(r.x, r.y, r.z, cs.mirror ? 0 : 1, 0.1 * H, RT2);
+            out[0] += (tg[0] - out[0]) * k; out[1] += (tg[1] - out[1]) * k; out[2] += (tg[2] - out[2]) * k;
+          }
+        }
+        return out;
       }
       const l = this._holdLocalS(HL);
       return this.local(l[0], l[1], l[2], out);
+    }
+    /** a world point pulled in to within an arm's length (plus `extra`) of the shoulder on `side`. The shoulder is
+     *  placed from the root (glenohumeral centre ~0.80 H up, a touch forward, plus any jump), not read from the last
+     *  solve, so where a held ball goes never depends on whether a frame was drawn */
+    _reachClamp(x, y, z, side, extra, out) {
+      const sh = this.local((side ? 1 : -1) * this.dims.shX, 0.02 * this.H, 0.8 * this.H, RT3);
+      const sx = sh[0], sy = sh[1], sz = sh[2];
+      const L = (this.dims.ua + this.dims.fa) * 0.97 + extra;
+      const dx = x - sx, dy = y - sy, dz = z - sz, d = Math.hypot(dx, dy, dz);
+      const k = d > L && d > 1e-6 ? L / d : 1;
+      out[0] = sx + dx * k; out[1] = sy + dy * k; out[2] = sz + dz * k;
+      return out;
     }
     /** the hold position eased over ~0.1 s, so switching how the ball is held (chest, pocket, overhead...)
      *  moves it through the hands instead of teleporting it */
@@ -912,6 +984,12 @@
         const w = U.smooth(cs.w);
         const mask = maskOf(cs.clip.mask);
         for (const i of mask) p[i] += (this.clipPose[i] - p[i]) * w;
+      }
+      // 3b. squared up to a pass target: the trunk takes the turn the feet have not made yet
+      if (this.aim_ && this.aim_.w > 0.001 && !this.clip) {
+        const a = this.aim_;
+        const rel = U.clamp(U.wrapPi(Math.atan2(a.y - this.y, a.x - this.x) - this.facing), -1.25, 1.25) * U.smooth(a.w);
+        p[CH.pelTwist] += rel * 0.22; p[CH.spTwist] += rel * 0.34; p[CH.chTwist] += rel * 0.3; p[CH.nkTwist] += rel * 0.08;
       }
       // 4. full-body clip
       if (this.clip) {
@@ -1223,6 +1301,7 @@
     let pa = p; if (pa < a) pa += 1;
     return pa > a && pa <= b;
   }
+  const RT2 = new Float64Array(3), RT3 = new Float64Array(3);
   const MASKS = {};
   function maskOf(name) {
     if (MASKS[name]) return MASKS[name];

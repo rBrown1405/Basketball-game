@@ -77,18 +77,23 @@
     rShF: 26, rShA: 12, rShT: 10, rElF: 118, rPro: 0, rWrF: -55,
     both: { HipF: 30, HipA: 8, Knee: 40, Ank: 12 },
   });
-  // shot set point: ball above the right forehead, elbow under the ball, wrist cocked
+  // shot set point (fitted to the rig so the hands really sit on the ball): the ball above the right forehead and
+  // clear of it, the shooting elbow at shoulder height under the ball with the forearm vertical (the "L"), the wrist
+  // cocked back so the ball rests on the palm and finger pads (fingers back and a little out, thumb in); the guide
+  // hand flat on the side of the ball, fingers up, its elbow bent too
   def('shotSet', {
     rootZ: 0.0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -8, hdFlex: -4,
-    lShF: 128, lShA: 38, lShT: -10, lElF: 88, lPro: 0, lWrF: -10, lFing: 0.05,
-    rShF: 134, rShA: 14, rShT: -2, rElF: 98, rPro: 0, rWrF: -72, rFing: 0.1,
+    lShF: 114, lShA: -13, lShT: 23, lElF: 57.5, lPro: 91, lWrF: -24, lWrD: -6.5, lFing: 0.05,
+    rShF: 97, rShA: -16, rShT: -4, rElF: 78, rPro: 150, rWrF: -72, rWrD: 11, rFing: 0.12,
     both: { HipF: 4, HipA: 4, Knee: 8, Ank: -30 },
   });
-  // release / gooseneck follow-through: arm extended up-and-out toward the rim, wrist snapped down
+  // release / gooseneck follow-through: arm extended up-and-out toward the rim, wrist snapped down, fingers at the
+  // rim; the guide hand stays up beside where the ball was (palm in, fingers up) instead of falling away: it only
+  // steadied the ball and never pushes (it comes off first)
   def('shotFollow', {
     rootZ: 0.0, pelPitch: 0, spFlex: -2, chFlex: -5, nkFlex: -8, hdFlex: -2,
-    lShF: 118, lShA: 44, lShT: -12, lElF: 58, lPro: 10, lWrF: 0, lFing: 0.05,
-    rShF: 142, rShA: 9, rShT: -4, rElF: 6, rPro: 12, rWrF: 82, rFing: 0.4,
+    lShF: 137.5, lShA: -16, lShT: 42.5, lElF: 11.5, lPro: 55, lWrF: -23, lWrD: 15, lFing: 0.05,
+    rShF: 138.5, rShA: -6.5, rShT: 35.5, rElF: 3, rPro: 132, rWrF: 80, rWrD: -12, rFing: 0.2,
     both: { HipF: 10, HipA: 4, Knee: 16, Ank: -38 },
   });
   // running reference keys (used by viewer / tests)

@@ -547,6 +547,10 @@
     for (const s of ['l', 'r']) {
       set(s + 'ShF', -60, 185); set(s + 'ShA', -45, 180); set(s + 'ShT', -90, 80); set(s + 'ElF', -4, 150);
       set(s + 'WrF', -75, 85); set(s + 'WrD', -25, 35);
+      // forearm rotation: 76 is neutral (arm hanging, palm to the thigh, thumb forward); about 90 deg either way,
+      // palm forward (supination) to palm back (pronation). Without it clips could twist a forearm past what a
+      // human forearm can turn
+      set(s + 'Pro', -14, 168);
       set(s + 'HipF', -32, 130); set(s + 'HipA', -30, 50); set(s + 'HipT', -45, 45); set(s + 'Knee', -3, 152); set(s + 'Ank', -52, 32);
     }
   })();

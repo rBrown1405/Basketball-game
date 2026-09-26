@@ -440,11 +440,17 @@
     const toward = { x: to.x + (from.x - to.x) / (d || 1) * 1.5, y: to.y + (from.y - to.y) / (d || 1) * 1.5 };
     to.moveTo(toward.x, toward.y, { speed: 6, face: { x: from.x, y: from.y }, stance: 'ready' });
     if (b.state === 'dribble') b.give(from, 'chest');
-    from.setFace({ x: to.x, y: to.y });
+    // squared up to the receiver before the throw: a big turn (the catcher had faced the rim) is made first, the
+    // trunk leading, then the pass
+    const tp = { x: toward.x, y: toward.y };
+    const turn = Math.abs(U.wrapPi(Math.atan2(tp.y - from.y, tp.x - from.x) - from.facing));
+    const delay = Math.max(0, (turn - 1.1) / 7.5);
+    from.setFace(tp); from.aimAt(tp, T + delay + windup + 0.2);
     from.moveTo(from.x, from.y, { speed: 3 });
-    from.play(PASS_CLIPS[kind], { speed: 1 });
+    if (delay > 0) this.at(T + delay, () => { if (this.swing === sw && b.holder === from && !from.isBusy()) from.play(PASS_CLIPS[kind], { speed: 1 }); }, 'swing throw');
+    else from.play(PASS_CLIPS[kind], { speed: 1 });
     sw.state = 'windup';
-    this.at(T + windup, () => {
+    this.at(T + delay + windup, () => {
       if (this.swing !== sw) return;
       if (b.holder !== from) { this.swingAbort(); return; }
       sw.state = 'flight';
