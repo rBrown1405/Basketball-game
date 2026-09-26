@@ -29,9 +29,11 @@
     both: { ShF: -18, ShA: 42, ShT: -25, ElF: 105, Pro: 20, WrF: -20, Fing: 0.2, HipF: 4, HipA: 5, Knee: 6 },
   });
   // athletic ready stance (offense, no ball)
+  // (hands out in front at hip height and outside the hips, ready for the ball; they used to hang at mid-thigh
+  // close together, which from three-quarters read as a hand on the shorts)
   def('ready', {
     rootZ: -0.05, pelPitch: 20, spFlex: 8, chFlex: 4, nkFlex: -14, hdFlex: -2,
-    both: { ShF: 28, ShA: 18, ShT: 22, ElF: 62, Pro: 60, WrF: 10, Fing: 0.25, HipF: 30, HipA: 9, HipT: -8, Knee: 38, Ank: 12 },
+    both: { ShF: 26, ShA: 30, ShT: 0, ElF: 66, Pro: 50, WrF: 10, Fing: 0.25, HipF: 30, HipA: 9, HipT: -8, Knee: 38, Ank: 12 },
   });
   // defensive stance: low hips, flat back ~35 deg, head up, active hands (right high, left low in the lane)
   // defensive stance (coaching consensus): knees ~120 deg included, hips back, chest up over the knees,

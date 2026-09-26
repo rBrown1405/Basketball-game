@@ -121,6 +121,8 @@
     st.trim = uni.trim || uni.number;
     st.numColor = uni.number || '#111';
     st.num = look.num == null ? '' : String(look.num);
+    // the name across the shoulders above the back number
+    st.lastName = look.last ? String(look.last) : '';
     // chest wordmark: the nickname on the home whites, the city on the road (the NBA's usual split)
     st.wordmark = teamLook ? String((teamLook.home === false ? teamLook.city || teamLook.name : teamLook.name || teamLook.city) || '').toUpperCase() : '';
     const light = U.lum(uni.jersey) > 0.6;

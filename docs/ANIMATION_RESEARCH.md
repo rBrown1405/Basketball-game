@@ -101,6 +101,11 @@ project released under CC0 1.0 (https://github.com/makehumancommunity/makehuman,
 | Brows | fine hairs about 6 mm long lying along the brow, dense on the centre line and thinning to bare skin at the edges and the tail, instead of a painted band | (rendering) |
 | Sweat | players start with a light sheen and glisten more the longer and harder they play; the sweat film adds its own sharp reflection (roughness ~0.08) in beads and streaks and darkens the skin a touch where it is wet | https://graphics.stanford.edu/courses/cs348b-competition/cs348b-04/skin/index.html , https://dev.epicgames.com/documentation/unreal-engine/creating-human-skin-in-unreal-engine |
 | Build | pros carry more muscle than an average fit person: the default body sits near MakeHuman's max-muscle shape with extra deltoid, lat, chest and arm definition, and the player's muscle rating moves it up or down | https://github.com/makehumancommunity/makehuman |
+| Pale skin under arena light | the two lightest tones used to come out paper-white and grey (the tone curve's shoulder under the big overhead lights), so a pale player next to a white jersey read as a mannequin; above a knee their brightness is held down and their warmth kept (light skin reads peach on a broadcast), the rest of the palette is unchanged | https://physicallybased.info/ |
+| Faces under flat light | the baked self-occlusion (eye sockets, under the brow and nose, the lip line, the jaw) dims the key and fill lights more on the face than on the body: it is what gives a face its form under an arena's even overhead light | Bunnell, GPU Gems 2, ch. 14 (the per-part bake in tools/human/build3.js) |
+| Jerseys | the player's last name across the shoulders above the back number (shrunk to fit a long one); the hollows of the cloth folds catch less light, so white uniforms keep visible folds instead of reading flat | |
+| Hair | two-strand twists shade as separate ropes about a centimetre thick with dark gaps (cellular noise) instead of a smooth helmet; a buzz cut lets the scalp show through (a blond one reads as short light hair, not a yellow cap; dark hair still reads dark) | |
+| Ready stance | hands out in front at hip height and outside the hips (they hung at mid-thigh close together, which from three-quarters read as a hand on the shorts) | |
 
 ## Ball and net physics (ball.js, hoop.js)
 

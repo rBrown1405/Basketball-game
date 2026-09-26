@@ -162,6 +162,18 @@ vec3 bumpN(vec3 N, float h0, float hx, float hy) {
   return normalize(abs(det) * N - g);
 }
 
+// cellular noise: distance to the nearest scattered point and that cell's id (twists, one per cell)
+vec2 cells(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  float d1 = 8.0, id = 0.0;
+  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+    vec3 g = vec3(float(x), float(y), float(z));
+    vec3 r = g + vec3(hash(i + g), hash(i + g + 17.3), hash(i + g + 31.7)) - f;
+    float d = dot(r, r);
+    if (d < d1) { d1 = d; id = hash(i + g + 5.1); }
+  }
+  return vec2(sqrt(d1), id);
+}
 float th21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float ln(float d, float w, float aa) { return 1.0 - smoothstep(w, w + aa, abs(d)); }
 // ---- tattoos: black-and-grey sleeves built like real ones (a few shaded focal pieces joined by smoke, each with the
@@ -363,7 +375,7 @@ vec3 poreNormal(vec3 N) {
   vec3 g2 = vec3(noise(q + vec3(e, 0.0, 0.0)) - c0, noise(q + vec3(0.0, e, 0.0)) - c0, noise(q + vec3(0.0, 0.0, e)) - c0) / e;
   return normalize(N - (g * 0.1 + g2 * 0.05) * pk);
 }
-vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil, float wet) {
+vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil, float wet, float face) {
   vec3 w = vec3(0.36, 0.2, 0.15);
   vec3 Ns = poreNormal(N);
   vec3 dif = vec3(0.0), spc = vec3(0.0);
@@ -372,7 +384,10 @@ vec3 shadeSkin(vec3 alb, vec3 N, vec3 V, float ao, float oil, float wet) {
   float rs = mix(0.32, 0.55, oil);
   // (baked creases dim the lights a little too: the shadow map is too coarse for eye sockets and nostrils, and the
   // arena's big fill lights would otherwise flatten them)
-  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey * mix(1.0, ao, 0.35), uC1 * mix(1.0, ao, 0.6), uC2 * mix(1.0, ao, 0.6));
+  // (on the face they dim them more: the eye sockets, the brow and the nose's shadow are what give a face its form
+  // under flat arena light, and read flat without it)
+  float kk0 = mix(0.35, 0.7, face), kk1 = mix(0.6, 0.9, face);
+  vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey * mix(1.0, ao, kk0), uC1 * mix(1.0, ao, kk1), uC2 * mix(1.0, ao, kk1));
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
     float t = ndl + 0.25;
@@ -537,7 +552,7 @@ void main() {
     // distance), a touch darker where the skin is wet
     float wet = smoothstep(0.35, 0.9, sweat) * (0.45 + 0.55 * smoothstep(0.35, 0.7, noise(vB * vec3(70.0, 70.0, 30.0))));
     alb *= 1.0 - 0.08 * wet;
-    col = shadeSkin(alb, N, V, ao, oil, wet);
+    col = shadeSkin(alb, N, V, mat == 1 ? pow(ao, 1.35) : ao, oil, wet, mat == 1 ? 1.0 : 0.0);
   } else if (mat == 2 || mat == 3 || mat == 14) {
     vec3 base = mat == 2 ? uJersey : mat == 3 ? uShorts : vec3(0.012);
     float rough = 0.55, sheen = 0.9;
@@ -584,8 +599,14 @@ void main() {
     base *= 1.0 - 0.18 * sweat * smoothstep(0.7, 0.78, vB.z / H) * step(0.5, float(mat == 2));
     // folds (the mesh is smooth), bump-mapped from the rest shape so they move with the cloth
     vec3 Nc = N;
-    if (mat == 2 || mat == 3) Nc = bumpN(N, clothFold(vB, H, mat), clothFold(vB + gDbx, H, mat), clothFold(vB + gDby, H, mat));
-    col = shadeCloth(base, Nc, V, ao, rough, sheen);
+    float aoC = ao;
+    if (mat == 2 || mat == 3) {
+      float h0 = clothFold(vB, H, mat);
+      Nc = bumpN(N, h0, clothFold(vB + gDbx, H, mat), clothFold(vB + gDby, H, mat));
+      // the hollows of the folds catch less light (the shading alone washes out on whites, which read flat)
+      aoC *= 1.0 - 0.3 * smoothstep(0.0, -0.0024 * H, h0) * smoothstep(0.35, 0.7, max(base.r, max(base.g, base.b)) * 1.3);
+    }
+    col = shadeCloth(base, Nc, V, aoC, rough, sheen);
   } else if (mat == 4 || mat == 11) {
     vec3 base = mat == 4 ? uSock : uSleeve;
     float rib = 0.93 + 0.07 * sin(atan(vB.x, vB.y) * 80.0);
@@ -666,8 +687,22 @@ void main() {
       N = normalize(N - gN * 0.45 * (coil - 0.5));
       alb *= 0.8 + 0.4 * n0;
     }
+    float hao = 1.0;
+    if (uHairF.w > 1.5 && uHairF.w < 2.5) {
+      // two-strand twists: separate ropes about a centimetre thick, dark gaps between them, each with its own shade
+      vec2 c = cells(lc / 1.05);
+      alb *= (0.85 + 0.3 * c.y) * mix(0.45, 1.1, smoothstep(0.62, 0.18, c.x));
+      hao = mix(0.55, 1.0, smoothstep(0.62, 0.25, c.x));
+    } else if (uHairF.w > 0.5 && uHairF.w < 1.5) {
+      // a buzz cut is a few millimetres of hair: the scalp shows through it (a blond one reads as tan, not as a
+      // yellow cap)
+      float f = noise(lc * 9.0) * 0.5 + noise(lc * 31.0) * 0.5;
+      // (dark hair still reads dark, the follicles show as a shadow; light hair lets the scalp through)
+      float hl = dot(uHair, vec3(0.3, 0.55, 0.15));
+      alb = mix(uSkin * 0.82, alb, clamp(mix(0.34, 0.85, smoothstep(0.22, 0.03, hl)) + 0.3 * (f - 0.5), 0.0, 1.0));
+    }
     vec3 T = normalize(cross(uRight, N) + 1e-4);
-    col = shadeHair(alb, N, V, 1.0, T, (g - 0.5) * 0.3, coil);
+    col = shadeHair(alb, N, V, hao, T, (g - 0.5) * 0.3, coil);
     // fuzz: flyaway strands catch light at the silhouette
     col += uHair * (0.25 + 0.5 * coil) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * amb(N, 1.0) * 2.0;
     // fuzzy edge darkening where the shell is thin
@@ -802,7 +837,14 @@ void main() { oCol = vec4(1.0); }`;
     // keep the portrait's tone (recognisable) but pull the saturation toward measured skin
     // match the measured chroma but keep the portrait tone's luminance
     const la = 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2], lm = 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2];
-    return a.map((v, k) => U.lerp(v, m[k] * la / lm, 0.6));
+    const r = a.map((v, k) => U.lerp(v, m[k] * la / lm, 0.6));
+    // the palest tones ran into the tone curve's shoulder under the arena lights and came out paper-white and grey
+    // (a pale player next to a white jersey read as a mannequin): hold their brightness down and keep their warmth,
+    // since light skin reads peach on a broadcast, not white
+    const lr = 0.2126 * r[0] + 0.7152 * r[1] + 0.0722 * r[2], knee = 0.36;
+    if (lr <= knee) return r;
+    const k = (knee + (lr - knee) * 0.5) / lr, sat = 1 + 1.4 * (1 - k), l2 = lr * k;
+    return r.map(v => Math.max(0.02, l2 + (v * k - l2) * sat));
   }
 
   class Renderer {
@@ -975,6 +1017,18 @@ void main() { oCol = vec4(1.0); }`;
         g.lineWidth = size * 0.12; g.strokeStyle = style.trim || '#000'; g.strokeText(num, cx, cy);
         g.fillStyle = style.numColor || '#111'; g.fillText(num, cx, cy);
       };
+      // the name across the shoulders, shrunk to fit a long one inside the back panel
+      const drawName = () => {
+        if (!style.lastName) return;
+        const nm = String(style.lastName).toUpperCase().slice(0, 16);
+        let size = 18;
+        g.font = '800 ' + size + 'px ' + font;
+        const maxW = cw * 0.5 * 0.8, w0 = g.measureText(nm).width;
+        if (w0 > maxW) { size = Math.max(9, Math.floor(size * maxW / w0)); g.font = '800 ' + size + 'px ' + font; }
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+        g.lineWidth = size * 0.14; g.strokeStyle = style.trim || '#000'; g.strokeText(nm, x + cw * 0.75, y + ch * 0.17);
+        g.fillStyle = style.numColor || '#111'; g.fillText(nm, x + cw * 0.75, y + ch * 0.17);
+      };
       if (style.kind === 'ref') { drawNum(x + cw * 0.75, y + ch * 0.36, 34); }
       else if (style.wordmark) {
         // front: the team's wordmark arched across the chest (letters on a wide arc, the middle highest), the number
@@ -1002,17 +1056,11 @@ void main() { oCol = vec4(1.0); }`;
         }
         drawNum(cx, y + ch * 0.68, 52);
         drawNum(x + cw * 0.75, y + ch * 0.55, 66);
-        if (style.lastName) {
-          g.font = '800 17px ' + font; g.fillStyle = style.numColor || '#111'; g.textAlign = 'center'; g.textBaseline = 'middle';
-          g.fillText(String(style.lastName).toUpperCase().slice(0, 14), x + cw * 0.75, y + ch * 0.17);
-        }
+        drawName();
       } else {
         drawNum(x + cw * 0.25, y + ch * 0.47, 62);
         drawNum(x + cw * 0.75, y + ch * 0.55, 66);
-        if (style.lastName) {
-          g.font = '800 17px ' + font; g.fillStyle = style.numColor || '#111'; g.textAlign = 'center'; g.textBaseline = 'middle';
-          g.fillText(String(style.lastName).toUpperCase().slice(0, 14), x + cw * 0.75, y + ch * 0.17);
-        }
+        drawName();
       }
       s = [x / 2048, y / 1024, cw * 2 / 2048 / 2 * 2, ch / 1024];
       s[2] = cw / 2048; // full cell width (front half + back half)
@@ -1307,7 +1355,7 @@ void main() { oCol = vec4(1.0); }`;
       gl.uniform4f(u.uGaze, 0, 0, 0, 0);
       const sweat = c.pp.a && c.pp.a.sweat != null ? c.pp.a.sweat : 0.35;
       gl.uniform4f(u.uFlags, st.kind === 'ref' ? 1 : 0, st.tattoo && st.tattoo !== 'none' ? 1 + ((st.seed || 0) % 997) / 997 : 0, sk.dims.H, sweat);
-      gl.uniform4f(u.uHairF, cache.coil, st.hair === 'fade' ? 0.35 : 1, cache.shine, 0);
+      gl.uniform4f(u.uHairF, cache.coil, st.hair === 'fade' ? 0.35 : 1, cache.shine, st.hair === 'buzz' ? 1 : st.hair === 'twists' ? 2 : 0);
       const hr = (BD.B.HED) * 9, SR = sk.R;
       gl.uniform3f(u.uRight, SR[4 * 9], SR[4 * 9 + 3], SR[4 * 9 + 6]);
       void hr;
