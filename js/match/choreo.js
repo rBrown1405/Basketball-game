@@ -14,6 +14,11 @@
   const PASS_CLIP = { chest: 'passChest', bounce: 'passBounce', overhead: 'passOverhead', outlet: 'passOutlet', entry: 'passBounce', kick: 'passPush', swing: 'passChest', lob: 'passLob', alley: 'passLob' };
   const SHOT_CLIP = { dunk: 'dunk', layup: 'layup', reverse: 'reverse', floater: 'floater', hook: 'hook', jumper: 'jumpshot', pullup: 'pullup', stepback: 'stepback', fadeaway: 'fadeaway', tip: 'tip', alley: 'alley', catch_shoot: 'jumpshot' };
   const RIM_SHOTS = { dunk: 1, layup: 1, reverse: 1, alley: 1, tip: 1 };
+  const DUNK_CLIPS = { dunk: 1, dunk2: 1, alley: 1 };
+  // median distance (ft) from a ball handler to his nearest defender by the handler's distance from the rim
+  // (SportVU player tracking, NBA 2015-16: 2.5 <10 ft, 3.1 10-17, 4.3 17-23, 5.7 23-27, 6.4 27-32, 8.0 32-37,
+  // 10.3 37-42, 14.4 42-50, 18.2 50-60)
+  const ONBALL_GAP = [[5, 2.5], [13.5, 3.1], [20, 4.3], [25, 5.7], [29.5, 6.4], [34.5, 8.0], [39.5, 10.3], [46, 14.4], [55, 18.2], [80, 22]];
 
   class Director {
     constructor(view) {
@@ -301,6 +306,12 @@
       }
       r.spotName = name; r.spot = this.spotPt(name);
     }
+    /** a live-game AI slider (League Settings, 0..100, 50 = default) as a multiplier: 0 -> lo, 50 -> 1, 100 -> hi */
+    sliderK(key, lo, hi) {
+      const ai = this.v.opts && this.v.opts.ai;
+      const x = ai && ai[key] != null ? U.clamp(+ai[key], 0, 100) : 50;
+      return x < 50 ? U.lerp(lo, 1, x / 50) : U.lerp(1, hi, (x - 50) / 50);
+    }
     /** a drive (p_move) still under way: later planners leave the driver on his line */
     driving(a) { const dv = a && a._drive; return !!(dv && this.T < dv.tEnd && a.goal.mode === 'track' && a.goal.track === dv.fn && this.v.ball.holder === a); }
     bigness(id) { const p = this.v.look(id); return p ? (+p.height || 78) : 78; }
@@ -453,7 +464,9 @@
         const t = this.dtask[a.id];
         if (a.isBusy()) continue;
         if (t && t.until > T) continue;
-        if (a.goal.mode !== 'track' || a._trackOwner !== this) this.trackDefender(a);
+        // (a planner's own track for him, a drive's chase or a trap, ends with its task: back to man-to-man; checking only
+        // that he was tracking kept him on the planner's stale target, trailing or in front of the wrong spot, for good)
+        if (a.goal.mode !== 'track' || a._trackOwner !== this || a.goal.track !== a._defTrack) this.trackDefender(a);
       }
       // ball holder dribbles when moving
       if (b.holder && b.state === 'held' && !b.holder.isBusy() && b.holder.speed > 1.8 && b.holder.team === this.off) b.dribble(b.holder);
@@ -521,13 +534,20 @@
     }
     trackDefender(a) {
       a._trackOwner = this;
+      a._defTrack = null;
+      // coming off another job (a chase, a box-out, a trap) the target eases over from where he is heading to his
+      // spot, instead of jumping there and turning him on planted feet
+      const e0 = { t: this.T, x: a.x + a.vx * 0.3, y: a.y + a.vy * 0.3 };
       a.track(() => {
         const p = this.guardPos(a);
+        const ke = U.smooth((this.T - e0.t) / 0.5);
+        if (ke < 1) { p.x = U.lerp(e0.x, p.x, ke); p.y = U.lerp(e0.y, p.y, ke); }
         // squared up a defender slides and backpedals (~13 ft/s at most); only once beaten (or sprinting back in
         // transition) does he turn and run
         a.goal.speed = a._dface && (a._dface.run || a._dface.back) ? a.maxSpeed : Math.min(a.maxSpeed, 13.5);
         return p;
       }, { speed: a.maxSpeed, stance: 'defense' });
+      a._defTrack = a.goal.track;
       a.setFace((me) => this.defFacing(me));
       a.faceLock = true;
     }
@@ -583,9 +603,13 @@
       let px, py;
       const hype = this.intensity();
       if (hasBall) {
-        let gap = (scheme === 'pressure' ? 3.6 : scheme === 'packline' ? 5.6 : 4.6) - hype * 0.5;
-        if (mu > 32 && scheme !== 'press') gap += U.clamp((mu - 32) * 0.35, 0, 8);
         const dx = rim.x - m.x, dy = rim.y - m.y, dl = Math.hypot(dx, dy) || 1;
+        // on-ball cushion by the handler's distance from the rim, as NBA player tracking measures it (median nearest
+        // defender: 2.5 ft inside 10 ft, 4.3 ft at 17-23 ft, 6.4 ft at 27-32 ft, 10 ft at 40 ft, 18 ft past half
+        // court), tighter for pressure schemes and in big moments, looser in a pack line; a press picks him up early
+        let gap = U.interp(ONBALL_GAP, dl) * (scheme === 'pressure' ? 0.82 : scheme === 'packline' ? 1.18 : 1) * (1 - hype * 0.1);
+        if (scheme === 'press') gap = Math.min(gap, 4.2);
+        gap *= this.sliderK('defPressure', 1.25, 0.8);
         px = m.x + dx / dl * gap; py = m.y + dy / dl * gap;
         a.setStance(mu > 45 && scheme !== 'press' ? 'ready' : 'defense');
       } else {
@@ -1379,10 +1403,19 @@
         const far = U.clamp((dRimNow - (rootRel.fwd + 4)) / 14, 0, 1);
         facing = U.angLerp(aA, aB, 0.65 * far);
         const relD = U.clamp(Math.hypot(spot.x - this.rim.x, spot.y - this.rim.y), 1.8, 4.2);
-        const c0 = Math.cos(facing), s0 = Math.sin(facing);
-        const rx = this.rim.x - c0 * relD, ry = this.rim.y - s0 * relD;
-        spot.x = rx; spot.y = ry;
-        origin = { x: rx - (c0 * rootRel.fwd + s0 * lat), y: ry - (s0 * rootRel.fwd - c0 * lat) };
+        const place = () => {
+          const c0 = Math.cos(facing), s0 = Math.sin(facing);
+          const rx = this.rim.x - c0 * relD, ry = this.rim.y - s0 * relD;
+          spot.x = rx; spot.y = ry;
+          origin = { x: rx - (c0 * rootRel.fwd + s0 * lat), y: ry - (s0 * rootRel.fwd - c0 * lat) };
+        };
+        place();
+        // a dunk's run-up starts inside the paint: from a wide angle the approach swings toward the middle of
+        // the lane until the whole take-off run is in it (from outside it the slam never reached the rim)
+        if (DUNK_CLIPS[clipName]) {
+          const axis = Math.atan2(0, this.rim.x - 47);
+          for (let k = 0; k < 18 && !this.inPaint(origin, 0.6); k++) { facing = U.angApproach(facing, axis, 5 * U.DEG); place(); }
+        }
       } else {
         facing = Math.atan2(this.rim.y - spot.y, this.rim.x - spot.x);
         const c1 = Math.cos(facing), s1 = Math.sin(facing);
@@ -1411,6 +1444,9 @@
       // (the lob sets an alley-oop's clock: the jump starts on time wherever the catcher is, re-anchored on him, and
       // the beat does not wait out a longer gap on the game clock, or the lob would land before he goes up)
       const alleyLob = catchT != null && tBall > 0;
+      const dk = { waiting: false, cs: null };
+      const dunkWait = DUNK_CLIPS[clipName] && !standFinish && !alleyLob;
+      if (dunkWait) beat.waitFor = () => !dk.waiting && (!dk.cs || dk.cs.done || dk.cs.t >= clip.events.release - 0.02);
       const need = (alleyLob ? clipLead : Math.max(tReach * 1.25 + 0.25, clipLead)) + rel;
       if (alleyLob) beat.maxDur = need;
       const pending = !!ev.pending;
@@ -1435,7 +1471,7 @@
           r.until = 0; r.probe = null; r.probeAnchor = { x: origin.x, y: origin.y };
           this.at(tApp, approach, 'shot approach');
         } else approach();
-        this.at(clipStart, () => {
+        const startClip = () => {
           if (b.holder !== sh && !(b.state === 'flight' && b.passTarget === sh)) this.giveBall(sh, 'pocket');
           sh.stopClip(0);
           if (b.holder === sh && b.state === 'dribble' && clip.name === 'jumpshot') b.give(sh, 'pocket');
@@ -1443,9 +1479,11 @@
           // rim finishes re-anchor on the shooter if the approach plan slipped (no dragging)
           let ox = origin.x, oy = origin.y, of = facing;
           let blendT = null;
-          const dunkClip = clipName === 'dunk' || clipName === 'dunk2' || clipName === 'putbackDunk';
+          const dunkClip = clipName === 'dunk' || clipName === 'dunk2' || clipName === 'putbackDunk' || clipName === 'alley';
           const slip = Math.hypot(sh.x - ox, sh.y - oy);
-          if (dunkClip && slip > 1.5 && slip < (clipName === 'putbackDunk' ? 4.5 : 6.5)) {
+          // (a dunk is never re-anchored on the dunker: it is thrown down at the rim or not at all, so whatever is left
+          // of the approach is absorbed by the run-up; started from where he stood it never reached the rim)
+          if (dunkClip && slip > 1.5 && (clipName !== 'putbackDunk' || slip < 4.5)) {
             // dunks stay anchored at the rim: the run-up / gather absorbs the slip (steps stretch or shorten)
             blendT = clip.jump ? U.clamp(clip.jump.t0 + 0.15, 0.4, 0.65) : 0.5;
           } else if (rimShot || clipName === 'putback' || clipName === 'putbackDunk' || clipName === 'tip') {
@@ -1466,8 +1504,22 @@
             },
           });
           this.shotClipState = cs;
+          dk.cs = cs;
           if (b.holder === sh) b.give(sh);
-        }, 'shot clip');
+        };
+        // a dunk waits for the dunker to reach his take-off run (the release waits with it) instead of starting from
+        // wherever he happens to be; an alley-oop's jump is timed to the lob in the air and cannot wait
+        const tryClip = () => {
+          if (dunkWait && (Math.hypot(sh.x - origin.x, sh.y - origin.y) > 3 || !this.inPaint(sh, 0)) && this.T < clipStart + 2.0) {
+            dk.waiting = true;
+            if (!sh.isBusy()) sh.moveTo(origin.x, origin.y, { speed: sh.maxSpeed, face: 'move', stance: b.holder === sh ? 'dribble' : 'ready' });
+            this.at(this.T + 0.05, tryClip, 'dunk approach');
+            return;
+          }
+          dk.waiting = false;
+          startClip();
+        };
+        this.at(clipStart, tryClip, 'shot clip');
         this.planContest(ev, sh, spot, fireAt);
         this.planRebound(ev, sh, spot, fireAt, result);
         v.camHint = null;
@@ -1478,6 +1530,12 @@
       };
       if (pending) beat.noEmit = true; // emitted at the freeze
       return need;
+    }
+    /** inside the lane (16 ft wide, 19 ft from the baseline) this director's offense attacks, `m` ft in from its lines */
+    inPaint(p, m) {
+      m = m || 0;
+      const base = this.rim.x < 47 ? 0 : 94;
+      return Math.abs(p.y - 25) <= 8 - m && Math.abs(p.x - base) <= 19 - m;
     }
     clipRootAt(clip, t) {
       if (!clip.rootKeys) return { fwd: 0, lat: 0 };
