@@ -310,7 +310,14 @@
       const Dz = R[2] * wx + R[5] * wy + R[8] * wz;
       const L1 = d.th, L2 = d.sh;
       const dist = Math.sqrt(Dx * Dx + Dy * Dy + Dz * Dz);
-      const dd = U.clamp(dist, (L1 + L2) * 0.3, (L1 + L2) * 0.9995);
+      let dd = U.clamp(dist, (L1 + L2) * 0.3, (L1 + L2) * 0.9995);
+      if (ik.soft) {
+        // soft IK for a swinging leg (Andy Nicholas): near full extension the knee angle changes infinitely fast
+        // with distance, so the last few percent are eased in exponentially; the foot may trail its target by a
+        // hair instead of the knee snapping straight
+        const da = (L1 + L2) * 0.995, ds = (L1 + L2) * (ik.softW || 0.06);
+        if (dist > da - ds) { const sd = da - ds * Math.exp(-(dist - (da - ds)) / ds), k = ik.softK == null ? 1 : ik.softK; dd = dd + (Math.min(dd, sd) - dd) * k; }
+      }
       const cosK = U.clamp((dd * dd - L1 * L1 - L2 * L2) / (2 * L1 * L2), -1, 1);
       const k = Math.acos(cosK);
       const Vy = -L2 * Math.sin(k), Vz = -L1 - L2 * Math.cos(k);

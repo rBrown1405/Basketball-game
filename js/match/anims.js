@@ -122,7 +122,7 @@
     out.lift = gw.walk * 0.05 + gw.jog * 0.2 + gw.sprint * 0.29;
     // how far ahead of the body the ankle lands, as a share of the contact length: a walker's heel strikes about
     // 0.16 x height ahead of the hip (leg ~20 deg forward), runners land close under the body, not reaching out
-    out.reach = gw.walk * 0.37 + gw.jog * 0.4 + gw.sprint * 0.36;
+    out.reach = gw.walk * 0.37 + gw.jog * 0.34 + gw.sprint * 0.31;
     // step width: ~8-10 cm between the feet when walking (a wide base is a toddler trait), narrower when running
     out.halfW = gw.walk * 0.024 + gw.jog * 0.02 + gw.sprint * 0.016;
     out.liftPow = gw.walk * 0.85 + gw.jog * 0.62 + gw.sprint * 0.58;

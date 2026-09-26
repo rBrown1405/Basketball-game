@@ -378,6 +378,7 @@
           if (crossed(ph0, ph1, cph) && f.state === 'swing' && f.mode === 'gait') {
             // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down
             f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = Math.min(0, gp.landPitch); f.hs = f.pitch < 0;
+            f.sw = 0; f.tPlant = this.time;
           }
           const rel = frac(this.phase - cph);
           if (f.state === 'swing' && f.mode === 'gait') {
@@ -394,8 +395,11 @@
             f.tx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
             f.ty = py + this.moveDirY * reach + ry * side * gp.halfW * H + Math.sin(f.tyaw) * this.dims.ball;
             const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, Math.min(0, gp.landPitch), TB);
+            f.sw = sw; f.lax = a1[0]; f.lay = a1[1]; f.laz = a1[2]; f.lpx = px; f.lpy = py;
             const e = U.smooth(sw);
-            const lift = gp.lift * H * Math.pow(Math.sin(Math.PI * Math.pow(sw, gp.liftPow || 0.8)), 1.1);
+            // sin^2 starts with zero vertical speed (the old sin^1.1 of sw^0.62 threw the foot up ~0.4 ft in the first
+            // frame after toe-off, snapping the knee), and still peaks early in the swing (~40 %)
+            const lift = gp.lift * H * Math.pow(Math.sin(Math.PI * Math.pow(sw, Math.max(0.75, gp.liftPow || 0.8))), 2);
             f.ax = f.x0 + (a1[0] - f.x0) * e;
             f.ay = f.y0 + (a1[1] - f.y0) * e;
             f.az = f.z0 + (a1[2] - f.z0) * e + lift;
@@ -804,17 +808,35 @@
         ik.on = 1;
         if (f.state === 'plant') {
           const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-          ik.x = a[0]; ik.y = a[1]; ik.z = a[2]; ik.yaw = f.yaw; ik.pitch = f.pitch;
+          ik.x = a[0]; ik.y = a[1]; ik.z = a[2]; ik.yaw = f.yaw; ik.pitch = f.pitch; ik.soft = false;
         } else {
           ik.x = f.ax; ik.y = f.ay; ik.z = f.az; ik.yaw = f.yawNow != null ? f.yawNow : f.yaw; ik.pitch = f.pitchNow || 0;
+          // (fully soft in mid-swing; a walker's leg reaches its heel strike exactly so the plant does not jump,
+          // a runner's landing is kept reachable by the pelvis settling instead)
+          ik.soft = true; ik.softW = U.lerp(0.02, 0.06, U.smooth((this.speed - 6) / 2.5));
+          ik.softK = f.mode === 'gait' && f.sw != null ? U.lerp(1 - U.smooth((f.sw - 0.72) / 0.26), 1, U.smooth((this.speed - 6) / 2.5)) : 1;
+          // late in a gait swing the pelvis already settles so the leg meets the floor with the knee a little bent
+          // (runners land at ~15-20 deg of knee flexion) instead of locking straight and dropping at contact
+          if (f.mode === 'gait' && f.sw > 0.55 && f.lax != null && this.gaitOn && !this.clip) {
+            // (measured from where the hip will be at contact, not where it is now)
+            const side = f.side ? 1 : -1;
+            const hx = f.lpx + s * side * this.dims.hipX, hy = f.lpy - c * side * this.dims.hipX;
+            const runK = U.smooth((this.speed - 6) / 2.5);
+            const Lr = (this.dims.th + this.dims.sh) * U.lerp(0.9986, 0.975, runK), dh = Math.hypot(f.lax - hx, f.lay - hy);
+            const zl = f.laz + Math.sqrt(Math.max(0.01, Lr * Lr - dh * dh));
+            minRootZ = Math.min(minRootZ, zl + (1 - U.smooth((f.sw - 0.55) / 0.45)) * 0.6);
+          }
         }
         // hip reach constraint -> maximum pelvis height (only planted feet support the body)
         if (f.state !== 'plant') continue;
         const side = f.side ? 1 : -1;
         const hx = this.x + s * side * this.dims.hipX, hy = this.y - c * side * this.dims.hipX;
         let dh = Math.hypot(ik.x - hx, ik.y - hy);
-        // a stance leg may straighten to ~6 deg of knee flexion (walking midstance / heel strike), no further
-        const L = (this.dims.th + this.dims.sh) * 0.9986;
+        // a stance leg may straighten to ~6 deg of knee flexion (walking midstance / heel strike), no further; just
+        // after a running contact it stays as bent as the landing was (no pop up onto a straight leg)
+        const sinceLand = f.tPlant != null ? this.time - f.tPlant : 9;
+        const Lk = this.gaitOn ? U.lerp(0.9986, U.lerp(0.975, 0.9986, U.smooth(sinceLand / 0.14)), U.smooth((this.speed - 6) / 2.5)) : 0.9986;
+        const L = (this.dims.th + this.dims.sh) * Lk;
         let zmax = ik.z + Math.sqrt(Math.max(0.01, L * L - dh * dh));
         // push-off: a stance foot behind the hip rolls onto the ball of the foot (heel rise) so the leg stays long,
         // the way real runners and walkers do, instead of the pelvis sinking to reach a flat foot
@@ -824,8 +846,12 @@
         if (zmax < wantZ && behind && this.gaitOn && !this.clip) {
           const maxPitch = (this.speed > 9 ? 68 : 58) * D;
           let pitch = Math.max(0, f.pitch);
-          while (zmax < wantZ && pitch < maxPitch) {
-            pitch = Math.min(maxPitch, pitch + 2 * D);
+          // the heel comes up progressively (a real push-off takes a few frames), not in one jump
+          const dtS = U.clamp((this.time || 0) - (f.tRise != null ? f.tRise : (this.time || 0) - 1 / 60), 1 / 240, 0.1);
+          f.tRise = this.time || 0;
+          const pCap = Math.min(maxPitch, pitch + 300 * D * dtS);
+          while (zmax < wantZ && pitch < pCap) {
+            pitch = Math.min(pCap, pitch + 2 * D);
             const a = this._ankleFromBall(f.x, f.y, f.yaw, pitch, TA);
             dh = Math.hypot(a[0] - hx, a[1] - hy);
             zmax = a[2] + Math.sqrt(Math.max(0.01, L * L - dh * dh));
