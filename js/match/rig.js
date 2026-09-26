@@ -475,8 +475,20 @@
       const sol = solve2(Wx, Wy, Wz, Dx * sc, Dy * sc, Dz * sc, -sg * p[CH[pre + 'HipA']]);
       const w = Math.min(1, ik.on);
       const F0 = p[CH[pre + 'HipF']], A0 = p[CH[pre + 'HipA']], K0 = p[CH[pre + 'Knee']];
+      let hipA = -sg * sol.b;
+      if (ik.soft) {
+        // a leg in the air, folded at the knee (a runner's heel kick), keeps its knee over its own line: with the
+        // shank folded the hip-ankle line is short, so a small sideways miss of the ankle target fanned the whole
+        // thigh out (the knee pointed 50-70 deg to the side at a sprint, the crab look); the more the knee bends,
+        // the closer the hip's side-to-side angle is held to neutral, and the foot, in the air, misses its target
+        // sideways by a little instead (a straight leg stepping out to the side still opens freely)
+        const bend = U.smooth((k - 0.7) / 1.0);
+        const hi = U.lerp(0.62, 0.12, bend), lo = U.lerp(-0.4, -0.12, bend);
+        // (a guide for a leg in the air, not a joint limit: not flagged in the lab's limit overlay)
+        if (hipA > hi) hipA = hi; else if (hipA < lo) hipA = lo;
+      }
       p[CH[pre + 'HipF']] = w >= 1 ? sol.f : U.angLerp(F0, sol.f, w);
-      p[CH[pre + 'HipA']] = w >= 1 ? -sg * sol.b : U.angLerp(A0, -sg * sol.b, w);
+      p[CH[pre + 'HipA']] = w >= 1 ? hipA : U.angLerp(A0, hipA, w);
       p[CH[pre + 'Knee']] = w >= 1 ? k : U.lerp(K0, k, w);
     }
 

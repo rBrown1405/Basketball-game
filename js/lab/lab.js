@@ -145,8 +145,8 @@
   }
   add('Dribbling', 'spinmove', 'Spin move', 3.4, (c) => {
     c.b.dribble(c.a); c.a.setStance('dribble');
-    c.at(0.3, () => go(c, 40, 4));
-    c.at(0.9, () => { c.a.play('spin', { facing: c.a.facing }); if (c.b.dr) c.b.dribbleMove('cross', { period: 0.6 }); });
+    c.at(0.3, () => go(c, 40, 5));
+    c.at(1.0, () => c.a.spinMove({ exitFacing: c.f0, exitTo: { x: c.x0 + c.fx * 40, y: c.y0 + c.fy * 40 } }));
   });
   add('Dribbling', 'hesimove', 'Hesitation', 3.4, (c) => {
     c.b.dribble(c.a); c.a.setStance('dribble');

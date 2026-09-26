@@ -172,6 +172,17 @@
       if (!d) return;
       d.pendingMove = { type, toHand: 1 - d.hand, onDone: o && o.onDone, period: (o && o.period) || 0.36 };
     }
+    /**
+     * the spin move's pull: the dribbling hand takes the ball as it comes up and keeps it on top, pulled back tight
+     * to the hip while the body turns (it goes around with him); after `hold` s it is pushed down and crosses to the
+     * other hand, a bounce that stays where it hits the floor instead of swinging around with the body
+     */
+    spinPull(hold, period) {
+      const d = this.dr;
+      if (!d) return;
+      d.pendingMove = null;
+      d.pull = { t: 0, hold, period: period || 0.34, on: false, k: 0, q0: null };
+    }
     /** flight through the given list of waypoints builder: returns the segment list */
     flight(segs, onEnd) {
       this.release();
@@ -632,12 +643,32 @@
         const n = U.clamp(Math.round(0.68 * sps), 1, 3);
         period = U.clamp(n / sps, 0.42, 0.9);
       }
+      // the spin move's pull (spinPull): once the ball is in the hand at the top of its bounce, it stays there
+      const pu = d.pull;
+      if (pu) {
+        pu.t += dt;
+        if (!pu.on && d.plan && d.u >= d.plan.uC && !(d.move && d.moveStarted)) { pu.on = true; pu.q0 = [d.plan.qtx, d.plan.qty]; }
+        if (pu.t >= pu.hold) {
+          d.pull = null;
+          d.pendingMove = { type: 'cross', toHand: 1 - d.hand, period: pu.period, spin: true };
+          if (pu.on) d.u = Math.max(d.u, 0.999);
+        }
+      }
       if (d.pendingMove && d.u < 0.08) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = false; }
       if (d.move && !d.moveStarted && d.u < 0.1) { d.moveStarted = true; d.planned = false; }
       if (d.move && d.moveStarted) period = d.move.period;
       d.curPeriod = period;
       const u0 = d.u;
       d.u += dt / period;
+      if (d.pull && d.pull.on) {
+        // held at the top of the ride, the hand on top, drawn back beside the hip
+        const pl0 = d.plan, q = d.pull;
+        if (d.u > 0.998) d.u = 0.998;
+        q.k = Math.min(1, q.k + dt / 0.12);
+        const e = U.smooth(q.k);
+        pl0.qtx = U.lerp(q.q0[0], Math.abs(q.q0[0]) < 1e-6 ? 0.2 * H : Math.sign(q.q0[0]) * 0.2 * H, e);
+        pl0.qty = U.lerp(q.q0[1], -0.02 * H, e);
+      }
       if (d.u >= 1) {
         d.u -= 1;
         if (d.move && d.moveStarted) {
@@ -678,13 +709,33 @@
         lx = U.lerp(pl.qx, pl.qtx, s); ly = U.lerp(pl.qy, pl.qty, s);
       }
       const sd = pl.side; // +1: right hand side of the body
-      // never through the dribbler himself (a knee coming through, a crossover in front of the shins): the ball keeps
-      // out of his legs and trunk, except going between the legs on purpose, and the hand meets it where it is
-      const lb = TL;
-      lb[0] = sd * lx; lb[1] = ly; lb[2] = lz;
-      if (a.clearBall(lb, R, !(moving && d.move.type === 'btl')) > 1e-6) { lx = lb[0] * sd; ly = lb[1]; lz = Math.max(R, lb[2]); }
-      const wp = a.local(sd * lx, ly, lz, TB);
-      this.x = wp[0]; this.y = wp[1]; this.z = wp[2];
+      // the spin's crossover: once out of the hand the ball is on its own, so the bounce spot stays put on the floor
+      // (where the body will be facing when it lands) while he turns, and it comes up to wherever the new hand is
+      const anchored = moving && d.move.spin && (ph === 'down' || ph === 'up');
+      if (anchored && !d.anch) {
+        const fp = a.predictFrame(Math.max(0, (uB - u) * (d.curPeriod || period)), PF);
+        const cf = Math.cos(fp.facing), sf = Math.sin(fp.facing), bx = sd * pl.cx, by = pl.cy;
+        d.anch = { x0: this.x, y0: this.y, bx: fp.x + sf * bx + cf * by, by: fp.y - cf * bx + sf * by };
+      } else if (!anchored) d.anch = null;
+      if (anchored) {
+        const an = d.anch;
+        if (ph === 'down') {
+          const k0 = (pl.top - pl.rel) / Math.max(0.01, pl.top - R), k = U.lerp(k0, 1, s), kk = (k - k0) / Math.max(1e-3, 1 - k0);
+          this.x = U.lerp(an.x0, an.bx, kk); this.y = U.lerp(an.y0, an.by, kk);
+        } else {
+          const cq = a.local(sd * pl.qx, pl.qy, 0, TB);
+          this.x = U.lerp(an.bx, cq[0], s); this.y = U.lerp(an.by, cq[1], s);
+        }
+        this.z = lz + a.jumpZ;
+      } else {
+        // never through the dribbler himself (a knee coming through, a crossover in front of the shins): the ball
+        // keeps out of his legs and trunk, except going between the legs on purpose, and the hand meets it where it is
+        const lb = TL;
+        lb[0] = sd * lx; lb[1] = ly; lb[2] = lz;
+        if (a.clearBall(lb, R, !(moving && d.move.type === 'btl')) > 1e-6) { lx = lb[0] * sd; ly = lb[1]; lz = Math.max(R, lb[2]); }
+        const wp = a.local(sd * lx, ly, lz, TB);
+        this.x = wp[0]; this.y = wp[1]; this.z = wp[2];
+      }
       if (u0 < uB && d.u >= uB) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1)); }
       // forward roll spin
       this.setSpinAlong(a.vx || 0.01, a.vy || 0, -(a.speed + 3) / R * 0.4);
@@ -847,7 +898,7 @@
   }
 
   const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), TL = new Float64Array(3), TMP3 = [0, 0, 0], DSH = {};
-  const HO1 = { x: 0, y: 0, z: 0 }, HO2 = { x: 0, y: 0, z: 0 };
+  const HO1 = { x: 0, y: 0, z: 0 }, HO2 = { x: 0, y: 0, z: 0 }, PF = { x: 0, y: 0, facing: 0 };
   const RM = new Float64Array(9);
   /** rot = R(axis, ang) * rot */
   function rotMul(m, ax, ay, az, ang) {

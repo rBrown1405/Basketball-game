@@ -299,6 +299,121 @@
       return !!cs;
     }
     /**
+     * The spin move off the dribble, built for this player's own feet (no canned motion): a hard plant of the foot on
+     * the far side from the ball (a right-hand dribble plants the left foot) in front of his man, a reverse pivot on
+     * the ball of that foot with his back into him (the free leg whips around behind on an arc, the off arm tucked in
+     * so the turn is quick, the head leading), then a second pivot on the foot that just landed while the first swings
+     * through and he comes out past his man, low; the ball is pulled tight to the hip with the hand on top through the
+     * first half turn, then bounced across to the other hand at about 180 degrees.
+     * o: { exitFacing (default: the facing now, a full turn), onEnd }. Returns the clip state (null: not now).
+     */
+    spinMove(o) {
+      o = o || {};
+      const b = this.view && this.view.ball;
+      const dr = b && b.dr && b.dr.actor === this ? b.dr : null;
+      const hand = dr ? dr.hand : (this.lefty ? 0 : 1);
+      // built for a right-hand dribble (plant the left foot, turn right: clockwise from above); a left-hand one is
+      // its mirror image
+      const mir = hand === 0, m = mir ? -1 : 1;
+      const Lg = this.dims.th + this.dims.sh;
+      const f0 = this.facing, c = Math.cos(f0), s = Math.sin(f0);
+      // [fwd, lat (+ = right)] of a world point in the right-hand build
+      const loc = (x, y) => [(x - this.x) * c + (y - this.y) * s, m * ((x - this.x) * s - (y - this.y) * c)];
+      // rotate a build-frame point q about p by phi (+ = left, counter-clockwise from above)
+      const rot = (q, p, phi) => { const dx = q[0] - p[0], dy = q[1] - p[1], cp = Math.cos(phi), sp = Math.sin(phi); return [p[0] + dx * cp + dy * sp, p[1] - dx * sp + dy * cp]; };
+      // keep a foot's landing spot at a stride's distance from the foot it turns around
+      const reach = (q, p, lo, hi) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, k = U.clamp(l, lo, hi) / l; return [p[0] + dx * k, p[1] + dy * k]; };
+      const fr = this.feet[mir ? 0 : 1]; // the free foot (the right in the build)
+      const quick = 1.12 - 0.24 * (this.rAgi == null ? 0.5 : this.rAgi);
+      const tA = 0.15, dB = 0.3 * quick, dC = 0.26 * quick;
+      const tB = tA + dB, tC = tB + dC, dur = tC + 0.16;
+      // the whole turn: a full circle back to the facing he had, or round to exitFacing (clockwise in the build)
+      const exitRel = o.exitFacing != null ? U.wrapPi(o.exitFacing - f0) * m : 0;
+      const turn = -2 * Math.PI + U.clamp(exitRel, -0.5, 0.9);
+      // the hips over the foot he stands on: the pelvis centre sits about a hip's width to the inside of it
+      const hw = 0.85 * this.dims.hipX;
+      const inside = (foot, ph, sgn) => [foot[0] + sgn * hw * Math.sin(ph) - 0.06 * Lg * Math.cos(ph), foot[1] + sgn * hw * Math.cos(ph) + 0.06 * Lg * Math.sin(ph)];
+      // 1. the plant: the left foot lands ahead and a little across, in front of his man, as the body brakes onto it
+      const v0 = Math.min(this.speed, 14), ph0 = -8 * D;
+      const P = [0.26 * Lg + 0.1 * v0, -0.05 * Lg];
+      // (the foot lands ahead of the hips, which are still coming on, braking, as it plants)
+      const R1 = [0.85 * v0 * tA, 0.02 * Lg];
+      // 2. the reverse pivot: the right foot swings around behind him to the far side of the pivot
+      const q0 = fr.state === 'swing' && fr.tx != null ? loc(fr.tx, fr.ty) : loc(fr.x, fr.y);
+      const F1 = reach(rot(q0, P, -Math.PI), P, 0.3 * Lg, 0.44 * Lg);
+      // 3. the second pivot, on the right foot: the left swings through past his man
+      const F2 = reach(rot(P, F1, turn + Math.PI), F1, 0.32 * Lg, 0.48 * Lg);
+      const ease = (u) => u * u * (3 - 2 * u);
+      const root = [[0, 0, 0]], yaw = [[0, 0]];
+      root.push([tA, R1[0], R1[1]]); yaw.push([tA, ph0 / D]);
+      const mid1 = [(P[0] + F1[0]) / 2, (P[1] + F1[1]) / 2], mid2 = [(F1[0] + F2[0]) / 2, (F1[1] + F2[1]) / 2];
+      const n1 = 8, n2 = 8;
+      let last = R1;
+      // (on one foot the hips circle it closely; as the other foot lands the weight moves across between the two)
+      for (let i = 1; i <= n1; i++) {
+        const u = i / n1, ph = ph0 + (-Math.PI - ph0) * ease(u);
+        const q = inside(P, ph, 1), d0 = 1 - U.smooth(u / 0.35), dk = U.smooth((u - 0.45) / 0.55) * 0.5;
+        const r0 = [q[0] + (R1[0] - q[0]) * d0, q[1] + (R1[1] - q[1]) * d0];
+        last = [r0[0] + (mid1[0] - r0[0]) * dk, r0[1] + (mid1[1] - r0[1]) * dk];
+        root.push([tA + dB * u, last[0], last[1]]); yaw.push([tA + dB * u, ph / D]);
+      }
+      const R2 = last;
+      for (let i = 1; i <= n2; i++) {
+        const u = i / n2, ph = -Math.PI + (turn + Math.PI) * ease(u);
+        const q = inside(F1, ph, -1), d0 = 1 - U.smooth(u / 0.5), dk = U.smooth((u - 0.45) / 0.55) * 0.5;
+        const r0 = [q[0] + (R2[0] - q[0]) * d0, q[1] + (R2[1] - q[1]) * d0];
+        last = [r0[0] + (mid2[0] - r0[0]) * dk, r0[1] + (mid2[1] - r0[1]) * dk];
+        root.push([tB + dC * u, last[0], last[1]]); yaw.push([tB + dC * u, ph / D]);
+      }
+      // 4. out of it: the momentum carries him on toward where he now faces
+      const fe = [Math.cos(turn), -Math.sin(turn)];
+      root.push([dur, last[0] + fe[0] * 0.75, last[1] + fe[1] * 0.75]); yaw.push([dur, turn / D]);
+      const steps = [
+        { t0: 0, t1: tA, foot: 'l', to: P, yaw: -2, lift: 0.035 },
+        { t0: tA + 0.02, t1: tB - 0.015, foot: 'r', to: F1, yaw: -188, lift: 0.075, arc: { at: P, dir: -1 } },
+        { t0: tB + 0.01, t1: tC - 0.015, foot: 'l', to: F2, yaw: turn / D + 8, lift: 0.06, arc: { at: F1, dir: -1 } },
+      ];
+      // the body: low through it, the head and shoulders leading the turn, the off arm tucked in to spin fast, then
+      // out to the side for balance and to protect the ball in the other hand
+      const low = { base: 'dribbleLow' };
+      const K = (t, o2) => ({ t, p: Object.assign({}, low, o2) });
+      const keys = [
+        K(0, {}),
+        K(tA, { rootZ: -0.155, pelPitch: 27, spFlex: 5, chTwist: -8, nkTwist: -14, lShF: 26, lShA: 18, lShT: 6, lElF: 100, lPro: 70 }),
+        K(tA + dB * 0.5, { rootZ: -0.15, pelPitch: 23, spFlex: 3, chTwist: -18, nkTwist: -34, hdTwist: -8, lShF: 20, lShA: 14, lShT: 4, lElF: 106, lPro: 72 }),
+        K(tB, { rootZ: -0.145, pelPitch: 22, spFlex: 3, chTwist: -14, nkTwist: -30, hdTwist: -6, lShF: 22, lShA: 16, lShT: 4, lElF: 104, lPro: 70 }),
+        K(tB + dC * 0.5, { rootZ: -0.145, pelPitch: 24, spFlex: 4, chTwist: -8, nkTwist: -18, rShF: 24, rShA: 16, rShT: 4, rElF: 100, rPro: 70, lShF: 36, lShA: 26, lElF: 80 }),
+        K(tC, { rootZ: -0.14, pelPitch: 28, spFlex: 6, chTwist: 4, nkTwist: 0, rShF: 38, rShA: 42, rShT: -8, rElF: 62, rPro: 62 }),
+        K(dur, {}),
+      ];
+      const clip = A.buildClip({
+        name: 'spinMove', dur, events: { plant: tA, turn: tB, out: tC }, root, yaw, steps, keys,
+        pivots: [{ side: 0, t0: tA, t1: tB }, { side: 1, t0: tB, t1: tC }],
+        turnRate: 40, offArm: 1, keepV: 1,
+      });
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: f0, fadeIn: 0.1, mirror: mir, onEvent: o.onEvent });
+      if (!cs) return null;
+      // the ball: taken on top as it comes up, pulled to the hip, then across to the other hand as he comes around
+      if (dr) b.spinPull(tA + dB * 0.62, 0.34);
+      cs.onEnd = () => {
+        this.setStance('dribble');
+        // out of it he keeps going: on to the spot given, else a couple of steps on the way he now faces
+        const ex = o.exitTo || { x: this.x + Math.cos(this.facing) * 6, y: this.y + Math.sin(this.facing) * 6 };
+        if (!o.stay) this.moveTo(ex.x, ex.y, { speed: o.exitSpeed || 9, stance: 'dribble' });
+        if (o.onEnd) o.onEnd(this);
+      };
+      return cs;
+    }
+    /** where the body will be in dt seconds (the playing clip's root motion, else straight on at this velocity) */
+    predictFrame(dt, out) {
+      const cs = this.clip;
+      if (cs && cs.clip.rootKeys && !cs.done) {
+        const r = this._clipRoot(cs, Math.min(cs.t + dt * cs.speed, cs.clip.dur));
+        out.x = r.x; out.y = r.y; out.facing = r.yaw;
+      } else { out.x = this.x + this.vx * dt; out.y = this.y + this.vy * dt; out.facing = this.facing; }
+      return out;
+    }
+    /**
      * Square the upper body to a point for a moment (a pass: the chest and arms go at the receiver while the feet
      * turn the rest of the way): the trunk twists up to ~70 deg, easing in over ~0.15 s and out after `until`.
      */
@@ -417,11 +532,18 @@
       }
       return face;
     }
+    /** where the body will face in `dt` seconds, turning toward where it wants to face at its turn rate */
+    faceIn(dt) {
+      if (this._wantFace == null) return this.facing;
+      const rate = this._turnRate || 10;
+      return this.facing + U.clamp(U.wrapPi(this._wantFace - this.facing), -rate * dt, rate * dt);
+    }
     _turn(dt) {
       const want = this._desiredFacing();
       this._wantFace = want; this._wantT = this.time;
       // (a 180 in ~0.3 s standing, ~0.4 s on the run; quicker for the agile)
       const rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
+      this._turnRate = rate;
       this.facing = U.angApproach(this.facing, want, rate * dt);
       this.facing = U.wrapPi(this.facing);
     }
@@ -451,6 +573,13 @@
     _locomote(dt) {
       const sp = this.speed;
       const st = A.STANCE[this.stance] || A.STANCE.stand;
+      // how fast the body is turning (smoothed): a foot landing on a curve is set down already turned the way the
+      // body will face while it is on the floor, instead of being left behind as the body turns over it
+      if (dt > 0) {
+        const fr = this._facePrev == null ? 0 : U.clamp(U.wrapPi(this.facing - this._facePrev) / dt, -4, 4);
+        this.faceRate = (this.faceRate || 0) + (fr - (this.faceRate || 0)) * (1 - Math.exp(-dt / 0.12));
+        this._facePrev = this.facing;
+      }
       if (!this.gaitOn && sp > 1.4) this._startGait();
       else if (this.gaitOn && sp < 0.6 && this._feetSettled()) this.gaitOn = false;
       this.gaitK = U.damp(this.gaitK, this.gaitOn ? U.smooth(sp / 3) : 0, 8, dt);
@@ -647,6 +776,12 @@
             f.sw = 0; f.tPlant = this.time; f.liftRel = null;
           }
           const rel = frac(this.phase - cph);
+          if (f.state === 'plant' && f.mode !== 'step') {
+            // turning hard over a planted foot (a cut, a reversal): it pivots on its ball past ~30 deg instead of
+            // staying pointed the old way while the hips and knee go round (the leg twisted, the knee far off line)
+            const ye = U.wrapPi(this.facing + (f.side ? -1 : 1) * 7 * D - f.yaw);
+            if (Math.abs(ye) > 30 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 30 * D, 14 * dt));
+          }
           if (f.state === 'swing' && f.mode === 'gait') {
             const b0 = f.liftRel != null ? f.liftRel : gp.beta;
             const sw = rel < b0 ? 0 : U.clamp((rel - b0) / (1 - b0), 0, 1);
@@ -665,7 +800,9 @@
             const reach = gp.reach * gp.beta * strideLen;
             const side = f.side ? 1 : -1;
             const rx = s, ry = -c;
-            f.tyaw = this.facing + (f.side ? -1 : 1) * 7 * D;
+            // (turning: aimed where the body will face half way through the foot's time on the floor)
+            const turnAhead = U.clamp((this.faceRate || 0) * (tLeft + 0.5 * gp.beta * cycleT), -0.5, 0.5);
+            f.tyaw = this.facing + turnAhead + (f.side ? -1 : 1) * 7 * D;
             // `reach` places the ankle ahead of the body at contact; the ball of the foot lies d.ball further along the foot
             let ntx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
             let nty = py + this.moveDirY * reach + ry * side * gp.halfW * H + Math.sin(f.tyaw) * this.dims.ball;
@@ -692,9 +829,22 @@
             const lift = gp.lift * H * U.lerp(pw, pr, gp.run || 0);
             f.ax = f.x0 + (a1[0] - f.x0) * e;
             f.ay = f.y0 + (a1[1] - f.y0) * e;
-            this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1]);
+            this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1], lift);
+            // a runner's heel comes up behind its own hip, not out to the side: the shank folds in the leg's own
+            // plane while the foot passes under the body, so the ankle eases over toward the hip's line as the heel
+            // rises and back out to where it lands as it comes down
+            const fold = U.smooth((lift / H - 0.05) / 0.1) * (gp.run || 0);
+            if (fold > 0.001) {
+              const side = f.side ? 1 : -1;
+              const lat = (f.ax - this.x) * s - (f.ay - this.y) * c, dl = (side * this.dims.hipX * 0.85 - lat) * fold;
+              f.ax += s * dl; f.ay -= c * dl;
+            }
             f.az = f.z0 + (a1[2] - f.z0) * e + lift;
-            f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
+            // (off the floor the foot, and the knee with it, comes round to the body's heading early in the swing,
+            // left at the old heading a foot planted before a turn carried its knee out to the side; on a curve it
+            // turns on into the landing heading only as it comes down)
+            const r0 = U.wrapPi(f.yaw0 - this.facing), rb = (f.side ? -1 : 1) * 7 * D, rt = U.clamp(U.wrapPi(f.tyaw - this.facing), -0.7, 0.7);
+            f.yawNow = this.facing + U.clamp(U.lerp(U.lerp(r0, rb, U.smooth(sw / 0.3)), rt, U.smooth((sw - 0.55) / 0.45)), -0.7, 0.7);
             f.pitchNow = U.lerp(f.p0 || gp.toePitch, gp.landPitch, U.smooth(sw * 1.15)) + Math.sin(Math.PI * sw) * gp.toePitch * 0.25;
           } else if (f.state === 'plant') {
             if (rel < gp.beta) {
@@ -742,9 +892,13 @@
      *  closer than ~6 in beside it (or through it: a turn, a cut, a sidestep), the whole path bows out to its own
      *  side, sin-shaped over the swing (e: 0..1 along the path), just enough to clear it everywhere; one smooth
      *  bow instead of a nudge where the feet pass (at a sprint that nudge came and went in two frames) */
-    _swingClear(f, e, x0, y0, x1, y1) {
+    _swingClear(f, e, x0, y0, x1, y1, liftNow) {
       const o = this.feet[1 - f.side];
       if (o.state !== 'plant') return;
+      // (only a foot low enough to meet the other one needs to go around it: a heel kicked up behind passes over
+      // the planted foot, and pushing it out there fanned the folded leg's knee out to the side)
+      const hK = liftNow == null ? 1 : 1 - U.smooth((liftNow - 0.06 * this.H) / (0.1 * this.H));
+      if (hK <= 0.001) return;
       const H = this.H, c = Math.cos(this.facing), s = Math.sin(this.facing), side = f.side ? 1 : -1;
       const a = this._ankleFromBall(o.x, o.y, o.yaw, o.pitch, TE);
       let D = 0;
@@ -755,7 +909,7 @@
         if (def > 0) D = Math.max(D, def / Math.sin(Math.PI * u));
       }
       if (D <= 0) return;
-      D = Math.min(D, 0.14 * H) * Math.sin(Math.PI * U.clamp(e, 0, 1));
+      D = Math.min(D, 0.14 * H) * Math.sin(Math.PI * U.clamp(e, 0, 1)) * hK;
       f.ax += s * side * D; f.ay -= c * side * D;
     }
     /** is a planted foot behind the hip and beyond the leg's reach even with the heel fully up? (last solve's pelvis) */
@@ -838,16 +992,18 @@
         if (f.state === 'plant' && f.pitch > 0) f.pitch = Math.max(0, f.pitch - dt * 4);
         else if (f.state === 'plant' && f.pitch < 0) { f.pitch = Math.min(0, f.pitch + dt * 4); f.hs = false; }
       }
-      if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       if (this.clip) return;
       // turning on the spot: the planted feet pivot on the balls of the feet with the body (the heels swing round)
       // instead of staying put while the hips turn away above them (the legs twisted into each other); steps take
-      // up the rest
+      // up the rest. (Also while the other foot is stepping: the foot left down used to stay pointing the old way
+      // through a whole turn, its knee 45-55 deg off the leg's line.)
       for (const f of this.feet) {
+        if (f.state !== 'plant') continue;
         const iyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
         const ye = U.wrapPi(iyaw - f.yaw);
         if (Math.abs(ye) > 14 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 14 * D, 13 * dt));
       }
+      if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       // error-driven stepping
       let worst = null, worstE = 0;
       for (const f of this.feet) {
@@ -868,8 +1024,13 @@
           const de = Math.hypot(other.x - other._ix, other.y - other._iy) / H;
           if (de > 0.05) worst = other;
         }
-        this._sepTarget(worst, worst._ix + this.vx * 0.12, worst._iy + this.vy * 0.12, TD);
-        this._beginStep(worst, TD[0], TD[1], worst._iyaw, 0.24, 0.035);
+        // (turning: the step goes to the foot's place for where the body will face when it lands, and keeps
+        // re-aiming as the body comes round; aimed where it faced at lift-off, it landed pointing the old way)
+        const fe = this.faceIn(0.24), ce = Math.cos(fe), se = Math.sin(fe), oo = worst.side ? st.R : st.L;
+        const ex = this.x + se * oo[0] * H + ce * oo[1] * H, ey = this.y - ce * oo[0] * H + se * oo[1] * H;
+        this._sepTarget(worst, ex + this.vx * 0.12, ey + this.vy * 0.12, TD);
+        this._beginStep(worst, TD[0], TD[1], fe + (worst.side ? -1 : 1) * st.yaw * D, 0.24, 0.035);
+        worst.stanceStep = true;
       }
     }
 
@@ -878,7 +1039,7 @@
       f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur; f.trk = null; f.liftKind = 'step';
       f.liftT = this.time; this._lastSwing = f.side; f.liftPending = false;
       f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
-      f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H;
+      f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H; f.arc = null; f.stanceStep = false;
       this._lastStepT = this.time; this._lastFoot = f.side;
     }
     _advanceStep(f, dt) {
@@ -892,16 +1053,39 @@
         const mv = (14 + this.speed) * Math.max(dt, 1 / 240), ddx = tx - f.tx, ddy = ty - f.ty, dl = Math.hypot(ddx, ddy);
         if (dl > mv) { tx = f.tx + ddx * mv / dl; ty = f.ty + ddy * mv / dl; }
         f.tx = tx; f.ty = ty;
+      } else if (f.stanceStep && !this.gaitOn && !this.clip && f.s < 0.85) {
+        // a step to the stance place while the body turns: re-aimed at where the body will face when it lands
+        const st = stanceOf(this, this.stance), H = this.H, o = f.side ? st.R : st.L;
+        const fe = this.faceIn((1 - f.s) * f.dur), ce = Math.cos(fe), se = Math.sin(fe);
+        let tx = this.x + se * o[0] * H + ce * o[1] * H, ty = this.y - ce * o[0] * H + se * o[1] * H;
+        this._sepTarget(f, tx, ty, TD); tx = TD[0]; ty = TD[1];
+        const mv = 10 * Math.max(dt, 1 / 240), ddx = tx - f.tx, ddy = ty - f.ty, dl = Math.hypot(ddx, ddy);
+        if (dl > mv) { tx = f.tx + ddx * mv / dl; ty = f.ty + ddy * mv / dl; }
+        f.tx = tx; f.ty = ty; f.tyaw = fe + (f.side ? -1 : 1) * st.yaw * D;
       }
       const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, 0, TB);
       const e = U.smooth(f.s);
       f.ax = f.x0 + (a1[0] - f.x0) * e;
       f.ay = f.y0 + (a1[1] - f.y0) * e;
-      this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1]);
+      const arc = f.arc;
+      if (arc) {
+        // round the pivot foot (angle and radius eased from where it left to where it lands)
+        const r0 = Math.hypot(f.x0 - arc.x, f.y0 - arc.y), r1 = Math.hypot(a1[0] - arc.x, a1[1] - arc.y);
+        const th0 = Math.atan2(f.y0 - arc.y, f.x0 - arc.x);
+        let dth = U.wrapPi(Math.atan2(a1[1] - arc.y, a1[0] - arc.x) - th0);
+        if (arc.dir && dth * arc.dir < 0 && Math.abs(dth) > 0.35) dth += arc.dir * 2 * Math.PI;
+        const th = th0 + dth * e, r = r0 + (r1 - r0) * e;
+        f.ax = arc.x + Math.cos(th) * r; f.ay = arc.y + Math.sin(th) * r;
+      } else this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1], f.h * Math.sin(Math.PI * f.s));
       f.az = f.z0 + (a1[2] - f.z0) * e + f.h * Math.sin(Math.PI * f.s);
-      f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
+      if (f.stanceStep) {
+        // (in the body's own terms: a foot in the air comes round with the hips the short way and never points more
+        // than ~40 deg off the body's heading; interpolated as world angles, a 180 turn sent it round the wrong way)
+        const r0 = U.wrapPi(f.yaw0 - this.facing), r1 = U.clamp(U.wrapPi(f.tyaw - this.facing), -0.56, 0.56);
+        f.yawNow = this.facing + U.clamp(U.lerp(r0, r1, U.smooth(f.s / 0.5)), -0.7, 0.7);
+      } else f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
       f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * 0.18;
-      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; }
+      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; }
     }
 
     // ============================================================ clips
@@ -968,7 +1152,7 @@
       this.vx = (nx - this.x) * idt; this.vy = (ny - this.y) * idt;
       if (!isFinite(this.vx)) { this.vx = 0; this.vy = 0; }
       this.x = nx; this.y = ny; this.speed = Math.hypot(this.vx, this.vy);
-      this.facing = U.angApproach(this.facing, r.yaw, 9 * dt);
+      this.facing = U.angApproach(this.facing, r.yaw, (clip.turnRate || 9) * dt);
       this.jumpZ = this._clipJumpZ(cs, cs.t);
       // feet
       const mode = A.clipFeet(clip, cs.t);
@@ -1003,7 +1187,14 @@
               const lat = cs.mirror ? -stp.to[1] : stp.to[1];
               const tx = cs.ox + cs.offX * (1 - U.smooth(stp.t1 / Math.max(0.01, cs.blendT))) + c * stp.to[0] + s * lat;
               const ty = cs.oy + cs.offY * (1 - U.smooth(stp.t1 / Math.max(0.01, cs.blendT))) + s * stp.to[0] - c * lat;
-              if (f.state !== 'air') this._beginStep(f, tx, ty, cs.ofacing + (stp.yaw || 0) * D * (cs.mirror ? -1 : 1), stp.t1 - stp.t0, stp.lift || 0.06);
+              if (f.state !== 'air') {
+                this._beginStep(f, tx, ty, cs.ofacing + (stp.yaw || 0) * D * (cs.mirror ? -1 : 1), stp.t1 - stp.t0, stp.lift || 0.06);
+                // swinging around a pivot (a spin): the foot travels round it on an arc, the given way round
+                if (stp.arc) {
+                  const at = stp.arc.at, al = cs.mirror ? -at[1] : at[1];
+                  f.arc = { x: cs.ox + c * at[0] + s * al, y: cs.oy + s * at[0] - c * al, dir: (stp.arc.dir || 0) * (cs.mirror ? -1 : 1) };
+                }
+              }
             }
           }
         }
@@ -1015,6 +1206,21 @@
           if (!cs.pivotYaw0) { cs.pivotYaw0 = [this.feet[0].yaw, this.feet[1].yaw]; cs.pivotFace0 = this.facing; }
           const turn = U.wrapPi(this.facing - cs.pivotFace0);
           for (const f of this.feet) if ((pv.side === 2 || f.side === pv.side) && f.state === 'plant') f.yaw = cs.pivotYaw0[f.side] + turn;
+        }
+        // a list of pivots in the clip's own (right-handed) terms, one foot after the other (a spin); the turn is
+        // summed frame by frame, so one past 180 degrees keeps going the same way
+        const pvs = clip.pivots;
+        if (pvs) {
+          const st = cs.pivotSt || (cs.pivotSt = []);
+          for (let i = 0; i < pvs.length; i++) {
+            const q = pvs[i];
+            if (cs.t < q.t0 || cs.t > q.t1) continue;
+            const f = this.feet[cs.mirror ? 1 - q.side : q.side];
+            if (!st[i]) st[i] = { yaw: f.yaw, prev: this.facing, acc: 0 };
+            const e = st[i];
+            e.acc += U.wrapPi(this.facing - e.prev); e.prev = this.facing;
+            if (f.state === 'plant') f.yaw = e.yaw + e.acc;
+          }
         }
       }
       // hands on the spot (a dunker grabbing the rim): an explicit IK target, eased in and out
@@ -1042,7 +1248,8 @@
       for (let side = 0; side < 2; side++) if (this.handTarget[side] && this.handTarget[side].reach) this.handTarget[side] = null;
       this.jumpZ = 0;
       for (const f of this.feet) if (f.state === 'air') this._landFoot(f, this.facing);
-      this.vx *= 0.5; this.vy *= 0.5;
+      // (a move that goes somewhere, a spin, hands its speed on to the run out of it)
+      if (!cs.clip.keepV) { this.vx *= 0.5; this.vy *= 0.5; }
       // keep any goal issued while the clip was playing (play() cleared the old one)
       if (cs.onEnd) U.safe(() => cs.onEnd(this), null, 'clip end');
     }
@@ -1656,7 +1863,8 @@
         const gd = this._guardDir(this._inDt);
         const wG = gd.w * (0.2 + 0.8 * this.rHandle);
         const moveK = U.smooth((this.speed - 1.5) / 4), runK = U.smooth((this.speed - 12) / 6);
-        const wOff = 0.85 * wAll * (1 - 0.85 * runK * (1 - wG));
+        const ownArm = this.clip && this.clip.clip.offArm ? U.smooth(this.clip.w) * (1 - U.smooth((this.clip.t - this.clip.clip.dur + 0.2) / 0.2)) : 0;
+        const wOff = 0.85 * wAll * (1 - 0.85 * runK * (1 - wG)) * (1 - ownArm);
         for (let k = 0; k < GUARD_CH.length; k++) {
           const c = GUARD_CH[k], g = GUARD_FRONT[k] + (GUARD_SIDE[k] - GUARD_FRONT[k]) * gd.side;
           const base = GUARD_HANG[k] + (GUARD_OUT[k] - GUARD_HANG[k]) * moveK;
