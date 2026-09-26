@@ -212,6 +212,14 @@
     play(name, o) {
       const clip = typeof name === 'string' ? A.get(name) : name;
       if (!clip) return null;
+      // reaching for the ball commits the body: a lunge onto the front foot toward it, the off arm back for balance,
+      // and back out; the man with the ball protects it
+      if (clip.name === 'swipe' && this.kind === 'player') {
+        const b = this.view && this.view.ball, bh = b && b.holder && b.holder !== this ? b.holder : null;
+        const tx = bh ? bh.x : b ? b.x : this.x + Math.cos(this.facing), ty = bh ? bh.y : b ? b.y : this.y + Math.sin(this.facing);
+        this._lunge = { t: this.time, a: Math.atan2(ty - this.y, tx - this.x), stepped: false };
+        if (bh && Math.hypot(bh.x - this.x, bh.y - this.y) < 7 && bh.protectBall) bh.protectBall(this.x, this.y, 0.08);
+      }
       o = Object.assign({}, o || {});
       if (o.mirror == null) o.mirror = this.lefty && clip.handed !== false;
       const cs = new ClipState(clip, Object.assign({ x: this.x, y: this.y, facing: this.facing }, o));
@@ -245,7 +253,28 @@
       const s = Math.min(speed, 12), h = this.hit;
       if (h && h.t < 0.2 && h.s >= s) return;
       // (how much it shows: a brush barely, a real collision clearly; up to ~0.5 ft off his line)
-      this.hit = { nx, ny, s, k: U.smooth((s - 2.5) / 7), t: 0 };
+      const air = (this.jumpZ || 0) > 0.15;
+      this.hit = { nx, ny, s, k: U.smooth((s - 2.5) / 7), t: 0, air };
+      // knocked hard enough, he has to catch his balance: a quick step the way he was pushed (in the air, when he
+      // comes down)
+      // (not leaning on a man on purpose, a box-out, a post-up or a screen, where the bodies push all the time)
+      const lean = this.stance === 'boxout' || this.stance === 'postD' || this.stance === 'postUp' || this.stance === 'screen';
+      if (s > 6.5 && !lean && (air || !this.clip)) this._stumble = { nx, ny, k: U.smooth((s - 6) / 6), t: air ? null : this.time + 0.06 };
+    }
+    /** a defender reaching for the ball: he protects it, the near shoulder turned into the reach and the ball pulled
+     *  away to the far side and down (a dribble drops toward the knees), the head up to see the reach; ~0.6 s */
+    protectBall(fx, fy, delay) {
+      if (!this.hasBall) return;
+      const rel = U.wrapPi(Math.atan2(fy - this.y, fx - this.x) - this.facing);
+      // (a reach from behind gets the body turned, not the ball swung round in front)
+      this._protect = { t: this.time + (delay || 0), sgn: rel >= 0 ? 1 : -1, k: 1 - 0.6 * U.smooth((Math.abs(rel) - 2.2) / 0.6) };
+    }
+    _protectK() {
+      const pr = this._protect;
+      if (!pr) return 0;
+      const t = this.time - pr.t;
+      if (t > 0.7) { this._protect = null; return 0; }
+      return t < 0 ? 0 : U.smooth(t / 0.1) * (1 - U.smooth((t - 0.4) / 0.3)) * pr.k;
     }
     /**
      * pivot to face `angle` on a planted foot (a face-up after a catch, the post turn): the pivot foot keeps its spot
@@ -515,7 +544,11 @@
       // how hard a jump comes down: the legs give on landing in proportion (see buildPose)
       if (dt > 0) {
         const jz = this.jumpZ || 0, pz = this._jzPrev == null ? jz : this._jzPrev;
-        if (pz > 0.03 && jz <= 0.03 && (this._jzV || 0) < -3) this._absorb = { v: -this._jzV, t: this.time };
+        if (pz > 0.03 && jz <= 0.03 && (this._jzV || 0) < -3) {
+          this._absorb = { v: -this._jzV, t: this.time };
+          // (knocked in the air: he comes down off balance and has to catch himself)
+          if (this._stumble && this._stumble.t == null) this._stumble.t = this.time + 0.05;
+        }
         this._jzV = (jz - pz) / dt; this._jzPrev = jz;
       }
       if (this.upper) this._updateUpper(dt);
@@ -524,6 +557,7 @@
         this._turn(dt);
         this._locomote(dt);
       }
+      this._contactSteps();
       if (this.stanceBlend < 1) this.stanceBlend = Math.min(1, this.stanceBlend + dt / 0.28);
       if (this.aim_) {
         const a = this.aim_;
@@ -536,6 +570,41 @@
       this.stillT = (!this.clip && this.speed < 0.6) ? (this.stillT || 0) + dt : 0;
     }
 
+    /** steps forced by contact: the lunge of a reach (the front foot toward the ball, standing) and the step that
+     *  catches the balance after a hard bump (the foot furthest the way he was pushed goes further that way) */
+    _contactSteps() {
+      const H = this.H;
+      const lg = this._lunge;
+      if (lg) {
+        const t = this.time - lg.t;
+        if (t > 0.7) this._lunge = null;
+        else if (!lg.stepped && t > 0.02) {
+          lg.stepped = true;
+          const f = this.feet[1];
+          if (!this.clip && !this.gaitOn && f.state === 'plant') {
+            const c = Math.cos(lg.a), s = Math.sin(lg.a), d = 0.12 * H;
+            this._sepTarget(f, f.x + c * d, f.y + s * d, TD);
+            this._beginStep(f, TD[0], TD[1], f.yaw, 0.16, 0.03);
+          }
+        }
+      }
+      const sb = this._stumble;
+      if (sb && sb.t != null && this.time >= sb.t) {
+        this._stumble = null;
+        // (on the move the stride takes the push; a forced step in the middle of it tangled the feet)
+        if (this.clip || (this.gaitOn && this.speed > 2)) return;
+        let best = null, bd = -1e9;
+        for (const f of this.feet) {
+          if (f.state !== 'plant') continue;
+          const d = (f.x - this.x) * sb.nx + (f.y - this.y) * sb.ny;
+          if (d > bd) { bd = d; best = f; }
+        }
+        if (!best) return;
+        const L = (0.05 + 0.07 * sb.k) * H;
+        this._sepTarget(best, best.x + sb.nx * L, best.y + sb.ny * L, TD);
+        this._beginStep(best, TD[0], TD[1], best.yaw, 0.15, 0.03);
+      }
+    }
     _steer(dt) {
       const g = this.goal;
       let dvx = 0, dvy = 0;
@@ -1514,6 +1583,9 @@
         case 'low': out[0] = 0.02 * H * m; out[1] = 0.17 * H; out[2] = 0.36 * H; break;
         default: out[0] = 0; out[1] = 0.16 * H; out[2] = 0.66 * H;
       }
+      // (protecting it from a reach: pulled away to the far side and down)
+      const pk = this._protectK();
+      if (pk > 0.001) { out[0] += this._protect.sgn * 0.07 * H * pk; out[1] -= 0.05 * H * pk; out[2] -= 0.06 * H * pk; }
       // the holds are set for a player standing tall: sitting lower and leaning in, the chest (and the ball held in
       // front of it) comes down and forward with him (a fixed spot ended up inside a crouched player's chest)
       const q = this.pose;
@@ -1530,7 +1602,7 @@
     dribbleDepth() {
       // (driving he stays down in it; only running it out in the open does the dribble come back up)
       const st = this.stance === 'dribble' ? 0.35 * (1 - U.smooth((this.speed - 10) / 8)) : 0;
-      return Math.max(this.dribbleLow || 0, st);
+      return Math.max(this.dribbleLow || 0, st, this._protectK());
     }
     /** the dribble's shape for how he is moving (H-fractions, body frame, x toward the dribble hand): tx/ty = where
      *  the hand has the ball at the top, cx/cy = where it meets the floor, top = its height at the top. Sizing up
@@ -1544,6 +1616,9 @@
       o.cx = o.tx + 0.01;
       o.cy = o.ty + 0.05 + 0.22 * spK;
       o.top = 0.5 - 0.2 * low - 0.03 * spK;
+      // (protecting it from a reach: the dribble pulled back beside the hip, a little wider)
+      const pk = this._protectK();
+      if (pk > 0.001) { o.ty -= 0.12 * pk; o.cy -= 0.12 * pk; o.tx += 0.03 * pk; o.cx += 0.03 * pk; }
       o.low = low; o.spK = spK; o.still = still;
       return o;
     }
@@ -1752,6 +1827,32 @@
         p[CH.spFlex] += fwd * 8 * D * k; p[CH.chFlex] += fwd * 5 * D * k;
         p[CH.nkLat] -= lat * 7 * D * k; p[CH.nkFlex] -= fwd * 6 * D * k;
         p[CH.lShA] += 16 * D * k; p[CH.rShA] += 16 * D * k; p[CH.lElF] += 10 * D * k; p[CH.rElF] += 10 * D * k;
+        // in the air nothing holds the legs: the body turns about its middle, the hips and legs swinging the other
+        // way from the shoulders
+        if (hit.air) {
+          p[CH.pelRoll] -= lat * 10 * D * k; p[CH.pelPitch] -= fwd * 6 * D * k;
+          p[CH.lHipA] += lat * 6 * D * k; p[CH.rHipA] -= lat * 6 * D * k;
+        }
+      }
+      // reaching for the ball: the weight goes onto the front foot toward it (the hips forward and down, the trunk
+      // over), the other arm back, and he comes back out of it
+      const lg = this._lunge;
+      if (lg) {
+        const t = this.time - lg.t, e = t < 0.2 ? U.smooth(t / 0.2) : 1 - U.smooth((t - 0.2) / 0.4);
+        if (e > 0.001) {
+          const rel = U.wrapPi(lg.a - this.facing), f = Math.cos(rel), r = -Math.sin(rel);
+          p[CH.rootY] += 0.35 * f * e; p[CH.rootX] += 0.35 * r * e; p[CH.rootZ] -= 0.05 * e;
+          p[CH.pelPitch] += 10 * D * e; p[CH.spFlex] += 4 * D * e;
+          p[CH.lShF] -= 25 * D * e; p[CH.lShA] += 15 * D * e;
+        }
+      }
+      // protecting the ball from a reach: the near shoulder turned into it, leaning away, a little lower, eyes on it
+      const pk = this._protectK();
+      if (pk > 0.001) {
+        const sg = this._protect.sgn;
+        p[CH.chTwist] -= sg * 18 * D * pk; p[CH.spTwist] -= sg * 10 * D * pk; p[CH.pelTwist] -= sg * 6 * D * pk;
+        p[CH.spLat] += sg * 5 * D * pk; p[CH.rootZ] -= 0.025 * pk;
+        p[CH.nkTwist] += sg * 16 * D * pk; p[CH.hdTwist] += sg * 6 * D * pk;
       }
       // 6. procedural overlays (dribble arm etc.) handled in IK stage
     }

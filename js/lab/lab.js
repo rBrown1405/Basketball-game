@@ -160,6 +160,30 @@
     c.at(1.2, () => c.a.play('hesi'));
   });
   add('Ball', 'triple', 'Triple threat', 5, (c) => { c.b.give(c.a, 'triple'); c.a.setStance('triple'); });
+  // contact: the body reacting to other bodies (the lab has no collisions of its own, so the pushes are applied here)
+  add('Contact', 'reach', 'Reach for a steal (the dribbler protects)', 3.2, (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble');
+    c.d.place(c.x0 + c.fx * 4.4 + c.rx * 0.6, c.y0 + c.fy * 4.4 + c.ry * 0.6, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    c.at(1.0, () => c.d.play('swipe', { mirror: false }));
+    c.at(2.2, () => c.d.play('swipe', { mirror: false }));
+  }, { two: true });
+  add('Contact', 'reachHold', 'Reach at a held ball (he rips it away)', 2.6, (c) => {
+    c.b.give(c.a, 'triple'); c.a.setStance('triple');
+    c.d.place(c.x0 + c.fx * 4.2 - c.rx * 0.4, c.y0 + c.fy * 4.2 - c.ry * 0.4, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    c.at(1.0, () => c.d.play('swipe', { mirror: false }));
+  }, { two: true });
+  add('Contact', 'bump', 'Bumped from the side, then the front', 4, (c) => {
+    c.a.setStance('ready');
+    c.at(1.0, () => c.a.impact(-c.rx, -c.ry, 10));
+    c.at(2.6, () => c.a.impact(-c.fx, -c.fy, 9));
+  });
+  add('Contact', 'airhit', 'Hit in the air (rebound jump)', 2.8, (c) => {
+    c.a.setStance('ready');
+    c.at(0.4, () => c.a.play('rebound'));
+    c.at(1.0, () => c.a.impact(c.rx, c.ry, 11));
+  });
   add('Ball', 'djumpstop', 'Drive into a jump stop, face the pass', 3.6, (c) => {
     c.b.dribble(c.a); c.a.setStance('dribble');
     c.at(0.3, () => go(c, 60, 14));

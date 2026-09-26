@@ -244,6 +244,22 @@ Animation Lab shows the key pose a stride is at and steps to the next one (`P`).
 | The dip before a jump | each jump keeps its drawn countermovement, checked in the lab: a rebound dips ~0.75 ft (knee ~83 deg) before a ~1.6 ft jump, quick blocks and tips ~0.45 ft (knee ~65 deg), a jump shot ~0.6 ft | |
 | Scripted steps | a step that starts while that foot is still in the air goes on from where the foot is (it used to restart from the spot it last stood on and jumped back there for a frame) | |
 
+## Contact reactions, Euphoria style (actor.js, lab.js)
+
+NaturalMotion's Euphoria simulates the body and a simple nervous system so characters balance against pushes, stumble
+and catch themselves. Without a physics solver the same behaviours are layered on the procedural body, driven by the
+real contacts (the game's body collisions already knock both players by their share of the momentum):
+
+| Behaviour | How | Sources |
+|---|---|---|
+| Catching the balance | a hard bump (over ~6.5 ft/s of closing speed) on a player standing makes him step: the foot furthest the way he was pushed goes further that way (~0.3-0.8 ft by the force), on top of the torso going with the push, the head lagging and the arms coming out. On the move the stride takes the push, and players leaning on a man on purpose (a box-out, a post-up, a screen) do not stumble | https://en.wikipedia.org/wiki/Euphoria_(software) |
+| Hit in the air | nothing holds the legs: the body turns about its middle, the hips and legs swinging the other way from the shoulders; he lands off balance and takes the catch step as he comes down | https://en.wikipedia.org/wiki/Euphoria_(software) |
+| Reaching for the ball | the reach commits the body: a lunge onto the front foot toward the ball (a step when standing), the hips forward and down, the other arm back for balance, then back out of it | https://www.rockstaracademy.com/blog/defensive-strategies-to-get-more-steal-in-basketball , https://hooptactics.net/premium/player/defskilldevelopment/defdribbler.php |
+| Protecting the ball | the man with the ball reacts ~0.08 s later: the near shoulder turned into the reach, leaning away, a little lower, eyes on it; a held ball is ripped to the far hip and down (~0.5 ft), a dribble drops toward the knees and is pulled back beside the hip | https://www.levelupbasket.com/crossover-dribble |
+
+The Animation Lab's Contact group plays each one: a reach at a dribble and at a held ball, a bump from the side and
+then the front, and a hit in the air on a rebound jump.
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the
