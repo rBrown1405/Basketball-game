@@ -141,9 +141,11 @@
       fx = U.clamp(fx, lim[0], lim[1]);
       if (focus && focus.snap) { this.pan.x = fx; this.pan.v = 0; }
       else {
-        U.spring(this.pan, fx, 2.6, Math.min(dt, 0.1));
-        // smooth and purposeful: cap the pan rate (~15 deg/s at broadcast distance)
-        const vmax = 22;
+        const urg = focus && focus.urgent ? focus.urgent : 0;
+        U.spring(this.pan, fx, 2.6 + 2.4 * urg, Math.min(dt, 0.1));
+        // smooth and purposeful: cap the pan rate (~15 deg/s at broadcast distance), unless the ball is about to
+        // leave the picture
+        const vmax = 22 + 34 * urg;
         if (this.pan.v > vmax) this.pan.v = vmax; else if (this.pan.v < -vmax) this.pan.v = -vmax;
       }
       this.pan.x = U.clamp(this.pan.x, lim[0] - 2, lim[1] + 2);

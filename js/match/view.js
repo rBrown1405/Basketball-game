@@ -408,9 +408,20 @@
           fx = this._camAim; vx = vaim;
         }
       } else this._camAim = null;
+      // whatever the framing, the ball stays well inside the picture: the aim gives way toward it, and the operator
+      // whips the pan faster when it is running out of frame (an outlet pass, a fast break)
+      const b = this.ball;
+      let urgent = 0;
+      if (!(hint && hint.x != null) && b && isFinite(b.x)) {
+        const hw = this.camRig.halfWidthAt(U.clamp(b.y, 0, 50));
+        const keep = hw * 0.62;
+        if (b.x > fx + keep) fx = b.x - keep; else if (b.x < fx - keep) fx = b.x + keep;
+        const off = Math.abs(b.x - this.cam.x);
+        urgent = U.smooth((off - hw * 0.55) / (hw * 0.3));
+      }
       // sub-step so the camera keeps up at high playback speeds
       let left = Math.min(dt, 2);
-      const f = { x: fx, vx: vx * 0.6 };
+      const f = { x: fx, vx: vx * 0.6, urgent };
       do { const h = Math.min(0.05, left); this.camRig.update(h, f); left -= h; } while (left > 1e-6);
     }
 

@@ -1859,7 +1859,7 @@
       if (first) {
         this.ftSetup = true;
         setup = Math.max(this.placeForFT(sh), busy + Math.hypot(sh.x - spot.x, sh.y - spot.y) / 10 + 0.4);
-        v.camHint = { x: this.rim.x - this.dir * 18, hold: 99, tight: true };
+        v.camHint = { x: this.rim.x - this.dir * 11.5, hold: 99, tight: true }; // shooter and basket both in the picture
       } else {
         // the last one has to come down through the net and the official has to get it back first
         setup = Math.max(1.5, busy);
