@@ -75,8 +75,9 @@
         actor._holdS = null; // a new hold starts where it belongs (the toss below covers the distance)
         const p = actor.heldBallPos(this._tmp);
         const jump = Math.hypot(p[0] - this.x, p[1] - this.y, p[2] - this.z);
-        // never pop: a far hand-over becomes a short toss into the hands
-        if (jump > 1.2 && isFinite(jump)) { this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 16, 0.26, 0.55) }; }
+        // never pop: a far hand-over becomes a short toss into the hands, a near one a quick slide into them
+        if (jump > 1.2 && isFinite(jump)) { this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 16, 0.26, 0.55), arc: 1 }; }
+        else if (jump > 0.2 && isFinite(jump)) { this.blend = { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 8, 0.06, 0.15), arc: 0 }; }
         else { this.blend = null; this.x = p[0]; this.y = p[1]; this.z = p[2]; }
       }
       this.spin[0] = this.spin[1] = this.spin[2] = 0;
@@ -331,7 +332,7 @@
           bl.t += dt;
           const u = U.clamp(bl.t / bl.dur, 0, 1), e = U.smooth(u);
           this.x = U.lerp(bl.x, p[0], e); this.y = U.lerp(bl.y, p[1], e);
-          this.z = U.lerp(bl.z, p[2], e) + Math.sin(Math.PI * u) * Math.min(2.5, bl.dur * 5);
+          this.z = U.lerp(bl.z, p[2], e) + (bl.arc === 0 ? 0 : Math.sin(Math.PI * u) * Math.min(2.5, bl.dur * 5));
           if (u >= 1) this.blend = null;
         } else { this.x = p[0]; this.y = p[1]; this.z = p[2]; }
       } else if (this.state === 'dribble' && this.dr) {

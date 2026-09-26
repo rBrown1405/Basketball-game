@@ -343,8 +343,10 @@
           a.x -= nx * k * la / tot; a.y -= ny * k * la / tot;
           b.x += nx * k * lb / tot; b.y += ny * k * lb / tot;
           // contact: stop pressing into each other (inelastic along the contact normal) so steering slides
-          // them around one another instead of re-penetrating every frame
-          const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          // them around one another instead of re-penetrating every frame; bodies are soft, so a light touch takes
+          // the closing speed off over ~0.1 s (all at once, a runner lost half his speed in one frame and his stride
+          // jumped), a deep one at once
+          const rv = ((b.vx - a.vx) * nx + (b.vy - a.vy) * ny) * Math.max(1 - Math.exp(-h / 0.05), U.clamp(push / (0.3 * minD), 0, 1));
           if (rv < 0) {
             a.vx += nx * rv * la / tot; a.vy += ny * rv * la / tot;
             b.vx -= nx * rv * lb / tot; b.vy -= ny * rv * lb / tot;

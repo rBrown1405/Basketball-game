@@ -772,17 +772,33 @@
           const bx = ballSpot.x, byy = ballSpot.y;
           by.moveTo(bx, byy, { speed: 14, face: 'move' });
           const tPick = this.T + Math.min(fireAt - this.T - 0.35 - tOut - 0.5, tToBall);
-          this.at(tPick, () => {
+          // after a make the ball is often still dropping out of the net or bouncing: go get it, catch it at chest
+          // height on the way down, or bend and pick it up once it is on the floor (a floor pickup for a ball that
+          // is still in the air had the hands jump from the floor to the ball)
+          const tLast = fireAt - 0.35 - tOut;
+          const grab = () => {
             if (b.holder && b.holder.team === this.off) return;
+            const late = this.T > Math.min(tPick + 0.8, tLast - 0.35);
+            const dh = Math.hypot(b.x - by.x, b.y - by.y);
+            if (!late && (dh > 2.3 || b.z > 5.2)) {
+              if (dh > 1.0) by.moveTo(U.clamp(b.x, 0.5, 93.5), U.clamp(b.y, 1, 49), { speed: 14, face: 'move' });
+              this.at(this.T + 0.05, grab, 'pickup wait');
+              return;
+            }
+            if (b.z > 1.8) { if (!by.isBusy()) by.play('catch', { mirror: false }); this.giveBall(by, 'chest'); return; }
             by.play('pickup', { onEvent: (n) => { if (n === 'grab') this.giveBall(by, 'chest'); } });
             this.at(this.T + 0.45, () => { if (b.holder !== by) this.giveBall(by, 'chest'); }, 'pickup safety');
-          }, 'pickup');
-          // right after the pickup: back out of bounds facing the court, then set up to pass
-          this.at(Math.min(tPick + 0.5, fireAt - 0.35 - tOut), () => {
+          };
+          this.at(tPick, grab, 'pickup');
+          // once he has it: back out of bounds facing the court, then set up to pass
+          const stepOut = () => {
+            if (b.holder !== by && this.T < tLast) { this.at(this.T + 0.05, stepOut, 'step out wait'); return; }
+            if (by.clip && by.clip.clip.name === 'pickup' && by.clip.t < 0.6 && this.T < tLast) { this.at(this.T + 0.05, stepOut, 'step out wait'); return; }
             by.stopClip();
             if (b.holder !== by) this.giveBall(by, 'chest');
             by.moveTo(ix, iy, { speed: 8, by: fireAt - 0.3, face: { x: rcv.x, y: rcv.y } });
-          }, 'step out');
+          };
+          this.at(Math.min(tPick + 0.5, tLast), stepOut, 'step out');
         } else {
           if (!b.holder || b.holder.team !== this.off) {
             // referee takes the ball to the spot and bounces it to the inbounder

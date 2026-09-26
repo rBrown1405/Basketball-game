@@ -148,6 +148,21 @@
       this.armIK = [{ on: 0, x: 0, y: 0, z: 0, pole: null }, { on: 0, x: 0, y: 0, z: 0, pole: null }];
       this.facing = 0; this.x = 0; this.y = 0;
       this._v = new Float64Array(3);
+      this.inertL = null;
+      this._iv = new Float64Array(6);
+    }
+
+    /** inertialize the legs that are off the floor (air0/air1); a leg on the floor follows its IK exactly */
+    inertLegs(dt, air0, air1) {
+      const p = this.pose, v = this._iv;
+      if (!this.inertL) this.inertL = [0, 1].map(() => new Inert(LEG_INERT_IDX, LEG_INERT_ANG, LEG_INERT_THR, 0.06));
+      for (let side = 0; side < 2; side++) {
+        const pre = side ? 'r' : 'l', ie = this.inertL[side];
+        for (let i = 0; i < 6; i++) v[i] = p[CH[pre + LEG_INERT[i]]];
+        if (!ie.apply(v, dt, side ? air1 : air0)) continue;
+        for (let i = 0; i < 6; i++) p[CH[pre + LEG_INERT[i]]] = v[i];
+        this._legFK(side);
+      }
     }
 
     /** full solve: root at ground point (x,y), body facing phi */
@@ -208,9 +223,23 @@
         elev = U.lerp(Math.acos(U.clamp(Math.cos(p[CH[pre + 'ShF']]) * Math.cos(p[CH[pre + 'ShA']]), -1, 1)), Math.acos(U.clamp(-Dz / dl, -1, 1)), Math.min(1, ik.on));
       } else elev = Math.acos(U.clamp(Math.cos(p[CH[pre + 'ShF']]) * Math.cos(p[CH[pre + 'ShA']]), -1, 1));
       const shrug = U.smooth((elev - 1.2) / 1.9) * 1.25;
-      xf(R, 18, P[6], P[7], P[8], sg * d.shX, -0.006 * H + p[CH[pre + 'ClvP']] * 0.03 * H, d.shZ + (p[CH[pre + 'ClvE']] + shrug) * 0.035 * H, P, o);
+      this._shoulder(side, shrug);
       if (ik.on > 0.001) this._armIK(side, pre, sg, P[o], P[o + 1], P[o + 2]);
+      else { ik.hf = null; ik.hb = null; }
       limitArm(p, pre);
+      this._armFK(side);
+    }
+    _shoulder(side, shrug) {
+      const d = this.dims, H = d.H, P = this.P, R = this.R, p = this.pose;
+      const sg = side === 0 ? -1 : 1, pre = side === 0 ? 'l' : 'r';
+      const o = (side === 0 ? J.L_SH : J.R_SH) * 3;
+      xf(R, 18, P[6], P[7], P[8], sg * d.shX, -0.006 * H + p[CH[pre + 'ClvP']] * 0.03 * H, d.shZ + (p[CH[pre + 'ClvE']] + shrug) * 0.035 * H, P, o);
+    }
+    /** forward kinematics of one arm from the shoulder joint and the pose angles */
+    _armFK(side) {
+      const d = this.dims, H = d.H, P = this.P, R = this.R, p = this.pose;
+      const sg = side === 0 ? -1 : 1, pre = side === 0 ? 'l' : 'r';
+      const o = (side === 0 ? J.L_SH : J.R_SH) * 3, fUA = side === 0 ? F.L_UA : F.R_UA;
       const ua = fUA * 9, fa = ua + 9, hd = fa + 9;
       mulRot(R, 18, 0, p[CH[pre + 'ShF']], R, ua);
       mulRot(R, ua, 1, -sg * p[CH[pre + 'ShA']], R, ua);
@@ -226,12 +255,30 @@
     }
 
     _armIK(side, pre, sg, sx, sy, sz) {
-      const d = this.dims, p = this.pose, R = this.R, ik = this.armIK[side];
+      const d = this.dims, p = this.pose, R = this.R, P = this.P, ik = this.armIK[side];
       // target wrist in chest frame
       const wx = ik.x - sx, wy = ik.y - sy, wz = ik.z - sz;
-      const Dx = R[18] * wx + R[21] * wy + R[24] * wz;
-      const Dy = R[19] * wx + R[22] * wy + R[25] * wz;
-      const Dz = R[20] * wx + R[23] * wy + R[26] * wz;
+      let Dx = R[18] * wx + R[21] * wy + R[24] * wz;
+      let Dy = R[19] * wx + R[22] * wy + R[25] * wz;
+      let Dz = R[20] * wx + R[23] * wy + R[26] * wz;
+      const w = Math.min(1, ik.on);
+      let px = 0, py = 0, pz = 0, pole = ik.pole;
+      if (w < 0.999) {
+        // part weight: blend where the WRIST goes (from the animated arm's wrist to the target) and solve the arm
+        // fully; blending the two solutions' joint angles swung the arm through odd, even flipping, paths
+        this._armFK(side);
+        const o = (side === 0 ? J.L_SH : J.R_SH) * 3;
+        const ax = P[o + 6] - sx, ay = P[o + 7] - sy, az = P[o + 8] - sz;
+        const fx = R[18] * ax + R[21] * ay + R[24] * az, fy = R[19] * ax + R[22] * ay + R[25] * az, fz = R[20] * ax + R[23] * ay + R[26] * az;
+        Dx = fx + (Dx - fx) * w; Dy = fy + (Dy - fy) * w; Dz = fz + (Dz - fz) * w;
+        if (pole) {
+          // and the elbow turns from where the animated elbow points to the pole
+          const ex = P[o + 3] - sx, ey = P[o + 4] - sy, ez = P[o + 5] - sz;
+          const qx = R[18] * ex + R[21] * ey + R[24] * ez, qy = R[19] * ex + R[22] * ey + R[25] * ez, qz = R[20] * ex + R[23] * ey + R[26] * ez;
+          const ql = Math.hypot(qx, qy, qz) || 1, pl = Math.hypot(pole[0], pole[1], pole[2]) || 1;
+          px = qx / ql * (1 - w) + pole[0] * sg / pl * w; py = qy / ql * (1 - w) + pole[1] / pl * w; pz = qz / ql * (1 - w) + pole[2] / pl * w;
+        }
+      } else if (pole) { px = pole[0] * sg; py = pole[1]; pz = pole[2]; }
       const L1 = d.ua, L2 = d.fa;
       let dist = Math.sqrt(Dx * Dx + Dy * Dy + Dz * Dz);
       const dmax = (L1 + L2) * 0.9995, dmin = Math.abs(L1 - L2) + 0.25 * L2;
@@ -240,25 +287,26 @@
       const e = Math.acos(cosE);
       const sc = dist > 1e-6 ? dd / dist : 1;
       const nx = Dx * sc, ny = Dy * sc, nz = Dz * sc;
-      const F0 = p[CH[pre + 'ShF']], A0 = p[CH[pre + 'ShA']], E0 = p[CH[pre + 'ElF']], T0 = p[CH[pre + 'ShT']];
+      const F0 = p[CH[pre + 'ShF']], A0 = p[CH[pre + 'ShA']], T0 = p[CH[pre + 'ShT']];
+      // the shoulder angles have two equivalent solutions (see armPole): between valid ones, the one nearest the
+      // arm's last frame (the authored pose is a poor guide when it is far from the reach, e.g. a dribble out of a
+      // box-out stance, where a near tie flipped the arm)
+      const hf = ik.hf != null ? ik.hf : F0, hb = ik.hb != null ? ik.hb : -sg * A0;
       let sf, sa, st = T0;
-      if (ik.pole) {
+      if (pole) {
         // swivel from a pole: the elbow bends toward a natural direction (down, a little out and back for low
         // hands) instead of wherever the authored twist points it - no elbows folded into the chest
-        const sol = armPole(nx, ny, nz, dd, L1, L2, ik.pole[0] * sg, ik.pole[1], ik.pole[2], sg, F0, -sg * A0);
+        const sol = armPole(nx, ny, nz, dd, L1, L2, px, py, pz, sg, hf, hb);
         sf = sol.f; sa = -sg * sol.b; st = sg * sol.t;
       } else {
         const Vy = L2 * Math.sin(e), Vz = -L1 - L2 * Math.cos(e);
         const tw = sg * T0;
         const Wx = -Vy * Math.sin(tw), Wy = Vy * Math.cos(tw), Wz = Vz;
-        const sol = solve2(Wx, Wy, Wz, nx, ny, nz, -sg * A0);
+        const sol = solve2(Wx, Wy, Wz, nx, ny, nz, hb, sg, tw);
         sf = sol.f; sa = -sg * sol.b;
       }
-      const w = ik.on;
-      p[CH[pre + 'ShF']] = w >= 1 ? sf : U.angLerp(F0, sf, w);
-      p[CH[pre + 'ShA']] = w >= 1 ? sa : U.angLerp(A0, sa, w);
-      p[CH[pre + 'ShT']] = w >= 1 ? st : U.angLerp(T0, st, w);
-      p[CH[pre + 'ElF']] = w >= 1 ? e : U.lerp(E0, e, w);
+      ik.hf = sf; ik.hb = -sg * sa;
+      p[CH[pre + 'ShF']] = sf; p[CH[pre + 'ShA']] = sa; p[CH[pre + 'ShT']] = st; p[CH[pre + 'ElF']] = e;
     }
 
     _leg(side) {
@@ -269,6 +317,14 @@
       xf(R, 0, P[0], P[1], P[2], sg * d.hipX, 0.004 * H, -0.012 * H, P, o);
       const ik = this.legIK[side];
       if (ik.on > 0.001) this._legIK(side, pre, sg, P[o], P[o + 1], P[o + 2]);
+      this._legFK(side);
+    }
+    /** forward kinematics of one leg from the hip joint and the pose angles (planted feet keep their floor frame) */
+    _legFK(side) {
+      const d = this.dims, H = d.H, P = this.P, R = this.R, p = this.pose;
+      const sg = side === 0 ? -1 : 1, pre = side === 0 ? 'l' : 'r';
+      const o = (side === 0 ? J.L_HIP : J.R_HIP) * 3, fTH = side === 0 ? F.L_TH : F.R_TH;
+      const ik = this.legIK[side];
       const th = fTH * 9, sh = th + 9, ft = sh + 9;
       mulRot(R, 0, 0, p[CH[pre + 'HipF']], R, th);
       mulRot(R, th, 1, -sg * p[CH[pre + 'HipA']], R, th);
@@ -345,6 +401,87 @@
     jz(j) { return this.P[j * 3 + 2]; }
   }
 
+  // ------------------------------------------------------------ inertialization
+  // A body part whose solved pose jumps between two frames (a grip that changes, arm IK switching on or off, a
+  // stance or a clip handing a channel to a different pose, a look-at target changing sides) is never shown
+  // jumping: the part of the change that the channel's own velocity does not explain goes into an offset, and
+  // the offset dies away with a critically damped spring, so the part travels to its new pose in ~0.2 s with no
+  // pop and no lag the rest of the time (inertialization: D. Bollo, "Inertialization: High-Performance Animation
+  // Transitions in Gears of War", GDC 2018; D. Holden, "Dead Blending", 2023).
+  class Inert {
+    /** idx: indices into the array given to apply(); ang[i]: 1 = angle (wrapped); thr[i]: the smallest
+     *  unexplained change per 60 Hz frame treated as a jump; hl: half-life of the offset (s) */
+    constructor(idx, ang, thr, hl) {
+      const n = idx.length;
+      this.idx = idx; this.ang = ang; this.thr = thr; this.hl = hl || 0.065;
+      this.raw = new Float64Array(n); this.vel = new Float64Array(n);
+      this.off = new Float64Array(n); this.offV = new Float64Array(n);
+      this.jmp = new Float64Array(n); this.dlt = new Float64Array(n);
+      this.init = false; this.mag = 0;
+    }
+    reset() { this.init = false; this.mag = 0; }
+    /** v: values (raw in, smoothed out, in place); dt: time since the previous frame (0 = the same frame again);
+     *  allow === false: only follow the raw values (no offset). Returns true when an offset is active (v changed). */
+    apply(v, dt, allow) {
+      const n = this.idx.length, idx = this.idx;
+      if (allow === false && this.init && dt >= 0 && dt <= 0.12) {
+        for (let i = 0; i < n; i++) {
+          const r = v[idx[i]];
+          if (dt > 0) this.vel[i] = (this.ang[i] ? U.wrapPi(r - this.raw[i]) : r - this.raw[i]) / dt;
+          this.raw[i] = r; this.off[i] = 0; this.offV[i] = 0;
+        }
+        this.mag = 0;
+        return false;
+      }
+      if (!this.init || !(dt >= 0) || dt > 0.12) {
+        // first frame, or a long gap (fast-forward, off screen): start clean
+        for (let i = 0; i < n; i++) { this.raw[i] = v[idx[i]]; this.vel[i] = 0; this.off[i] = 0; this.offV[i] = 0; }
+        this.init = true; this.mag = 0;
+        return false;
+      }
+      if (dt > 0) {
+        let big = false;
+        const tk = 0.6 + 24 * dt;
+        this.cool = Math.max(0, (this.cool || 0) - dt);
+        for (let i = 0; i < n; i++) {
+          const r = v[idx[i]];
+          const d = this.ang[i] ? U.wrapPi(r - this.raw[i]) : r - this.raw[i];
+          const j = d - this.vel[i] * dt;
+          this.dlt[i] = d; this.jmp[i] = j;
+          if (Math.abs(j) > this.thr[i] * tk) big = true;
+        }
+        // (one cut per few frames: right after one, the new pose's own motion is learned, not absorbed)
+        if (this.cool > 0) big = false;
+        const y = 2 * Math.LN2 / this.hl, e = Math.exp(-y * dt);
+        for (let i = 0; i < n; i++) {
+          const j1 = this.offV[i] + this.off[i] * y;
+          this.off[i] = e * (this.off[i] + j1 * dt);
+          this.offV[i] = e * (this.offV[i] - j1 * y * dt);
+          if (big) {
+            // a jump: the pose carries on at its old velocity for this frame and the rest becomes offset; the new
+            // pose's velocity is not known yet
+            this.off[i] = U.clamp(this.off[i] - this.jmp[i], -OFF_MAX, OFF_MAX);
+            this.vel[i] = 0;
+          } else this.vel[i] = this.dlt[i] / dt;
+          if (Math.abs(this.off[i]) < 1e-6 && Math.abs(this.offV[i]) < 1e-4) { this.off[i] = 0; this.offV[i] = 0; }
+          this.raw[i] = v[idx[i]];
+        }
+        if (big) this.cool = 0.05;
+      } else for (let i = 0; i < n; i++) this.raw[i] = v[idx[i]];
+      let m = 0;
+      for (let i = 0; i < n; i++) {
+        const o = this.off[i];
+        if (o !== 0) { v[idx[i]] += o; const a = Math.abs(o); if (a > m) m = a; }
+      }
+      this.mag = m;
+      return m > 0;
+    }
+  }
+  const OFF_MAX = 1.6; // an offset never exceeds ~90 deg (or 1.6 of a linear channel's unit)
+  const LEG_INERT = ['HipF', 'HipA', 'HipT', 'Knee', 'Ank', 'Toe'];
+  const LEG_INERT_IDX = [0, 1, 2, 3, 4, 5], LEG_INERT_ANG = [1, 1, 1, 1, 1, 1];
+  const LEG_INERT_THR = [0.165, 0.165, 0.19, 0.165, 0.25, 0.3];
+
   // ------------------------------------------------------------ pole-vector arm IK
   const PSOL = { f: 0, b: 0, t: 0 };
   /** Two-bone arm solve with a swivel pole (all vectors in the chest frame, shoulder at the origin).
@@ -373,18 +510,29 @@
     let hl = Math.sqrt(hx * hx + hy * hy + hz * hz);
     if (hl < 1e-3) { hx = py * uz - pz * uy; hy = pz * ux - px * uz; hz = px * uy - py * ux; hl = Math.sqrt(hx * hx + hy * hy + hz * hz) || 1; }
     hx /= hl; hy /= hl; hz /= hl;
-    // humerus = (-sin b, sin f cos b, -cos f cos b): two Euler solutions, keep the one nearest the current pose
-    let b = -Math.asin(U.clamp(ux, -1, 1));
-    let f = Math.atan2(uy, -uz);
-    const b2 = U.wrapPi(Math.PI - b), f2 = U.wrapPi(f + Math.PI);
-    if (Math.abs(U.wrapPi(f2 - f0)) + Math.abs(U.wrapPi(b2 - b0)) < Math.abs(U.wrapPi(f - f0)) + Math.abs(U.wrapPi(b - b0))) { b = b2; f = f2; }
-    const cf = Math.cos(f), sf = Math.sin(f), cb = Math.cos(b), sb = Math.sin(b);
-    // e1 = Rx(f)Ry(b)X, e2 = Rx(f)Ry(b)Y; twist t puts the frame's X on the hinge axis
-    const e1x = cb, e1y = sf * sb, e1z = -cf * sb;
-    const e2y = cf, e2z = sf;
-    const t = Math.atan2(hy * e2y + hz * e2z, hx * e1x + hy * e1y + hz * e1z);
-    PSOL.f = f; PSOL.b = b; PSOL.t = t;
+    // humerus = (-sin b, sin f cos b, -cos f cos b): two Euler solutions for the same arm. Keep the one inside the
+    // shoulder's range of motion (the other one's twist is often past its limit, and clamping it bent the arm the
+    // wrong way), and between two valid ones the one nearest the arm's last pose
+    const b1 = -Math.asin(U.clamp(ux, -1, 1)), f1 = Math.atan2(uy, -uz);
+    const b2 = U.wrapPi(Math.PI - b1), f2 = U.wrapPi(f1 + Math.PI);
+    const twist = (f, b) => {
+      const cf = Math.cos(f), sf = Math.sin(f), cb = Math.cos(b), sb = Math.sin(b);
+      // e1 = Rx(f)Ry(b)X, e2 = Rx(f)Ry(b)Y; twist t puts the frame's X on the hinge axis
+      const e1x = cb, e1y = sf * sb, e1z = -cf * sb, e2y = cf, e2z = sf;
+      return Math.atan2(hy * e2y + hz * e2z, hx * e1x + hy * e1y + hz * e1z);
+    };
+    const t1 = twist(f1, b1), t2 = twist(f2, b2);
+    const v1 = armViolation(f1, b1, t1, sg), v2 = armViolation(f2, b2, t2, sg);
+    const d1 = Math.abs(U.wrapPi(f1 - f0)) + Math.abs(U.wrapPi(b1 - b0)), d2 = Math.abs(U.wrapPi(f2 - f0)) + Math.abs(U.wrapPi(b2 - b0));
+    const two = v2 * 4 + d2 < v1 * 4 + d1;
+    PSOL.f = two ? f2 : f1; PSOL.b = two ? b2 : b1; PSOL.t = two ? t2 : t1;
     return PSOL;
+  }
+  /** how far (radians, summed) a shoulder solution lies outside the joint limits (f = ShF, -sg b = ShA, sg t = ShT) */
+  function armViolation(f, b, t, sg) {
+    const out = (v, r) => (v < r[0] ? r[0] - v : v > r[1] ? v - r[1] : 0);
+    const F = U.wrapPi(f), A = U.wrapPi(-sg * b), T = U.wrapPi(sg * t);
+    return out(F < -Math.PI / 2 ? F + 2 * Math.PI : F, LIM.lShF) + out(A, LIM.lShA) + out(T, LIM.lShT);
   }
 
   // ------------------------------------------------------------ anatomical joint limits
@@ -428,8 +576,9 @@
 
   const SOL = { f: 0, b: 0 };
   /** find f,b so that Rx(f)*Ry(b)*W = D (|W| == |D|); pick b nearest b0 */
-  function solve2(Wx, Wy, Wz, Dx, Dy, Dz, b0) {
+  function solve2(Wx, Wy, Wz, Dx, Dy, Dz, b0, sg, tw) {
     const Rr = Math.sqrt(Wx * Wx + Wz * Wz);
+    const fOf = (b) => { const Bz = -Wx * Math.sin(b) + Wz * Math.cos(b); return U.wrapPi(Math.atan2(Dz, Dy) - Math.atan2(Bz, Wy)); };
     let b;
     if (Rr < 1e-6) b = b0;
     else {
@@ -437,12 +586,14 @@
       const c = U.clamp(Dx / Rr, -1, 1);
       const ac = Math.acos(c);
       const b1 = U.wrapPi(psi + ac), b2 = U.wrapPi(psi - ac);
-      b = Math.abs(U.wrapPi(b1 - b0)) < Math.abs(U.wrapPi(b2 - b0)) ? b1 : b2;
+      if (sg) {
+        // (arms: the solution inside the shoulder's range first, then the one nearest the last pose)
+        const s1 = armViolation(fOf(b1), b1, tw, sg) * 4 + Math.abs(U.wrapPi(b1 - b0));
+        const s2 = armViolation(fOf(b2), b2, tw, sg) * 4 + Math.abs(U.wrapPi(b2 - b0));
+        b = s1 <= s2 ? b1 : b2;
+      } else b = Math.abs(U.wrapPi(b1 - b0)) < Math.abs(U.wrapPi(b2 - b0)) ? b1 : b2;
     }
-    const cb = Math.cos(b), sb = Math.sin(b);
-    const Bz = -Wx * sb + Wz * cb;
-    const f = U.wrapPi(Math.atan2(Dz, Dy) - Math.atan2(Bz, Wy));
-    SOL.f = f; SOL.b = b;
+    SOL.f = fOf(b); SOL.b = b;
     return SOL;
   }
 
@@ -458,5 +609,5 @@
     m[o] = xx; m[o + 3] = xy; m[o + 6] = xz; m[o + 1] = yx; m[o + 4] = yy; m[o + 7] = yz; m[o + 2] = zx; m[o + 5] = zy; m[o + 8] = zz;
   }
 
-  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, pose, mirrorPose, mmul, mulRot, xf, orthoCols, limitPose, armPole, LIM };
+  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, pose, mirrorPose, mmul, mulRot, xf, orthoCols, limitPose, armPole, LIM, Inert };
 })();

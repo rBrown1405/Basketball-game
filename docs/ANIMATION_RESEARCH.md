@@ -114,3 +114,24 @@ project released under CC0 1.0 (https://github.com/makehumancommunity/makehuman,
 | Dunks | thrown down at the rim: a standing putback dunk only from close in, otherwise a short running dunk whose run-up absorbs the distance | https://nba.2k.com/2k26/courtside-report/gameplay/ |
 | Free throws | the official catches the ball out of the net and walks to the lane before bouncing it to the shooter (~16 s between free throws in the NBA, compressed) | https://thef5.substack.com/p/long-time-short-king |
 | Camera | the ball always stays inside the middle ~60 % of the frame; faster pans when it runs out of the picture | https://openaccess.thecvf.com/content_cvpr_2016/papers/Chen_Learning_Online_Smooth_CVPR_2016_paper.pdf |
+
+## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
+
+A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the
+frames before each spike) found the remaining pops came from switches, not from the motion itself: hand IK
+turning on or off in one frame, grips and stances swapping, the shoulder IK flipping to its other equivalent
+solution, landing spots re-predicted wildly, and airborne legs handed from IK to the clip at take-off.
+
+| Topic | What the code does | Source |
+|---|---|---|
+| Inertialization | torso, neck, head and the arms' authored channels: a change the channel's own velocity does not explain becomes an offset that dies away with a critically damped spring (~0.2 s); the same for legs leaving the floor at take-off | https://www.gdcvault.com/play/1025331/Inertialization-High-Performance-Animation-Transitions , https://media.gdcvault.com/gdc2018/presentations/bollo_david_inertialization_high_performance.pdf , https://theorangeduck.com/page/dead-blending , https://theorangeduck.com/page/spring-roll-call |
+| Arm IK blending | the IK weight ramps over ~0.12 s; a partial weight blends where the wrist goes (and where the elbow points) and solves the arm fully, instead of lerping two sets of joint angles | https://www.youtube.com/watch?v=BYyv4KTegJI |
+| Shoulder solution | of the two equivalent Euler solutions, the one inside the shoulder's range of motion is kept, then the one nearest the arm's last pose (the other often had its twist past the limit, and clamping it bent the arm the wrong way) | https://www.physio-pedia.com/Scapulohumeral_Rhythm |
+| Grips | a grip change moves the hand around the ball (the grip offset is smoothed relative to the ball, so a hand never trails a ball it holds); grip to dribble crossfades; a plain hold keeps the elbows down and out with the palms on the sides of the ball | https://newsroom.2k.com/news/nba-2k21-next-generation-movement-and-impact-engine-revealed-in-second-courtside-report |
+| Catching | the hands go out to meet a pass in its last ~0.3 s and a loose ball just before a rebound or pickup grab | https://us.humankinetics.com/blogs/excerpt/principles-of-passing-and-catching , https://www.coachesclipboard.net/Passing.html |
+| Landing spots | a braking player's predicted position stops instead of reversing; a foot in the air re-aims at a limited rate; the stride's shape follows speed changes over ~0.1 s | https://theorangeduck.com/page/spring-roll-call |
+| Toe-off | a stance foot left behind the hip and out of reach even up on its toes lifts a little before its scheduled toe-off (dragging it read as skating) | https://www.physio-pedia.com/Running_Biomechanics |
+| Landing | an airborne foot lands toes first with the heel up, where the animated foot is, and settles over a few frames | https://pmc.ncbi.nlm.nih.gov/articles/PMC10579024/ , https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2025.1676448/full |
+| Contact | a light touch between players takes the closing speed off over ~0.1 s, a deep one at once | https://www.red3d.com/cwr/papers/1999/gdc99steer.html |
+| Inbounds after a make | the inbounder catches the ball as it drops out of the net or picks it up once it is on the floor | https://hoopstudent.com/basketball-inbound-pass/ , https://videorulebook.nba.com/archive/inbound-violation-takes-more-than-5-secs-to-inbound |
+
