@@ -1,7 +1,9 @@
 /* Pro BBALL Coach — match view: the basketball (PBC.Match.Ball).
  * States: held (follows the holder's hands), dribble (rectified-cosine bounce synced to the hand),
- * flight (a chain of time-parameterised ballistic segments: passes, shots, rim/board caroms,
- * bounces - exact at any playback speed), loose (bouncing/rolling), dead (held by a referee).
+ * flight (a chain of time-parameterised segments: passes, shots, rim/board caroms, bounces, a roll around the
+ * rim - exact at any playback speed), loose (bouncing/rolling), dead (held by a referee).
+ * Physics: air drag on shots and passes, floor bounces with restitution falling with impact speed and friction
+ * that turns spin into speed (and back), a glass that returns ~70 % of the normal speed, rolling resistance.
  * Drawn as a lit sphere with rotating seams, squash on floor contact and a soft shadow. */
 (function () {
   'use strict';
@@ -9,12 +11,62 @@
   const R = 0.39, G = U.G;
   const RIM_Z = 10, RIM_R = 0.75;
 
-  function seg(t0, p0, v0, dur, grav) {
-    return { t0, t1: t0 + dur, p0: p0.slice(), v0: v0.slice(), g: grav == null ? G : grav, ev: null };
+  // ------------------------------------------------------------ contact physics (docs/ANIMATION_RESEARCH.md)
+  const ALPHA = 2 / 3;      // I / (m R^2): a basketball is close to a thin shell
+  const MU_FLOOR = 0.55;    // ball-floor friction (no measured value found; 0.5-0.6 assumed)
+  const MU_BOARD = 0.45;
+  const E_BOARD = 0.7;      // glass (no direct measurement found; 0.65-0.75)
+  const DRAG = 0.15;        // linear drag rate (1/s) standing in for Cd ~0.5 drag: 10-17 % of the weight at shot speeds
+  const ROLL_DECEL = 1.3;   // ft/s^2: rolling resistance on hardwood, rounded up
+  const UP = [0, 0, 1];
+  /**
+   * Floor restitution by impact speed (ft/s): FIBA's drop test (1.8 m, rebound to 1.035-1.085 m measured to the
+   * underside) puts it at ~0.77 at 19 ft/s; tracking data has it falling ~0.013 per ft/s of impact speed.
+   */
+  function eFloor(vn) { return U.clamp(0.77 + 0.0135 * (19.4 - vn), 0.7, 0.84); }
+  /**
+   * Rigid-body bounce off a surface with outward unit normal n: the normal velocity reverses with restitution e;
+   * friction drives the contact point toward rolling (tangential restitution ~0, Cross) unless it slides (the
+   * impulse is capped at mu (1 + e) |vn|). With a thin shell backspin turns into topspin on an angled bounce.
+   * v (ft/s) and w (rad/s) are updated in place.
+   */
+  function bounceOff(v, w, n, e, mu) {
+    const vn = v[0] * n[0] + v[1] * n[1] + v[2] * n[2];
+    if (vn >= 0) return false;
+    // contact point velocity v + w x r (r = -R n), tangential part
+    const rx = -R * n[0], ry = -R * n[1], rz = -R * n[2];
+    let ux = v[0] + (w[1] * rz - w[2] * ry), uy = v[1] + (w[2] * rx - w[0] * rz), uz = v[2] + (w[0] * ry - w[1] * rx);
+    const un = ux * n[0] + uy * n[1] + uz * n[2];
+    ux -= un * n[0]; uy -= un * n[1]; uz -= un * n[2];
+    let k = -ALPHA / (1 + ALPHA);
+    const ul = Math.hypot(ux, uy, uz), cap = mu * (1 + e) * -vn;
+    if (ul * -k > cap && ul > 1e-9) k = -cap / ul;
+    const jx = ux * k, jy = uy * k, jz = uz * k;
+    v[0] += -(1 + e) * vn * n[0] + jx; v[1] += -(1 + e) * vn * n[1] + jy; v[2] += -(1 + e) * vn * n[2] + jz;
+    const q = 1 / (ALPHA * R);
+    w[0] -= (n[1] * jz - n[2] * jy) * q; w[1] -= (n[2] * jx - n[0] * jz) * q; w[2] -= (n[0] * jy - n[1] * jx) * q;
+    return true;
   }
-  /** ballistic velocity to go from p0 to p1 in time T */
-  function aim(p0, p1, T, grav) {
+  /** spin about the horizontal axis across the travel (dx, dy): rate < 0 is backspin, > 0 topspin (rad/s) */
+  function spinAlong(dx, dy, rate) { const l = Math.hypot(dx, dy) || 1; return [-dy / l * rate, dx / l * rate, 0]; }
+  /** distance factor of linear drag: (1 - e^-kt) / k (t without drag) */
+  function dragF(k, t) { return k > 1e-6 ? (1 - Math.exp(-k * t)) / k : t; }
+  function velAt(v0, t, g, k) {
+    if (k > 1e-6) { const e = Math.exp(-k * t), gk = g / k; return [v0[0] * e, v0[1] * e, (v0[2] + gk) * e - gk]; }
+    return [v0[0], v0[1], v0[2] - g * t];
+  }
+
+  /** a flight segment: gravity grav (default G), optional linear air drag k */
+  function seg(t0, p0, v0, dur, grav, k) {
+    return { t0, t1: t0 + dur, p0: p0.slice(), v0: v0.slice(), g: grav == null ? G : grav, k: k || 0, ev: null };
+  }
+  /** launch velocity to go from p0 to p1 in time T (with drag k when given) */
+  function aim(p0, p1, T, grav, k) {
     grav = grav == null ? G : grav;
+    if (k > 1e-6) {
+      const f = dragF(k, T), gk = grav / k;
+      return [(p1[0] - p0[0]) / f, (p1[1] - p0[1]) / f, (p1[2] - p0[2] + gk * T) / f - gk];
+    }
     return [(p1[0] - p0[0]) / T, (p1[1] - p0[1]) / T, (p1[2] - p0[2]) / T + 0.5 * grav * T];
   }
   /** flight time for a launch angle theta (rad) over horizontal distance d and rise dz */
@@ -128,6 +180,7 @@
       this.dr = null;
       this.flightStart = this.time;
       for (const s of segs) s.fired = false;
+      if (segs[0] && segs[0].w) { this.spin[0] = segs[0].w[0]; this.spin[1] = segs[0].w[1]; this.spin[2] = segs[0].w[2]; }
     }
     /** pass: from current position to a (possibly moving) target */
     pass(p1, dur, o) {
@@ -135,8 +188,11 @@
       const t0 = this.time;
       const p0 = [this.x, this.y, this.z];
       const segs = [];
-      if (o.bounce) {
-        // bounce pass: floor contact ~2/3 of the way
+      const sp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / dur;
+      const bp = o.bounce ? this._bouncePass(p0, p1, dur) : null;
+      if (bp) segs.push(bp[0], bp[1]);
+      else if (o.bounce) {
+        // (no real bounce fits: floor contact ~2/3 of the way)
         const f = 0.62;
         const pb = [U.lerp(p0[0], p1[0], f), U.lerp(p0[1], p1[1], f), R];
         const d1 = dur * 0.58, d2 = dur - d1;
@@ -145,20 +201,64 @@
         s2.bounce = true;
         segs.push(s2);
       } else {
-        // slight arc (lob: big arc)
-        const grav = o.lob ? G : G * (o.flat ? 0.35 : 0.6);
-        segs.push(seg(t0, p0, aim(p0, p1, dur, grav), dur, grav));
+        // real gravity and air drag: a quick pass is nearly flat, a long one arcs
+        segs.push(seg(t0, p0, aim(p0, p1, dur, G, DRAG), dur, G, DRAG));
       }
+      // backspin off the fingers
+      if (!segs[0].w) segs[0].w = spinAlong(p1[0] - p0[0], p1[1] - p0[1], -sp / R * 0.3);
       segs[segs.length - 1].target = o.target || null; // function returning live target [x,y,z]
       this.flight(segs, o.onArrive);
-      const sp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / dur;
-      this.setSpinAlong(p1[0] - p0[0], p1[1] - p0[1], -sp / R * 0.3);
+    }
+    /**
+     * Bounce pass with a real floor bounce: the floor contact time is found so that after the bounce (restitution
+     * by impact speed, friction against the backspin) it rises to the receiver's hands at `dur` (nearest ~58 % of
+     * the flight when two fit), and the release speed so that it still covers the distance after the bounce takes
+     * some of its speed. Returns the two segments, or null when none fits.
+     */
+    _bouncePass(p0, p1, dur) {
+      const D = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+      if (D < 3 || dur < 0.3 || p0[2] < R) return null;
+      const ux = (p1[0] - p0[0]) / D, uy = (p1[1] - p0[1]) / D;
+      const drop = (t1) => {
+        const v0z = (R - p0[2] + 0.5 * G * t1 * t1) / t1, vi = v0z - G * t1, t2 = dur - t1;
+        if (vi > -2) return null;
+        const vu = -vi * eFloor(-vi);
+        return { v0z, vi, f: R + vu * t2 - 0.5 * G * t2 * t2 - p1[2] };
+      };
+      let best = null, prev = null, top = null;
+      for (let k = 0; k <= 30; k++) {
+        const t1 = dur * (0.25 + 0.67 * k / 30), r = drop(t1);
+        if (r && (!top || r.f > top.f)) top = { t1, f: r.f };
+        if (r && prev && (prev.f > 0) !== (r.f > 0)) {
+          let a = prev.t1, b = t1, fa = prev.f;
+          for (let it = 0; it < 30; it++) { const m = 0.5 * (a + b), rm = drop(m); if (!rm) break; if ((rm.f > 0) === (fa > 0)) { a = m; fa = rm.f; } else b = m; }
+          const tt = 0.5 * (a + b);
+          if (best == null || Math.abs(tt - dur * 0.58) < Math.abs(best - dur * 0.58)) best = tt;
+        }
+        prev = r ? { t1, f: r.f } : null;
+      }
+      // (a long, slow one comes up short of the hands: take the highest it gets there if that is close; the catch
+      // homes the last bit)
+      if (best == null && top && top.f > -1.2) best = top.t1;
+      if (best == null) return null;
+      const t1 = best, r = drop(t1), t2 = dur - t1;
+      if (!r) return null;
+      const after = (vh) => { const v = [ux * vh, uy * vh, r.vi], w = spinAlong(ux, uy, -vh / R * 0.3); bounceOff(v, w, UP, eFloor(-r.vi), MU_FLOOR); return { v, w }; };
+      let lo = D / dur * 0.5, hi = D / dur * 4;
+      for (let it = 0; it < 40; it++) {
+        const m = 0.5 * (lo + hi), a = after(m);
+        if (m * t1 + (a.v[0] * ux + a.v[1] * uy) * t2 < D) lo = m; else hi = m;
+      }
+      const vh = 0.5 * (lo + hi), a = after(vh);
+      const pb = [p0[0] + ux * vh * t1, p0[1] + uy * vh * t1, R];
+      const s1 = seg(this.time, p0, [ux * vh, uy * vh, r.v0z], t1); s1.w = spinAlong(ux, uy, -vh / R * 0.3);
+      const s2 = seg(this.time + t1, pb, a.v, t2); s2.bounce = true; s2.w = a.w;
+      return [s1, s2];
     }
     /** backspin/forward roll about the horizontal axis perpendicular to travel */
     setSpinAlong(dx, dy, rate) {
-      const l = Math.hypot(dx, dy) || 1;
-      // axis perpendicular to travel in the floor plane: (-dy, dx)
-      this.spin[0] = -dy / l * rate; this.spin[1] = dx / l * rate; this.spin[2] = 0;
+      const w = spinAlong(dx, dy, rate);
+      this.spin[0] = w[0]; this.spin[1] = w[1]; this.spin[2] = w[2];
     }
 
     /**
@@ -179,11 +279,26 @@
       const res = o.result || 'swish';
       let contact, T;
       const toShooter = [(p0[0] - rim[0]) / (d || 1), (p0[1] - rim[1]) / (d || 1)];
+      // backspin off the fingertips: ~1.7 rev/s measured on jump shots and free throws (1.1-2.4)
+      const wShot = spinAlong(rim[0] - p0[0], rim[1] - p0[1], -U.TAU * (1.45 + Math.random() * 0.6));
+      // a make that rolls around the rim before it drops (the rest bounce up off the rim and in)
+      let orbit = null;
+      if (res === 'rim_in' && (o.roll != null ? o.roll : Math.random() < 0.3)) {
+        // it lands on the front of the ring a little to one side and rides around it that way: the centre ~0.17 ft
+        // inside the ring and ~0.36 ft above it, friction taking about half its speed before it falls in
+        const dir = Math.random() < 0.5 ? 1 : -1, To = 0.35 + Math.random() * 0.45, w0 = dir * (4.5 + Math.random() * 2);
+        orbit = { cx: rim[0], cy: rim[1], r: RIM_R - 0.17, z: RIM_Z + 0.36, a0: Math.atan2(toShooter[1], toShooter[0]) + dir * (0.35 + Math.random() * 0.5), w: w0, dw: -w0 * 0.55 / To, T: To };
+      }
       if (res === 'swish' || res === 'rim_in' || res === 'miss' || res === 'airball') {
         let target = rim.slice();
-        if (res === 'rim_in') target = [rim[0] - toShooter[0] * 0.5, rim[1] - toShooter[1] * 0.5, RIM_Z + 0.12];
+        if (res === 'rim_in') target = orbit ? [orbit.cx + Math.cos(orbit.a0) * orbit.r, orbit.cy + Math.sin(orbit.a0) * orbit.r, orbit.z] : [rim[0] - toShooter[0] * 0.5, rim[1] - toShooter[1] * 0.5, RIM_Z + 0.12];
         if (res === 'miss') {
-          const c = (o.miss && o.miss.contact) || 'front';
+          let c = (o.miss && o.miss.contact) || 'front';
+          // a side miss comes off to the side it hit
+          if ((c === 'left' || c === 'right') && o.rebound) {
+            const lat = (o.rebound.x - rim[0]) * -toShooter[1] + (o.rebound.y - rim[1]) * toShooter[0];
+            if (Math.abs(lat) > 1) c = lat > 0 ? 'left' : 'right';
+          }
           let ox = 0, oy = 0;
           if (c === 'front') { ox = toShooter[0] * 0.62; oy = toShooter[1] * 0.62; }
           else if (c === 'back') { ox = -toShooter[0] * 0.66; oy = -toShooter[1] * 0.66; }
@@ -195,27 +310,63 @@
         const dd = Math.hypot(target[0] - p0[0], target[1] - p0[1]);
         T = timeForAngle(dd, target[2] - p0[2], theta) || Math.max(0.5, dd / 20);
         if (o.duration) T = o.duration;
-        segs.push(seg(t0, p0, aim(p0, target, T), T));
+        segs.push(seg(t0, p0, aim(p0, target, T, G, DRAG), T, G, DRAG));
         contact = target;
       } else if (res === 'bank') {
-        const hit = [hoop.bx - s * R * 1.02, rim[1] + (p0[1] - rim[1]) * 0.05, RIM_Z + 1.25];
-        const dd = Math.hypot(hit[0] - p0[0], hit[1] - p0[1]);
-        T = timeForAngle(dd, hit[2] - p0[2], theta - 6 * U.DEG) || Math.max(0.5, dd / 20);
-        segs.push(seg(t0, p0, aim(p0, hit, T), T));
-        const s1 = seg(t0 + T, hit, aim(hit, [rim[0], rim[1], RIM_Z], 0.22), 0.22);
-        s1.board = true;
-        segs.push(s1);
-        contact = hit;
+        // off the glass: the spot on the board is found whose carom (the glass returns ~70 % of the speed into it,
+        // friction with the backspin adds downward speed) drops through the middle of the rim
+        const n = [-s, 0, 0], xh = hoop.bx - s * R * 1.02;
+        let hy = rim[1] + (p0[1] - rim[1]) * 0.3, hz = RIM_Z + 1.3, sol = null;
+        for (let it = 0; it < 10 && !sol; it++) {
+          const hit = [xh, hy, hz];
+          const dd = Math.hypot(hit[0] - p0[0], hit[1] - p0[1]);
+          const Tb = timeForAngle(dd, hit[2] - p0[2], theta - 4 * U.DEG) || Math.max(0.5, dd / 20);
+          const v0 = aim(p0, hit, Tb, G, DRAG), vi = velAt(v0, Tb, G, DRAG), wi = wShot.slice();
+          bounceOff(vi, wi, n, E_BOARD, MU_BOARD);
+          const t2 = (rim[0] - xh) / vi[0];
+          if (!(t2 > 0.04 && t2 < 0.5)) break;
+          const ey = rim[1] - (hy + vi[1] * t2), ez = RIM_Z + 0.2 - (hz + vi[2] * t2 - 0.5 * G * t2 * t2);
+          if (Math.abs(ey) < 0.02 && Math.abs(ez) < 0.02) { sol = { hit, Tb, v0, vi, wi, t2 }; break; }
+          hy += ey; hz += ez;
+          if (hz < RIM_Z + 0.75 || hz > RIM_Z + 3 || Math.abs(hy - rim[1]) > 2.9) break;
+        }
+        if (sol) {
+          T = sol.Tb;
+          segs.push(seg(t0, p0, sol.v0, T, G, DRAG));
+          const s1 = seg(t0 + T, sol.hit, sol.vi, sol.t2); s1.board = true; s1.w = sol.wi;
+          segs.push(s1);
+          contact = sol.hit;
+        } else {
+          const hit = [hoop.bx - s * R * 1.02, rim[1] + (p0[1] - rim[1]) * 0.05, RIM_Z + 1.25];
+          const dd = Math.hypot(hit[0] - p0[0], hit[1] - p0[1]);
+          T = timeForAngle(dd, hit[2] - p0[2], theta - 6 * U.DEG) || Math.max(0.5, dd / 20);
+          segs.push(seg(t0, p0, aim(p0, hit, T, G, DRAG), T, G, DRAG));
+          const s1 = seg(t0 + T, hit, aim(hit, [rim[0], rim[1], RIM_Z], 0.22), 0.22);
+          s1.board = true;
+          segs.push(s1);
+          contact = hit;
+        }
       }
-      segs[0].shot = true;
+      segs[0].shot = true; segs[0].w = wShot;
       let tAt = t0 + T;
       const last = () => segs[segs.length - 1];
       // result tail
       if (res === 'swish' || res === 'bank') {
         const s0 = last();
-        const pRim = res === 'bank' ? [rim[0], rim[1], RIM_Z] : contact;
+        const pRim = res === 'bank' ? this._segPos(s0, s0.t1, [0, 0, 0]) : contact;
         const tRim = s0.t1;
         this._throughNet(segs, pRim, tRim, hoop, o, res === 'swish');
+      } else if (orbit) {
+        const s0 = last();
+        const so = seg(s0.t1, contact, [0, 0, 0], orbit.T, 0); so.orbit = orbit; so.rim = true; so.soft = true;
+        segs.push(so);
+        // off the ring and in
+        const pe = this._segPos(so, so.t1, [0, 0, 0]);
+        const ae = Math.atan2(pe[1] - rim[1], pe[0] - rim[0]);
+        const pin = [rim[0] + Math.cos(ae) * 0.22, rim[1] + Math.sin(ae) * 0.22, RIM_Z - 0.05];
+        const sd = seg(so.t1, pe, aim(pe, pin, 0.16), 0.16);
+        segs.push(sd);
+        this._throughNet(segs, pin, sd.t1, hoop, o, false);
       } else if (res === 'rim_in') {
         const s0 = last();
         const up = [rim[0] - toShooter[0] * 0.15, rim[1] - toShooter[1] * 0.15, RIM_Z + 0.95];
@@ -250,44 +401,50 @@
       this.shotHoop = hoop;
       this.onScore = o.onScore || null;
       this.onRim = o.onRim || null;
-      const sp = 5 + d * 0.15;
-      this.setSpinAlong(rim[0] - p0[0], rim[1] - p0[1], -sp * 2.2);
       return { tContact: tAt, tEnd: segs[segs.length - 1].t1, segs };
     }
     _throughNet(segs, pRim, tRim, hoop, o, swish) {
-      // drop through the net: slowed, almost vertical
+      // drop through the net: it checks the ball for a moment (slowed, almost vertical) and takes most of its spin
       const pNet = [hoop.rx + (pRim[0] - hoop.rx) * 0.2, hoop.ry + (pRim[1] - hoop.ry) * 0.2, RIM_Z - 1.6];
       const s1 = seg(tRim, pRim, aim(pRim, pNet, 0.2, G * 0.4), 0.2, G * 0.4);
       s1.score = true; s1.swish = swish;
+      const w0 = segs[0] && segs[0].w ? segs[0].w : [0, 0, 0];
+      s1.w = [w0[0] * 0.35, w0[1] * 0.35, w0[2] * 0.35];
       segs.push(s1);
       // fall to the floor, bounce toward the baseline side
       const out = hoop.side;
       const pF = [hoop.rx + out * 0.4 + (Math.random() - 0.5) * 1.5, hoop.ry + (Math.random() - 0.5) * 3, R];
       const tf = Math.sqrt(2 * (pNet[2] - R) / G) * 0.95;
-      segs.push(seg(s1.t1, pNet, aim(pNet, pF, tf), tf));
+      const s2 = seg(s1.t1, pNet, aim(pNet, pF, tf), tf); s2.w = [w0[0] * 0.2, w0[1] * 0.2, (Math.random() - 0.5) * 4];
+      segs.push(s2);
       this._bounceTail(segs, out * 0.35);
     }
-    /** append decaying bounces after the last segment which must end on the floor */
+    /**
+     * Append the bounces after the last segment (which must end on the floor): each one with the floor's
+     * restitution for its impact speed and friction working the spin (a ball with backspin checks up, one with
+     * topspin skips on), then the roll until rolling resistance stops it.
+     */
     _bounceTail(segs, drift) {
       let s = segs[segs.length - 1];
-      let p = this._segPos(s, s.t1, [0, 0, 0]);
-      let v = [s.v0[0], s.v0[1], s.v0[2] - s.g * (s.t1 - s.t0)];
+      const p = this._segPos(s, s.t1, [0, 0, 0]);
+      const v = this._segVel(s, s.t1, [0, 0, 0]);
+      const w = s.w ? s.w.slice() : [0, 0, 0];
       p[2] = R;
-      for (let i = 0; i < 5; i++) {
-        const vz = Math.abs(v[2]) * 0.72;
-        if (vz < 2.2) break;
-        const T = 2 * vz / G;
-        const vx = v[0] * 0.8 + (drift || 0), vy = v[1] * 0.8;
-        const ns = seg(s.t1, p, [vx, vy, vz], T);
-        ns.bounce = true;
+      if (drift) v[0] += drift;
+      for (let i = 0; i < 12; i++) {
+        if (v[2] > -1) break;
+        bounceOff(v, w, UP, eFloor(-v[2]), MU_FLOOR);
+        if (v[2] < 3) break;
+        const T = 2 * v[2] / G;
+        const ns = seg(s.t1, p, v, T); ns.bounce = true; ns.w = w.slice();
         segs.push(ns);
-        p = [p[0] + vx * T, p[1] + vy * T, R];
-        v = [vx, vy, -vz];
+        p[0] += v[0] * T; p[1] += v[1] * T; p[2] = R;
+        v[2] = -v[2];
         s = ns;
       }
-      // roll
-      const roll = seg(s.t1, p, [v[0] * 0.6, v[1] * 0.6, 0], 1.6, 0);
-      roll.roll = true; roll.bounce = true;
+      const vh = Math.hypot(v[0], v[1]);
+      const roll = seg(s.t1, p, [v[0], v[1], 0], U.clamp(vh / ROLL_DECEL, 0.4, 3.2), 0);
+      roll.roll = true; roll.bounce = true; roll.a = ROLL_DECEL;
       segs.push(roll);
     }
     /** loose ball from current position with a velocity: bounces and rolls */
@@ -296,24 +453,56 @@
       const segs = [];
       const vz = vel[2];
       const tUp = (vz + Math.sqrt(vz * vz + 2 * G * (p0[2] - R))) / G;
-      segs.push(seg(this.time, p0, vel, Math.max(0.05, tUp)));
+      const s0 = seg(this.time, p0, vel, Math.max(0.05, tUp));
+      // knocked loose it tumbles, with some topspin or backspin
+      s0.w = spinAlong(vel[0], vel[1], Math.hypot(vel[0], vel[1]) / R * (Math.random() - 0.5) * 1.2);
+      segs.push(s0);
       this._bounceTail(segs);
       this.flight(segs, o && o.onEnd);
       this.state = 'loose';
-      this.setSpinAlong(vel[0], vel[1], -Math.hypot(vel[0], vel[1]) / R);
     }
     /** place dead ball in the hands of a ref or on the floor */
     placeAt(x, y, z) { this.release(); this.state = 'dead'; this.segs = null; this.x = x; this.y = y; this.z = z; }
 
     _segPos(s, t, out) {
       const dt = Math.max(0, Math.min(t, s.t1) - s.t0);
+      if (s.orbit) {
+        // riding around the ring
+        const o = s.orbit, a = o.a0 + (o.w + 0.5 * o.dw * dt) * dt;
+        out[0] = o.cx + Math.cos(a) * o.r; out[1] = o.cy + Math.sin(a) * o.r; out[2] = o.z;
+        return out;
+      }
+      if (s.roll) {
+        // rolling resistance: a constant deceleration until it stops
+        const vh = Math.hypot(s.v0[0], s.v0[1]), a = s.a || ROLL_DECEL;
+        const tt = vh > 1e-6 ? Math.min(dt, vh / a) : 0, d = vh * tt - 0.5 * a * tt * tt, k = vh > 1e-6 ? d / vh : 0;
+        out[0] = s.p0[0] + s.v0[0] * k; out[1] = s.p0[1] + s.v0[1] * k; out[2] = R;
+        return out;
+      }
+      if (s.k > 1e-6) {
+        const f = dragF(s.k, dt), gk = s.g / s.k;
+        out[0] = s.p0[0] + s.v0[0] * f; out[1] = s.p0[1] + s.v0[1] * f; out[2] = s.p0[2] + (s.v0[2] + gk) * f - gk * dt;
+        return out;
+      }
       out[0] = s.p0[0] + s.v0[0] * dt;
       out[1] = s.p0[1] + s.v0[1] * dt;
       out[2] = s.p0[2] + s.v0[2] * dt - 0.5 * s.g * dt * dt;
-      if (s.roll) { // rolling friction
-        const k = 1 - Math.exp(-dt * 1.4);
-        out[0] = s.p0[0] + s.v0[0] / 1.4 * k; out[1] = s.p0[1] + s.v0[1] / 1.4 * k; out[2] = R;
+      return out;
+    }
+    _segVel(s, t, out) {
+      const dt = Math.max(0, Math.min(t, s.t1) - s.t0);
+      if (s.orbit) {
+        const o = s.orbit, a = o.a0 + (o.w + 0.5 * o.dw * dt) * dt, wv = o.w + o.dw * dt;
+        out[0] = -Math.sin(a) * o.r * wv; out[1] = Math.cos(a) * o.r * wv; out[2] = 0;
+        return out;
       }
+      if (s.roll) {
+        const vh = Math.hypot(s.v0[0], s.v0[1]), a = s.a || ROLL_DECEL, k = vh > 1e-6 ? Math.max(0, vh - a * dt) / vh : 0;
+        out[0] = s.v0[0] * k; out[1] = s.v0[1] * k; out[2] = 0;
+        return out;
+      }
+      const v = velAt(s.v0, dt, s.g, s.k);
+      out[0] = v[0]; out[1] = v[1]; out[2] = v[2];
       return out;
     }
     /** remaining flight time (to end of all segments) */
@@ -355,6 +544,10 @@
       if (dt > 0) {
         this.vx = (this.x - px) / dt; this.vy = (this.y - py) / dt; this.vz = (this.z - pz) / dt;
         if (!isFinite(this.vx) || Math.abs(this.vx) > 200) { this.vx = this.vy = this.vz = 0; }
+        // rolling on the floor or around the ring: the spin matches the travel (no skating)
+        const cs = this.segs && this.segs[this.segI];
+        if (cs && (cs.roll || cs.orbit)) { this.spin[0] = -this.vy / R; this.spin[1] = this.vx / R; this.spin[2] = 0; }
+        else if (this.state === 'loose' && !this.segs) { this.spin[0] *= 0.9; this.spin[1] *= 0.9; this.spin[2] *= 0.9; }
       }
       // spin integration
       const w = this.spin, wl = Math.hypot(w[0], w[1], w[2]);
@@ -396,8 +589,9 @@
     }
     _enterSeg(s) {
       const v = this.view;
-      if (s.bounce && !s.roll) { this.squash = 1; this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1)); }
-      if (s.rim && this.shotHoop) { this.shotHoop.hitRim(1); this.onRim && U.safe(() => this.onRim(this), null, 'onRim'); this.spin[2] += (Math.random() - 0.5) * 20; if (v && v.sound) v.sound('rim', 1); }
+      if (s.w) { this.spin[0] = s.w[0]; this.spin[1] = s.w[1]; this.spin[2] = s.w[2]; }
+      if (s.bounce && !s.roll) { this.squash = U.clamp(Math.abs(this.vz) / 20, 0.2, 1); this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1)); }
+      if (s.rim && this.shotHoop) { this.shotHoop.hitRim(s.soft ? 0.4 : 1); this.onRim && U.safe(() => this.onRim(this), null, 'onRim'); if (!s.w && !s.orbit) this.spin[2] += (Math.random() - 0.5) * 20; if (v && v.sound) v.sound('rim', s.soft ? 0.5 : 1); }
       if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); if (v && v.sound) v.sound('board', 1); }
     }
     _fireSeg(s) {
@@ -658,6 +852,6 @@
   }
 
   Ball.R = R;
-  Ball.aim = aim; Ball.seg = seg; Ball.timeForAngle = timeForAngle;
+  Ball.aim = aim; Ball.seg = seg; Ball.timeForAngle = timeForAngle; Ball.contact = bounceOff; Ball.eFloor = eFloor;
   M.Ball = Ball;
 })();

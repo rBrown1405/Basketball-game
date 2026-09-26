@@ -1,12 +1,23 @@
 /* Pro BBALL Coach — match view: basket assemblies (PBC.Match.Hoop).
  * Stanchion + padding, glass backboard, shot clock, rim (front/back halves for correct depth
- * against the ball) and a diamond-mesh net with simple spring deformation (swish/whip). */
+ * against the ball) and a diamond-mesh nylon net simulated as verlet cloth: 12 strands tied to the ring, knots
+ * pushed and dragged by the ball, a stiffer top that cannot whip over the rim, a breakaway rim that tips under a
+ * hanging dunker and springs back. */
 (function () {
   'use strict';
   const M = window.PBC.Match, U = M.U;
   const RIM_R = 0.75, RIM_Z = 10, BALL_R = 0.39;
-  const NS = 12, NL = 5; // net strands, levels
-  const NET_LEN = 1.45;
+  // the net (FIBA: 400-450 mm long, tied to the ring in 12 places, the upper part semi-rigid so it cannot whip up
+  // through or over the ring; NBA/NCAA 15-18 in): 12 strands, 7 rows of knots in a diamond mesh
+  const NS = 12, NR = 7, NK = NS * NR;
+  // (narrower than the ball near the bottom: the net has to check the ball momentarily as it passes through)
+  const NET_LEN = 1.45, NET_R1 = 0.33;
+  // verlet cloth (Jakobsen): substeps with a couple of constraint passes each; the ball moves the net, not the
+  // reverse (its own path already slows through the net)
+  const SUB = 3, ITER = 2, DAMP = 0.993, GRIP = 0.3;
+  const G = 32.17;
+  // floats per hoop in a replay snapshot: knot positions, rim tilt, board shake
+  const SNAP = NK * 3 + 2;
 
   class Hoop {
     /** side: -1 left basket (x=5.25), +1 right basket (x=88.75) */
@@ -17,63 +28,144 @@
       this.bx = side < 0 ? 4 : 90; // backboard face
       this.colors = colors || { primary: '#1d4e89', secondary: '#f2c14e' };
       this.pad = U.shade(this.colors.primary, -0.25);
-      this.lv = [];
-      for (let k = 0; k < NL; k++) {
-        const f = k / (NL - 1);
-        this.lv.push({
-          r0: RIM_R - (RIM_R - 0.43) * Math.pow(f, 0.9), z0: RIM_Z - NET_LEN * f,
-          dr: 0, vr: 0, dz: 0, vz: 0, ox: 0, oy: 0, vx: 0, vy: 0,
-        });
+      // knots, relative to the rim centre (x, y, z - RIM_Z): rest shape, positions, previous positions (verlet)
+      this.rest = new Float64Array(NK * 3); this.np = new Float64Array(NK * 3); this.pp = new Float64Array(NK * 3);
+      for (let k = 0; k < NR; k++) {
+        const f = k / (NR - 1);
+        const r = RIM_R - (RIM_R - NET_R1) * Math.pow(f, 0.85), z = -NET_LEN * f;
+        for (let i = 0; i < NS; i++) {
+          const a = (i + 0.5 * (k % 2)) / NS * U.TAU, o = (k * NS + i) * 3;
+          this.rest[o] = Math.cos(a) * r; this.rest[o + 1] = Math.sin(a) * r; this.rest[o + 2] = z;
+        }
       }
+      this.np.set(this.rest); this.pp.set(this.rest);
+      // links: the strands (each knot to the two below it in the diamond) pull hard and push back little; ring
+      // links hold the taper, stiff in the top rows (anti-whip cord), soft lower down so the mesh can open around
+      // the ball
+      const la = [], lb = [], lr = [], ls = [], lc = [];
+      const link = (a, b, stiff, push) => {
+        const A = a * 3, B = b * 3;
+        la.push(a); lb.push(b); ls.push(stiff); lc.push(push);
+        lr.push(Math.hypot(this.rest[B] - this.rest[A], this.rest[B + 1] - this.rest[A + 1], this.rest[B + 2] - this.rest[A + 2]));
+      };
+      for (let k = 0; k < NR - 1; k++) {
+        for (let i = 0; i < NS; i++) {
+          const odd = k % 2;
+          link(k * NS + i, (k + 1) * NS + (odd ? (i + 1) % NS : i), 1, k < 2 ? 0.6 : 0.25);
+          link(k * NS + i, (k + 1) * NS + (odd ? i : (i + NS - 1) % NS), 1, k < 2 ? 0.6 : 0.25);
+        }
+      }
+      for (let k = 1; k < NR; k++) for (let i = 0; i < NS; i++) link(k * NS + i, k * NS + (i + 1) % NS, k <= 2 ? 0.7 : 0.12, k <= 2 ? 0.7 : 0.12);
+      this.nStr = NS * (NR - 1) * 2; // (the first links are the visible strands)
+      this.la = Int16Array.from(la); this.lb = Int16Array.from(lb); this.lr = Float64Array.from(lr); this.ls = Float64Array.from(ls); this.lc = Float64Array.from(lc);
+      this.awake = 0; this.clock = 0; this.holdT = -1; this.holdAmt = 0;
       this.rimShake = 0; this.rimV = 0;
       this.boardShake = 0;
       this._pt = { x: 0, y: 0, s: 0, d: 0 };
-      this._scr = new Float32Array(NL * NS * 3);
       this.shotClockText = '24';
       this.gameClockText = '12:00';
       this.clockOn = true;
     }
 
-    /** ball interaction: pos {x,y,z}, vel {x,y,z} */
+    /** rim height offset at a point (relative x from the rim centre): the rim pivots at the backboard bracket */
+    _rimDz(xr) { return this.rimShake * (this.rx + xr - this.bx) * this.side * 0.35; }
+    /** ball interaction: pos {x,y,z}, vel {x,y,z} (ft, ft/s) */
     update(dt, ball) {
-      for (let k = 0; k < NL; k++) {
-        const L = this.lv[k];
-        const stiff = 120 - k * 12, damp = 9;
-        L.vr += (-stiff * L.dr - damp * L.vr) * dt; L.dr += L.vr * dt;
-        L.vz += (-stiff * 0.8 * L.dz - damp * L.vz) * dt; L.dz += L.vz * dt;
-        L.vx += (-60 * L.ox - 6 * L.vx) * dt; L.ox += L.vx * dt;
-        L.vy += (-60 * L.oy - 6 * L.vy) * dt; L.oy += L.vy * dt;
-        // let lower levels follow the ones above a bit (cloth-like lag)
-        if (k > 0) { const A = this.lv[k - 1]; L.ox += (A.ox - L.ox) * 0.08; L.oy += (A.oy - L.oy) * 0.08; }
-      }
-      this.rimV += (-900 * this.rimShake - 22 * this.rimV) * dt; this.rimShake += this.rimV * dt;
+      this.clock += dt;
+      // rim: a damped wobble after a hit (the real modes, ~24 and ~33 Hz, are too fast to show at 60 fps); a
+      // breakaway rim tips down (10-30 deg) while a dunker hangs on it, then springs back
+      const target = this.clock < this.holdT ? this.holdAmt : 0;
+      this.rimV += (-900 * (this.rimShake - target) - 22 * this.rimV) * dt; this.rimShake += this.rimV * dt;
       this.boardShake = U.damp(this.boardShake, 0, 6, dt);
-      if (!ball) return;
-      const dx = ball.x - this.rx, dy = ball.y - this.ry;
-      const rr = Math.sqrt(dx * dx + dy * dy);
-      if (rr > 1.6 || ball.z > RIM_Z + 0.6 || ball.z < RIM_Z - NET_LEN - 0.8) return;
-      for (let k = 0; k < NL; k++) {
-        const L = this.lv[k];
-        const z = L.z0 + L.dz;
-        const dzb = Math.abs(ball.z - z);
-        if (dzb < BALL_R + 0.1) {
-          const want = rr + BALL_R * Math.sqrt(Math.max(0, 1 - (dzb / (BALL_R + 0.1)) ** 2)) + 0.02;
-          const need = want - L.r0;
-          if (need > L.dr) { L.dr += (need - L.dr) * 0.6; L.vr = Math.max(L.vr, 0); }
-          if (k > 0) {
-            L.vz += (ball.vz || 0) * 0.07;
-            L.vx += dx * 1.5 + (ball.vx || 0) * 0.05; L.vy += dy * 1.5 + (ball.vy || 0) * 0.05;
-          }
+      const near = !!ball && Math.abs(ball.x - this.rx) < 2.6 && Math.abs(ball.y - this.ry) < 2.6 && ball.z > RIM_Z - NET_LEN - 1.2 && ball.z < RIM_Z + 1.6;
+      if (near || Math.abs(this.rimShake) > 2e-3 || Math.abs(this.rimV) > 2e-2) this.awake = 1.6;
+      if (this.awake <= 0) return;
+      this.awake -= dt;
+      const h = dt / SUB;
+      for (let s = 0; s < SUB; s++) {
+        this._integrate(h);
+        for (let it = 0; it < ITER; it++) { this._solve(); if (near) this._collide(ball, dt * (1 - (s + 1) / SUB), h); }
+        this._limit();
+      }
+    }
+    _integrate(h) {
+      const P = this.np, Q = this.pp, g = G * h * h;
+      for (let i = NS; i < NK; i++) {
+        const o = i * 3;
+        for (let c = 0; c < 3; c++) {
+          const x = P[o + c], v = (x - Q[o + c]) * DAMP;
+          Q[o + c] = x; P[o + c] = x + v - (c === 2 ? g : 0);
         }
       }
+      // the top row is tied to the ring (and moves with it)
+      for (let i = 0; i < NS; i++) {
+        const o = i * 3;
+        P[o] = this.rest[o]; P[o + 1] = this.rest[o + 1]; P[o + 2] = this.rest[o + 2] + this._rimDz(this.rest[o]);
+        Q[o] = P[o]; Q[o + 1] = P[o + 1]; Q[o + 2] = P[o + 2];
+      }
     }
-    /** big whip when the ball leaves the bottom of the net on a swish */
+    _solve() {
+      const P = this.np, la = this.la, lb = this.lb, lr = this.lr, ls = this.ls, lc = this.lc, n = la.length;
+      for (let l = 0; l < n; l++) {
+        const ia = la[l], ib = lb[l], A = ia * 3, B = ib * 3;
+        const dx = P[B] - P[A], dy = P[B + 1] - P[A + 1], dz = P[B + 2] - P[A + 2];
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-9;
+        let k = (d - lr[l]) / d;
+        k *= k < 0 ? lc[l] : ls[l];
+        const wa = ia < NS ? 0 : 1, wb = ib < NS ? 0 : 1, ws = wa + wb;
+        if (!ws) continue;
+        const ka = k * wa / ws, kb = k * wb / ws;
+        P[A] += dx * ka; P[A + 1] += dy * ka; P[A + 2] += dz * ka;
+        P[B] -= dx * kb; P[B + 1] -= dy * kb; P[B + 2] -= dz * kb;
+      }
+    }
+    /** knots the ball overlaps go to its surface; nylon grips leather, so they are carried along with it a little */
+    _collide(ball, back, h) {
+      const P = this.np, Q = this.pp;
+      const cx = ball.x - (ball.vx || 0) * back - this.rx, cy = ball.y - (ball.vy || 0) * back - this.ry, cz = ball.z - (ball.vz || 0) * back - RIM_Z;
+      const rr = BALL_R + 0.035;
+      for (let i = NS; i < NK; i++) {
+        const o = i * 3;
+        const dx = P[o] - cx, dy = P[o + 1] - cy, dz = P[o + 2] - cz, d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 >= rr * rr) continue;
+        const d = Math.sqrt(d2) || 1e-6, k = rr / d;
+        const vx = P[o] - Q[o], vy = P[o + 1] - Q[o + 1], vz = P[o + 2] - Q[o + 2];
+        P[o] = cx + dx * k; P[o + 1] = cy + dy * k; P[o + 2] = cz + dz * k;
+        Q[o] = P[o] - (vx + ((ball.vx || 0) * h - vx) * GRIP);
+        Q[o + 1] = P[o + 1] - (vy + ((ball.vy || 0) * h - vy) * GRIP);
+        Q[o + 2] = P[o + 2] - (vz + ((ball.vz || 0) * h - vz) * GRIP);
+      }
+    }
+    /** the semi-rigid top keeps the net from whipping up through or over the ring */
+    _limit() {
+      const P = this.np, Q = this.pp;
+      for (let i = NS; i < NK; i++) {
+        const o = i * 3, top = this._rimDz(P[o]) - 0.06 - (i >= 2 * NS ? 0.12 : 0);
+        if (P[o + 2] > top) { P[o + 2] = top; if (Q[o + 2] > top) Q[o + 2] = top; }
+      }
+    }
+    /** kick the knots (verlet: shift the previous positions) */
+    _kick(fromRow, fn) {
+      const Q = this.pp;
+      for (let k = fromRow; k < NR; k++) for (let i = 0; i < NS; i++) { const o = (k * NS + i) * 3, v = fn(k, i, o); Q[o] -= v[0]; Q[o + 1] -= v[1]; Q[o + 2] -= v[2]; }
+      this.awake = 1.6;
+    }
+    /** the net snaps back up as the ball drops out of the bottom on a swish */
     swish(strength) {
-      for (let k = 2; k < NL; k++) { this.lv[k].vz += 7 * strength * (k / NL); this.lv[k].vr -= 1.5 * strength; }
+      const P = this.np, h = 1 / 180;
+      this._kick(3, (k, i, o) => { const f = (k - 2) / (NR - 3) * strength; const r = Math.hypot(P[o], P[o + 1]) || 1; return [P[o] / r * 1.2 * f * h, P[o + 1] / r * 1.2 * f * h, 6 * f * h]; });
     }
-    hitRim(strength) { this.rimV += 3 * strength; }
-    hitBoard(strength) { this.boardShake = Math.max(this.boardShake, 0.06 * strength); }
-    hang(strength) { this.rimShake = -0.12 * strength; this.rimV = 0; }
+    hitRim(strength) {
+      this.rimV += 3 * strength;
+      const h = 1 / 180, ax = (Math.random() - 0.5) * 3 * strength, ay = (Math.random() - 0.5) * 3 * strength;
+      this._kick(1, (k) => [ax * h * (k / NR), ay * h * (k / NR), 0]);
+    }
+    hitBoard(strength) { this.boardShake = Math.max(this.boardShake, 0.06 * strength); this.awake = 1.6; }
+    /** a dunker hanging on the rim: it tips down ~10 deg for a moment, then springs back */
+    hang(strength) { this.holdAmt = 0.5 * strength; this.holdT = this.clock + 0.3 + 0.2 * strength; this.awake = 1.6; }
+    /** replay: knot positions, rim and board state into / out of a float array */
+    snapshot(out, o) { const P = this.np; for (let i = 0; i < NK * 3; i++) out[o + i] = P[i]; out[o + NK * 3] = this.rimShake; out[o + NK * 3 + 1] = this.boardShake; }
+    restore(src, o) { const P = this.np; for (let i = 0; i < NK * 3; i++) P[i] = src[o + i]; this.rimShake = src[o + NK * 3]; this.boardShake = src[o + NK * 3 + 1]; }
 
     depth(cam) { return cam.depth(this.ry, RIM_Z); }
 
@@ -241,48 +333,41 @@
       }
     }
 
-    _netPoint(k, i) {
-      const L = this.lv[k];
-      const a = (i + 0.5 * (k % 2)) / NS * U.TAU;
-      const r = Math.max(0.12, L.r0 + L.dr);
-      return [this.rx + L.ox + Math.cos(a) * r, this.ry + L.oy + Math.sin(a) * r, L.z0 + L.dz];
-    }
     /** half = 1 back strands (y > ry), -1 front strands */
     drawNet(g, cam, half) {
       const k = cam.scaleAt(this.ry, RIM_Z);
-      g.strokeStyle = half > 0 ? 'rgba(210,210,215,0.55)' : 'rgba(250,250,252,0.9)';
-      g.lineWidth = Math.max(0.7, k * 0.035);
-      g.beginPath();
-      const P = this._pt;
-      for (let lvl = 0; lvl < NL - 1; lvl++) {
-        for (let i = 0; i < NS; i++) {
-          const a = this._netPoint(lvl, i);
-          const odd = lvl % 2;
-          const b1 = this._netPoint(lvl + 1, odd ? i + 1 : i);
-          const b2 = this._netPoint(lvl + 1, odd ? i : i - 1);
-          for (const b of [b1, b2]) {
-            const my = (a[1] + b[1]) * 0.5;
-            if ((my >= this.ry) !== (half > 0)) continue;
-            cam.project(a[0], a[1], a[2], P); g.moveTo(P.x, P.y);
-            cam.project(b[0], b[1], b[2], P); g.lineTo(P.x, P.y);
-          }
-        }
-      }
-      g.stroke();
-      // bottom ring hint
-      if (half < 0) {
-        g.strokeStyle = 'rgba(240,240,245,0.6)';
+      const P = this.np, pt = this._pt, la = this.la, lb = this.lb;
+      const X = this.rx, Y = this.ry;
+      g.lineCap = 'round';
+      // the heavier anti-whip cord at the top, the lighter mesh below
+      for (let pass = 0; pass < 2; pass++) {
+        g.strokeStyle = half > 0 ? 'rgba(210,210,215,0.55)' : 'rgba(250,250,252,0.9)';
+        g.lineWidth = Math.max(0.7, k * (pass ? 0.032 : 0.045));
         g.beginPath();
-        for (let i = 0; i <= NS / 2; i++) {
-          const q = this._netPoint(NL - 1, NS / 2 + i);
-          cam.project(q[0], q[1], q[2], P);
-          if (i === 0) g.moveTo(P.x, P.y); else g.lineTo(P.x, P.y);
+        const l0 = pass ? NS * 4 : 0, l1 = pass ? this.nStr : NS * 4;
+        for (let l = l0; l < l1; l++) {
+          const A = la[l] * 3, B = lb[l] * 3;
+          if ((P[A + 1] + P[B + 1] >= 0) !== (half > 0)) continue;
+          cam.project(X + P[A], Y + P[A + 1], RIM_Z + P[A + 2], pt); g.moveTo(pt.x, pt.y);
+          cam.project(X + P[B], Y + P[B + 1], RIM_Z + P[B + 2], pt); g.lineTo(pt.x, pt.y);
         }
         g.stroke();
       }
+      // the loops along the bottom edge
+      g.strokeStyle = half > 0 ? 'rgba(210,210,215,0.4)' : 'rgba(240,240,245,0.6)';
+      g.lineWidth = Math.max(0.7, k * 0.03);
+      g.beginPath();
+      const o0 = (NR - 1) * NS;
+      for (let i = 0; i < NS; i++) {
+        const A = (o0 + i) * 3, B = (o0 + (i + 1) % NS) * 3;
+        if ((P[A + 1] + P[B + 1] >= 0) !== (half > 0)) continue;
+        cam.project(X + P[A], Y + P[A + 1], RIM_Z + P[A + 2], pt); g.moveTo(pt.x, pt.y);
+        cam.project(X + P[B], Y + P[B + 1], RIM_Z + P[B + 2], pt); g.lineTo(pt.x, pt.y);
+      }
+      g.stroke();
     }
   }
 
-  Hoop.RIM_R = RIM_R; Hoop.RIM_Z = RIM_Z; Hoop.BALL_R = BALL_R;
+  Hoop.RIM_R = RIM_R; Hoop.RIM_Z = RIM_Z; Hoop.BALL_R = BALL_R; Hoop.SNAP = SNAP;
   M.Hoop = Hoop;
 })();

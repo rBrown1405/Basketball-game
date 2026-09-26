@@ -539,7 +539,7 @@
     // ============================================================ instant replay
     makeRec(cap, maxP) {
       const frames = [];
-      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), ball: new Float32Array(16), net: new Float32Array(64), pan: 47 });
+      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), ball: new Float32Array(16), net: new Float32Array(M.Hoop.SNAP * 2), pan: 47 });
       return { cap, maxP, frames, head: 0, count: 0, lastT: -1e9, tmp: [] };
     }
     /** snapshot everything a frame needs (30 Hz of presentation time, ring buffer of the last ~7 s) */
@@ -564,11 +564,7 @@
       const b = this.ball;
       f.ball[0] = b.x; f.ball[1] = b.y; f.ball[2] = b.z; f.ball[3] = b.squash; f.ball[4] = b.hidden ? 1 : 0;
       for (let k = 0; k < 9; k++) f.ball[5 + k] = b.rot[k];
-      let o = 0;
-      for (const ho of this.hoops) {
-        for (const L of ho.lv) { f.net[o++] = L.dr; f.net[o++] = L.dz; f.net[o++] = L.ox; f.net[o++] = L.oy; }
-        f.net[o++] = ho.rimShake; f.net[o++] = ho.boardShake;
-      }
+      this.hoops.forEach((ho, i) => ho.snapshot(f.net, i * M.Hoop.SNAP));
       f.pan = this.camRig.pan.x;
       R.head = (R.head + 1) % R.cap; R.count = Math.min(R.cap, R.count + 1);
     }
@@ -643,10 +639,10 @@
       }
       ghosts.length = gi;
       const lerp = (k) => a.ball[k] + (b.ball[k] - a.ball[k]) * u;
-      const out = this._rf || (this._rf = { ghosts: null, bx: 0, by: 0, bz: 0, sq: 0, hidden: 0, rot: new Float64Array(9), net: new Float32Array(64) });
+      const out = this._rf || (this._rf = { ghosts: null, bx: 0, by: 0, bz: 0, sq: 0, hidden: 0, rot: new Float64Array(9), net: new Float32Array(M.Hoop.SNAP * 2) });
       out.ghosts = ghosts; out.bx = lerp(0); out.by = lerp(1); out.bz = lerp(2); out.sq = lerp(3); out.hidden = a.ball[4];
       for (let k = 0; k < 9; k++) out.rot[k] = u < 0.5 ? a.ball[5 + k] : b.ball[5 + k];
-      for (let k = 0; k < 64; k++) out.net[k] = a.net[k] + (b.net[k] - a.net[k]) * u;
+      for (let k = 0; k < out.net.length; k++) out.net[k] = a.net[k] + (b.net[k] - a.net[k]) * u;
       return out;
     }
 
@@ -690,10 +686,11 @@
       // replay: apply the recorded ball and net state for this frame (restored after drawing)
       let saved = null;
       if (rp) {
-        saved = { x: b.x, y: b.y, z: b.z, sq: b.squash, hidden: b.hidden, rot: Float64Array.from(b.rot), state: b.state, holder: b.holder, nets: this.hoops.map(ho => ({ lv: ho.lv.map(L => [L.dr, L.dz, L.ox, L.oy]), rs: ho.rimShake, bs: ho.boardShake })) };
+        const nets = this._netSave || (this._netSave = new Float32Array(M.Hoop.SNAP * 2));
+        this.hoops.forEach((ho, i) => ho.snapshot(nets, i * M.Hoop.SNAP));
+        saved = { x: b.x, y: b.y, z: b.z, sq: b.squash, hidden: b.hidden, rot: Float64Array.from(b.rot), state: b.state, holder: b.holder, nets };
         b.x = rp.bx; b.y = rp.by; b.z = rp.bz; b.squash = rp.sq; b.hidden = !!rp.hidden; b.rot.set(rp.rot); b.state = 'flight'; b.holder = null;
-        let o = 0;
-        for (const ho of this.hoops) { for (const L of ho.lv) { L.dr = rp.net[o++]; L.dz = rp.net[o++]; L.ox = rp.net[o++]; L.oy = rp.net[o++]; } ho.rimShake = rp.net[o++]; ho.boardShake = rp.net[o++]; }
+        this.hoops.forEach((ho, i) => ho.restore(rp.net, i * M.Hoop.SNAP));
       }
       // realistic 3D players: rendered into per-person cells now, composited below in depth order
       let R3 = null;
@@ -748,7 +745,7 @@
       } finally {
         if (saved) {
           b.x = saved.x; b.y = saved.y; b.z = saved.z; b.squash = saved.sq; b.hidden = saved.hidden; b.rot.set(saved.rot); b.state = saved.state; b.holder = saved.holder;
-          this.hoops.forEach((ho, i) => { ho.lv.forEach((L, k) => { const v = saved.nets[i].lv[k]; L.dr = v[0]; L.dz = v[1]; L.ox = v[2]; L.oy = v[3]; }); ho.rimShake = saved.nets[i].rs; ho.boardShake = saved.nets[i].bs; });
+          this.hoops.forEach((ho, i) => ho.restore(saved.nets, i * M.Hoop.SNAP));
         }
       }
       arena.drawOverlay(g, cam);
