@@ -116,13 +116,34 @@
     c.at(2.2, () => c.a.setFace(c.f0));
     c.at(3.8, () => c.a.setFace(c.f0 + Math.PI));
   });
+  add('Locomotion', 'sidestep', 'Sidestep in the ready stance', 5, (c) => {
+    c.a.setStance('ready'); c.a.setFace(c.f0);
+    for (let k = 0; k < 3; k++) c.at(0.4 + k * 1.5, () => { go(c, 0, 4, k % 2 ? -5 : 5); c.a.setFace(c.f0); });
+  });
+  add('Locomotion', 'help', 'Help defender recovers 16 ft (turns, runs, squares up)', 4, (c) => {
+    c.a.setStance('ready'); c.a.setFace(() => c.f0); c.a.faceLock = true;
+    c.at(0.4, () => go(c, 0, 14, 16));
+  });
+  // (his man cuts 14 ft across at ~7 ft/s, stops, drifts back at ~5 ft/s: the defender follows him, eyes on the ball)
+  add('Locomotion', 'shadow', 'Help defender shadows his man across and back', 6.6, (c) => {
+    c.a.setStance('ready'); c.a.setFace(() => c.f0); c.a.faceLock = true;
+    c.m = { x: c.x0, y: c.y0, vx: 0, vy: 0 };
+    c.a.track(() => c.m);
+  }, {
+    tick(c, t) {
+      const s = t < 0.4 ? 0 : t < 2.4 ? 7 * (t - 0.4) : t < 3.4 ? 14 : Math.max(0, 14 - 5 * (t - 3.4));
+      const v = t < 0.4 ? 0 : t < 2.4 ? 7 : t < 3.4 || s <= 0 ? 0 : -5;
+      c.m.x = c.x0 + c.rx * s; c.m.y = c.y0 + c.ry * s; c.m.vx = c.rx * v; c.m.vy = c.ry * v;
+    },
+  });
   add('Locomotion', 'jumpstop', 'Jump stop from a run', 3.4, (c) => {
     c.a.setStance('ready');
     c.at(0.3, () => go(c, 60, 12));
     c.at(1.7, () => c.a.jumpStop());
   });
+  // (in the defensive stance: out of any other a player going back that far turns and runs)
   add('Locomotion', 'backpedal', 'Backpedal', 5, (c) => {
-    c.a.setStance('ready'); c.a.setFace(c.f0);
+    c.a.setStance('defense'); c.a.setFace(c.f0);
     c.at(0.4, () => { go(c, -60, 9); c.a.setFace(c.f0); });
   });
   add('Locomotion', 'circle', 'Jog a circle', 10, (c) => { c.a.setStance('stand'); }, {

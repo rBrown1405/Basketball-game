@@ -260,6 +260,33 @@ real contacts (the game's body collisions already knock both players by their sh
 The Animation Lab's Contact group plays each one: a reach at a dribble and at a held ball, a bump from the side and
 then the front, and a hit in the air on a rebound jump.
 
+## No crab walking: turn and run (actor.js, lab.js)
+
+Off-ball players, help defenders shadowing their man above all, used to shuffle sideways or backpedal across the floor
+for seconds at a time (up to ~3.3 s, at up to 13.5 ft/s) with quick little side steps: it read as crabs or spiders.
+Coaches teach a shuffle for no more than two quick steps; further than that the first step is a crossover and the
+player turns and runs, the hips and legs going his way while the upper body and eyes stay on his man, then squares up
+again (a closeout is the same: sprint most of the way, chop the last steps). Game animators treat strafing the same
+way: outside combat a person going somewhere turns toward it and walks there.
+
+| Rule | How | Sources |
+|---|---|---|
+| Turn and run | an off-ball player going more than ~6 ft sideways or backwards at over ~4.5 ft/s opens up and runs; following his man (or a spot that keeps moving, like a spacing spot) he does so after ~0.3 s of shuffling with the man really going that way (~0.5 s when the man drifts), so jabs and fakes do not turn him back and forth. A man sealing, posting, screening or with the ball goes from ~8.5 ft/s; the defensive stance keeps its slide and backpedal up to ~12-13.5 ft/s | https://www.breakthroughbasketball.com/defense/defense-crossover-step , https://simplifaster.com/articles/deconstructing-preformance-training-basketball-defense/ , https://www.kubold.com/unreal-faq-2 , https://gitlab.com/OpenMW/openmw/-/issues/5457 |
+| Eyes on the ball | running, the chest turns part of the way back and the neck and head the rest (up to ~70 deg in all) toward what he was facing, eased in and out over ~0.15 s; a defender with his eyes already on the ball keeps looking at it | https://dev.epicgames.com/documentation/en-us/unreal-engine/pose-warping-in-unreal-engine |
+| Squaring up | he squares up while he still has pace to step round on: ~3 ft from the spot, braking to a stop, when his man turns back, or when the way he is going comes round to where he faces. The decision is held ~0.3 s at least (switched on its thresholds alone, it flickered on and off every frame as a player neared his spot), and a run carries on through a change of stance (a help defender hovering at the edge of the defensive stance's range turned back and forth with it) | https://www.breakthroughbasketball.com/defense/keys-close-outs.html |
+| Turning over the right foot | a big turn on the move (over ~35 deg, under ~9 ft/s) goes round over the foot that keeps each foot on its own side: turning left over a right foot planted ahead of him, or a left one behind, the way a player plants the outside foot to cut, open up or stop. Over the other foot, that foot ends up across the other leg and the next step has to come round it. Otherwise the turn waits for the next step, at a quarter of the pace (~0.3 s at most); a bigger turn goes in ~60 deg stages, a step at a time, like a drop step | |
+| Steps land where the body will face | a step taken while the body turns is set out to the side of the body as it will be with that foot down (the foot already took that heading): opening up out of a shuffle, the step used to land behind him | |
+| Sprint push-off | over ~9 ft/s a trailing foot at full stretch leaves once the other foot is a third of the way through its swing (a runner has both feet off the floor there anyway); held down, it dragged | |
+| Side steps | a sidestep out of any stance other than the defensive one takes ~0.75 ft steps ~2.7 times a second at a slow shuffle and ~1 ft steps ~4 times a second at 4 ft/s (the old half-foot steps 4-5 times a second at a walking pace read as a spider), and the stance widens a little at pace so the closing foot stays clear | |
+
+Checked in real games, before -> after: off-ball sideways or backwards shuffles at over 4 ft/s lasting more than a
+second went from 88 and 98 (143 s and 158 s) to 4 and 7 (5 s and 8 s) over two samples of 20 possessions, those over
+half a second fell ~60 %, and the longest from ~3.3 s to ~1.4 s; the quick two-step shuffles stay. Over four samples
+legs touched less (feet -8 %, shins -13 %, knees -6 %), feet were left behind less (-11 %), pops fell 1-2 %, and
+planted-foot slide stayed about level (+5 %). The Animation Lab adds Sidestep in the ready stance, Help defender
+recovers 16 ft and Help defender shadows his man across and back; its Backpedal is now in the defensive stance, since
+out of any other a player going back that far turns and runs.
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the

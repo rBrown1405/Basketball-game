@@ -60,6 +60,8 @@
   const POSE_INERT_ARM = new Set(['ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD'].reduce((a, k) => a.concat([RG.CH['l' + k], RG.CH['r' + k]]), []));
   const GAIT_SMOOTH = ['beta', 'lift', 'reach', 'halfW', 'liftPow', 'drop', 'toePitch', 'heelOff', 'landPitch', 'roll', 'run'];
   const IDLE_SHIFT = { stand: 1, ready: 1, handsHips: 1, handsKnees: 0.5, holdChest: 1, triple: 0.6, refStand: 1 };
+  // off-ball stances that turn and run when going somewhere, instead of shuffling there squared up to the ball
+  const TURN_EARLY = { stand: 1, ready: 1, handsKnees: 1, handsHips: 1 };
 
   class Actor {
     constructor(view, look, team, kind) {
@@ -614,6 +616,15 @@
         if (g.mode === 'track' && g.track) {
           const t = g.track(this);
           if (t) { tx = t.x; ty = t.y; tvx = t.vx || 0; tvy = t.vy || 0; g.x = tx; g.y = ty; }
+          // (how fast what he follows is going: read by the facing, a man on the move is followed at a run)
+          g.tv = Math.hypot(tvx, tvy); g.tvx = tvx; g.tvy = tvy;
+        } else if (dt > 0) {
+          // (a spot that keeps being moved on, the way a spacing spot follows the ball, goes as fast as it is moved:
+          // measured over ~0.25 s, a jump to a new spot aside)
+          const jx = g.x - (g.px == null ? g.x : g.px), jy = g.y - (g.py == null ? g.y : g.py), jl = Math.hypot(jx, jy);
+          const k = 1 - Math.exp(-dt / 0.25), mx = jl < 1 ? jx / dt : 0, my = jl < 1 ? jy / dt : 0;
+          g.tvx = (g.tvx || 0) + (mx - (g.tvx || 0)) * k; g.tvy = (g.tvy || 0) + (my - (g.tvy || 0)) * k;
+          g.tv = Math.hypot(g.tvx, g.tvy); g.px = g.x; g.py = g.y;
         }
         const dx = tx - this.x, dy = ty - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -681,12 +692,53 @@
       const moveA = Math.atan2(this.vy, this.vx);
       const diff = Math.abs(U.wrapPi(moveA - face));
       const st = A.STANCE[this.stance] || A.STANCE.stand;
-      // (a defensive slide tops out ~10-11 ft/s, a backpedal a little faster: past that a defender opens up and runs)
-      const slideMax = this.faceLock && this.faceMode === 'fn' ? 13.5 : st.slide ? 12 : 7.5;
-      if (sp > slideMax && diff > 0.9) {
-        const k = U.smooth((sp - slideMax) / 4);
-        face = U.angLerp(face, moveA, k);
+      this._watchTo = 0;
+      const locked = this.faceLock && this.faceMode === 'fn';
+      if (st.slide && !this._runMode) {
+        // (the defensive stance slides and backpedals, opening up and running only past ~12 ft/s, ~13.5 locked on
+        // his man. A run already under way carries on into it until it ends as a run does: a help defender near
+        // the edge of the stance's range switched stance back and forth and turned with it)
+        const slideMax = locked ? 13.5 : 12;
+        if (sp > slideMax && diff > 0.9) face = U.angLerp(face, moveA, U.smooth((sp - slideMax) / 4));
+        return face;
       }
+      // anyone else shuffles sideways or backwards only a couple of quick steps: going further at pace he opens up
+      // and runs (the coaches' "turn and run": the hips and legs go the way he is going, the upper body and eyes
+      // stay on what he was facing), and squares up again when he gets there or slows. It is a decision held until
+      // then (a threshold on speed alone flipped the body back and forth as his pace crossed it, and the feet
+      // tangled). He goes when he is headed somewhere over ~6 ft off, or has shuffled ~0.3 s after a man (or a
+      // spot) on the move; the last few feet to a spot are shuffled. Off-ball players go from ~4.5 ft/s (they
+      // shuffled across the floor at up to 13.5 ft/s shadowing their man, like crabs), a man sealing, posting,
+      // screening or with the ball from ~8.5 ft/s. Either way the body holds it for ~0.3 s at least (switched on and
+      // off as he neared his spot, it turned back and forth every frame)
+      const early = TURN_EARLY[this.stance] && !this.hasBall;
+      const g = this.goal, gd = g.mode === 'idle' ? 0 : Math.hypot(g.x - this.x, g.y - this.y), tv = g.mode === 'idle' ? 0 : g.tv || 0;
+      const off = sp > (early ? 4.5 : 8.5) && diff > 1.0;
+      if (!off) this._offT = null; else if (this._offT == null) this._offT = this.time;
+      let rm = !!this._runMode;
+      const held = this.time - (this._rmT == null ? -9 : this._rmT) < 0.3;
+      // (he squares up while he still has pace to step round on: braking to a stop, nearing the spot, or when his
+      // man turns back. Left running until he had all but stopped, the body swung round over feet that had stopped
+      // stepping, and the legs crossed)
+      const brake = sp > 0.1 ? -((this.axF || 0) * this.vx + (this.ayF || 0) * this.vy) / sp : 0, braking = brake > 6 && sp < (early ? 6 : 8);
+      if (!rm) {
+        // (following a man, or a spot on the move: once he has shuffled ~0.3 s with it really going that way,
+        // ~0.5 s when it drifts: a man's jabs and fakes turned a defender back and forth)
+        const offT = this._offT == null ? 0 : this.time - this._offT;
+        const withIt = ((g.tvx || 0) * this.vx + (g.tvy || 0) * this.vy) > 0.7 * tv * sp;
+        if (!held) rm = off && !braking && g.mode !== 'idle' && (gd > 6 || (withIt && ((offT > 0.3 && (gd > 4 || tv > 4)) || (offT > 0.5 && tv > 2))));
+        this._rmAl = false;
+      } else if (g.mode === 'idle' || sp < (early ? 3.5 : 5)) rm = false;
+      else {
+        // (the man turning back counts once the body has come round into the run: before that it read as a
+        // reversal, and the run was called off and started again while he was still turning)
+        const run = Math.abs(U.wrapPi(moveA - this.facing));
+        if (run < 0.5) this._rmAl = true;
+        if (!held) rm = !(diff < 0.5 || (gd < 3 && tv <= 2) || braking || (this._rmAl && run > 1.75));
+      }
+      if (rm !== !!this._runMode) this._rmT = this.time;
+      this._runMode = rm;
+      if (rm) { this._watch = face; this._watchTo = 1; face = moveA; }
       return face;
     }
     /** where the body will face in `dt` seconds, turning toward where it wants to face at its turn rate */
@@ -697,6 +749,8 @@
     }
     _turn(dt) {
       const want = this._desiredFacing();
+      // (the eyes come round to what he was facing, and back, over ~0.15 s)
+      this._watchK = (this._watchK || 0) + ((this._watchTo || 0) - (this._watchK || 0)) * (1 - Math.exp(-dt / 0.12));
       this._wantFace = want; this._wantT = this.time;
       // standing and turning far (to face the ball, a man, the other way): the whole body goes round together on a
       // pivot foot while the other foot steps round it, instead of the upper body turning first and the feet
@@ -709,7 +763,28 @@
         if (this.pivotTo(want, { ball: false })) return;
       }
       // (a 180 in ~0.3 s standing, ~0.4 s on the run; quicker for the agile)
-      const rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
+      let rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
+      // a big turn on the move (opening up to run, squaring up out of it, facing a new man) goes round over the
+      // right foot: turning left over a right foot planted ahead of him (or a left one behind), the way a player
+      // plants the outside foot to open up, cut or stop. Over the other foot it would end up across the other leg,
+      // and the next step had to come round it (the legs touched on most of these turns). So the turn waits for a
+      // stride to put the right foot down (a quarter of the pace meanwhile, ~0.3 s at most). (Not at a sprint: held
+      // back there, the body ran on sideways with the feet stretched out and dragging)
+      const dA = U.wrapPi(want - this.facing);
+      if (this.kind === 'player' && !this.clip && this.gaitOn && this.speed > 1.5 && this.speed < 9 && Math.abs(dA) > 0.6) {
+        // (judged over the next ~60 deg: a bigger turn goes round in stages, a step at a time, the way a player
+        // drop-steps to go the other way; judged over all of it, a half turn could never go, the feet change sides)
+        const dC = U.clamp(dA, -1.05, 1.05);
+        const c = Math.cos(this.facing), s = Math.sin(this.facing), cd = Math.cos(dC), sd = Math.sin(dC);
+        let ok = true;
+        for (const f of this.feet) {
+          if (f.state !== 'plant') continue;
+          const dx = f.x - this.x, dy = f.y - this.y, fwd = dx * c + dy * s, lat = dx * s - dy * c;
+          if ((f.side ? 1 : -1) * (lat * cd + fwd * sd) < 0.02 * this.H) ok = false;
+        }
+        this._turnWait = ok ? 0 : (this._turnWait || 0) + dt;
+        if (!ok && this._turnWait < 0.3) rate *= 0.25;
+      } else this._turnWait = 0;
       this._turnRate = rate;
       this.facing = U.angApproach(this.facing, want, rate * dt);
       this.facing = U.wrapPi(this.facing);
@@ -779,18 +854,22 @@
         // lateral movement: step-slide (lead foot lands ahead, trail foot behind; feet never cross)
         const latK = U.smooth((0.88 - Math.abs(fwdDot)) / 0.4);
         if (latK > 0) {
-          const slideW = U.lerp(0.12, 0.2, this.stP.slide);
+          // (a quick sidestep out of a narrow stance widens it, so the closing foot stays clear of the other)
+          const slideW = U.lerp(0.12 + 0.05 * U.smooth((sp - 4) / 4), 0.2, this.stP.slide);
           // cadence checked against a motion-captured defensive slide (CMU 102_27): at 10-12 ft/s it is a lateral
           // bound (both feet land nearly together, ~2 bounds/s) with the gap between the feet swinging from ~0.14 H to
           // ~0.66 H; with alternating steps that width range needs ~5 steps/s at 10 ft/s (the old ~7 was a pitter-patter)
-          // (only the defensive slide: a sidestep in any other stance keeps the quicker, shorter steps)
           const ks = this.stP.slide;
           // (a slide is a push and a reach, not a patter. The feet never cross, so a step can only open the gap
           // between them from nearly together to a wide reach: the body goes ~0.3 H per step at most, and past that
           // the steps have to come quicker. A slow slide takes ~1.2 ft steps ~4 times a second, a quick one (~11-12
           // ft/s, the top pace elite players hold over a 5 m shuffle test) ~2 ft steps ~6 times a second)
-          const slideStep = U.clamp(0.75 + 0.1 * sp, 0.9, 0.3 * H);
-          const slideSps = U.lerp(2 * U.clamp(1.7 + 0.19 * sp, 1.9, 3.6), U.clamp(sp / slideStep, 2.6, 6.4), ks);
+          // (a sidestep out of any other stance is a smaller version: ~0.75 ft steps ~2.7 times a second at a slow
+          // shuffle, ~1 ft ~4 times a second at 4 ft/s; the old ~4-5 half-foot steps a second at a walking pace read
+          // as a spider. Steps no longer than ~0.15 H: from a stance this narrow a longer one brings the closing foot
+          // in against the other; going faster, the steps quicken until he turns and runs instead)
+          const slideStep = U.clamp(0.75 + 0.1 * sp, 0.9, 0.3 * H), sideStep = U.clamp(0.55 + 0.1 * sp, 0.7, 0.15 * H);
+          const slideSps = U.lerp(U.clamp(sp / sideStep, 2.2, 5.6), U.clamp(sp / slideStep, 2.6, 6.4), ks);
           gp.halfW = U.lerp(gp.halfW, slideW, latK);
           gp.reach = U.lerp(gp.reach, 0.5, latK);
           gp.lift = U.lerp(gp.lift, 0.035 + 0.02 * ks * U.smooth((sp - 6) / 6), latK);
@@ -860,11 +939,13 @@
           const o = this.feet[1 - f.side];
           return o.state === 'plant' && behindOf(f) < behindOf(o) + 0.06 * H;
         };
-        const canLift = (f) => {
+        // (`hurry`: a foot left behind at a sprint, the leg at full stretch, goes once the other one is a third of
+        // the way through its swing: a runner's feet are both off the floor there anyway, and held down it dragged)
+        const canLift = (f, hurry) => {
           const o = this.feet[1 - f.side];
           if (o.state !== 'plant') {
             const since = this.time - (o.liftT == null ? -9 : o.liftT);
-            if (o.mode === 'gait' ? since < Math.max(minLag, 0.09) || (o.sw || 0) < swOk : (o.s || 0) < 0.92) return false;
+            if (o.mode === 'gait' ? since < Math.max(minLag, 0.09) || (o.sw || 0) < (hurry ? Math.min(swOk, 0.35) : swOk) : (o.s || 0) < 0.92) return false;
             // (and it really is out in front: a swing that started far back, a foot catching up, can be most of the
             // way through its time still level with this one, and both feet were in the air side by side)
             if (o.mode === 'gait' && (o.sw || 0) < 0.92) {
@@ -948,7 +1029,7 @@
                 continue;
               }
             }
-            if (canLift(f)) {
+            if (canLift(f, late && sp > 9)) {
               // lift off
               const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
               f.state = 'swing'; f.mode = 'gait';
@@ -991,9 +1072,11 @@
             }
             const reach = gp.reach * gp.beta * strideLen;
             const side = f.side ? 1 : -1;
-            const rx = s, ry = -c;
-            // (turning: aimed where the body will face half way through the foot's time on the floor)
+            // (turning: aimed where the body will face half way through the foot's time on the floor, its heading and
+            // which side of the body it lands on: set out to the side of a body still turning, opening up out of a
+            // shuffle, the step landed behind him)
             const turnAhead = U.clamp((this.faceRate || 0) * (tLeft + 0.5 * gp.beta * cycleT), -0.5, 0.5);
+            const rx = Math.sin(this.facing + turnAhead), ry = -Math.cos(this.facing + turnAhead);
             f.tyaw = this.facing + turnAhead + (f.side ? -1 : 1) * 7 * D;
             // `reach` places the ankle ahead of the body at contact; the ball of the foot lies d.ball further along the foot
             let ntx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
@@ -1816,6 +1899,11 @@
       }
       // 5. head look-at
       if (this.look_) this._applyLook(p);
+      // turned to run somewhere, he still watches the ball (or whatever he was facing) over his shoulder
+      else if (this._watchK > 0.05 && !this.clip && this._watch != null) {
+        const rel = U.clamp(U.wrapPi(this._watch - this.facing), -1.35, 1.35) * this._watchK;
+        p[CH.chTwist] += rel * 0.2; p[CH.nkTwist] += rel * 0.35; p[CH.hdTwist] += rel * 0.35;
+      }
       // 5b. knocked off balance by a contact: the torso goes with the push, the head lags, the arms come out
       const hit = this.hit;
       if (hit) {
