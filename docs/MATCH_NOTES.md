@@ -117,7 +117,8 @@ defensive step-slide, stationary stance stepping. Stances: stand, ready, defense
 triple threat, hold chest, shot pocket, screen, box-out, post-up, post defense, inbound (ball overhead), hands on
 knees (FT lane), dribble, referee.
 
-Actions: `jumpshot` (catch-and-shoot), `pullup`, `stepback`, `fadeaway`, `freethrow`, `layup`, `reverse`,
+Actions: `jumpshot` (catch-and-shoot, one motion), `jumpshot2` (two-motion: the ball set over the forehead
+before the legs drive; fixed per player, about one shooter in four, one in two from 6-9 up), `pullup`, `stepback`, `fadeaway`, `freethrow`, `layup`, `reverse`,
 `floater`, `hook`, `dunk` (one hand, rim hang), `dunk2` (two hands), `alley`, `tip`, `putback`, `putbackDunk`,
 `rebound` (grab at the apex, chin it), `contestUp`, `contestJump`, `block`, `swipe`, `intercept`, `fall`
 (taking a charge), `passChest`, `passBounce`, `passOverhead`, `passPush`, `passLob`, `passOutlet`,
@@ -182,8 +183,9 @@ would make the view more faithful if they ever become available (all optional, t
 
 ## Live Game AI sliders (League Settings)
 
-Six sliders (0-100, 50 = calibrated) shape how players read the floor in the live game; the results are still set by the
-engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1, 100 -> hi):
+Seven sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
+set by the engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1,
+100 -> hi):
 
 | Slider | What it changes |
 |---|---|
@@ -193,6 +195,7 @@ engine's own sliders. The director reads them through `Director.sliderK(key, lo,
 | Defensive Awareness (`defIQ`) | how much defenders anticipate their man's movement, how tight help stays |
 | On-Ball Pressure (`defPressure`) | the cushion off the ball handler (NBA tracking by distance from the rim at 50) |
 | Help Defense (`helpD`) | how far help defenders may sag off their man toward the ball |
+| Player Speed (`moveSpeed`) | top speed, first-step push, braking and body turns of every player (0.8x to 1.25x), and the pace the director moves them at; read by the actor (`paceOf`) |
 
 ## Movement, handling, the post and contact
 
