@@ -509,6 +509,9 @@
             if (ev.stealer) say('pbp', pick([`Stolen by ${last(ev.stealer)}!`, `${last(ev.stealer)} picks ${pron(ev.player).his} pocket!`, `Steal, ${last(ev.stealer)}, and they're off!`]), { pri: 7, ttl: 2.5, hype: true });
             else if (ev.kind === 'offensive_foul') say('pbp', pick(['Offensive foul, charge.', 'They call the charge!', 'Took the charge! Great defense.']), { pri: 6, ttl: 3 });
             else if (ev.kind === 'shot_clock') say('pbp', pick(['Shot clock violation!', 'And that is a shot clock violation. Great defense.']), { pri: 6, ttl: 3 });
+            else if (ev.kind === 'eight_seconds') say('pbp', pick(['Eight seconds! They never got it across.', `That's an eight-second violation. The pressure got to ${nick(ev.team)}.`, 'Trapped in the backcourt, and the whistle goes. Eight seconds.']), { pri: 6, ttl: 3.2 });
+            else if (ev.kind === 'backcourt') say('pbp', pick(['Backcourt violation! He took it back over the line.', `Over and back on ${last(ev.player)}. Turnover.`, 'He retreated over half court. That is a backcourt violation.']), { pri: 6, ttl: 3.2 });
+            else if (ev.kind === 'three_seconds') say('pbp', pick([`Three seconds on ${last(ev.player)}.`, `Offensive three seconds. ${last(ev.player)} camped in the lane.`]), { pri: 5, ttl: 3 });
             else if (chance(0.6)) say('pbp', pick([`Turnover, ${nick(ev.team)}.`, `Loose with it, ${last(ev.player)}.`, 'Traveling, they say.', `Careless pass by ${last(ev.player)}.`].filter(s => ev.kind === 'travel' || !/Traveling/.test(s))), { pri: 4, ttl: 2.5 });
             if (ev.stealer && chance(0.35 * chatty())) say('color', pick([`Jumped the passing lane. ${last(ev.stealer)} read that the whole way.`, 'Active hands. That is how you start a fast break.']), { pri: 3, ttl: 6 });
             break;
@@ -517,6 +520,10 @@
             const f = pc(ev.fouler);
             if (ev.kind === 'shooting' && chance(0.5)) say('pbp', pick([`Foul on ${last(ev.fouler)}.`, `And there is contact. ${ev.fts} shots.`, `Whistle. ${last(ev.on)} is going to the line.`]), { pri: 4, ttl: 3 });
             else if (ev.kind === 'intentional') say('pbp', pick(['They foul intentionally to stop the clock.', `Take foul on ${last(ev.fouler)}. Every second matters now.`]), { pri: 6, ttl: 3 });
+            else if (ev.kind === 'def3') {
+              say('pbp', pick([`Defensive three seconds on ${last(ev.fouler)}. Technical free throw.`, `Whistle. ${last(ev.fouler)} was camped in the paint, defensive three.`, 'That is defensive three seconds. One shot, and they keep the ball.']), { pri: 5, ttl: 3.2 });
+              if (chance(0.3 * chatty())) say('color', pick(['You can sag off, but you have to be guarding somebody in there.', 'That is the price of packing the paint. You cannot just park in the lane.']), { pri: 3, ttl: 6 });
+            }
             if (f && f.pf >= 4 && !B.foulNoted[f.id + ':' + f.pf] && per <= L.periods) {
               B.foulNoted[f.id + ':' + f.pf] = 1;
               say('color', f.pf >= 5 ? `That's five on ${f.last}. One more and ${pron(f.id).he} is done for the night.` : `${f.last} picks up number four. That's big foul trouble ${per <= 2 ? 'in the first half' : 'with a lot of game left'}.`, { pri: 5, ttl: 6 });
@@ -525,6 +532,7 @@
             break;
           }
           case 'ft': {
+            if (ev.tech) { if (chance(0.5 * chatty())) say('pbp', ev.made ? pick([`${last(ev.shooter)} knocks down the technical.`, 'Technical free throw is good.']) : `${last(ev.shooter)} misses the technical.`, { pri: 3, ttl: 2.5 }); break; }
             if (ev.num === 1 && ev.of >= 2 && chance(0.35 * chatty())) say('pbp', pick([`${last(ev.shooter)} at the line for ${ev.of === 3 ? 'three' : 'two'}.`, `${last(ev.shooter)} to the line.`]), { pri: 3, ttl: 2.5 });
             if (ev.num === ev.of) {
               const c = pc(ev.shooter);

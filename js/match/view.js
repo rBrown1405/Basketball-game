@@ -381,7 +381,8 @@
         ? [{ x: X(-2.2), y: 16 }, { x: X(U.clamp(bu + 10, 26, 48)), y: -2.4 }, { x: X(U.clamp(bu + 2, 18, 40)), y: 52.4 }]
         : [{ x: X(U.clamp(bu - 30, -2.2, 20)), y: 16 }, { x: X(U.clamp(bu + 12, 40, 70)), y: -2.4 }, { x: X(U.clamp(bu - 4, 28, 60)), y: 52.4 }];
       this.refs.forEach((r, i) => {
-        if (r.isBusy() || (b.holder === r)) return;
+        // (an official the director has a job for: fetching the ball, administering a throw-in or a free throw)
+        if (r.isBusy() || (b.holder === r) || (d.active && r.taskUntil > d.T)) return;
         const t = targets[i];
         const dd = Math.hypot(r.x - t.x, r.y - t.y);
         if (dd > 1.5) r.moveTo(t.x, t.y, { speed: dd > 12 ? 15 : 8, face: dd > 6 ? 'move' : { x: b.x, y: b.y }, stance: 'refStand' });

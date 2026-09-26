@@ -573,6 +573,41 @@
     { t: 0.8, p: { base: 'stand', rShF: 150, rShA: 60, rShT: -40, rElF: 125, rPro: 30, rFing: 0.4 } },
     { t: 1.3, p: 'stand' },
   ]);
+  // technical foul: the hands form a T in front of the chin (right hand the stem, left hand the bar laid across its
+  // fingertips; arm angles fitted to those hand spots on the rig)
+  const T_SIGN = { base: 'stand', rShF: 37, rShA: 8, rShT: 54, rElF: 114, rPro: -30, rWrF: 45, rWrD: 2, rFing: 0.08, lShF: 81, lShA: 17, lShT: 39, lElF: 124, lPro: 86, lWrF: 34, lWrD: -9, lFing: 0.08 };
+  refClip('refTech', 1.5, [
+    { t: 0, p: 'stand' },
+    { t: 0.28, p: T_SIGN },
+    { t: 1.15, p: T_SIGN },
+    { t: 1.5, p: 'stand' },
+  ]);
+  // defensive three seconds: three fingers held out, then the technical T
+  refClip('refDef3', 2.2, [
+    { t: 0, p: 'stand' },
+    { t: 0.2, p: { base: 'stand', rShF: 95, rShA: 30, rElF: 30, rPro: 0, rFing: 0.2 } },
+    { t: 0.8, p: { base: 'stand', rShF: 96, rShA: 30, rElF: 30, rPro: 0, rFing: 0.2 } },
+    { t: 1.1, p: T_SIGN },
+    { t: 1.85, p: T_SIGN },
+    { t: 2.2, p: 'stand' },
+  ]);
+  // eight seconds: both hands up, fingers spread (eight fingers)
+  refClip('refEight', 1.5, [
+    { t: 0, p: 'stand' },
+    { t: 0.22, p: { base: 'stand', both: { ShF: 138, ShA: 30, ShT: 0, ElF: 62, Pro: 0, WrF: -10, Fing: 0.04 } } },
+    { t: 1.1, p: { base: 'stand', both: { ShF: 140, ShA: 30, ShT: 0, ElF: 60, Pro: 0, WrF: -10, Fing: 0.04 } } },
+    { t: 1.5, p: 'stand' },
+  ]);
+  // backcourt: the index finger points down at the floor and waves across the division line
+  refClip('refBackcourt', 1.6, [
+    { t: 0, p: 'stand' },
+    { t: 0.2, p: { base: 'stand', rShF: 48, rShA: 4, rShT: 10, rElF: 12, rPro: 20, rWrF: 20, rFing: 0.6 } },
+    { t: 0.45, p: { base: 'stand', rShF: 50, rShA: 34, rShT: 10, rElF: 12, rPro: 20, rWrF: 20, rFing: 0.6 } },
+    { t: 0.7, p: { base: 'stand', rShF: 48, rShA: 0, rShT: 10, rElF: 12, rPro: 20, rWrF: 20, rFing: 0.6 } },
+    { t: 0.95, p: { base: 'stand', rShF: 50, rShA: 34, rShT: 10, rElF: 12, rPro: 20, rWrF: 20, rFing: 0.6 } },
+    { t: 1.2, p: { base: 'stand', rShF: 48, rShA: 4, rShT: 10, rElF: 12, rPro: 20, rWrF: 20, rFing: 0.6 } },
+    { t: 1.6, p: 'stand' },
+  ]);
   refClip('refToss', 1.0, [
     { t: 0, p: { base: 'stand', both: { ShF: 50, ShA: 10, ShT: 30, ElF: 60, Pro: 0 } } },
     { t: 0.2, p: { base: 'stand', both: { ShF: 40, ShA: 10, ShT: 30, ElF: 80, Pro: 0 } } },

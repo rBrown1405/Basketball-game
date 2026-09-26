@@ -123,7 +123,8 @@ Actions: `jumpshot` (catch-and-shoot), `pullup`, `stepback`, `fadeaway`, `freeth
 (taking a charge), `passChest`, `passBounce`, `passOverhead`, `passPush`, `passLob`, `passOutlet`,
 `passInbound`, `catch`, `pickup`, `jab`, `spin`, `hesi`, `backdown`, `jumpTip`, celebrations (`fistPump`, `flex`,
 `threeFingers`, `point`, `clap`), `dejected`, referee signals (`refWhistle`, `refFoul`, `refThree`,
-`refThreeGood`, `refTravel`, `refOut`, `refTimeout`, `refCharge`, `refThreeSec`, `refShotClock`, `refToss`).
+`refThreeGood`, `refTravel`, `refOut`, `refTimeout`, `refCharge`, `refThreeSec`, `refShotClock`, `refToss`,
+`refTech`, `refDef3`, `refEight`, `refBackcourt`).
 Dribble moves (crossover, between the legs, behind the back) are driven by the ball's dribble state; the
 dribble hand follows the ball by IK and the bounce is synced to the footfalls when moving.
 

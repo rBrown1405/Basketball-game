@@ -447,6 +447,7 @@
     P.defScheme = ctx.D.strat.def;
     P.offSystem = ctx.O.strat.off; // the live view shapes its off-ball movement and ball movement on it
     initiate(ctx, opts);
+    if (!ctx.done) backcourtRules(ctx);
     runSegments(ctx, opts);
     if (ctx.pendingShot) { g.pending = { P, ctx }; P.pendingShot = ctx.pendingShot; return P; }
     finishPossession(ctx);
@@ -693,6 +694,56 @@
     }
   }
 
+  // Eight seconds to get the ball over half court, and once over it may not go back (NBA rule 10, sections VIII and
+  // IX). The count runs with the shot clock from the throw-in or the change of possession; a press and a shaky
+  // handler make both far more likely. League rates: about 0.03 eight-second and 0.06 backcourt violations per team
+  // per game.
+  function backcourtRules(ctx) {
+    const g = ctx.g, P = ctx.P, h = ctx.handler;
+    if (ctx.transition || ctx.frontcourt || ctx.advT == null || !h) return;
+    const t0 = ctx.scStart || 0;
+    if (ctx.advT <= t0) return;
+    const k = (ctx.press ? 5 : 1) * Math.pow(1.045, (72 - ((h.r && h.r.handle) || 70)) / 2) * ((g.sl && g.sl.to) || 1);
+    if (t0 + 8.05 < g.clock - 0.3 && U.chance(0.0004 * k)) {
+      // never got it across: the advance never happened
+      if (!g.lite) { for (let i = P.events.length - 1; i >= 0; i--) if (P.events[i].type === 'advance') { P.events.splice(i, 1); break; } }
+      turnover(ctx, { play: 'none', handler: h, noSet: true }, t0 + 8.05, 'eight_seconds');
+      return;
+    }
+    const tb = ctx.advT + U.range(0.4, 2.4);
+    if (tb < g.clock - 0.3 && tb < t0 + 22 && U.chance(0.00095 * k)) turnover(ctx, { play: 'none', handler: h, noSet: true }, tb, 'backcourt');
+  }
+
+  // Defensive three seconds: a defender in the lane for three seconds without actively guarding anyone. A team
+  // technical (no personal foul, not a team foul): one free throw by any player on the floor, and the offense keeps
+  // the ball on the sideline at the free throw line extended with the shot clock where it was, 14 at the least (NBA
+  // rule 12). About 0.17 per team per game in recent seasons, more against zones and sagging defenses.
+  function def3Prob(ctx) {
+    const D = ctx.D, sch = D.strat.def;
+    const zone = /zone|boxone/.test(sch);
+    return 0.00235 * (zone ? 1.8 : sch === 'packline' ? 1.3 : 1);
+  }
+  function defensiveThree(ctx, info, t) {
+    const g = ctx.g, O = ctx.O, D = ctx.D, L = g.L;
+    ctx.t = Math.min(t, g.clock - 0.05);
+    const who = U.pickW(D.on, c => 0.4 + c.posN * 0.3 + (100 - c.r.perD) / 100);
+    D.techs = (D.techs || 0) + 1;
+    if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play; ctx.P.setName = info.setName || ''; }
+    evAt(ctx, ctx.t, 'foul', { fouler: who.id, on: null, kind: 'def3', fts: 1, tech: true, team: D.idx, text: `Defensive 3 seconds on ${who.last}: technical foul` });
+    const sh = U.maxBy(O.on, c => c.r.ft + U.rand() * 3);
+    const made = U.chance(ftProb(ctx, sh));
+    sh.st.fta++;
+    if (made) { sh.st.ftm++; sh.st.pts++; }
+    evAt(ctx, ctx.t, 'ft', { shooter: sh.id, made, num: 1, of: 1, tech: true, team: O.idx, text: `${sh.last} ${made ? 'makes' : 'misses'} the technical free throw` });
+    if (made) addPoints(ctx, O.idx, 1);
+    // the offense keeps it
+    const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
+    ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'sideline', x: U.round(bx - dir * 13.75, 1), y: U.chance(0.5) ? -1 : 51, team: O.idx });
+    const scLeft = ctx.scStart + ctx.scLen - ctx.t;
+    ctx.scStart = ctx.t; ctx.scLen = Math.max(L.orebShotClock, Math.min(L.shotClock, scLeft));
+    ctx.advT = ctx.t; ctx.newPlay = true; ctx.transition = false; ctx.putbackBy = null;
+  }
+
   function heave(ctx) {
     const g = ctx.g, O = ctx.O;
     const sh = ctx.handler;
@@ -761,6 +812,7 @@
     const pTO = toProb(ctx, info) * (tAct - ctx.t < 1 ? 0.3 : 1);
     if (U.chance(pTO)) { turnover(ctx, info, U.range(ctx.t + (tAct - ctx.t) * 0.3, tAct)); return; }
     if (info.play !== 'putback' && U.chance(nsFoulProb(ctx))) { nonShootingFoul(ctx, info, U.range(ctx.t + (tAct - ctx.t) * 0.2, tAct)); return; }
+    if (info.play !== 'putback' && info.play !== 'transition' && tAct - ctx.t > 3.5 && U.chance(def3Prob(ctx))) { defensiveThree(ctx, info, U.range(ctx.t + 3, tAct - 0.3)); return; }
     takeShot(ctx, info, tAct, mode, opts);
   }
 
@@ -1497,7 +1549,8 @@
   function turnover(ctx, info, t, forceKind) {
     const g = ctx.g, O = ctx.O, D = ctx.D;
     ctx.t = Math.min(t, g.clock);
-    const kinds = { bad_pass: 40, lost_ball: 33, offensive_foul: 11, travel: 7, out_of_bounds: 5, shot_clock: 2.5, three_seconds: 1.5 };
+    // (offensive three seconds: ~0.07 per team per game in recent seasons, about 0.5% of turnovers)
+    const kinds = { bad_pass: 40, lost_ball: 33, offensive_foul: 11, travel: 7, out_of_bounds: 5, shot_clock: 2.5, three_seconds: 0.5 };
     if (ctx.press && ctx.segN <= 1) { kinds.bad_pass += 10; kinds.lost_ball += 10; }
     const kind = forceKind || U.pickKey(kinds);
     const handler = info.handler || ctx.handler;
@@ -1507,12 +1560,13 @@
       case 'lost_ball': who = U.chance(0.6) ? handler : U.pickW(O.on, c => (100 - c.r.handle) * usageW(ctx, c)); break;
       case 'offensive_foul': who = U.pickW(O.on, c => (c === handler ? 2 : 1) * (c.r.strength / 60) * (info.screener === c ? 2 : 1)); break;
       case 'three_seconds': who = U.pickW(O.on, c => c.posN); break;
-      case 'shot_clock': who = null; break;
+      case 'shot_clock': case 'eight_seconds': who = null; break;
+      case 'backcourt': who = handler; break;
       default: who = U.pickW(O.on, c => (c === handler ? 2 : 1) * (100 - c.r.handle));
     }
     if (who) who.st.tov++;
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play === 'putback' ? 'none' : info.play; ctx.P.setName = info.setName || ''; }
-    if (info.play && info.play !== 'transition' && info.play !== 'putback' && !g.lite && ctx.t - Math.max(ctx.t, ctx.advT) >= 0) {
+    if (info.play && !info.noSet && info.play !== 'transition' && info.play !== 'putback' && !g.lite && ctx.t - Math.max(ctx.t, ctx.advT) >= 0) {
       if (ctx.t - ctx.advT > 1.5) evAt(ctx, U.round(ctx.advT + 0.4, 2), 'set', { play: info.play, setName: info.setName, handler: handler.id, team: O.idx });
     }
     const ss = g.sl.stl;   // steals slider: share of live-ball turnovers that are steals
@@ -1520,7 +1574,10 @@
     const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
     const spotX = ctx.press && ctx.segN <= 1 ? U.clamp(bx - dir * U.range(50, 75), 3, 91) : U.clamp(bx - dir * U.range(10, 30), 3, 91);
     const spot = { x: U.round(spotX, 1), y: U.round(U.range(6, 44), 1) };
-    const label = { bad_pass: 'bad pass', lost_ball: 'lost ball', offensive_foul: 'offensive foul', travel: 'traveling', out_of_bounds: 'stepped out of bounds', shot_clock: 'shot clock violation', three_seconds: '3-second violation' }[kind];
+    // (an 8-second violation happens in the backcourt, a backcourt violation just behind the half-court line)
+    if (kind === 'eight_seconds') spot.x = U.round(47 - dir * U.range(6, 16), 1);
+    if (kind === 'backcourt') spot.x = U.round(47 - dir * U.range(1, 4), 1);
+    const label = { bad_pass: 'bad pass', lost_ball: 'lost ball', offensive_foul: 'offensive foul', travel: 'traveling', out_of_bounds: 'stepped out of bounds', shot_clock: 'shot clock violation', three_seconds: '3-second violation', eight_seconds: '8-second violation', backcourt: 'backcourt violation' }[kind];
     let stealer = null;
     if (stolen) {
       stealer = U.pickW(D.on, c => Math.pow(c.r.steal / 55, 1.5) * (c.r.agility / 70) * c.tn.f.gamble);
@@ -1533,6 +1590,7 @@
     let text;
     if (stolen) text = kind === 'bad_pass' ? `${who.last} bad pass — stolen by ${stealer.last}` : `${stealer.last} strips ${who.last}!`;
     else if (kind === 'shot_clock') text = `Shot clock violation on the ${O.team.name}`;
+    else if (kind === 'eight_seconds') text = `8-second violation on the ${O.team.name}: couldn't get it past half court`;
     else if (kind === 'offensive_foul') { const taker = matchupDefender(D, who); text = `Offensive foul on ${who.last} — ${taker.last} takes the charge`; }
     else text = `Turnover: ${who.last} (${label})`;
     ev(ctx, 'turnover', Object.assign({ player: who ? who.id : null, kind, stealer: stealer ? stealer.id : undefined, team: O.idx, text }, spot));
@@ -1546,6 +1604,8 @@
       const side = spot.y > 25 ? 51 : -1;
       g.nextSpot = { kind: 'sideline', x: spot.x, y: side, front: false };
       if (kind === 'shot_clock' || kind === 'three_seconds') g.nextSpot = { kind: 'baseline', x: dir > 0 ? 95 : -1, y: U.round(U.range(18, 32), 1), front: false };
+      // backcourt and 8-second violations: the other team takes it out at the half-court line, in its frontcourt
+      if (kind === 'eight_seconds' || kind === 'backcourt') g.nextSpot = { kind: 'sideline', x: basketX(D.idx, g.period) > 47 ? 48.5 : 45.5, y: U.chance(0.5) ? -1 : 51, front: true };
     }
   }
 
