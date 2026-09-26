@@ -717,7 +717,7 @@
           // before its scheduled toe-off (dragging it on the toes read as skating)
           const relNow = frac(this.phase - cph);
           const early = f.state === 'plant' && !tooFar && relNow < gp.beta && relNow > 0.45 * gp.beta &&
-            (sp > 9 || this.feet[1 - f.side].state === 'plant') && this._stanceOutOfReach(f, c, s);
+            (sp > 9 || this.feet[1 - f.side].state === 'plant') && (this._stanceOutOfReach(f, c, s) || this._hipAtRange(f));
           // a planted foot the body has run away from (a burst, a cut, a stride planned for a slower speed) goes now
           // instead of dragging behind with the leg stretched out: a walker's toe-off is ~0.24 H behind the hip, a
           // runner's ~0.2 H; past ~0.3 H it lifts, once the other foot is down (running: well into its swing)
@@ -914,6 +914,13 @@
       if (D <= 0) return;
       D = Math.min(D, 0.14 * H) * Math.sin(Math.PI * U.clamp(e, 0, 1)) * hK;
       f.ax += s * side * D; f.ay -= c * side * D;
+    }
+    /** is a planted leg's hip at the end of its range (last solve): spread out past ~46 deg, crossed in past ~26, or
+     *  stretched back past ~28 deg? Then the foot steps now (a person steps before the hip gives out) */
+    _hipAtRange(f) {
+      const p = this.sk.pose, pre = f.side ? 'r' : 'l';
+      const A = p[CH[pre + 'HipA']], F = p[CH[pre + 'HipF']];
+      return A > 46 * D || A < -26 * D || F < -28 * D;
     }
     /** is a planted foot behind the hip and beyond the leg's reach even with the heel fully up? (last solve's pelvis) */
     _stanceOutOfReach(f, c, s) {
@@ -1222,7 +1229,8 @@
             if (!st[i]) st[i] = { yaw: f.yaw, prev: this.facing, acc: 0 };
             const e = st[i];
             e.acc += U.wrapPi(this.facing - e.prev); e.prev = this.facing;
-            if (f.state === 'plant') f.yaw = e.yaw + e.acc;
+            // (spinning on the ball of the foot: the heel comes up off the floor as it turns)
+            if (f.state === 'plant') { f.yaw = e.yaw + e.acc; f.pitch = Math.max(f.pitch, 22 * D * U.smooth((cs.t - q.t0) / 0.06)); }
           }
         }
       }
@@ -1699,8 +1707,10 @@
         if (f.state === 'air' || fall > 0.5) { ik.on = 0; continue; }
         ik.on = 1;
         if (f.state === 'plant') {
-          const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-          ik.x = a[0]; ik.y = a[1]; ik.z = a[2] + (f.land ? f.lz || 0 : 0); ik.yaw = f.yaw; ik.pitch = f.pitch; ik.soft = false;
+          // (the heel comes up off the floor when the shin leans further over the foot than an ankle bends)
+          const pu = Math.max(f.pitch, f.heelFloor || 0);
+          const a = this._ankleFromBall(f.x, f.y, f.yaw, pu, TA);
+          ik.x = a[0]; ik.y = a[1]; ik.z = a[2] + (f.land ? f.lz || 0 : 0); ik.yaw = f.yaw; ik.pitch = pu; ik.soft = false; f.pitchUsed = pu;
         } else {
           ik.x = f.ax; ik.y = f.ay; ik.z = f.az; ik.yaw = f.yawNow != null ? f.yawNow : f.yaw; ik.pitch = f.pitchNow || 0;
           // (fully soft in mid-swing; a walker's leg reaches its heel strike exactly so the plant does not jump,
@@ -1796,8 +1806,29 @@
         }
       }
       // legs leaving the floor (take-off): the IK pose eases into the clip's air pose instead of switching in one frame
+      sk.limitSwivel(dtI);
       sk.inertLegs(dtI, this.feet[0].state === 'air' || this.fall > 0.5, this.feet[1].state === 'air' || this.fall > 0.5);
+      this._ankleRange(dtI);
       this._cacheBody();
+    }
+    /** a planted foot's ankle bends ~50 deg at most with the weight on it (weight-bearing lunge test): past ~48 deg
+     *  of shin lean over the foot the heel rises (the foot rolls onto its ball, which stays on its spot), instead of
+     *  the shin folding down over a flat foot in a deep stance, a lunge or a landing */
+    _ankleRange(dt) {
+      const P = this.sk.P, J = RG.J;
+      for (const f of this.feet) {
+        if (f.state !== 'plant') { f.heelFloor = 0; continue; }
+        const s = f.side, kn = (s ? J.R_KN : J.L_KN) * 3, an = (s ? J.R_AN : J.L_AN) * 3, he = (s ? J.R_HEEL : J.L_HEEL) * 3, to = (s ? J.R_TOE : J.L_TOE) * 3;
+        const sx = P[kn] - P[an], sy = P[kn + 1] - P[an + 1], sz = P[kn + 2] - P[an + 2];
+        const fx = P[to] - P[he], fy = P[to + 1] - P[he + 1], fz = P[to + 2] - P[he + 2];
+        const cosT = (sx * fx + sy * fy + sz * fz) / (Math.hypot(sx, sy, sz) * Math.hypot(fx, fy, fz) || 1);
+        const dorsi = Math.PI / 2 - Math.acos(U.clamp(cosT, -1, 1));
+        // (the lean it would have with the heel down: what is measured plus the heel rise already used)
+        // (x1.35: lifting the heel raises the ankle, and the shin leans on a little further over it)
+        const need = Math.max(0, dorsi + (f.pitchUsed || 0) - 47 * D) * 1.3;
+        const k = dt > 0 && dt < 0.12 ? 1 - Math.exp(-dt / 0.04) : 1;
+        f.heelFloor = (f.heelFloor || 0) + (Math.min(need, 55 * D) - (f.heelFloor || 0)) * k;
+      }
     }
 
     /** the solved body's trunk, head and leg centre lines in the body frame (x right, y forward, z up from the root

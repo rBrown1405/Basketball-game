@@ -186,6 +186,20 @@ its knee pointing forward only if the knee's direction is held with the body. Th
 Measured in the Animation Lab (knee off the leg's line, worst frame): sprint 69 -> 15 deg, run 31 -> 15, jog 27 -> 15,
 jogging a circle 72 -> 23, a 90 deg cut 115 -> 42, start and stop 83 -> 36; walking stays ~10.
 
+## Joint safety (rig.js, actor.js)
+
+Every joint stays inside a human range after everything that moves it (key poses, gait layers, IK, blends), and the
+Animation Lab rings any joint held at its limit in red (a limb out of reach in yellow).
+
+| Rule | How | Sources |
+|---|---|---|
+| Elbows and knees bend one way only | their ranges now end at straight (0 deg), not a few degrees past it; the take-off blend that carries a leg's motion into the air is clamped too (at a floater's take-off it bent a knee ~75 deg backwards for a few frames) | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9517286/ |
+| Fingers never bend back | the curl is held between open (0) and a fist (1) | |
+| Arms after the IK | every shoulder, elbow, forearm and wrist angle is held to its range after the solve. The shoulder has two equivalent angle sets for the same arm (flexed one way or abducted the other, twisted half a turn); the one further inside the ranges is used before anything is clamped, and the clamp goes the short way round the circle, so a raised arm never jumps or drops | https://blog.littlepolygon.com/posts/twobone/ |
+| No elbow flips | an elbow's swivel about the shoulder-wrist line turns at most ~600 deg/s, the wrist staying put, so an IK answer that jumps to the elbow's other side is caught up with over a few frames (flips over 40 deg in a frame across all lab moves: 37 -> 14) | https://weaverdev.io/projects/proc-anim-tutorial/ |
+| Hips past their range step instead | a planted leg keeps its foot on its spot (a foot dragged on the floor reads worse), and the foot takes its step early when its hip nears the end of its range (spread past ~46 deg, crossed past ~26, stretched back past ~28) | |
+| Ankles | a planted foot's ankle bends ~50 deg at most under the body's weight (the weight-bearing lunge test measures ~50 deg in healthy adults); past ~47 deg of shin lean over the foot the heel rises (the foot rolls onto its ball, which stays on its spot), and a pivot turns on the ball with the heel up | https://ijspt.scholasticahq.com/article/21253-the-dorsiflexion-range-of-motion-screen-a-validation-study , https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9517286/ |
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the

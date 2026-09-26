@@ -164,6 +164,9 @@
         for (let i = 0; i < 6; i++) v[i] = p[CH[pre + LEG_INERT[i]]];
         if (!ie.apply(v, dt, side ? air1 : air0)) continue;
         for (let i = 0; i < 6; i++) p[CH[pre + LEG_INERT[i]]] = v[i];
+        // (the blend carries the leg's motion on for a moment; it never carries a knee past straight or a hip past
+        // its range: at a floater's take-off it bent the knee ~75 deg backwards for a few frames)
+        clampChannels(p, LEG_KEYS[pre], this.limHits);
         this._legFK(side);
       }
     }
@@ -304,6 +307,55 @@
       p[CH[pre + 'ShF']] = sol.f; p[CH[pre + 'ShA']] = -sg * sol.b; p[CH[pre + 'ShT']] = sg * sol.t;
       this._armFK(side);
       return true;
+    }
+    /**
+     * An elbow never snaps to the other side of its arm between frames: its swivel about the shoulder-wrist line turns
+     * at most ~600 deg/s (the wrist stays where it is), so an IK answer that jumps (a grip handing over, a target
+     * crossing the arm's line) is caught up with over a few frames instead of in one. dt: time since the last frame
+     * (0 = the same frame solved again). Called after solve().
+     */
+    limitSwivel(dt) {
+      const st = this._swLim || (this._swLim = [{ ref: null, now: null, dt: 1 / 60 }, { ref: null, now: null, dt: 1 / 60 }]);
+      const P = this.P, R = this.R, d = this.dims;
+      for (let side = 0; side < 2; side++) {
+        const S = st[side];
+        if (!(dt >= 0) || dt > 0.12) { S.ref = S.now = null; }
+        else if (dt > 0) { S.ref = S.now; S.dt = dt; }
+        const o = (side ? J.R_SH : J.L_SH) * 3;
+        const ch = (x, y, z, i) => R[18 + i] * x + R[21 + i] * y + R[24 + i] * z;
+        const cur = () => {
+          const wx = P[o + 6] - P[o], wy = P[o + 7] - P[o + 1], wz = P[o + 8] - P[o + 2], ex = P[o + 3] - P[o], ey = P[o + 4] - P[o + 1], ez = P[o + 5] - P[o + 2];
+          const nx = ch(wx, wy, wz, 0), ny = ch(wx, wy, wz, 1), nz = ch(wx, wy, wz, 2), nl = Math.hypot(nx, ny, nz);
+          if (nl < 1e-6) return null;
+          const ux = nx / nl, uy = ny / nl, uz = nz / nl;
+          const qx = ch(ex, ey, ez, 0), qy = ch(ex, ey, ez, 1), qz = ch(ex, ey, ez, 2), k = qx * ux + qy * uy + qz * uz;
+          const px = qx - k * ux, py = qy - k * uy, pz = qz - k * uz, pl = Math.hypot(px, py, pz);
+          // (an arm nearly straight has no elbow side to keep)
+          if (pl < 0.3 * d.ua) return null;
+          return [px / pl, py / pl, pz / pl, ux, uy, uz];
+        };
+        let c = cur();
+        if (!c) { S.now = null; continue; }
+        const r = S.ref;
+        if (r) {
+          // the last frame's elbow direction, laid in the plane about this frame's shoulder-wrist line
+          const k = r[0] * c[3] + r[1] * c[4] + r[2] * c[5];
+          let ax = r[0] - k * c[3], ay = r[1] - k * c[4], az = r[2] - k * c[5];
+          const al = Math.hypot(ax, ay, az);
+          if (al > 1e-3) {
+            ax /= al; ay /= al; az /= al;
+            const cosA = ax * c[0] + ay * c[1] + az * c[2];
+            const sinA = c[3] * (ay * c[2] - az * c[1]) + c[4] * (az * c[0] - ax * c[2]) + c[5] * (ax * c[1] - ay * c[0]);
+            const ang = Math.atan2(sinA, cosA), max = 10.5 * S.dt;
+            if (Math.abs(ang) > max && this._swivel(side, -(ang - Math.sign(ang) * max))) {
+              limitArm(this.pose, side ? 'r' : 'l', this.limHits);
+              this._armFK(side);
+              c = cur() || c;
+            }
+          }
+        }
+        S.now = c;
+      }
     }
     _shoulder(side, shrug, prot) {
       const d = this.dims, H = d.H, P = this.P, R = this.R, p = this.pose;
@@ -490,6 +542,12 @@
       p[CH[pre + 'HipF']] = w >= 1 ? sol.f : U.angLerp(F0, sol.f, w);
       p[CH[pre + 'HipA']] = w >= 1 ? hipA : U.angLerp(A0, hipA, w);
       p[CH[pre + 'Knee']] = w >= 1 ? k : U.lerp(K0, k, w);
+      // (a leg in the air is held to the hip's and knee's ranges; a planted one keeps its foot on its spot, a foot
+      // dragged along the floor reads far worse, and the actor steps it before its hip gets there)
+      if (ik.soft || ik.on < 0.999) clampChannels(p, LEG_KEYS[pre], this.limHits);
+      else if (this.limHits) {
+        for (const kk of LEG_KEYS[pre]) { const r = LIM[kk], v = p[CH[kk]]; if (v < r[0] - 0.02 || v > r[1] + 0.02) this.limHits[CH[kk]] = 1; }
+      }
     }
 
     /** reach test: max ankle distance for a leg */
@@ -672,44 +730,86 @@
   (function () {
     const set = (k, lo, hi) => { LIM[k] = [lo * U.DEG, hi * U.DEG]; };
     for (const s of ['l', 'r']) {
-      set(s + 'ShF', -60, 185); set(s + 'ShA', -45, 180); set(s + 'ShT', -90, 80); set(s + 'ElF', -4, 150);
+      // (elbows and knees bend one way only: straight is the end of their range, never past it)
+      set(s + 'ShF', -60, 185); set(s + 'ShA', -45, 180); set(s + 'ShT', -90, 80); set(s + 'ElF', 0, 150);
       set(s + 'WrF', -75, 85); set(s + 'WrD', -25, 35);
       // forearm rotation: 76 is neutral (arm hanging, palm to the thigh, thumb forward); about 90 deg either way,
       // palm forward (supination) to palm back (pronation). Without it clips could twist a forearm past what a
       // human forearm can turn
       set(s + 'Pro', -14, 168);
-      set(s + 'HipF', -32, 130); set(s + 'HipA', -30, 50); set(s + 'HipT', -45, 45); set(s + 'Knee', -3, 152); set(s + 'Ank', -52, 32);
+      set(s + 'HipF', -32, 130); set(s + 'HipA', -30, 50); set(s + 'HipT', -45, 45); set(s + 'Knee', 0, 152); set(s + 'Ank', -52, 32);
     }
   })();
+  const FING_CH = [CH.lFing, CH.rFing];
+  const ARM_REST = { l: ['lElF', 'lPro', 'lWrF', 'lWrD'], r: ['rElF', 'rPro', 'rWrF', 'rWrD'] };
+  const LEG_KEYS = { l: ['lHipF', 'lHipA', 'lHipT', 'lKnee', 'lAnk'], r: ['rHipF', 'rHipA', 'rHipT', 'rKnee', 'rAnk'] };
   const TORSO_PAIRS = [
     // [channel a, channel b, min sum, max sum] (degrees): shared ranges of the two spine or neck segments
     ['spFlex', 'chFlex', -32, 82], ['spLat', 'chLat', -36, 36], ['spTwist', 'chTwist', -46, 46],
     ['nkFlex', 'hdFlex', -62, 52], ['nkLat', 'hdLat', -42, 42], ['nkTwist', 'hdTwist', -80, 80],
   ].map(([a, b, lo, hi]) => [CH[a], CH[b], lo * U.DEG, hi * U.DEG]);
+  /** a joint angle held to its range [lo, hi], the way round the circle that moves it least (an IK answer of -125 deg
+   *  of shoulder flexion is the arm 55 deg past straight up, so it goes to +185, not down to -60) */
+  function clampAng(v, lo, hi) {
+    if (v >= lo && v <= hi) return v;
+    let best = v < lo ? lo : hi, bd = Math.abs(U.wrapPi(v - best));
+    for (const c of [lo, hi]) { const d = Math.abs(U.wrapPi(v - c)); if (d < bd) { bd = d; best = c; } }
+    return best;
+  }
+  /** hold channels i of pose p to their human ranges (after IK or blending); returns true if any moved */
+  function clampChannels(p, keys, hits) {
+    let moved = false;
+    for (const k of keys) {
+      const r = LIM[k]; if (!r) continue;
+      const i = CH[k], v = p[i], c = clampAng(v, r[0], r[1]);
+      if (c !== v) { p[i] = c; moved = true; if (hits) hits[i] = 1; }
+    }
+    return moved;
+  }
   /** clamp a pose to human joint ranges (in place) */
   function limitPose(p, hits) {
     for (const k in LIM) {
       const i = CH[k], r = LIM[k]; const v = p[i];
       if (v < r[0]) { p[i] = r[0]; if (hits) hits[i] = 1; } else if (v > r[1]) { p[i] = r[1]; if (hits) hits[i] = 1; }
     }
+    // fingers curl in, never bend back (0 = open flat, 1 = a fist)
+    for (const i of FING_CH) { if (p[i] < 0) { p[i] = 0; if (hits) hits[i] = 1; } else if (p[i] > 1) { p[i] = 1; if (hits) hits[i] = 1; } }
     for (const t of TORSO_PAIRS) {
       const sum = p[t[0]] + p[t[1]];
       if (sum < t[2] || sum > t[3]) { const k = (sum < t[2] ? t[2] : t[3]) / sum; p[t[0]] *= k; p[t[1]] *= k; if (hits) { hits[t[0]] = 1; hits[t[1]] = 1; } }
     }
     return p;
   }
+  /** the most the upper arm can cross in front of the chest (adduction) at flexion F: a few degrees down at the
+   *  side, ~20 deg at 35 deg of flexion, 45 by 70 */
+  const adductMin = (F) => U.lerp(-4, -45, U.smooth((F - 10 * U.DEG) / (60 * U.DEG))) * U.DEG;
+  /** how far an angle is outside [lo, hi] (the short way round) */
+  const over = (v, r) => (v >= r[0] && v <= r[1]) ? 0 : Math.min(Math.abs(U.wrapPi(v - r[0])), Math.abs(U.wrapPi(v - r[1])));
   /** the upper arm cannot pass through the chest: adduction limit relaxes as the arm is raised in front */
   function limitArm(p, pre, hits) {
-    const iF = CH[pre + 'ShF'], iA = CH[pre + 'ShA'];
-    const fl = p[iF];
+    const iF = CH[pre + 'ShF'], iA = CH[pre + 'ShA'], iT = CH[pre + 'ShT'], sg = pre === 'l' ? -1 : 1;
+    const rF = LIM[pre + 'ShF'], rA = LIM[pre + 'ShA'], rT = LIM[pre + 'ShT'];
     // (the arm down at the side meets the trunk past a few degrees of adduction; raised forward it can cross in front
     // of the body: ~20 deg at 35 deg of flexion, 45 by 70)
-    const minA = U.lerp(-4, -45, U.smooth((fl - 10 * U.DEG) / (60 * U.DEG))) * U.DEG;
-    if (p[iA] < minA) { p[iA] = minA; if (hits) hits[iA] = 1; }
-    const iE = CH[pre + 'ElF'], r = LIM[pre + 'ElF'];
-    if (p[iE] < r[0]) { p[iE] = r[0]; if (hits) hits[iE] = 1; } else if (p[iE] > r[1]) { p[iE] = r[1]; if (hits) hits[iE] = 1; }
-    const iT = CH[pre + 'ShT'], rt = LIM[pre + 'ShT'];
-    if (p[iT] < rt[0]) { p[iT] = rt[0]; if (hits) hits[iT] = 1; } else if (p[iT] > rt[1]) { p[iT] = rt[1]; if (hits) hits[iT] = 1; }
+    const rAof = (F) => [Math.max(rA[0], adductMin(F)), rA[1]];
+    const viol = (F, A, T) => over(F, rF) + over(A, rAof(F)) + over(T, rT);
+    let F = p[iF], A = p[iA], T = p[iT];
+    // (a shoulder angle set outside the ranges may have an equivalent set that is inside them: the same arm, flexed
+    // one way or abducted the other, twisted half a turn; it is used when it is further inside the ranges, or a
+    // raised arm clamped in its other form jumped somewhere else in one frame)
+    const v0 = viol(F, A, T);
+    if (v0 > 0) {
+      const F2 = U.wrapPi(F + Math.PI), A2 = U.wrapPi(-A - sg * Math.PI), T2 = U.wrapPi(T + sg * Math.PI);
+      // (flexion kept on its own side of the circle: 185 deg is past straight up, not -175)
+      const F2b = F2 < rF[0] ? F2 + 2 * Math.PI : F2;
+      if (viol(F2b, A2, T2) < v0 - 1e-4) { F = F2b; A = A2; T = T2; }
+    }
+    // then each held to its range the short way round (flexion first: the adduction floor depends on it)
+    const F1 = clampAng(F, rF[0], rF[1]), ra = rAof(F1), A1 = clampAng(A, ra[0], ra[1]), T1 = clampAng(T, rT[0], rT[1]);
+    if (hits) { if (F1 !== F) hits[iF] = 1; if (A1 !== A) hits[iA] = 1; if (T1 !== T) hits[iT] = 1; }
+    p[iF] = F1; p[iA] = A1; p[iT] = T1;
+    // (the elbow, forearm and wrist too, after the IK)
+    clampChannels(p, ARM_REST[pre], hits);
   }
 
   const SOL = { f: 0, b: 0 };
