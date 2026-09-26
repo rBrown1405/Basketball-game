@@ -301,6 +301,8 @@
       }
       r.spotName = name; r.spot = this.spotPt(name);
     }
+    /** a drive (p_move) still under way: later planners leave the driver on his line */
+    driving(a) { const dv = a && a._drive; return !!(dv && this.T < dv.tEnd && a.goal.mode === 'track' && a.goal.track === dv.fn && this.v.ball.holder === a); }
     bigness(id) { const p = this.v.look(id); return p ? (+p.height || 78) : 78; }
     handlerId() { const h = this.v.ball.holder; return h && h.team === this.off ? h.id : null; }
 
@@ -1124,9 +1126,63 @@
           const dx = this.rim.x - a.x, dy = this.rim.y - a.y, dl = Math.hypot(dx, dy) || 1;
           const nx = this.findNextAfter(ev, (e) => e.shooter === a.id || e.from === a.id);
           const stopAt = nx && nx.type === 'shot' && (RIM_SHOTS[nx.kind] || nx.kind === 'floater') ? 12.5 : 7;
-          const go = Math.max(0, Math.min(dl - stopAt, 14));
-          a.moveTo(a.x + dx / dl * go, a.y + dy / dl * go, { speed: a.maxSpeed * 0.9, face: 'move', stance: 'dribble' });
-          if (d) { this.dtask[d.id] = { until: this.T + 1.0 }; d.track(() => ({ x: a.x + dx / dl * 2.5 + 1.2, y: a.y + dy / dl * 2.5, vx: a.vx * 0.9, vy: a.vy * 0.9 }), { stance: 'defense' }); }
+          const end = (fx, fy) => {
+            const ex = this.rim.x - fx, ey = this.rim.y - fy, el = Math.hypot(ex, ey) || 1, go = Math.max(0, Math.min(el - stopAt, 14));
+            return { x: fx + ex / el * go, y: fy + ey / el * go };
+          };
+          // attack the defender's hip: the first steps go at his side to get the shoulder past his hip, then
+          // straight at the rim once level with him; he opens up and runs with the driver on his hip, a step
+          // behind (a straight line to the rim ran into him and both stalled)
+          const ux = dx / dl, uy = dy / dl, px = -uy, py = ux;
+          const al0 = d ? (d.x - a.x) * ux + (d.y - a.y) * uy : 0, lat0 = d ? (d.x - a.x) * px + (d.y - a.y) * py : 0;
+          let side = 0;
+          if (d && !d.isBusy() && al0 > -0.5 && al0 < 10 && Math.abs(lat0) < 3.5) {
+            const hand = b.dr ? b.dr.hand : (a.lefty ? 0 : 1);
+            // away from the side he is shading, else to the dribble hand's side (+1: the driver's left)
+            side = Math.abs(lat0) > 0.5 ? -Math.sign(lat0) : (hand === 0 ? 1 : -1);
+            const corner = (sd) => ({ x: a.x + ux * (al0 + 1.1) + px * (lat0 + sd * 2.7), y: a.y + uy * (al0 + 1.1) + py * (lat0 + sd * 2.7) });
+            let c0 = corner(side);
+            // never drive out of bounds: take his other side when this one runs along the sideline or baseline
+            if (c0.y < 2.5 || c0.y > 47.5 || this.U_(c0.x) < 1.5) { side = -side; c0 = corner(side); }
+            // the ball goes to the outside hand, away from the defender: cross it over first if needed
+            const want = side > 0 ? 0 : 1;
+            if (b.holder === a && b.dr && b.dr.hand !== want && !b.dr.pendingMove) b.dribbleMove('cross', { period: 0.34 });
+            const ax0 = a.x, ay0 = a.y, t0 = this.T;
+            const sx = c0.x - a.x, sy = c0.y - a.y, sl = Math.hypot(sx, sy) || 1;
+            // aim along the line through the corner, past it (a target at the corner itself would brake the drive)
+            const aim = { x: c0.x + sx / sl * 6, y: c0.y + sy / sl * 6 };
+            const st = { fin: null, passed: false };
+            const level = () => (a.x - ax0) * ux + (a.y - ay0) * uy >= al0 + 0.8 * U.smooth(U.clamp((this.T - t0) / 0.5, 0, 1)) - 0.3;
+            const fn = () => {
+              if (!st.fin && level()) st.fin = end(a.x, a.y);
+              return st.fin ? { x: st.fin.x, y: st.fin.y, vx: 0, vy: 0 } : { x: aim.x, y: aim.y, vx: 0, vy: 0 };
+            };
+            a.track(fn, { speed: a.maxSpeed * 0.92, stance: 'dribble' });
+            a.setFace('move');
+            // the pass or finish that follows lets him get past his man first (p_shot's approach, p_pass) and the
+            // half-court flow's probe dribbles leave him alone meanwhile
+            a._drive = { st, fn, tEnd: this.T + 1.8 };
+            const ra = this.role[a.id]; if (ra) ra.until = Math.max(ra.until || 0, this.T + 1.8);
+            this.dtask[d.id] = { until: this.T + 1.6 };
+            d.track(() => {
+              const k = U.smooth(U.clamp((this.T - t0) / 0.5, 0, 1));
+              const aal = (a.x - ax0) * ux + (a.y - ay0) * uy, alat = (a.x - ax0) * px + (a.y - ay0) * py;
+              if (!st.passed && level()) st.passed = true;
+              // a retreat step and a short slide toward the drive, then on the driver's hip
+              const tal = Math.max(al0 + 0.8 * k, aal - 1.1);
+              const tlat = st.passed ? alat - side * 2.2 : lat0 + side * 0.5 * k;
+              return { x: ax0 + ux * tal + px * tlat, y: ay0 + uy * tal + py * tlat, vx: st.passed ? a.vx * 0.9 : 0, vy: st.passed ? a.vy * 0.9 : 0 };
+            }, { speed: d.maxSpeed, stance: 'defense' });
+          } else {
+            const e = end(a.x, a.y);
+            a.moveTo(e.x, e.y, { speed: a.maxSpeed * 0.9, face: 'move', stance: 'dribble' });
+            if (d && al0 < 10) {
+              // already beside or behind him: chase on his hip (getting back in front of him meant running through him)
+              const sd = lat0 >= 0 ? 1 : -1;
+              this.dtask[d.id] = { until: this.T + 1.2 };
+              d.track(() => ({ x: a.x - ux * 1.1 + px * sd * 2.2, y: a.y - uy * 1.1 + py * sd * 2.2, vx: a.vx * 0.9, vy: a.vy * 0.9 }), { speed: d.maxSpeed, stance: 'defense' });
+            } else if (d) { this.dtask[d.id] = { until: this.T + 1.0 }; d.track(() => ({ x: a.x + dx / dl * 2.5 + 1.2, y: a.y + dy / dl * 2.5, vx: a.vx * 0.9, vy: a.vy * 0.9 }), { stance: 'defense' }); }
+          }
           // help rotation
           const help = this.nearestTo(this.def, this.rim.x + (a.x - this.rim.x) * 0.4, this.rim.y + (a.y - this.rim.y) * 0.4, d);
           if (help) { this.dtask[help.id] = { until: this.T + 1.2 }; help.moveTo(this.rim.x + dx / dl * -6, this.rim.y + dy / dl * -6, { speed: 14, stance: 'defense' }); }
@@ -1160,7 +1216,7 @@
         if (rf) {
           // the passer keeps working (probe dribbles, a swing and return) until shortly before the pass
           const tLock = fireAt - windup - 0.9;
-          if (tLock - this.T > 1.0 && this.flowOK && this.flowOK()) {
+          if (tLock - this.T > 1.0 && this.flowOK && this.flowOK() && !this.driving(from)) {
             rf.until = 0;
             this.at(tLock, () => {
               rf.until = fireAt + 0.3; rf.probe = null; rf.path = null;
@@ -1364,6 +1420,10 @@
         const clipStart = fireAt - rel;
         const r = this.role[sh.id]; if (r) r.until = fireAt + 2.5;
         const approach = () => {
+          // a drive still getting past its defender keeps its line (heading straight for the gather spot from
+          // here ran the driver into his man)
+          const dv = sh._drive;
+          if (dv && !dv.st.fin && this.T < dv.tEnd && this.T < clipStart - 0.7 && b.holder === sh) { this.at(this.T + 0.05, approach, 'approach after drive'); return; }
           if (r) { r.until = fireAt + 2.5; r.probe = null; r.probeAnchor = null; r.path = null; }
           sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: rimShot ? 'move' : this.rim, stance: b.holder === sh ? 'dribble' : 'ready', pace: rimShot ? 8 : 5.5 });
           if (b.holder === sh && b.state === 'held' && !catchAndShoot && Math.hypot(sh.x - origin.x, sh.y - origin.y) > 2) b.dribble(sh);
@@ -1371,7 +1431,7 @@
         // a long wait with the ball in his hands: he works it (probe dribbles around his spot) and only then
         // goes into the shot, instead of creeping to the spot in slow motion
         const tApp = clipStart - (Math.hypot(sh.x - origin.x, sh.y - origin.y) / (sh.maxSpeed * 0.7) + 0.7);
-        if (r && b.holder === sh && !catchAndShoot && !standFinish && tApp - this.T > 1.2 && this.flowOK && this.flowOK()) {
+        if (r && b.holder === sh && !catchAndShoot && !standFinish && tApp - this.T > 1.2 && this.flowOK && this.flowOK() && !this.driving(sh)) {
           r.until = 0; r.probe = null; r.probeAnchor = { x: origin.x, y: origin.y };
           this.at(tApp, approach, 'shot approach');
         } else approach();
