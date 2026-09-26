@@ -136,6 +136,31 @@ float keyShadow() {
   return mix(0.28, 1.0, s / 5.0);
 }
 float rim(vec3 N, vec3 V) { return pow(1.0 - max(dot(N, V), 0.0), 4.0) * max(N.z, 0.0); }
+// bump a normal by a height field through its screen derivatives (Mikkelsen 2010: no tangent frame needed); the
+// position derivatives come from uniform control flow and the height's are taken by hand (the height evaluated one
+// pixel over), since derivatives inside a per-material branch are undefined where two materials share a pixel quad
+vec3 gDpx, gDpy, gDbx, gDby;
+// fold height (feet) at a rest-shape point: soft drape hanging down the jersey, bunching into small horizontal wrinkles
+// where it is tucked into the waistband; loose-cut shorts hang in long vertical folds with a few creases across the
+// thighs
+float clothFold(vec3 b, float H, int mat) {
+  vec3 q = b / H;
+  float hf;
+  if (mat == 2) {
+    hf = (noise(q * vec3(15.0, 15.0, 3.2)) - 0.5) * 0.0032;
+    hf += (noise(q * vec3(7.0, 7.0, 44.0)) - 0.5) * 0.0018 * smoothstep(0.545, 0.565, q.z) * smoothstep(0.64, 0.585, q.z);
+  } else {
+    hf = (noise(q * vec3(11.0, 11.0, 2.4)) - 0.5) * 0.0055 + (noise(q * vec3(9.0, 9.0, 20.0)) - 0.5) * 0.0014;
+  }
+  return hf * H;
+}
+vec3 bumpN(vec3 N, float h0, float hx, float hy) {
+  vec3 r1 = cross(gDpy, N), r2 = cross(N, gDpx);
+  float det = dot(gDpx, r1);
+  if (abs(det) < 1e-12) return N;
+  vec3 g = sign(det) * ((hx - h0) * r1 + (hy - h0) * r2);
+  return normalize(abs(det) * N - g);
+}
 
 float th21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float ln(float d, float w, float aa) { return 1.0 - smoothstep(w, w + aa, abs(d)); }
@@ -368,7 +393,7 @@ vec3 shadeCloth(vec3 alb, vec3 N, vec3 V, float ao, float rough, float sheen) {
   vec3 Ls[3] = vec3[3](uL0, uL1, uL2); vec3 Cs[3] = vec3[3](uC0 * gKey * mix(1.0, ao, 0.3), uC1 * mix(1.0, ao, 0.5), uC2 * mix(1.0, ao, 0.5));
   for (int i = 0; i < 3; i++) {
     float ndl = dot(N, Ls[i]);
-    dif += Cs[i] * clamp((ndl + 0.5) / 2.25, 0.0, 1.0);
+    dif += Cs[i] * clamp((ndl + 0.35) / 1.8225, 0.0, 1.0);
     if (ndl > 0.0) {
       vec3 H = normalize(Ls[i] + V);
       float D = charlie(rough, max(dot(N, H), 0.0));
@@ -438,6 +463,7 @@ void main() {
   if (!gl_FrontFacing) N = -N;
   vec3 V = normalize(uCam - vW);
   float H = uFlags.z;
+  gDpx = dFdx(vW); gDpy = dFdy(vW); gDbx = dFdx(vB); gDby = dFdy(vB);
   float sweat = uFlags.w;
   vec3 col;
   if (mat == 0 || mat == 1) {
@@ -550,9 +576,16 @@ void main() {
       base = mix(base, uTrim, st);
     }
     if (mat == 14) { rough = 0.6; sheen = 0.6; }
+    // dyed polyester reflects at most ~80% of the light: bright whites and yellows are brought down to that (a
+    // near-100% white ran into the tone curve's shoulder and lost all its shading, reading as a flat cut-out)
+    float bm = max(base.r, max(base.g, base.b));
+    if (bm > 0.6) base *= (0.6 + (bm - 0.6) * 0.5) / bm;
     // sweat darkens the fabric on the chest and back late in games
     base *= 1.0 - 0.18 * sweat * smoothstep(0.7, 0.78, vB.z / H) * step(0.5, float(mat == 2));
-    col = shadeCloth(base, N, V, ao, rough, sheen);
+    // folds (the mesh is smooth), bump-mapped from the rest shape so they move with the cloth
+    vec3 Nc = N;
+    if (mat == 2 || mat == 3) Nc = bumpN(N, clothFold(vB, H, mat), clothFold(vB + gDbx, H, mat), clothFold(vB + gDby, H, mat));
+    col = shadeCloth(base, Nc, V, ao, rough, sheen);
   } else if (mat == 4 || mat == 11) {
     vec3 base = mat == 4 ? uSock : uSleeve;
     float rib = 0.93 + 0.07 * sin(atan(vB.x, vB.y) * 80.0);
