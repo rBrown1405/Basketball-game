@@ -1483,6 +1483,11 @@
     }
     nextFor(id) { return this.findNext((e) => e.shooter === id || e.from === id || e.player === id); }
 
+    /** does this shooter shoot a two-motion jumper? (fixed per player: ~1 in 4, ~1 in 2 among 6-9 and up) */
+    twoMotion(sh) {
+      const h = U.hashStr(String(sh.id) + ':form') / 4294967296;
+      return h < (sh.H > 6.7 ? 0.5 : 0.25);
+    }
     // --- shot
     p_shot(ev, beat, gap) {
       const v = this.v;
@@ -1517,6 +1522,9 @@
         if (kind !== 'tip') clipName = (kind === 'dunk') ? 'putbackDunk' : 'putback';
         standFinish = true;
       }
+      // per-player form: some shooters set the ball over the forehead before the legs go (a two-motion shot, more
+      // common among the bigger players), the rest shoot it in one motion on the way up
+      if (clipName === 'jumpshot' && this.twoMotion(sh)) clipName = 'jumpshot2';
       const clip = M.Anims.get(clipName);
       // per-player form: a quicker or slower release and a little more or less lift
       const style = U.hashStr(String(sh.id)) / 4294967296;
@@ -1628,7 +1636,7 @@
         const startClip = () => {
           if (b.holder !== sh && !(b.state === 'flight' && b.passTarget === sh)) this.giveBall(sh, 'pocket');
           sh.stopClip(0);
-          if (b.holder === sh && b.state === 'dribble' && clip.name === 'jumpshot') b.give(sh, 'pocket');
+          if (b.holder === sh && b.state === 'dribble' && /^jumpshot2?$/.test(clip.name)) b.give(sh, 'pocket');
           if (b.holder === sh && b.state === 'dribble') b.give(sh, 'low');
           // rim finishes re-anchor on the shooter if the approach plan slipped (no dragging)
           let ox = origin.x, oy = origin.y, of = facing;

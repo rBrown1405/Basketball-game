@@ -358,6 +358,32 @@
       { t: 1.5, p: 'ready' },
     ],
   });
+  // ---- two-motion jump shot (the user's second jump shot reference): a deep load with the ball out in front at the
+  // waist, the ball brought up in front of the face to the set point over the forehead while the legs stay loaded,
+  // then the legs drive up under it and the ball goes near the top of the jump, both arms finishing high. Same
+  // fitted arms and grips as the one-motion shot, different timing: the ball is set before the legs extend
+  const LOAD = { both: { HipF: 44, Knee: 74, Ank: 22 } };
+  clip('jumpshot2', {
+    dur: 1.72, events: { set: 0.46, release: 0.82 },
+    jump: { t0: 0.6, t1: 1.08, h: 0.13 },
+    feet: [[0, 'plant'], [0.6, 'air'], [1.08, 'plant']],
+    keys: [
+      { t: 0.0, p: 'shotPocket', ball: [0.06, 0.17, 0.56], grip: 'hold' },
+      { t: 0.16, p: arms('dip', Object.assign({ rootZ: -0.13, pelPitch: 22, spFlex: 8, chFlex: 3, nkFlex: -18 }, { both: { HipF: 46, Knee: 76, Ank: 22 } })), ball: [0.06, 0.2, 0.5], grip: 'jsLow' },
+      { t: 0.3, p: arms('rise', Object.assign({ rootZ: -0.125, pelPitch: 20, spFlex: 6, chFlex: 0, nkFlex: -16 }, LOAD)), ball: SHOT_BALL.rise, grip: 'jsRise' },
+      { t: 0.38, p: arms('load', Object.assign({ rootZ: -0.12, pelPitch: 18, spFlex: 4, chFlex: -2, nkFlex: -14, hdFlex: -3 }, LOAD)), ball: SHOT_BALL.load, grip: 'jsLoad' },
+      { t: 0.46, p: { base: 'shotSet', rootZ: -0.115, pelPitch: 16, spFlex: 2, chFlex: -4, nkFlex: -12, both: { HipF: 40, Knee: 70, Ank: 20 } }, ball: SHOT_BALL.set, grip: 'jsSet' },
+      // the legs drive up under the set ball
+      { t: 0.58, p: { base: 'shotSet', rootZ: -0.03, pelPitch: 4, spFlex: 0, chFlex: -5, nkFlex: -9, both: { HipF: 10, Knee: 16, Ank: -20 } }, ball: SHOT_BALL.set, grip: 'jsSet' },
+      { t: 0.74, p: arms('push', { rootZ: 0, pelPitch: 1, spFlex: -3, chFlex: -6, nkFlex: -9, hdFlex: -4, both: { HipF: 6, HipA: 4, Knee: 12, Ank: -34 } }), ball: SHOT_BALL.push, grip: 'jsPush' },
+      { t: 0.82, p: arms('release', { rootZ: 0, pelPitch: 0, spFlex: -2, chFlex: -5, nkFlex: -8, hdFlex: -2, both: { HipF: 8, HipA: 4, Knee: 14, Ank: -36 } }), ball: SHOT_BALL.release, grip: 'shootRel' },
+      { t: 0.88, p: 'shotFollow' },
+      { t: 1.08, p: arms('hold', { rootZ: -0.02, pelPitch: 6, spFlex: 0, chFlex: -4, nkFlex: -8, both: { HipF: 18, HipA: 5, Knee: 28, Ank: 0 } }) },
+      { t: 1.4, p: arms('relax', { rootZ: -0.04, pelPitch: 10, spFlex: 3, chFlex: -1, nkFlex: -8, both: { HipF: 22, Knee: 30, Ank: 8 } }) },
+      { t: 1.56, p: arms('down', { rootZ: -0.04, pelPitch: 12, spFlex: 4, both: { HipF: 24, Knee: 30, Ank: 8 } }) },
+      { t: 1.72, p: 'ready' },
+    ],
+  });
   // ---- free throw: small dip, rise onto the toes (no jump), the same straight line up, push and flick, hold the
   // follow-through
   clip('freethrow', {
