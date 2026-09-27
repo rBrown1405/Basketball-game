@@ -260,7 +260,11 @@ const SECTIONS = [
   ]],
 ];
 
-function fmtVal(v, unit) { if (v == null || !isFinite(v)) return 'n/a'; return unit === 'ms' ? String(Math.round(v)) : f1(v) + (unit === '%' ? '%' : unit ? ' ' + unit : ''); }
+function fmtVal(v, unit) {
+  if (v == null || !isFinite(v)) return 'n/a';
+  if (unit === 'ms' || (!unit && Number.isInteger(v))) return String(Math.round(v));
+  return f1(v) + (unit === '%' ? '%' : unit ? ' ' + unit : '');
+}
 function change(now, was, better) {
   if (now == null || was == null || !isFinite(now) || !isFinite(was)) return '';
   const d = now - was;
@@ -439,7 +443,7 @@ function html(games, o) {
   td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.better{color:#1e8449}.worse{color:#b03a2e}.ref{color:#777}
   .ex{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.card{background:#fff;border:1px solid #e3e0da;border-radius:8px;padding:10px}
   .card svg{width:100%;height:auto}.card p{margin:6px 0 0;font-size:13px}.k{font-weight:700}.legend{font-size:13px;color:#555}
-  .wrap{overflow-x:auto}</style></head><body>`);
+  .wrap{overflow-x:auto}td.sub{padding-left:26px;color:#444}</style></head><body>`);
   H.push(`<h1>Gameplay audit: ${esc(o.label || 'now')}</h1>`);
   H.push(`<p>${m.games} full games of the Live view played headless, every possession from the tip to the final buzzer, players sampled every 0.1 s. ${base ? 'Compared with: ' + esc(o.baseLabel || 'baseline') + '.' : 'This run is the baseline the later phases are compared with.'}</p>`);
   for (const s of T.sections) {
@@ -447,7 +451,7 @@ function html(games, o) {
     for (const r of s.rows) {
       const ch = base ? change(r.now, r.was, r.better) : '';
       const cls = /better/.test(ch) ? 'better' : /worse/.test(ch) ? 'worse' : '';
-      H.push(`<tr><td>${esc(r.label)}</td>${base ? `<td class="n">${fmtVal(r.was, r.unit)}</td>` : ''}<td class="n">${fmtVal(r.now, r.unit)}</td>${base ? `<td class="n ${cls}">${esc(ch)}</td>` : ''}<td class="ref">${esc(r.ref)}</td></tr>`);
+      H.push(`<tr><td${/^\s/.test(r.label) ? ' class="sub"' : ''}>${esc(r.label.trim())}</td>${base ? `<td class="n">${fmtVal(r.was, r.unit)}</td>` : ''}<td class="n">${fmtVal(r.now, r.unit)}</td>${base ? `<td class="n ${cls}">${esc(ch)}</td>` : ''}<td class="ref">${esc(r.ref)}</td></tr>`);
     }
     H.push('</table></div>');
   }

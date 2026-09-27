@@ -7,15 +7,15 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 
 | Metric | Value | Reference |
 |---|---:|---|
-| Games played | 52.0 |  |
-| Games that reached the final buzzer | 52.0 | all |
+| Games played | 52 |  |
+| Games that reached the final buzzer | 52 | all |
 | Possessions per game | 200.8 |  |
-| Stuck possessions (watchdog) | 0.0 | 0 |
-| Script errors | 0.0 | 0 |
-| Match warnings | 0.0 | 0 |
-| Games where the court score differs from the engine | 0.0 | 0 |
+| Stuck possessions (watchdog) | 0 | 0 |
+| Script errors | 0 | 0 |
+| Match warnings | 0 | 0 |
+| Games where the court score differs from the engine | 0 | 0 |
 | Points per game (both teams) | 230.5 | NBA ~228 |
-| Wall time per game (ms) | 50056 |  |
+| Wall time per game (ms) | 49476 |  |
 
 ## 1. On-ball defense (half court, ball in the handler's hands)
 
@@ -23,9 +23,9 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 |---|---:|---|
 | Defender between the ball handler and the basket | 90.4% | NBA tracking 94-98% |
 | In a low defensive stance | 94.7% |  |
-| Backing away from a handler who is not attacking | 4.4% | ~0 |
-|   episodes per game (0.3 s or longer) | 104.6 |  |
-|   of which walking backward facing him | 4.0% |  |
+| Backing away from a handler who is not attacking | 4.2% | ~0 |
+|   episodes per game (0.3 s or longer) | 102.9 |  |
+|   of which walking backward facing him | 3.9% |  |
 | Back turned to the ball handler and walking away | 2.0% | 0 unless beaten |
 |   episodes per game | 39.2 |  |
 | Back turned to the ball handler (any speed) | 2.7% |  |
@@ -47,10 +47,11 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 | Two passes away: sagged toward the rim from his man | 93.2% |  |
 | Two passes away: can see man and ball | 51.3% |  |
 | Two passes away: glued to his man (no help) | 3.9% |  |
-| Extra defender crowding a guarded ball, no drive (seconds per game) | 101.1 s | ~0 |
-|   share of half-court time | 6.7% |  |
-|   episodes per game | 104.2 |  |
-| Extra defender standing in the handler's path (seconds per game) | 93.8 s |  |
+| Extra defender crowding a guarded ball 12+ ft from the rim, no drive (seconds per game) | 32.5 s | ~0 |
+|   share of half-court time | 2.2% |  |
+|   episodes per game | 37.3 |  |
+| Extra defender standing in the handler's path 12+ ft from the rim (seconds per game) | 38.9 s |  |
+| Help at the rim (an extra defender on the ball inside 12 ft; the right play), seconds per game | 74.2 s |  |
 | More than 12 ft from his man and not in a help spot | 0.1% |  |
 |   episodes per game | 4.6 |  |
 | Half-court time against zones (not in these numbers) | 7.9% |  |
@@ -64,6 +65,12 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 | Stand-stills of 3 s or longer per game | 8.5 |  |
 | Stand-stills of 5 s or longer per game | 1.5 |  |
 | Off-ball players within 6 ft of a teammate | 17.8% |  |
+| No job: holding or drifting around a spot that is not spacing (mid-range, paint, too deep) | 30.1% |  |
+|   of that time, in the mid-range | 50.5% |  |
+| Spacing: holding a spot beyond the arc (a non-stretch big: by the rim) | 20.5% |  |
+| Running a half-court action (screen away, cut, relocate, exchange, big flash) | 33.6% |  |
+| Moving for the engine's next event (screen, cut, catch) | 15.5% |  |
+| In an animation (catch, screen, pass, ...) | 0.2% |  |
 
 ## 4. Shot selection (engine)
 
@@ -72,7 +79,7 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 | Field goal attempts per game (both teams) | 190.8 | NBA ~178 |
 | Three-point attempts per game | 73.6 | NBA ~75 |
 | Threes by players rated under 50 (per game) | 0.3 | ~0 |
-| Threes by players rated under 40 (per game) | 0.0 | 0 |
+| Threes by players rated under 40 (per game) | 0 | 0 |
 | Threes by centers (per game) | 2.6 |  |
 | Threes by non-stretch bigs (per game) | 2.9 | ~0 |
 | Share of all threes taken by players under 50 | 0.4% |  |
@@ -138,15 +145,15 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 
 ## 3b. Standing around by position (share of off-ball time)
 
-| Position | still (<1 ft/s) | moved <3 ft in 3 s |
-|---|---|---|
-| PG | 22.0% | 2.8% |
-| SG | 21.4% | 2.8% |
-| SF | 20.9% | 2.8% |
-| PF | 18.9% | 2.4% |
-| PF (stretch) | 18.6% | 2.1% |
-| C | 16.1% | 2.0% |
-| C (stretch) | 15.8% | 1.9% |
+| Position | still (<1 ft/s) | moved <3 ft in 3 s | no job |
+|---|---|---|---|
+| PG | 22.0% | 2.8% | 32.9% |
+| SG | 21.4% | 2.8% | 36.2% |
+| SF | 20.9% | 2.8% | 38.8% |
+| PF | 18.9% | 2.4% | 16.8% |
+| PF (stretch) | 18.6% | 2.1% | 40.6% |
+| C | 16.1% | 2.0% | 18.0% |
+| C (stretch) | 15.8% | 1.9% | 41.9% |
 
 ## 6b. Where each position spends its half-court time (offense)
 
@@ -177,6 +184,50 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 | 109 | Sam Ford | C | Post Scorer | 49 | 1 | 0 | 1 |
 | 121 | Antoine Bolden | SG | Slasher | 49 | 1 | 1 | 0 |
 
+## What was moving the flagged defenders
+
+Share of the flagged samples (in 52 of the games) by the code path moving the defender, the engine beat under way and the handler's distance from the rim.
+
+**Ball defender backing away**
+
+- moved by: defensive tracker 84.3%, planner move (locked by a planner) 13.1%, other track (locked by a planner) 1.8%, idle 0.6%, idle (locked by a planner) 0.4%
+- engine beat: pass 36.8%, shot 23.8%, move 23.7%, screen 11.9%, set 2.1%, none 1.0%
+- during a shot beat, the engine called the shot: contested (his man shoots) 44.1%, open (his man shoots) 37.0%, tight (his man shoots) 18.9%, open (another shooter) 0.0%
+- handler from the rim: 17-23 ft 38.7%, 23-28 ft 29.0%, 10-17 ft 15.7%, under 10 ft 12.4%, 28-35 ft 4.2%
+- defender clip: none 99.1%, fall 0.8%, turn 0.1%, wallUp 0.0%, contestJump 0.0%
+- handler clip: none 86.1%, jumpshot 4.3%, jumpshot2 1.9%, pivot 1.4%, rebound 1.4%, pullup 1.3%
+- scheme: man 37.7%, drop 33.7%, switch 9.2%, nothree 6.7%, zone32 3.8%, pressure 3.8%
+
+**Ball defender turning away**
+
+- moved by: planner move (locked by a planner) 62.9%, defensive tracker 35.9%, other track (locked by a planner) 0.6%, idle 0.3%, idle (locked by a planner) 0.3%
+- engine beat: shot 69.5%, set 12.6%, pass 10.4%, move 3.4%, screen 3.3%, none 0.7%
+- during a shot beat, the engine called the shot: contested (his man shoots) 46.7%, tight (his man shoots) 28.8%, open (his man shoots) 24.4%
+- handler from the rim: under 10 ft 27.8%, 10-17 ft 26.6%, 17-23 ft 20.7%, 23-28 ft 12.5%, 28-35 ft 12.4%
+- defender clip: none 99.4%, turn 0.4%, wallUp 0.2%, fall 0.0%, contestJump 0.0%
+- handler clip: none 84.1%, layup 5.2%, dunk 2.7%, rebound 2.5%, dunk2 1.7%, jumpStop 0.8%
+- scheme: man 32.0%, drop 30.3%, zone32 10.3%, zone23 7.9%, switch 7.4%, nothree 5.9%
+
+**Off-ball defender crowding the ball**
+
+- moved by: planner move (locked by a planner) 69.9%, defensive tracker 25.5%, idle (locked by a planner) 4.2%, other track (locked by a planner) 0.3%, idle 0.1%
+- engine beat: shot 74.7%, pass 10.0%, move 8.2%, set 4.3%, screen 2.3%, handoff 0.3%
+- during a shot beat, the engine called the shot: contested (his man shoots) 54.2%, tight (his man shoots) 35.3%, open (his man shoots) 10.5%, open (another shooter) 0.0%
+- handler from the rim: 23-28 ft 31.9%, 10-17 ft 30.6%, 17-23 ft 30.0%, 28-35 ft 7.0%, 35+ ft 0.6%
+- defender clip: none 95.7%, contestJump 4.1%, block 0.1%, turn 0.1%
+- handler clip: none 62.7%, pullup 14.2%, jumpshot 9.8%, stepback 3.7%, jumpshot2 3.5%, rebound 2.0%
+- scheme: man 39.2%, drop 35.5%, switch 11.5%, pressure 5.6%, nothree 5.1%, packline 1.6%
+
+**Off-ball defender lost his man**
+
+- moved by: planner move (locked by a planner) 64.7%, defensive tracker 34.5%, other track (locked by a planner) 0.5%, idle (locked by a planner) 0.2%, idle 0.0%
+- engine beat: shot 70.0%, pass 13.4%, set 8.6%, move 3.4%, screen 3.2%, handoff 1.4%
+- during a shot beat, the engine called the shot: contested (his man shoots) 44.0%, open (his man shoots) 29.6%, tight (his man shoots) 26.4%
+- handler from the rim: 17-23 ft 30.0%, 23-28 ft 23.6%, 10-17 ft 17.4%, under 10 ft 15.1%, 28-35 ft 11.3%, 35+ ft 2.5%
+- defender clip: none 100.0%, turn 0.0%
+- handler clip: none 76.2%, rebound 7.9%, jumpshot 5.2%, jumpshot2 2.9%, pullup 2.2%, layup 1.4%
+- scheme: drop 38.2%, man 35.4%, switch 12.2%, pressure 6.4%, nothree 4.5%, packline 1.7%
+
 ## Examples to look at
 
 - **Ball defender backing away** (game seed 101, possession 1, Q1 11:24): Curtis Moses (PF) backs away from Keon Novak (C) for 0.8 s while the ball handler is not attacking (gap 2.6 -> 4.6 ft).
@@ -185,15 +236,15 @@ Made by `node tools/audit/run.js` (see tools/audit/README.md).
 - **Ball defender turns and walks away** (game seed 101, possession 1, Q1 11:26): Curtis Moses (PF) turns his back on the ball handler Keon Novak (C) and walks away for 0.8 s (gap 4.1 -> 3.5 ft).
 - **Ball defender turns and walks away** (game seed 102, possession 4, Q1 11:28): Jackson Lamb (PG) turns his back on the ball handler Isaiah Olson (PG) and walks away for 1.1 s (gap 6.7 -> 6 ft).
 - **Ball defender turns and walks away** (game seed 103, possession 13, Q1 8:59): Walker Kovac (PG) turns his back on the ball handler Ryan Rivers (PG) and walks away for 0.7 s (gap 5.1 -> 1.8 ft).
-- **Off-ball defender crowding the ball** (game seed 101, possession 2, Q1 11:09): Joel Strong (PG) leaves his man Markell Douglas (PG) to crowd the ball handler Curtis Moses (PF) for 0.5 s (the ball is already guarded, no drive).
-- **Off-ball defender crowding the ball** (game seed 102, possession 1, Q1 11:45): Oscar Graves (C) leaves his man Earl Weaver (C) to crowd the ball handler Quincy Taylor (PF) for 0.5 s (the ball is already guarded, no drive).
-- **Off-ball defender crowding the ball** (game seed 103, possession 1, Q1 11:50): Rafael Black (PG) leaves his man Sam Campbell (SG) to crowd the ball handler Ryan Rivers (PG) for 0.4 s (the ball is already guarded, no drive).
+- **Off-ball defender crowding the ball** (game seed 101, possession 18, Q1 6:51): Aaron Fox (PF) leaves his man Julius Thomas (SG) to crowd the ball handler Jay Daniels (PG) for 0.4 s (the ball is already guarded, 12+ ft from the rim, no drive).
+- **Off-ball defender crowding the ball** (game seed 102, possession 9, Q1 10:22): Oscar Graves (C) leaves his man Earl Weaver (C) to crowd the ball handler Jackson Lamb (PG) for 1.4 s (the ball is already guarded, 12+ ft from the rim, no drive).
+- **Off-ball defender crowding the ball** (game seed 103, possession 4, Q1 11:03): Shawn Adams (C) leaves his man Omar Armstrong (C) to crowd the ball handler Rafael Black (PG) for 0.4 s (the ball is already guarded, 12+ ft from the rim, no drive).
 - **Off-ball defender lost his man** (game seed 101, possession 31, Q1 2:56): Jesse Becker (SG) is more than 12 ft from his man Grant Isaac (PG) for 0.7 s without being in a help spot.
 - **Off-ball defender lost his man** (game seed 102, possession 75, Q2 7:09): Amir Vaughn (C) is more than 12 ft from his man Colby Richards (SG) for 0.9 s without being in a help spot.
 - **Off-ball defender lost his man** (game seed 104, possession 39, Q1 3:05): Cam Malone (PG) is more than 12 ft from his man Karl Hall (PG) for 1.1 s without being in a help spot.
-- **Offensive player standing still** (game seed 101, possession 50, Q2 10:29): Joel Strong (PG) stands still for 5.3 s at the mid while his team runs its half-court offense.
+- **Offensive player standing still** (game seed 101, possession 50, Q2 10:29): Joel Strong (PG) stands still for 5.3 s in the mid-range while his team runs its half-court offense.
 - **Offensive player standing still** (game seed 102, possession 84, Q2 4:45): Joel Wright (SG) stands still for 5.2 s at the arc while his team runs its half-court offense.
-- **Offensive player standing still** (game seed 104, possession 111, Q3 9:12): Jabari Kavanagh (PF) stands still for 5.1 s at the deep while his team runs its half-court offense.
+- **Offensive player standing still** (game seed 104, possession 111, Q3 9:12): Jabari Kavanagh (PF) stands still for 5.1 s well beyond the arc while his team runs its half-court offense.
 - **Wide-open shooter passes it up** (game seed 102, possession 11, Q1 9:38): Jackson Lamb (PG, mid-range 71) catches with the nearest defender 10.9 ft away and 14.1 s on the shot clock, then passes it on after 2.7 s (the engine's next pass).
 - **Wide-open shooter passes it up** (game seed 103, possession 137, Q3 4:42): Miles Dubois (SF, 3PT 75) catches with the nearest defender 15.2 ft away and 9.8 s on the shot clock, then passes it on after 2.9 s (the engine's next pass).
 - **Wide-open shooter passes it up** (game seed 107, possession 136, Q3 1:05): Chris Blair (SG, 3PT 87) catches with the nearest defender 11.7 ft away and 13.1 s on the shot clock, then passes it on after 3.1 s (the engine's next pass).

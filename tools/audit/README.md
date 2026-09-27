@@ -18,6 +18,8 @@ Needs Node and Playwright with Chromium (the cloud image has both; locally `npm 
 - `sampler.js` plays the user's first game of that league from the tip to the final buzzer exactly as the Live view
   plays it (no rendering), watching the ball every frame and every player every 0.1 s. It changes nothing in the
   game: the ball's give / pass / shoot are wrapped on that one ball only to see when they happen.
+- `rebuild.js` regenerates the report files from a saved `games.json` after a change to `report.js`
+  (`node tools/audit/rebuild.js audit/phase1`), without playing the games again.
 - `report.js` turns the per-game records into the metric tables. Output in `--out`:
   - `report.md`: the tables (committed with each phase),
   - `report.html`: the same with half-court diagrams of flagged moments,
@@ -34,7 +36,10 @@ outside free throws, timeouts and dead balls):
    next to the lane, or on the line from the ball to the rim), extra defenders crowding a ball that is already
    guarded with no drive to help on, defenders far from their man and not helping.
 3. **Offense movement**: off-ball players standing still (under 1 ft/s), not having moved 3 ft in 3 s, long
-   stand-stills, clumping.
+   stand-stills, clumping, and each player's job (moving for the engine's next event, running a half-court action,
+   holding a spacing spot, or no job).
+   The report also breaks down what was moving each flagged defender (his own positioning rule, a planner for the
+   engine's next event, a clip), the engine beat under way and the handler's distance from the rim.
 4. **Shot selection**: the engine's shots as the Live view shows them: threes by rating and position, the engine's
    open / contested / tight call against the real distance of the nearest defender at the release, shot clock.
 5. **Open catches**: what a decent shooter (70+ for a shot from where he is) does after catching it with nobody

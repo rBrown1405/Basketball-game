@@ -85,7 +85,67 @@ stop for testing.
 Files: `tools/audit/run.js`, `tools/audit/sampler.js`, `tools/audit/report.js`, `tools/audit/README.md`; results in
 `audit/phase1/` (`report.md`, `report.html`, `metrics.json`). The findings are summarised below.
 
-<!-- FINDINGS -->
+### What the Phase 1 audit found (52 games, 10,442 possessions, 21.8 hours of half-court play)
+
+Full tables, the players involved and court diagrams of flagged moments: `audit/phase1/report.md` and
+`audit/phase1/report.html`. Nothing is broken: all 52 games reached the final buzzer, no script errors, no stuck
+possessions, and the court score matched the engine in every game.
+
+**Ball defender walking backward / turning away**
+- Backing away from a handler who is not attacking: 4.2 % of on-ball time, 5,350 episodes (103 a game).
+  84 % of it comes from the defender's own positioning rule (`guardPos`), 37 % right after a catch: the defender
+  walks back from his deny spot to the on-ball cushion instead of closing out.
+- Back turned while walking away from the ball handler: 2,036 episodes (39 a game). 63 % happens while the shot
+  is being set up: the contest planner walks him toward the spot the shot will go up from, facing that spot instead
+  of the shooter.
+- The cushion ignores shooting: non-shooters (3PT under 50) get 4.8 ft at the arc, elite shooters 5.5 ft (backwards).
+- Good: between the handler and the basket 90.4 % (NBA tracking 94 to 98 %), low stance 94.7 %, running with
+  crossed feet while guarding only 0.2 %.
+
+**Off-ball defenders crowding the ball**
+- An extra defender on a ball that is already guarded, 12+ ft from the rim, no drive: 1,942 episodes (37 a game,
+  33 s a game). Help at the rim on drives and finishes (the right play) is counted apart: 74 s a game.
+- Root cause: the engine picks the shot's defender by position number, the court pairs defenders by lineup order,
+  and on 50 to 54 % of jump shots they are different players. That defender leaves his own man to contest while the
+  shooter's own defender is pushed out of the shooter's space.
+- Off-ball positions are otherwise reasonable: one pass away in the passing lane 70 %, two passes away in help
+  position 59 %, far from his man without helping only 0.1 %.
+
+**Offensive players standing still with no purpose**
+- Long stand-stills are not the main problem (443 of 3 s or longer, 80 of 5 s or longer in 52 games; players
+  shuffle a little all the time).
+- The real problem is no job: 30 % of off-ball time a player holds or drifts around a spot that is not spacing, half
+  of it in the mid-range. Wings are the worst (SG 36 %, SF 39 %); stretch bigs 41 to 42 %.
+
+**Wide-open players not shooting**
+- A decent shooter (70+ for a shot from where he is) catching it with nobody within 10 ft shoots only 48 % of the
+  time (196 such catches, 97 passed on, mostly the engine's scripted next pass).
+- Wide-open decent shooters off the ball: 2,325 stretches of 1 s or more (45 a game, 88 s a game), and the ball
+  found them 71 times (3 %).
+
+**Low 3PT players shooting threes**
+- Rare already: 16 of 3,829 threes (0.4 %) by players rated under 50, 2 by players under 45, none under 40; the
+  rest of the big men's threes come from bigs rated 50 to 69. The rule to add is a firm gate, not a big change.
+- Shots in the last 4 s of the shot clock: 14.6 % (the NBA is about 7 to 8 %): the shot clock plays no part in shot
+  selection.
+- The engine's "open" label does not match the court at the rim: 71 % of "open" shots at the rim or in the paint
+  have a defender within 3 ft (for threes it matches: 3 %).
+
+**Spacing by position (are bigs ever in the paint?)**
+- Not five out at all: 1.3 players beyond the arc on average, two or fewer 89 % of the time, five out 0.4 %.
+- Most players stand 18 to 24 ft from the rim, on or just inside the line; guards and wings spend about 40 % of
+  their time in the mid-range, corners are nearly empty (2 to 6 %).
+- Non-stretch PFs and Cs are at the rim, in the paint or the short corner 48 % of the time; 30 % of the time nobody
+  on offense is within 12 ft of the rim.
+
+**Rebounds and the ball (your earlier report)**
+- Caught at the top of a jump above the rim: median grab height 11.2 ft, 98 % above 10 ft.
+- The "teleport": 20 % of rebounds (834) bend more than 3 ft through the air into the rebounder's hands, up to
+  32 ft; 7 % jump more than 3 ft into the hands at the grab; 4 % hang still in the air first.
+- No rebound ever hits the floor.
+- Box-outs: 2.1 defenders per miss, 0.7 of them boxing out a man 20+ ft from the rim.
+- Ball and rim are life-size in the code (ball 9.4 in, rim 18 in, the real ratio); how they are drawn on screen is
+  checked in Phase 2.
 
 ## Testing after every phase
 
@@ -99,6 +159,15 @@ Files: `tools/audit/run.js`, `tools/audit/sampler.js`, `tools/audit/report.js`, 
 - Debug overlays: defensive positioning (Phase 2), read decisions (Phase 2 and 3), play steps (Phase 3).
 
 ## Phase 2: core basketball AI
+
+First, the root causes the audit found:
+- One set of matchups: the engine sets who guards whom once per possession (by position and size, kept stable),
+  passes it with the possession, and the court uses it (`sim.js` `matchupDefender` / `shotDefender`, `choreo.js`
+  `setupMatchups`). The shot's defender is the shooter's own defender, or a real help defender on a drive.
+- The contest (`choreo.js` `planContest`): the defender faces the shooter all the way, closes out from where he is
+  with chop steps and a high hand, and the "stay out of the shooter's space" rule no longer pushes away the
+  shooter's own defender.
+- A catch is a closeout: the defender of the catcher comes out to him from his deny or help spot, never walks back.
 
 Defense, new `js/match/defense.js` (extends the Director like `flow.js`; `choreo.js` gets hooks, its code stays as the
 fallback for zones and presses):
@@ -128,7 +197,8 @@ Offense, engine (`js/core/sim.js`):
 
 Offense, court (`js/match/flow.js`, `choreo.js` `assignSpots`):
 - Spots come from the play and the system, with roles: non-stretch bigs at the dunker spot, short corner, low post
-  or elbow (to screen); shooters beyond the arc (a step behind the line, not on it); spots mirror to the ball side.
+  or elbow (to screen); shooters beyond the arc (a step behind the line, not on it) with the corners filled; spots
+  mirror to the ball side. No more drifting in the mid-range with no job.
 - No standing around: every off-ball player has a job (space, relocate when the ball moves, cut when his man turns
   his head, screen away, crash on a shot); a player stays on a spot only while it is the right spot.
 - Open teammates: when an off-ball shooter is wide open in range, the ball goes to him if the engine's timeline
