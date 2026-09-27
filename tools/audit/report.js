@@ -109,8 +109,11 @@ function metrics(games) {
   m.contShotMedian = median(contL.map((s) => s.live));
   m.tightShotMedian = median(tightL.map((s) => s.live));
   m.tightShotWide = pct(tightL.filter((s) => s.live > 6).length, tightL.length);
-  m.shotClockLate = pct(shots.filter((s) => s.sc < 4).length, shots.length);
-  m.shotClockMedian = median(shots.map((s) => s.sc));
+  // (with the shot clock on: the NBA's shot clock splits leave out shots when the game clock is under the shot clock)
+  const scOn = shots.filter((s) => s.clk == null || s.clk > s.sc + 0.5);
+  m.shotClockLate = pct(scOn.filter((s) => s.sc < 4).length, scOn.length);
+  m.shotClockEarly = pct(scOn.filter((s) => s.sc >= 18).length, scOn.length);
+  m.shotClockMedian = median(scOn.map((s) => s.sc));
   // ---- catches (what an open shooter does with the ball)
   const catches = G.flatMap((g) => g.catches);
   m.catchesPerGame = catches.length / n;
@@ -159,7 +162,7 @@ const SECTIONS = [
     ['obRetreat', 'Backing away from a handler who is not attacking', '%', 'down', '~0'],
     ['obRetreatEps', '  episodes per game (0.3 s or longer)', '', 'down', ''],
     ['obBackpedal', '  of which walking backward facing him', '%', 'down', ''],
-    ['obTurnAway', 'Back turned to the ball handler and walking away', '%', 'down', '0 unless beaten'],
+    ['obTurnAway', 'Back turned to the ball handler and walking away (handler not attacking)', '%', 'down', '0 unless beaten'],
     ['obTurnAwayEps', '  episodes per game', '', 'down', ''],
     ['obBackTurned', 'Back turned to the ball handler (any speed)', '%', 'down', ''],
     ['obRunClose', 'Running (feet crossing) within 10 ft while not beaten', '%', 'down', ''],
@@ -176,7 +179,7 @@ const SECTIONS = [
     ['helpTwo', 'Two passes away: in help position (lane or ball-rim line)', '%', 'up', ''],
     ['sagTwo', 'Two passes away: sagged toward the rim from his man', '%', 'up', ''],
     ['seesTwo', 'Two passes away: can see man and ball', '%', 'up', ''],
-    ['tightTwo', 'Two passes away: glued to his man (no help)', '%', 'down', ''],
+    ['tightTwo', 'Two passes away: glued to a man outside the lane (no help)', '%', 'down', ''],
     ['crowdSec', 'Extra defender crowding a guarded ball 12+ ft from the rim, no drive (seconds per game)', 's', 'down', '~0'],
     ['crowdPct', '  share of half-court time', '%', 'down', ''],
     ['crowdEps', '  episodes per game', '', 'down', ''],
@@ -216,7 +219,8 @@ const SECTIONS = [
     ['tightShotMedian', '"Tight" shots: median nearest defender', 'ft', '', '0-2 ft'],
     ['tightShotWide', '"Tight" shots with nobody within 6 ft', '%', 'down', '0'],
     ['shotClockMedian', 'Shot clock left at the shot (median)', 's', '', ''],
-    ['shotClockLate', 'Shots with under 4 s on the shot clock', '%', 'down', 'NBA ~7%'],
+    ['shotClockLate', 'Shots with under 4 s on the shot clock (shot clock on)', '%', 'down', 'NBA ~7-9%'],
+    ['shotClockEarly', 'Shots with 18+ s on the shot clock (shot clock on)', '%', '', 'NBA ~18-23%'],
   ]],
   ['5. Open catches in the live game', [
     ['catchesPerGame', 'Half-court catches per game', '', '', ''],
@@ -346,8 +350,8 @@ function build(games, o) {
   return L.join('\n');
 }
 
-const CAUSE_TITLE = { retreat: 'Ball defender backing away', turnAway: 'Ball defender turning away', crowd: 'Off-ball defender crowding the ball', abandoned: 'Off-ball defender lost his man' };
-const CAUSE_PART = { mover: 'moved by', beat: 'engine beat', shotCall: 'during a shot beat, the engine called the shot', handlerDist: 'handler from the rim', clip: 'defender clip', handlerClip: 'handler clip', scheme: 'scheme' };
+const CAUSE_TITLE = { retreat: 'Ball defender backing away', turnAway: 'Ball defender turning away', crowd: 'Off-ball defender crowding the ball', abandoned: 'Off-ball defender lost his man', tightTwo: 'Two passes away but glued to his man' };
+const CAUSE_PART = { mover: 'moved by', job: 'his defensive job (Phase 2 court roles)', beat: 'engine beat', shotCall: 'during a shot beat, the engine called the shot', handlerDist: 'handler from the rim', clip: 'defender clip', handlerClip: 'handler clip', scheme: 'scheme' };
 function causes(games) {
   const out = [];
   for (const tag of Object.keys(CAUSE_TITLE)) {

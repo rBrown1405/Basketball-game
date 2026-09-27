@@ -76,7 +76,7 @@
       hc: { n: 0 },
       onball: { n: 0, man: 0, between: 0, beaten: 0, lowStance: 0, upright: 0, backTurned: 0, turnAway: 0, backpedal: 0, retreat: 0, runClose: 0, far: 0, cushion: {}, eps: { retreat: [], turnAway: [], far: [] } },
       offball: { n: 0, one: 0, deny: 0, two: 0, help: 0, sag: 0, sees: 0, tightTwo: 0, rimHelp: 0, crowd: 0, path: 0, abandoned: 0, crowd3: 0, eps: { crowd: [], abandoned: [] } },
-      idle: { offSec: 0, stillSec: 0, loiterSec: 0, jobs: {}, jobByPos: {}, noJobZone: {}, byPos: {}, eps: { '2-3': 0, '3-5': 0, '5-8': 0, '8+': 0 }, epsByZone: {}, loiterByZone: {}, clumpSec: 0, pairClose: 0 },
+      idle: { offSec: 0, stillSec: 0, loiterSec: 0, jobs: {}, jobByPos: {}, noJobZone: {}, noJobSpot: {}, byPos: {}, eps: { '2-3': 0, '3-5': 0, '5-8': 0, '8+': 0 }, epsByZone: {}, loiterByZone: {}, clumpSec: 0, pairClose: 0 },
       spacing: { n: 0, byPos: {}, nOut: [0, 0, 0, 0, 0, 0], noInside: 0, fiveOut: 0 },
       openOff: { n: 0, found: 0, sec: 0 }, shots: [], catches: [], rebounds: [], boxouts: [], gives: { catch: [], rebound: [], steal: [], other: [] }, hang: [],
       examples: [], players: {}, causes: {},
@@ -139,7 +139,9 @@
       openFound(String(a.id));
       if (!halfCourt() || a.team !== d.off) return;
       const nd = nearestDef(a), p = uv(a);
-      catchRec = { a, id: String(a.id), t: v.time, open: r1(nd.d), rim: r1(rimDist(a)), three: beyondArc(p), rating: rating(a.id, a), sc: r1(d.shotClock()), u0: rimDist(a), out: null, passSwing: null, fromSwing: !!f.swing, snap: null };
+      const gd = d.guardOf(a.id), gl = gd && d.dtask[gd.id] && d.dtask[gd.id].until > d.T;
+      catchRec = { a, id: String(a.id), t: v.time, open: r1(nd.d), rim: r1(rimDist(a)), three: beyondArc(p), rating: rating(a.id, a), sc: r1(d.shotClock()), u0: rimDist(a), out: null, passSwing: null, fromSwing: !!f.swing, snap: null,
+        guard: gd ? r1(Math.hypot(gd.x - a.x, gd.y - a.y)) : null, guardJob: gd ? (gl ? 'locked' : (gd._dRole || (gd.goal && gd.goal.track === gd._defTrack ? 'tracker' : 'other'))) : 'none', scheme: d.scheme };
       if (nd.d >= 10 && catchRec.rating >= 70 && catchRec.sc > 4) catchRec.snap = snap({ catcher: String(a.id) });
     }
     function closeCatch(out) {
@@ -147,7 +149,7 @@
       catchRec = null;
       const o = c.out || out;
       const held = v.time - c.t, drove = c.u0 - rimDist(c.a) > 6;
-      R.catches.push({ id: c.id, open: c.open, rim: c.rim, three: c.three, rating: c.rating, sc: c.sc, out: o, held: r1(held), drove, swing: c.passSwing, fromSwing: c.fromSwing });
+      R.catches.push({ id: c.id, open: c.open, rim: c.rim, three: c.three, rating: c.rating, sc: c.sc, out: o, held: r1(held), drove, swing: c.passSwing, fromSwing: c.fromSwing, guard: c.guard, guardJob: c.guardJob, scheme: c.scheme });
       if (o === 'pass' && c.snap && (ex.open_pass || 0) < EX_MAX) {
         ex.open_pass = (ex.open_pass || 0) + 1;
         const p = info[c.id] || {};
@@ -161,7 +163,7 @@
       if (!d.active || d.frozen || d.phase !== 'front' || d.ftSetup) return false;
       const h = b.holder;
       if (!h || h.team !== d.off || h.kind !== 'player' || (b.state !== 'held' && b.state !== 'dribble')) return false;
-      if (d.U_(h.x) > 42) return false;
+      if (d.U_(h.x) > 42 || d.U_(h.x) < 0.3 || h.y < 0.3 || h.y > 49.7) return false; // (an inbounder out of bounds)
       const bt = d.beat;
       return !(bt && !bt.fired && !LIVE_BEATS[bt.type]);
     };
@@ -179,7 +181,8 @@
       const lock = d.dtask[X.id] && d.dtask[X.id].until > d.T;
       const mover = (tracker ? 'defensive tracker' : g0.mode === 'track' ? 'other track' : g0.mode === 'move' ? 'planner move' : g0.mode || '?') + (lock ? ' (locked by a planner)' : '');
       const dr = rimDist(h), band = dr < 10 ? 'under 10 ft' : dr < 17 ? '10-17 ft' : dr < 23 ? '17-23 ft' : dr < 28 ? '23-28 ft' : dr < 35 ? '28-35 ft' : '35+ ft';
-      const C = R.causes[tag] || (R.causes[tag] = { mover: {}, beat: {}, shotCall: {}, handlerDist: {}, clip: {}, handlerClip: {}, scheme: {} });
+      const C = R.causes[tag] || (R.causes[tag] = { mover: {}, job: {}, beat: {}, shotCall: {}, handlerDist: {}, clip: {}, handlerClip: {}, scheme: {} });
+      inc(C.job, X._dRole || 'none');
       const bt = d.beat && !d.beat.fired ? d.beat : null;
       inc(C.mover, mover); inc(C.beat, bt ? bt.type : 'none'); inc(C.handlerDist, band);
       if (bt && bt.type === 'shot') inc(C.shotCall, (bt.ev.contest || '?') + (String(bt.ev.shooter) === String(h.id) ? ' (his man shoots)' : ' (another shooter)'));
@@ -226,7 +229,8 @@
         const slowH = h.speed < 4;
         const backdown = h.stance === 'postUp' || (h.clip && !h.clip.done && /backdown/.test(h.clip.clip.name));
         const retreat = !beaten && slowH && sep > 2.5 && vAway > 2 && dRimH < 32 && !backdown;
-        const turnAway = !beaten && backTurned && D.speed > 1.5 && vAway > 1 && dRimH < 32;
+        const hIn = (h.vx * rx + h.vy * ry) / rl; // the handler's speed toward the rim: running with a driver is fine
+        const turnAway = !beaten && backTurned && D.speed > 1.5 && vAway > 1 && dRimH < 32 && hIn < 5;
         if (retreat) { OB.retreat++; if (!backTurned) OB.backpedal++; cause(D, h, 'retreat'); }
         if (turnAway) { OB.turnAway++; cause(D, h, 'turnAway'); }
         if (D._runMode && dist < 10 && !beaten) OB.runClose++;
@@ -251,7 +255,8 @@
           if (!M || M === h || X === D) { crowdStep(String(id), false); abandStep(String(id), false); continue; }
           OF.n++;
           const dMan = Math.hypot(X.x - M.x, X.y - M.y), dBallM = Math.hypot(M.x - h.x, M.y - h.y);
-          const twoAway = dBallM > 28 || (Math.sign(M.y - 25) !== hSide && Math.abs(M.y - 25) > 6 && dBallM > 16);
+          // (the ball in the middle of the floor: both wings are one pass away)
+          const twoAway = dBallM > 28 || (Math.abs(h.y - 25) > 4 && Math.sign(M.y - 25) !== hSide && Math.abs(M.y - 25) > 6 && dBallM > 16);
           if (!twoAway) {
             OF.one++;
             // deny: in the passing lane, between the ball and his man (the last ~45 % of the way), close to the man
@@ -271,7 +276,7 @@
             const xu = d.U_(X.x), bxl = rim.x - h.x, byl = rim.y - h.y, bl = Math.hypot(bxl, byl) || 1;
             const tb = U01(((X.x - h.x) * bxl + (X.y - h.y) * byl) / (bl * bl));
             if ((Math.abs(X.y - 25) <= 11 && xu <= 22) || Math.hypot(X.x - (h.x + bxl * tb), X.y - (h.y + byl * tb)) < 5) OF.help++;
-            if (dMan < 3.5) OF.tightTwo++;
+            if (dMan < 3.5 && !d.inPaint(M, -2)) { OF.tightTwo++; cause(X, h, 'tightTwo'); } // (a man in the lane area is where the help is anyway)
           }
           // crowding: an extra defender on the ball (his man far away, the ball already guarded, no drive to help on)
           const dH = Math.hypot(X.x - h.x, X.y - h.y);
@@ -306,8 +311,15 @@
         // a spot; a spot is spacing only beyond the arc (or, for a big, by the rim), anywhere else he has no job
         const r = d.role[a.id];
         let job = a.isBusy() ? 'clip' : !r ? 'spot' : r.mode === 'locked' || r.until > d.T ? 'engine' : r.path ? 'flow' : 'spot';
-        if (job === 'spot') job = z === 'corner3' || z === 'arc3' ? 'spacing' : big(id) && !stretch(id) && (z === 'rim' || z === 'paint' || z === 'short') ? 'spacing' : 'none';
-        { const J = R.idle.jobs, jp = R.idle.jobByPos[pk] || (R.idle.jobByPos[pk] = {}); inc(J, job, SDT); inc(jp, job, SDT); if (job === 'none') inc(R.idle.noJobZone, z, SDT); }
+        if (job === 'spot' && r && r.phase === 'out') job = 'flow'; // (a v-cut: dip in, come back out)
+        if (job === 'spot') {
+          // judged by where he is going: on his way to a spot (3+ ft from it), by that spot; at it, by where he stands
+          let zz = z, rd = rimDist(a);
+          if (r && r.spot) { const tx = r.spot.x + (r.jx || 0), ty = r.spot.y + (r.jy || 0); if (Math.hypot(tx - a.x, ty - a.y) > 3 && a.speed > 3) { const q = { x: tx, y: ty }; zz = zoneOf(q); rd = rimDist(q); } }
+          job = zz === 'corner3' || zz === 'arc3' || (zz === 'deep' && rd < 31) ? 'spacing' : big(id) && !stretch(id) && (zz === 'rim' || zz === 'paint' || zz === 'short') ? 'spacing' : 'none';
+        }
+        { const J = R.idle.jobs, jp = R.idle.jobByPos[pk] || (R.idle.jobByPos[pk] = {}); inc(J, job, SDT); inc(jp, job, SDT);
+          if (job === 'none') { inc(R.idle.noJobZone, z, SDT); inc(R.idle.noJobSpot, (r && r.phase === 'out' ? 'v-cut ' : '') + ((r && r.spotName) || '?') + ' @' + z, SDT); } }
         // a wide-open shooter off the ball (nearest defender 10+ ft, rated 70+ for a shot from there, within 26 ft)
         const ndA = nearestDef(a);
         if (ndA.d >= 10 && rimDist(a) <= 26 && rating(a.id, a) >= 70 && d.shotClock() > 4) { const o = openT[id] || (openT[id] = { n: 0, snap: null, poss: cur && cur.n, when: clockStr(), r: rating(a.id, a), z }); o.n++; if (o.n === 10) o.snap = snap({ open: id, handler: hid }); }
@@ -399,7 +411,7 @@
       const sh = v.actor(e.shooter);
       const nd = sh ? nearestDef(sh) : { d: null };
       const p = info[e.shooter] || {};
-      R.shots.push({ id: String(e.shooter), pos: p.pos, big: big(e.shooter), stretch: stretch(e.shooter), three: p.three, mid: p.mid, pts: e.pts, zone: e.zone, kind: e.kind, contest: e.contest, made: !!e.made, dist: e.dist, live: nd.d != null ? r1(nd.d) : null, sc: r1(d.shotClock()), play: cur && cur.play, sys: cur && cur.sys });
+      R.shots.push({ id: String(e.shooter), pos: p.pos, big: big(e.shooter), stretch: stretch(e.shooter), three: p.three, mid: p.mid, pts: e.pts, zone: e.zone, kind: e.kind, contest: e.contest, made: !!e.made, dist: e.dist, live: nd.d != null ? r1(nd.d) : null, sc: r1(d.shotClock()), clk: r1(d.clock()), play: cur && cur.play, sys: cur && cur.sys });
       if (e.pts === 3 && p.three < 50 && e.kind !== 'heave') example('bad_three', `${p.name} (${p.pos}, 3PT rating ${p.three}) takes a three (${e.contest}, ${e.made ? 'made' : 'missed'}).`, { shooter: String(e.shooter) });
       if (!e.made && !e.fouled && !e.blocked) {
         missRec = { t: v.time, ev: e };

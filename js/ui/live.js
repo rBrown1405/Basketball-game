@@ -25,6 +25,8 @@
   }
   function playerLook(p, teamIdx) {
     return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle,
+      // (the court's defense and offense read these: cushion by shooting, help by awareness, roles for bigs)
+      three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch,
       expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral' };
   }
   UI.matchContext = function (S, g) {
@@ -82,6 +84,7 @@
       pixelSize: st.pixelSize || 'normal',
       camera: ['fixed', 'wide', 'close'].includes(st.camera) ? st.camera : 'auto',
       showNames: !!st.showNames,
+      debug: ['all', 'defense', 'offense'].includes(st.debugOverlay) ? st.debugOverlay : null, // the coach's debug overlay
     };
   }
 
@@ -91,7 +94,7 @@
     const ctx = UI.matchContext(S, g);
     const vs = viewSettings(S);
     if (vs.style !== 'retro' && PBC.Match && PBC.Match.View) {
-      try { return new PBC.Match.View(canvas, ctx, { quality: S.settings.lowQuality ? 'low' : 'high', pixelMode: vs.pixel, pixelSize: vs.pixelSize, camera: vs.camera === 'fixed' ? 'broadcast' : vs.camera, showNames: vs.showNames, ai: PBC.Sliders && PBC.Sliders.aiMods ? PBC.Sliders.aiMods(S) : null }); } catch (e) { console.error('Match view failed', e); }
+      try { return new PBC.Match.View(canvas, ctx, { quality: S.settings.lowQuality ? 'low' : 'high', pixelMode: vs.pixel, pixelSize: vs.pixelSize, camera: vs.camera === 'fixed' ? 'broadcast' : vs.camera, showNames: vs.showNames, debug: vs.debug, ai: PBC.Sliders && PBC.Sliders.aiMods ? PBC.Sliders.aiMods(S) : null }); } catch (e) { console.error('Match view failed', e); }
     }
     if (PBC.Match && PBC.Match.RetroView) {
       try { return new PBC.Match.RetroView(canvas, ctx, { quality: 'high', showNames: false }); } catch (e) { console.error('RetroView failed', e); }
@@ -226,6 +229,7 @@
           <button class="btn sm" data-act="clutch" title="Skip ahead to crunch time">⏭ Crunch time</button>
           <button class="btn sm" data-act="end" title="Simulate to the final buzzer">⏩ End</button>
           <button class="btn sm ${S.settings.commentary !== false ? 'on' : ''}" data-act="booth" id="btn-booth" title="Commentary (C)">🎙️</button>
+          <button class="btn sm ${viewSettings(S).debug ? 'on' : ''}" data-act="debug" id="btn-debug" title="Coach's debug view: jobs, play steps, reads (D)">🧠</button>
           <button class="btn sm" data-act="bmenu" title="Broadcast settings">📺</button>
           <button class="btn sm" data-act="side" title="Show / hide the side panel (P)">▤</button>
         </div>
@@ -285,6 +289,7 @@
       if (e.key === 'c' || e.key === 'C') toggleBooth();
       if (e.key === 'p' || e.key === 'P') toggleSide();
       if (e.key === 'm' || e.key === 'M') { if (LG.au) { LG.au.toggleMute(); UI.toast(LG.au.muted ? '🔇 Arena sound off' : '🔊 Arena sound on', 'info'); } }
+      if (e.key === 'd' || e.key === 'D') cycleDebug();
       if (['1', '2', '3', '4', '5'].includes(e.key)) setSpeed([1, 2, 4, 8, 16][+e.key - 1]);
     };
     document.addEventListener('keydown', LG.onKey);
@@ -302,6 +307,7 @@
       if (a === 'booth') toggleBooth();
       if (a === 'side') toggleSide();
       if (a === 'bmenu') broadcastMenu();
+      if (a === 'debug') cycleDebug();
     });
     UI.on(root, 'click', '.bc-skip', () => skipHold());
     setSpeed(LG.speed);
@@ -344,6 +350,16 @@
     if (LG.cm && LG.cm.setSpeed) LG.cm.setSpeed(s);
     if (LG.view && LG.view.opts) LG.view.opts.record = s <= 4 && LG.S.settings.replays !== false;
   }
+  /** the coach's debug overlay: off, then all layers, defense only, offense only */
+  function cycleDebug() {
+    const S = LG.S, order = [null, 'all', 'defense', 'offense'];
+    const cur = viewSettings(S).debug;
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    S.settings.debugOverlay = next || 'off';
+    if (LG.view && LG.view.setOption) LG.view.setOption('debug', next);
+    const btn = LG.root.querySelector('#btn-debug'); if (btn) btn.classList.toggle('on', !!next);
+    UI.toast(next ? `🧠 Debug view: ${next === 'all' ? 'defense, offense, play and reads' : next === 'defense' ? 'defense and the play' : 'offense and the play'} (D to change)` : '🧠 Debug view off', 'info');
+  }
   function togglePause(force) {
     if (!LG) return;
     LG.paused = force != null ? force : !LG.paused;
@@ -382,6 +398,8 @@
         <label class="chk"><input type="checkbox" data-b="showNames" ${st.showNames ? 'checked' : ''}> Player names on court</label>
         <label class="chk"><input type="checkbox" data-b="replays" ${st.replays !== false ? 'checked' : ''}> 🎬 Instant replays of big plays</label>
         <label class="chk"><input type="checkbox" data-b="tvGraphics" ${st.tvGraphics !== false ? 'checked' : ''}> 📺 TV graphics (player stats, runs, quarter recaps)</label>
+        <div class="row"><span class="small muted" style="min-width:90px">🧠 Debug view</span><div class="seg" data-bseg="debugOverlay">${[['off', 'Off'], ['all', 'All'], ['defense', 'Defense'], ['offense', 'Offense']].map(([k, l]) => `<button data-v="${k}" class="${(vs.debug || 'off') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <p class="tiny muted">The coach's debug view draws each defender's man, spot and job, each player's job on offense, the play's steps and the players' reads. Press D in the game to switch it.</p>
       </div>
       <div class="bm-sec"><div class="bm-h">Sound & booth</div>
         <label class="chk"><input type="checkbox" data-b="arenaSound" ${st.arenaSound !== false ? 'checked' : ''}> 🔊 Arena sound (crowd, sneakers, swishes)</label>
@@ -399,7 +417,8 @@
     const apply = () => {
       if (!LG) return;
       const v = LG.view, vs2 = viewSettings(S);
-      if (v && v.setOption) { v.setOption('pixelMode', vs2.pixel); v.setOption('pixelSize', vs2.pixelSize); v.setOption('camera', vs2.camera === 'fixed' ? 'broadcast' : vs2.camera); v.setOption('showNames', !!S.settings.showNames); }
+      if (v && v.setOption) { v.setOption('pixelMode', vs2.pixel); v.setOption('pixelSize', vs2.pixelSize); v.setOption('camera', vs2.camera === 'fixed' ? 'broadcast' : vs2.camera); v.setOption('showNames', !!S.settings.showNames); v.setOption('debug', vs2.debug); }
+      { const bd = LG.root.querySelector('#btn-debug'); if (bd) bd.classList.toggle('on', !!vs2.debug); }
       if (LG.styleShown !== vs2.style) { LG.styleShown = vs2.style; resetViewAfterJump(); }
       if (LG.au) { LG.au.setEnabled(S.settings.arenaSound !== false); LG.au.setVolume(S.settings.volume == null ? 0.7 : S.settings.volume); }
       if (LG.cm) { LG.cm.setEnabled(S.settings.commentary !== false); LG.cm.setVoiceEnabled(S.settings.voice !== false); LG.cm.refreshVoices(); }

@@ -380,13 +380,14 @@
       this.at(this.T + rel, () => { if (b.holder === from) this.passBall(from, to, 'chest', dur, onCatch); else if (b.holder !== to && !(b.state === 'flight' && b.passTarget === to)) this.giveBall(to, 'chest'); }, 'quick throw');
       return rel;
     }
-    passBall(from, to, kind, dur, onCatch) {
+    passBall(from, to, kind, dur, onCatch, aim) {
       const b = this.v.ball;
       const tgt = () => { const p = to.heldBallPos(TMPA); return [p[0], p[1], p[2]]; };
       if (b.holder !== from) b.give(from, 'chest');
       const p1 = tgt();
-      // lead the receiver: aim at the predicted position
-      p1[0] += to.vx * dur * 0.9; p1[1] += to.vy * dur * 0.9;
+      // lead the receiver: aim where he will be at the catch
+      const ld = this.catchLead(to, dur, aim);
+      p1[0] += ld[0]; p1[1] += ld[1];
       b.pass(p1, dur, { bounce: kind === 'bounce' || kind === 'entry', lob: kind === 'lob' || kind === 'alley', flat: kind === 'outlet' || kind === 'overhead', target: tgt, onArrive: () => {
         if (to.isBusy() && to.clip && to.clip.clip.name === 'alley') { b.give(to); if (onCatch) onCatch(); return; }
         b.give(to, 'chest');
@@ -402,6 +403,19 @@
       }
     }
 
+    /** how far the receiver gets before the catch (ft): to the catch spot the planner sent him to (`aim`), else along
+     *  his move to where he is going and no further, else straight on at his speed */
+    catchLead(to, dur, aim) {
+      const out = this._lead || (this._lead = [0, 0]);
+      const g = to.goal;
+      if (aim) { out[0] = aim.x - to.x; out[1] = aim.y - to.y; }
+      else if (g && g.mode === 'move') {
+        const dx = g.x - to.x, dy = g.y - to.y, dl = Math.hypot(dx, dy);
+        const s = g.by != null && g.by <= this.T + dur + 0.1 ? dl : Math.min(dl, Math.max(to.speed, (g.speed || 0) * 0.6) * dur);
+        out[0] = dl > 0.05 ? dx / dl * s : 0; out[1] = dl > 0.05 ? dy / dl * s : 0;
+      } else { out[0] = to.vx * dur * 0.9; out[1] = to.vy * dur * 0.9; }
+      return out;
+    }
     /** after a catch: into the triple threat facing the rim, pivoting on a foot when he caught it with his back or
      *  side to the basket (the face-up); not when his next action comes right away, not for a post-up (he backs
      *  down with his back to the basket instead) and not far from the basket */
@@ -1146,7 +1160,7 @@
         const r = this.role[scr.id];
         if (r) {
           r.until = this.T + 1.6;
-          const dest = pop ? this.P(24, scr.y < 25 ? 14 : 36) : this.P(6, 25 + (Math.random() - 0.5) * 6);
+          const dest = pop ? this.P(26.5, scr.y < 25 ? 13.5 : 36.5) : this.P(6, 25 + (Math.random() - 0.5) * 6);
           r.spot = dest;
           scr.setStance('ready');
           scr.moveTo(dest.x, dest.y, { speed: pop ? 13 : 17, face: 'move' });
@@ -1441,7 +1455,7 @@
           if (afterNext && afterNext.type === 'shot' && (afterNext.kind === 'catch_shoot' || afterNext.kind === 'jumper')) to.ballHold = 'pocket';
           else if (afterNext && (afterNext.type === 'move' || (afterNext.type === 'shot' && !RIM_SHOTS[afterNext.kind]))) { b.dribble(to); }
           else to.ballHold = 'chest';
-        });
+        }, Math.hypot(to.x - cs.x, to.y - cs.y) <= Math.max(1.5, to.maxSpeed * 0.85 * flight) ? cs : null); // (aimed at the catch spot he is running to)
         from.setFace('move');
         const rf = this.role[from.id]; if (rf) { rf.until = this.T + 0.6; }
         v.camHint = null;
@@ -1937,7 +1951,7 @@
       if (d < 5) opts.angle = 60;
       if (pr && !result.made) {
         // carom timing to meet the rebounder at the apex of his jump
-        opts.rebound = { x: pr.x, y: pr.y, z: pr.actor ? pr.z : 0.8, t: 0, floor: !pr.actor };
+        opts.rebound = { x: pr.x, y: pr.y, z: pr.actor ? pr.z : 0.8, t: 0, floor: !pr.actor || !!pr.floor };
       }
       // preview time to contact to set the carom arrival
       const info = b.shoot(Object.assign({}, opts, { rebound: opts.rebound ? Object.assign({}, opts.rebound, { t: b.time + 5 }) : undefined }));
@@ -1946,7 +1960,7 @@
         const tContact = info.tContact;
         const tCarom = this.caromTime(pr, tContact - b.time);
         b.x = info.segs[0].p0[0]; b.y = info.segs[0].p0[1]; b.z = info.segs[0].p0[2];
-        const info2 = b.shoot(Object.assign({}, opts, { rebound: { x: pr.x, y: pr.y, z: pr.actor ? pr.z : 0.8, t: tContact + tCarom, floor: !pr.actor } }));
+        const info2 = b.shoot(Object.assign({}, opts, { rebound: { x: pr.x, y: pr.y, z: pr.actor ? pr.z : 0.8, t: tContact + tCarom, floor: !pr.actor || !!pr.floor } }));
         b.passTarget = pr.actor;
         this.scheduleRebounder(pr, info2.tEnd && pr.actor ? tContact + tCarom : tContact + tCarom);
         this.pendingRebound.tGrab = tContact + tCarom;

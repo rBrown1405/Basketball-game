@@ -771,6 +771,12 @@
         mg.drawImage(this._pix, 0, 0, this._pix.width * k, this._pix.height * k);
         mg.imageSmoothingEnabled = true;
       }
+      // the coach's debug overlay (debugdraw.js): on top of everything, at full resolution
+      if (this.opts.debug && !rp && M.DebugDraw) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => M.DebugDraw.draw(mg, this.cam, this, this.opts.debug), this, 'debug overlay');
+      }
       void W; void H;
     }
     /** replay look: letterbox bars + a slight film tint */

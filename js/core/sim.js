@@ -9,7 +9,7 @@
   const is3 = z => z === 'c3' || z === 'ab3';
   // tunable constants (calibrated with test/calibrate.js)
   Sim.K = {
-    usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 13.6, shotTimeW: 14.1,
+    usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 14.3, shotTimeW: 14.8,
     zoneAdj: { rim: -0.38, paint: 0.02, mid: -0.12, c3: -0.3, ab3: -0.15 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
     coast: 1, // how much a team with a big lead lets up (shooting focus, glass, pressure); 0 = never
   };
@@ -316,8 +316,30 @@
 
   function name(c) { return c ? c.last : 'Team'; }
 
-  function matchupDefender(D, off) {
-    // closest position, tie → random
+  // who guards whom: one pairing of the two lineups (closest position, then size), kept while neither lineup
+  // changes. The live court is handed the same pairing with the possession (P.matchups), so the defender the engine
+  // credits with a contest, a block or a foul is the one standing on that player.
+  const PERMS5 = (() => { const out = [], a = [0, 1, 2, 3, 4]; const go = (k) => { if (k === 5) { out.push(a.slice()); return; } for (let i = k; i < 5; i++) { [a[k], a[i]] = [a[i], a[k]]; go(k + 1); [a[k], a[i]] = [a[i], a[k]]; } }; go(0); return out; })();
+  function pairLineups(offs, defs) {
+    const mm = {};
+    if (offs.length !== 5 || defs.length !== 5) { offs.forEach((o, i) => { mm[o.id] = defs[Math.min(i, defs.length - 1)]; }); return mm; }
+    const cost = (o, d) => Math.abs(d.posN - o.posN) + Math.abs((d.hgt || 78) - (o.hgt || 78)) / 4;
+    let best = null, bc = Infinity;
+    for (const p of PERMS5) { let c = 0; for (let i = 0; i < 5 && c < bc; i++) c += cost(offs[i], defs[p[i]]); if (c < bc - 1e-9) { bc = c; best = p; } }
+    offs.forEach((o, i) => { mm[o.id] = defs[best[i]]; });
+    return mm;
+  }
+  function matchupsOf(ctx) {
+    const g = ctx.g, O = ctx.O, D = ctx.D;
+    const key = O.idx + ':' + O.on.map(c => c.id).join(',') + '|' + D.on.map(c => c.id).join(',');
+    const cache = g.mm || (g.mm = {});
+    if (!cache[O.idx] || cache[O.idx].key !== key) cache[O.idx] = { key, mm: pairLineups(O.on, D.on) };
+    return cache[O.idx].mm;
+  }
+  function matchupDefender(D, off, ctx) {
+    const m = ctx && ctx.O && ctx.O.on.includes(off) ? matchupsOf(ctx)[off.id] : null;
+    if (m && D.on.includes(m)) return m;
+    // (not in the offense's lineup: closest position, tie → random)
     let best = null, bd = 99;
     for (const d of U.shuffle(D.on)) { const dd = Math.abs(d.posN - off.posN); if (dd < bd) { bd = dd; best = d; } }
     return best;
@@ -446,6 +468,7 @@
     if (dead) { timeouts(ctx, P.start !== 'made_basket'); subs(ctx, 0, P.start); subs(ctx, 1, P.start); }
     P.defScheme = ctx.D.strat.def;
     P.offSystem = ctx.O.strat.off; // the live view shapes its off-ball movement and ball movement on it
+    { const mm = matchupsOf(ctx); P.matchups = {}; for (const o of ctx.O.on) if (mm[o.id]) P.matchups[mm[o.id].id] = o.id; } // defender id -> his man's id
     initiate(ctx, opts);
     if (!ctx.done) backcourtRules(ctx);
     runSegments(ctx, opts);
@@ -823,8 +846,11 @@
     if (info.play === 'putback') dt = U.range(0.4, 1.5);
     else if (info.play === 'transition') dt = U.range(0.8, 2.6);
     else {
-      const mean = ((g.L.key === 'women' ? Sim.K.shotTimeW : Sim.K.shotTime) - paceAdj * 0.36) * g.timeMult + 0.45 * Math.min(1.5, g.intensity);
-      const target = U.clamp(U.gauss(mean, 4.1 * g.timeMult), 2.5, ctx.scLen - 0.3);
+      // (a reset shot clock, 14 s after an offensive rebound: the offense times its shot to the clock it has, instead
+      // of aiming at the full clock's ~13.6 s and ending up forcing half of them at the buzzer)
+      const k = U.clamp(ctx.scLen / (g.L.shotClock || 24), 0.4, 1);
+      const mean = (((g.L.key === 'women' ? Sim.K.shotTimeW : Sim.K.shotTime) - paceAdj * 0.36) * g.timeMult + 0.45 * Math.min(1.5, g.intensity)) * k;
+      const target = U.clamp(U.gauss(mean, 3.7 * g.timeMult * k), 2.5, ctx.scLen - 0.3);
       dt = Math.max(ctx.scStart + target - ctx.t, U.range(1.6, 3.2));
     }
     if (mode === 'hurry3' || mode === 'quick') dt = Math.min(dt, U.range(2.2, mode === 'quick' ? 7 : 5));
@@ -984,6 +1010,11 @@
     }
   }
 
+  // a firm gate on threes by the shooter's own 3PT rating (his tendency already makes them rare): under 45 he takes
+  // one only when the clock or the score forces it (the hurry-up and last-shot paths pick the best shooter anyway),
+  // from 45 to 60 fewer the lower he is
+  const gate3 = r => { if (r >= 60) return 1; if (r < 45) return 0.02; const t = (r - 45) / 15; return 0.1 + 0.9 * t * t * (3 - 2 * t); };
+
   function chooseZone(ctx, c, base, hint) {
     const O = ctx.O, D = ctx.D, g = ctx.g, L = g.L;
     const off = C.OFFENSES[O.strat.off].mods, dm = C.DEFENSES[D.strat.def].mods, fo = C.FOCUS[O.strat.focus].freq;
@@ -991,7 +1022,7 @@
     const w = {};
     for (const z in base) {
       let v = base[z] * zoneTendency(c, z);
-      if (is3(z)) v *= (off.three || 1) * L.threeRate * Sim.K.threeFreq * g.sl.three;
+      if (is3(z)) v *= (off.three || 1) * L.threeRate * Sim.K.threeFreq * g.sl.three * gate3(c.r.three);
       if (z === 'rim') v *= off.rim || 1;
       if (z === 'mid') v *= off.mid || 1;
       v *= (dm.freq && dm.freq[z]) || 1;
@@ -1182,7 +1213,13 @@
         if (plan.branch === 'shooter') {
           const nPass = span > 7 ? 3 : span > 4 ? 2 : 1;
           let from = handler;
-          const chain = U.shuffle(perimeter).slice(0, nPass - 1);
+          // (the ball swings through the teammates who are not the shooters: a good shooter who catches it open lets
+          // it fly, so the swing ends with him)
+          const pool = perimeter.slice(), chain = [];
+          for (let k = 0; k < nPass - 1 && pool.length; k++) {
+            const c = U.pickW(pool, c => Math.pow(U.clamp((82 - c.r.three) / 30, 0.08, 1.4), 2));
+            chain.push(c); pool.splice(pool.indexOf(c), 1);
+          }
           chain.forEach((c, i) => { pass(0.2 + i * 0.25, from, c, 'swing'); from = c; });
           pass(0.88, from, plan.shooter, 'swing');
         } else {
@@ -1240,9 +1277,15 @@
     return ['open', 'contested', 'tight'][i];
   }
 
-  function shotDefender(ctx, shooter, zone) {
+  function shotDefender(ctx, shooter, zone, info) {
     const D = ctx.D;
-    let d = matchupDefender(D, shooter);
+    let d = matchupDefender(D, shooter, ctx);
+    // switching every screen: off a pick and roll the handler and the screener have each other's defender (the live
+    // court swaps them the same way)
+    if (D.strat.def === 'switch' && info && info.play === 'pnr' && info.handler && info.screener) {
+      if (shooter === info.handler) d = matchupDefender(D, info.screener, ctx) || d;
+      else if (shooter === info.screener) d = matchupDefender(D, info.handler, ctx) || d;
+    }
     if (zone === 'rim' || zone === 'paint') {
       const rp = U.maxBy(D.on, c => c.r.block * 0.6 + c.r.intD * 0.4);
       if (rp !== d && rp.r.block * 0.6 + rp.r.intD * 0.4 > d.r.block * 0.6 + d.r.intD * 0.4 && U.chance(0.45)) d = rp;
@@ -1345,17 +1388,52 @@
     return U.clamp(p, 0.3, g.sl.ft > 0 ? 0.96 + g.sl.ft * 0.25 : 0.96);
   }
 
+  /**
+   * Is this look worth taking? Its expected points (the make probability for this shooter, spot, shot type and
+   * contest, times the points) against the time left: early in the shot clock only a good look is taken (a tight
+   * long two by a poor shooter is passed up and the ball reset), from ~9 s left the best available one. A wide-open
+   * look for a decent shooter is always taken. Heady players (shot IQ) pass up bad looks more often. Never in the
+   * end-of-clock and end-of-game modes, on putbacks, in transition or on shot-meter plays.
+   */
+  function passUp(ctx, plan, contest, d, info, tShot, mode) {
+    // (ctx.read: the read behind the decision, for the Live view's debug overlay; live games only)
+    const why = mode !== 'normal' ? mode : ctx.P.gim ? 'gim' : info.play === 'putback' || info.play === 'transition' ? info.play : plan.kind === 'heave' ? 'heave' : (ctx.resets || 0) >= 2 ? 'resets' : null;
+    ctx.read = why && !ctx.g.lite ? { why } : null;
+    if (why) return false;
+    const scLeft = ctx.scStart + ctx.scLen - tShot;
+    if (scLeft < 9) { if (!ctx.g.lite) ctx.read = { why: 'late', sc: U.round(scLeft, 1) }; return false; }
+    const ep = makeProb(ctx, plan.shooter, plan.zone, plan.kind, contest, d, info) * (is3(plan.zone) ? 3 : 2);
+    const bar = scLeft > 14 ? 0.86 : 0.78;
+    if (!ctx.g.lite) ctx.read = { ep: U.round(ep, 3), bar, sc: U.round(scLeft, 1), zone: plan.zone, contest, kind: plan.kind };
+    if (ep >= bar) return false;
+    const iq = U.clamp((plan.shooter.r.shotIQ - 50) / 40, 0, 1);
+    return U.chance(U.clamp((bar - ep) / 0.3, 0, 1) * (0.3 + 0.45 * iq));
+  }
+  /** the look is passed up: the ball is swung to a teammate and the offense runs something new */
+  function resetPossession(ctx, info, plan, tShot) {
+    const O = ctx.O;
+    const from = plan.shooter;
+    const to = U.pickW(O.on.filter(c => c !== from), c => usageW(ctx, c) * Math.pow(c.r.handle / 70, 1.2) * (c.posN <= 3 ? 1 : 0.4));
+    ctx.resets = (ctx.resets || 0) + 1;
+    if (to && !ctx.g.lite) evAt(ctx, tShot, 'pass', { from: from.id, to: to.id, kind: 'chest', team: O.idx, reset: true, read: ctx.read || undefined });
+    ctx.t = tShot;
+    if (to) ctx.handler = to;
+    ctx.newPlay = true;
+  }
+
   function takeShot(ctx, info, tShot, mode, opts, forcePlan) {
     const g = ctx.g, O = ctx.O, D = ctx.D;
     const plan = forcePlan || planShot(ctx, info, mode);
     const sh = plan.shooter;
     const zone = plan.zone;
     const kind = plan.kind;
+    const contest = kind === 'heave' ? 'tight' : contestLevel(ctx, plan.cKey, plan);
+    const d = shotDefender(ctx, sh, zone, info);
+    if (forcePlan) ctx.read = null;
+    else if (passUp(ctx, plan, contest, d, info, tShot, mode)) { resetPossession(ctx, info, plan, tShot); return; }
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play; ctx.P.setName = info.setName || ''; }
     if (!forcePlan) playEvents(ctx, info, plan, tShot);
     ctx.t = tShot;
-    const contest = kind === 'heave' ? 'tight' : contestLevel(ctx, plan.cKey, plan);
-    const d = shotDefender(ctx, sh, zone);
     const loc = locFor(ctx, zone, kind);
     if (kind === 'heave') {
       const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
@@ -1367,6 +1445,7 @@
       contest, defender: d.id, assist: plan.assister ? plan.assister.id : null, made: undefined, blocked: false, blocker: null,
       fouled: false, fouler: null, andOne: false, pending: false,
     };
+    if (ctx.read && !g.lite) shot.read = ctx.read;
     const pending = { plan, sh, d, zone, kind, contest, info, pts, loc };
     if (ctx.P.gim && !ctx.gimShotDone) {
       shot.pending = true;
@@ -1591,7 +1670,7 @@
     if (stolen) text = kind === 'bad_pass' ? `${who.last} bad pass — stolen by ${stealer.last}` : `${stealer.last} strips ${who.last}!`;
     else if (kind === 'shot_clock') text = `Shot clock violation on the ${O.team.name}`;
     else if (kind === 'eight_seconds') text = `8-second violation on the ${O.team.name}: couldn't get it past half court`;
-    else if (kind === 'offensive_foul') { const taker = matchupDefender(D, who); text = `Offensive foul on ${who.last} — ${taker.last} takes the charge`; }
+    else if (kind === 'offensive_foul') { const taker = matchupDefender(D, who, ctx); text = `Offensive foul on ${who.last} — ${taker.last} takes the charge`; }
     else text = `Turnover: ${who.last} (${label})`;
     ev(ctx, 'turnover', Object.assign({ player: who ? who.id : null, kind, stealer: stealer ? stealer.id : undefined, team: O.idx, text }, spot));
     ctx.done = true; ctx.endT = ctx.t;

@@ -35,8 +35,9 @@
     heliocentric: { swing: 0.12, hops: 1, act: { screen: 0.8, cut: 0.35, relocate: 3.5, exchange: 0.6, hold: 4 }, rest: [1.2, 2.6], probe: 0.95, busy: 1 },
   };
   // perimeter / interior spots in (u = feet from the attacked baseline, v = feet from the near sideline)
-  // 5-out landmarks ~18-20 ft apart: corners, wings (45s), top, and slots as in-between options
-  const PERIM = [[2.5, 3], [2.5, 47], [22, 6], [22, 44], [30, 25], [27.5, 14], [27.5, 36]];
+  // 5-out landmarks ~18-20 ft apart, a step (~1.5 ft) behind the three-point line: corners, wings (45s), top, and
+  // slots as in-between options
+  const PERIM = [[2.5, 2], [2.5, 48], [23, 7], [23, 43], [30.5, 25], [28.5, 15], [28.5, 35]];
   const PASS_CLIPS = { chest: 'passChest', overhead: 'passOverhead', bounce: 'passBounce' };
   const LIVE_BEATS = { pass: 1, set: 1, screen: 1, move: 1, handoff: 1, shot: 1, advance: 1 };
 
@@ -302,9 +303,13 @@
       const me = this.uv(a);
       const sameSide = (me.v < 25) === (hv < 25);
       let spot = null;
-      if (me.u < 6 && me.v < 10 || me.u < 6 && me.v > 40) spot = sameSide ? [14, me.v < 25 ? 5 : 45] : null; // corner: lift if the drive comes his way
-      else if (me.u > 15 && me.u < 24 && !sameSide) spot = [3, me.v < 25 ? 3 : 47]; // weak wing: drift to the corner
-      else if (me.u > 24) spot = [me.u - 2, U.lerp(me.v, 25 + (hv < 25 ? 10 : -10), 0.5)]; // top: slide to the open slot
+      if (me.u < 6 && me.v < 10 || me.u < 6 && me.v > 40) spot = sameSide ? [21, me.v < 25 ? 4.5 : 45.5] : null; // corner: lift to the wing if the drive comes his way
+      else if (me.u > 15 && me.u < 24 && !sameSide) spot = [2.5, me.v < 25 ? 2 : 48]; // weak wing: drift to the corner
+      else if (me.u > 24) {
+        // top: slide to the open slot, behind the line
+        spot = [Math.max(26.5, me.u - 2), U.lerp(me.v, 25 + (hv < 25 ? 10 : -10), 0.5)];
+        if (this.beyondArc && !this.beyondArc(spot[0], spot[1], 1.2)) { const du = spot[0] - 5.25, dv = spot[1] - 25, dl = Math.hypot(du, dv) || 1, R = this.threeLine().arc + 1.5; spot = [5.25 + du / dl * R, 25 + dv / dl * R]; }
+      }
       if (!spot) continue;
       const pt = this.ptUV(spot[0], spot[1]);
       this.setPath(a, [{ x: pt.x, y: pt.y, speed: 11, stance: 'ready', hold: 0.6 }], spot, 0.8, 'driveReact');
@@ -445,7 +450,10 @@
       if (mu < 12) continue; // swing to the perimeter, not into the paint
       const g = this.guardOf(m.id);
       const open = g ? Math.min(8, Math.hypot(g.x - m.x, g.y - m.y)) : 8;
-      const sc = open * 0.8 - Math.abs(d - 16) * 0.2 + (soon[m.id] ? -3 : 0) + (r.path ? -1.5 : 0) + Math.random() * 2;
+      // (never a swing to a wide-open shooter who would only swing it back: a decent shooter left open shoots, and
+      // the engine's next shot is someone else's; the swing goes to a teammate who is guarded or not a shooter)
+      const shooter = this.rating ? this.rating(m.id, this.beyondArc && this.beyondArc(mu, m.y, 0) ? 'three' : 'mid', 60) >= 70 : false;
+      const sc = (shooter && open >= 7 ? -4 : open * 0.8) - Math.abs(d - 16) * 0.2 + (soon[m.id] ? -3 : 0) + (r.path ? -1.5 : 0) + Math.random() * 2;
       if (sc > bs) { bs = sc; best = m; }
     }
     return best;
