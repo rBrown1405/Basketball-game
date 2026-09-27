@@ -102,6 +102,7 @@
         const s = b.segs && b.segs.length ? b.segs[b.segs.length - 1] : null;
         if (s) s.target = () => { const p = a.heldBallPos(TMP); return [p[0], p[1], p[2]]; };
       }, 'long rebound catch');
+      this.at(tGrab - 0.02, () => { if (!this.grabNow(pr, 2.5) && this.pendingRebound === pr && pr.style !== 'floor') this.dropCarom(pr, true); }, 'long rebound caught');
       return;
     }
     const clip = M.Anims.get('rebound');
@@ -120,11 +121,33 @@
       const s = b.segs && b.segs.length ? b.segs[b.segs.length - 1] : null;
       if (s) s.target = () => { const p = a.heldBallPos(TMP); return [p[0], p[1], p[2]]; }; // (the last inches into his hands)
     }, 'rebound jump');
+    // his hands meet the ball at the top of the jump: it is his from there and comes down with him (the rebound beat
+    // keeps the engine's timing for the rest; the ball no longer waits up there for it and then drops into his hands)
+    // (his hands not there after all: it goes on down and bounces, and he runs it down)
+    this.at(tGrab - 0.02, () => { if (!this.grabNow(pr, 2.4) && this.pendingRebound === pr && pr.style !== 'floor') this.dropCarom(pr, true); }, 'rebound grab');
+  };
+  /** the rebounder's hands are at the ball (within `reach` ft): he has it */
+  P.grabNow = function (pr, reach) {
+    const a = pr.actor, b = this.v.ball;
+    if (this.pendingRebound !== pr || !a || b.holder || pr.style === 'floor') return false;
+    const h = a.heldBallPos(TMP2);
+    if (Math.hypot(b.x - h[0], b.y - h[1], b.z - h[2]) > reach) return false;
+    b.give(a, 'chest');
+    pr.grabbed = true;
+    return true;
+  };
+  /** where the rolling or bouncing ball and `a` running at his top speed meet (a few fixed-point steps) */
+  P.interceptPt = function (a, out) {
+    const b = this.v.ball, V = (a.maxSpeed || 22) * 0.95;
+    let t = Math.hypot(b.x - a.x, b.y - a.y) / V;
+    let p = b.posAt(b.time + t, out);
+    for (let i = 0; i < 3; i++) { t = Math.min(3, Math.hypot(p[0] - a.x, p[1] - a.y) / V + 0.1); p = b.posAt(b.time + t, out); }
+    return p;
   };
 
   /** the carom was aimed at hands that are not there: carry the flight on to the floor, let it bounce, and have the
    *  rebounder run it down */
-  P.dropCarom = function (pr) {
+  P.dropCarom = function (pr, tipped) {
     const b = this.v.ball, segs = b.segs;
     pr.style = 'floor';
     if (!segs || !segs.length || b.holder) return;
@@ -132,6 +155,9 @@
     s.target = null;
     const p = b._segPos(s, s.t1, [0, 0, 0]), v = b._segVel(s, s.t1, [0, 0, 0]);
     if (s.roll || p[2] < R + 0.2) return; // (already on its way down to the floor)
+    // (off his fingertips: a tip kills most of its speed, it drops near him)
+    if (tipped) { v[0] *= 0.3; v[1] *= 0.3; v[2] = Math.min(v[2], 2); }
+    else if (pr.actor && Math.hypot(pr.actor.x - p[0], pr.actor.y - p[1]) < 8) { v[0] *= 0.55; v[1] *= 0.55; } // (a hand on it as it goes by)
     const tf = (v[2] + Math.sqrt(v[2] * v[2] + 2 * G * Math.max(0, p[2] - R))) / G;
     if (tf > 0.02) segs.push(M.Ball.seg(s.t1, p, v, tf));
     b._bounceTail(segs);
@@ -139,38 +165,43 @@
     if (a) {
       const e = b.posAt(b.flightEnd() - 0.001, TMP2);
       const lx = U.clamp(e[0], 1, 93), ly = U.clamp(e[1], 1, 49);
-      a.stopClip(0.1);
+      if (!tipped) a.stopClip(0.1); // (tipped at the top of his jump: he lands first)
       a.moveTo(lx, ly, { speed: a.maxSpeed, face: 'move', stance: 'ready' });
       pr.tGrabT = Math.max(pr.tGrabT || 0, this.T + 0.4);
     }
   };
 
-  /** a ball coming down to the floor: the rebound beat waits until it is at his hands (chasing it meanwhile) */
+  /** the rebound beat waits until the ball is in his hands: grabbed in the air, caught on the run, or picked up off
+   *  the bounce after he runs it down (the ball never jumps to him from where it is) */
   P.p_rebound = function (ev, beat, gap) {
     const pr = this.pendingRebound && this.pendingRebound.ev === ev ? this.pendingRebound : null;
     const a = ev.player != null ? this.A(ev.player) : null;
     if (!pr || !a || pr.tGrabT == null) return base.p_rebound.call(this, ev, beat, gap);
     const b = this.v.ball;
     const floor = () => pr.style === 'floor';
+    const lock = (dur) => { if (a.team === this.off) this.lockOff(a, dur); else this.lockDef(a, dur); };
     const chase = () => {
       if (this.pendingRebound !== pr || b.holder || beat.fired) return;
-      if (floor() && !a.isBusy()) {
-        const p = b.posAt(b.time + 0.25, TMP);
-        a.moveTo(U.clamp(p[0], 1, 93), U.clamp(p[1], 1, 49), { speed: a.maxSpeed, face: 'move', stance: 'ready' });
+      // (a ball whose flight ended in the air never floats there: it falls)
+      if (b.state !== 'flight' && b.z > R + 0.3 && !pr.grabbed && this.T > pr.tGrabT + 0.12) { b.loose([0, 0, 0]); pr.style = 'floor'; }
+      if (!floor()) { if (this.T > pr.tGrabT - 0.05) this.grabNow(pr, 1.6); }
+      else {
+        lock(0.4); // (chasing it: nothing else moves him meanwhile)
+        if (!a.isBusy()) {
+          const h = a.heldBallPos(TMP2);
+          if (Math.hypot(b.x - h[0], b.y - h[1], b.z - h[2]) < 1.9 && b.z < 6) { b.give(a, 'chest'); a.play('catch', { mirror: false }); return; } // (he picks it up)
+          // run to where he meets it, at full speed (not slowing to arrive at a spot the ball has left)
+          const near = Math.hypot(b.x - a.x, b.y - a.y) < 2.5;
+          const p = this.interceptPt(a, TMP);
+          a.moveTo(U.clamp(p[0], 1, 93), U.clamp(p[1], 1, 49), { speed: a.maxSpeed, face: 'move', stance: 'ready', arrive: near });
+        }
       }
-      this.at(this.T + 0.12, chase, 'chase the ball');
+      this.at(this.T + 0.05, chase, 'chase the ball');
     };
     this.at(Math.max(this.T + 0.05, pr.tGrabT - 0.4), chase, 'chase the ball');
-    beat.onFire = () => {
-      if (floor() && b.holder !== a && !a.isBusy() && Math.hypot(b.x - a.x, b.y - a.y) < 2.5) a.play('catch', { mirror: false });
-      this.secureRebound(ev, a);
-    };
-    beat.waitFor = () => {
-      if (b.holder) return true;
-      if (!floor()) return b.state !== 'flight' || Math.hypot(b.x - a.x, b.y - a.y) < 1.2 || this.T > pr.tGrabT + 0.4;
-      const near = Math.hypot(b.x - a.x, b.y - a.y) < 2.2;
-      return (near && b.z > 1.8 && b.z < 5.5) || (near && b.z < 5.5 && this.T > pr.tGrabT + 0.9) || this.T > pr.tGrabT + 2.2;
-    };
+    beat.onFire = () => this.secureRebound(ev, a);
+    // (in his hands; the engine's clock still sets the earliest moment, and the beat loop's own 3 s limit the latest)
+    beat.waitFor = () => !!b.holder || this.T > pr.tGrabT + 4;
     return Math.max(0.05, pr.tGrabT - this.T);
   };
 })();

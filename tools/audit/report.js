@@ -65,6 +65,9 @@ function metrics(games) {
   // ---- offense movement
   const offSec = tot((g) => g.idle.offSec);
   m.still = pct(tot((g) => g.idle.stillSec), offSec);
+  const hasSpeed = G.some((g) => g.idle.speedSum != null); // (records from before this metric have none)
+  m.offSpeed = hasSpeed && offSec ? tot((g) => g.idle.speedSum || 0) / offSec : null;
+  m.offJog = hasSpeed ? pct(tot((g) => g.idle.jogSec || 0), offSec) : null;
   m.loiter = pct(tot((g) => g.idle.loiterSec || 0), offSec);
   m.clumped = pct(tot((g) => g.idle.pairClose * 2), offSec);
   m.still3Eps = tot((g) => g.idle.eps['3-5'] + g.idle.eps['5-8'] + g.idle.eps['8+']) / n;
@@ -117,8 +120,10 @@ function metrics(games) {
   // ---- catches (what an open shooter does with the ball)
   const catches = G.flatMap((g) => g.catches);
   m.catchesPerGame = catches.length / n;
-  const wo = catches.filter((c) => c.open >= 10 && c.rating >= 70 && c.sc > 4);
-  const op = catches.filter((c) => c.open >= 6 && c.open < 10 && c.rating >= 70 && c.sc > 4);
+  // (in shooting range: within 26 ft of the rim, like the wide-open shooters off the ball; a catch near half court is
+  // not a shot for anyone)
+  const wo = catches.filter((c) => c.open >= 10 && c.rating >= 70 && c.sc > 4 && !(c.rim > 26));
+  const op = catches.filter((c) => c.open >= 6 && c.open < 10 && c.rating >= 70 && c.sc > 4 && !(c.rim > 26));
   const outs = (l, o) => pct(l.filter((c) => c.out === o).length, l.length);
   m.wideOpenCatches = wo.length / n; m.wideOpenShot = outs(wo, 'shot'); m.wideOpenPass = outs(wo, 'pass'); m.wideOpenDrive = pct(wo.filter((c) => c.drove && c.out !== 'shot').length, wo.length);
   m.wideOpenPassedPerGame = wo.filter((c) => c.out === 'pass').length / n;
@@ -191,6 +196,8 @@ const SECTIONS = [
   ]],
   ['3. Offense: moving with a purpose', [
     ['still', 'Off-ball players standing still (under 1 ft/s)', '%', 'down', ''],
+    ['offSpeed', 'Off-ball players: average speed', 'ft/s', 'up', ''],
+    ['offJog', 'Off-ball players moving at a jog or faster (6+ ft/s)', '%', 'up', ''],
     ['loiter', 'Off-ball players who moved less than 3 ft in the last 3 s', '%', 'down', ''],
     ['still3Eps', 'Stand-stills of 3 s or longer per game', '', 'down', ''],
     ['still5Eps', 'Stand-stills of 5 s or longer per game', '', 'down', ''],
@@ -224,7 +231,7 @@ const SECTIONS = [
   ]],
   ['5. Open catches in the live game', [
     ['catchesPerGame', 'Half-court catches per game', '', '', ''],
-    ['wideOpenCatches', 'Wide-open catches (10+ ft) by a decent shooter for that spot (70+), per game', '', '', ''],
+    ['wideOpenCatches', 'Wide-open catches (10+ ft) by a decent shooter for that spot (70+) within 26 ft, per game', '', '', ''],
     ['wideOpenShot', '  shot it', '%', 'up', 'most'],
     ['wideOpenPass', '  passed it on', '%', 'down', 'few'],
     ['wideOpenPassedPerGame', '  wide-open shots passed up per game', '', 'down', ''],

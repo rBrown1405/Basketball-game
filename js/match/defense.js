@@ -209,7 +209,9 @@
     const mu = this.U_(m.x);
     const pf = this.passInAir();
     const h = b.holder && b.holder.team === this.off ? b.holder : null;
-    const bx = pf ? pf.x : h ? h.x : b.x, by = pf ? pf.y : h ? h.y : b.y;
+    // (off the ball the defense moves on the flight of the pass; only the receiver's man reads the passer before it)
+    const inAir = pf && b.state === 'flight';
+    const bx = inAir ? pf.x : h ? h.x : b.x, by = inAir ? pf.y : h ? h.y : b.y;
     if (mu > 44 || this.U_(bx) > 44) { a._dRole = null; return base.guardPos.call(this, a); }
     const out = OUT;
     const T = this.T;
@@ -245,16 +247,17 @@
       const threat = U.clamp((this.rating(m.id, behind ? 'three' : dRimM > 11 ? 'mid' : 'close', 60) - 55) / 30, 0, 1);
       const rx = (rim.x - m.x) / dRimM, ry = (rim.y - m.y) / dRimM;
       const ux = (bx - m.x) / dBallM, uy = (by - m.y) / dBallM;
-      const strongCorner = mu < 12 && Math.abs(m.y - 25) > 17 && mSide === hSide;
+      // (the strong-side corner with the ball on his wing; with the ball up top both corners are two passes away)
+      const strongCorner = mu < 12 && Math.abs(m.y - 25) > 17 && mSide === hSide && Math.abs(by - 25) > 12;
       const opposite = Math.abs(by - 25) > 4 && mSide !== hSide; // (the ball in the middle: both wings are one pass away)
-      const twoAway = !strongCorner && (dBallM > 26 || (opposite && Math.abs(m.y - 25) > 6 && dBallM > 16));
+      const twoAway = !strongCorner && (dBallM > 28 || (opposite && Math.abs(m.y - 25) > 6 && dBallM > 16));
       // the average NBA defender (Franks et al.): 0.62 of the way his man, 0.11 the ball, 0.27 the hoop
       px = 0.62 * m.x + 0.11 * bx + 0.27 * rim.x; py = 0.62 * m.y + 0.11 * by + 0.27 * rim.y;
       let leash = 16;
       if (strongCorner) {
         // strong-side corner: attached (no help comes from there), a step toward the ball and the rim
         px = m.x + ux * 2.2 + rx * 1.4; py = m.y + uy * 2.2 + ry * 1.4; role = 'deny'; leash = 5;
-      } else if (dRimM < 11 && (mSide === hSide || dBallM < 18)) {
+      } else if (dRimM < 11 && dBallM < 22 && (mSide === hSide || dBallM < 18)) {
         // post (ball side): 3/4 front with the ball on his side below the top, else behind him, on the rim side; a
         // weak-side post man is guarded from the help line like any man two passes away
         if (mSide === hSide && bu < 26) { px = m.x + ux * 1.9 + rx * 0.9; py = m.y + uy * 1.9 + ry * 0.9; } else { px = m.x + rx * 2.3; py = m.y + ry * 2.3; }
@@ -287,7 +290,9 @@
           if (sm) { const k2 = 0.38; const mx = U.lerp(px, sm.x + (rim.x - sm.x) * k2, 0.75), my = U.lerp(py, sm.y + (rim.y - sm.y) * k2, 0.75); px = mx; py = my; role = 'sink'; leash = 30; }
         } else { px += (rim.x - px) * 0.15; py += (rim.y - py) * 0.15; }
       }
-      // never so far from his man that he cannot close out on the pass
+      // never so far from his man that he cannot close out on the pass; in help, either in the lane or within 12 ft of
+      // him (not stranded in between, too far to close out and helping nobody)
+      if ((role === 'help' || role === 'home') && !(Math.abs(py - 25) <= 10 && this.U_(px) <= 21)) leash = Math.min(leash, 12);
       const gx = px - m.x, gy = py - m.y, gl = Math.hypot(gx, gy);
       if (gl > leash) { px = m.x + gx / gl * leash; py = m.y + gy / gl * leash; }
       // he reacts to the ball a moment late (by his help-defense rating), each defender on his own clock; he follows

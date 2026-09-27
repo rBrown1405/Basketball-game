@@ -1896,11 +1896,14 @@
         const dx = this.rim.x - p0[0], dy = this.rim.y - p0[1], dl = Math.hypot(dx, dy) || 1;
         const pHit = [p0[0] + dx / dl * 2.0, p0[1] + dy / dl * 2.0, p0[2] + 1.4];
         const s1 = M.Ball.seg(b.time, p0, M.Ball.aim(p0, pHit, 0.16), 0.16);
-        const tgt = pr ? [pr.x, pr.y, pr.actor ? pr.z : 1] : [p0[0] - dx / dl * 10, p0[1] + (Math.random() - 0.5) * 16, 1];
+        // (the carom's time first: it can move where the ball comes down, or send it to the floor)
         const T2 = pr ? this.caromTime(pr, 0.16) : 0.9;
+        const tgt = pr ? [pr.x, pr.y, pr.actor ? pr.z : 1] : [p0[0] - dx / dl * 10, p0[1] + (Math.random() - 0.5) * 16, 1];
         const s2 = M.Ball.seg(s1.t1, pHit, M.Ball.aim(pHit, tgt, T2), T2);
         s2.bounce = true;
-        b.flight([s1, s2], null);
+        const segsB = [s1, s2];
+        if (pr && pr.floor && tgt[2] < 1) b._bounceTail(segsB);
+        b.flight(segsB, null);
         b.passTarget = pr && pr.actor ? pr.actor : null;
         if (pr) this.scheduleRebounder(pr, b.time + 0.16 + T2);
         v.arena.cheer(this.def, 0.9, 2.2);
@@ -1914,11 +1917,13 @@
         const p0 = [b.x, b.y, b.z];
         const back = [this.rim.x + this.dir * 0.55, this.rim.y + (Math.random() - 0.5) * 0.6, 10.15];
         const s1 = M.Ball.seg(b.time, p0, M.Ball.aim(p0, back, 0.1, 0), 0.1, 0);
-        const tgt = pr ? [pr.x, pr.y, pr.actor ? pr.z : 0.8] : [this.rim.x - this.dir * 6, 25 + (Math.random() - 0.5) * 10, 1];
         const T2 = pr ? this.caromTime(pr, 0.1) : 0.9;
+        const tgt = pr ? [pr.x, pr.y, pr.actor ? pr.z : 0.8] : [this.rim.x - this.dir * 6, 25 + (Math.random() - 0.5) * 10, 1];
         const s2 = M.Ball.seg(s1.t1, back, M.Ball.aim(back, tgt, T2), T2);
         s2.rim = true;
-        b.flight([s1, s2], null);
+        const segsD = [s1, s2];
+        if (pr && pr.floor && tgt[2] < 1) b._bounceTail(segsD);
+        b.flight(segsD, null);
         b.shotHoop = this.hoop; b.onScore = null;
         b.passTarget = pr && pr.actor ? pr.actor : null;
         if (pr) { this.scheduleRebounder(pr, b.time + 0.1 + T2); this.pendingRebound.tGrab = b.time + 0.1 + T2; }

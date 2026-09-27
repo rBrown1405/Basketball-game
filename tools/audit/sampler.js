@@ -324,7 +324,7 @@
         const ndA = nearestDef(a);
         if (ndA.d >= 10 && rimDist(a) <= 26 && rating(a.id, a) >= 70 && d.shotClock() > 4) { const o = openT[id] || (openT[id] = { n: 0, snap: null, poss: cur && cur.n, when: clockStr(), r: rating(a.id, a), z }); o.n++; if (o.n === 10) o.snap = snap({ open: id, handler: hid }); }
         else openEnd(id, false);
-        const I = R.idle; I.offSec += SDT;
+        const I = R.idle; I.offSec += SDT; I.speedSum = (I.speedSum || 0) + Math.min(a.speed, 30) * SDT; if (a.speed >= 6) I.jogSec = (I.jogSec || 0) + SDT;
         const ip = I.byPos[pk] || (I.byPos[pk] = [0, 0]); ip[1] += SDT;
         let nn = 99; for (const o of offs) if (o !== a) nn = Math.min(nn, Math.hypot(o.x - a.x, o.y - a.y));
         if (nn < 6) I.pairClose += SDT / 2;
