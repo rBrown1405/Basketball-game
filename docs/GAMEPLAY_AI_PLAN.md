@@ -9,6 +9,10 @@ stop for testing.
 
 ## How it works now
 
+This is the game as Phase 1 found it. What Phase 2 changed is listed under "Phase 2: what was built" below; the
+Phase 2 modules extend these systems, and the code described here is still the fallback (zones, presses,
+transition, and every planner for screens, drives, passes and shots).
+
 ### Two layers
 
 1. **The engine** (`js/core/sim.js`) decides what happens in a possession: which play, who handles, who shoots, from
@@ -80,7 +84,7 @@ stop for testing.
   the basket. The miss is a scripted arc from the rim to a spot next to the engine's rebounder, and in the last part
   of the flight the ball is pulled toward his hands wherever he is. Rebounds never touch the floor.
 
-## Phase 1: simulate and audit (this phase)
+## Phase 1: simulate and audit (done)
 
 Files: `tools/audit/run.js`, `tools/audit/sampler.js`, `tools/audit/report.js`, `tools/audit/README.md`; results in
 `audit/phase1/` (`report.md`, `report.html`, `metrics.json`). The findings are summarised below.
@@ -154,9 +158,10 @@ possessions, and the court score matched the engine in every game.
   now and the change, marked better or worse.
 - Nothing broken: the audit's health section (every game reaches the final buzzer, no script errors, no stuck
   possessions, court score equals the engine score), the engine's league numbers (points, shooting, threes,
-  turnovers, pace) in `test/harness.js`, the animation checks used for the procedural animation work (foot sliding,
-  body contact, stability; moved into `tools/audit` in Phase 2) and a game watched in the browser.
-- Debug overlays: defensive positioning (Phase 2), read decisions (Phase 2 and 3), play steps (Phase 3).
+  turnovers, pace) in `test/harness.js`, the animation checks used for the procedural animation work (body contact and
+  feet stuck behind: `tools/audit/anim.js`, moved into the repo in Phase 2) and a game watched in the browser.
+- Debug overlays (the Live view's coach's debug view, Phase 2): defensive positioning, offensive jobs, the play's
+  steps and read decisions; later phases add their own layers to it.
 
 ## Phase 2: core basketball AI
 
@@ -204,8 +209,114 @@ Offense, court (`js/match/flow.js`, `choreo.js` `assignSpots`):
 - Open teammates: when an off-ball shooter is wide open in range, the ball goes to him if the engine's timeline
   allows it (Phase 3 makes this a real read).
 
-Debug overlays (new `js/match/debugdraw.js`, drawn from `view.js` next to the names, toggled in the Live view): each
-defender's man, target spot and job (on ball, deny, help, box out); each offensive player's job; read decisions.
+Debug overlays (new `js/match/debugdraw.js`, drawn from `view.js` over the court, toggled in the Live view): each
+defender's man, target spot and job (on ball, deny, help, box out); each offensive player's job; the play's steps;
+read decisions.
+
+### Phase 2: what was built
+
+All of it sits on top of the existing systems: three new modules extend the Director the way `flow.js` does, the
+engine gets a few functions, and nothing in the procedural animation changed (the AI only decides where players go,
+which way they face, their stance and what they do).
+
+- **One set of matchups** (`js/core/sim.js`: `pairLineups`, `matchupsOf`, `matchupDefender`, `shotDefender`): the
+  engine pairs the five defenders with the five offensive players once per lineup (by position and size, kept
+  stable) and hands the pairing to the court with each possession. The defender the engine credits with a contest,
+  a block or a foul is the one standing on that player; a switch on a pick and roll swaps the two.
+- **On-ball defense** (`js/match/defense.js`): between the handler and the rim, squared up, with a cushion from the
+  handler's shooting and quickness (an elite shooter at the arc gets about 0.7 times the room, a non-shooter about
+  1.45 times: crowd shooters, dare non-shooters), tighter inside the arc; he gives ground only as fast as about
+  1.5 ft a second unless the handler comes at him, so he never walks away from him. The man with the ball keeps his
+  defender until the pass is out of his hands.
+- **Closeouts**: the receiver's defender reads the passer (from about 0.45 s before the throw) and closes out to the
+  spot the receiver is running to: a sprint, then chop steps to the cushion. Passes are now aimed at that spot (the
+  catch spot the planner sent the receiver to, or where his run takes him), so the ball bends less in the air and
+  the closeout goes to the right place.
+- **Off the ball**: one pass away in the passing lane (a hand and a foot in the lane), two passes away on the help
+  line (a foot in the lane with the ball above the free-throw line, on the rim line with the ball on the wing); a
+  real shooter is not left (his man stays home, a step off him); attached to a strong-side corner man when the ball
+  is on that wing; 3/4 fronting a post man on the ball side. Help defenders are either in the lane or within 12 ft
+  of their man, never stranded in between. Each defender reacts to the ball a moment late (0.15 to 0.35 s by his
+  help-defense rating), each on his own clock. Nobody but the man on the ball goes near a handler who is not
+  attacking.
+- **Drives**: the low man (never the strong-side corner's defender) steps in front of the rim, the nearest defender
+  sinks to the low man's man, the rest sag; everyone recovers when the ball is kicked out.
+- **Shots and the glass**: the contest is the shooter's own defender (a help defender only at the rim), facing the
+  shooter all the way; on a miss only defenders whose man can get to the glass box out, the rest take a step toward
+  the long rebound.
+- **Offense on the court** (`js/match/offense.js`): perimeter spots 1.5 ft behind the line (corner, wing, slot, top);
+  non-stretch bigs (C and PF under 66 3PT) live at the dunker spot, the short corner, the block and the elbow;
+  stretch bigs space like wings; every off-ball player has a job (spacing a spot behind the line, running an action,
+  moving for the engine's next event), and one left holding a spot with no job for a second moves to the nearest
+  open spot; the small moves between actions keep shooters behind the line.
+- **Shot decisions** (`js/core/sim.js`): a player under 45 3PT almost never takes a three (45 to 60 fades in); a look
+  worth less than the time on the shot clock asks for (about 0.86 points a shot early, 0.78 from 14 s) can be passed
+  up for a reset (more often by high shot-IQ players, at most twice, never late in the clock); actions run faster
+  when the shot clock is short. League numbers are unchanged (see the results).
+- **Rebounds and the ball** (`js/match/rebound.js`): the carom comes down where the rebounder can get to it in
+  time; he goes up and takes it with two hands (contested), with a hop (uncontested), or runs to a long carom and
+  catches it on the way down; the ball is his the moment his hands meet it. If his hands are not there, it goes on
+  down and bounces (off his fingertips it is a tip that drops near him), and he runs it down at full speed to where
+  he meets it and picks it up off the bounce. It is never pulled through the air to him, and a ball never stops in
+  the air. On screen the rim is 1.96 ball widths across (a real rim is 1.92).
+- **Coach's debug view** (`js/match/debugdraw.js`; the D key or the 🧠 button in the Live view, or Broadcast
+  settings; layers: all, defense, offense): each defender's man (a line), the spot his rule wants (a ring) and his
+  job (ON BALL with the cushion he has and wants, CLOSEOUT, DENY, HELP, HOME, LOW MAN, SINK, POST, BOX OUT); each
+  offensive player's job with an arrow to where he is going (NO JOB in red); the possession's script from the
+  engine with the step under way; the reads (the shooter's expected points against what the shot clock asks for, a
+  look passed up, the help on a drive, swing passes and drive reactions); where the rebound comes down and who goes
+  for it.
+
+### What the Phase 2 audit shows (52 games, the same 52 as Phase 1)
+
+Full tables: `audit/phase2/report.md` and `report.html`. The Phase 1 code was measured again with this audit
+(`audit/phase2/phase1-code/`) so both sides are counted the same way; the numbers below compare the two.
+
+Nothing broken: all 52 games reached the final buzzer, no script errors, no stuck possessions, the court score
+matched the engine in every game, 230 points and 201 possessions a game (231 and 201 before). The engine's own
+league numbers over a season are unchanged (men 115.1 points a team game, 99.9 possessions, 36.4 % from three;
+before 115.2, 100.9, 35.7; women 84.6 points, 81.3 possessions; before 85.4, 82.4).
+
+| | Phase 1 | Phase 2 |
+|---|---:|---:|
+| Ball defender backing away from a handler who is not attacking | 4.2 % (103 a game) | 3.1 % (60 a game) |
+| Ball defender turning his back and walking away | 0.9 % (16.7 a game) | 0.3 % (5.1 a game) |
+| Extra cushion for a non-shooter over an elite shooter at the arc | -0.7 ft (backwards) | +1.0 ft |
+| Extra defender crowding a guarded ball, no drive | 32.5 s a game | 13.6 s a game |
+| Extra defender standing in the handler's path | 38.9 s a game | 10.6 s a game |
+| Two passes away: sees man and ball | 48 % | 58 % |
+| One pass away in the passing lane | 70 % | 73 % |
+| Off-ball players with no job | 19 % | 5 % |
+| Off-ball players spacing a spot (behind the arc, or a big by the rim) | 22 % | 37 % |
+| Non-stretch bigs in the paint, at the rim or short corner | 48 % | 75 % |
+| Nobody on offense within 12 ft of the rim | 30 % | 18 % |
+| Threes by players under 50 3PT (a game) | 0.3 | 0.1 |
+| "Open" shots with a defender within 3 ft at the release | 34 % | 24 % |
+| Shots with under 4 s on the shot clock | 15 % | 10 % |
+| Wide-open catch by a decent shooter within 26 ft: shot it | 47 % | 53 % |
+| Rebounds grabbed above 10 ft | 98 % | 34 % |
+| Carom bending 3+ ft through the air into his hands | 20 % | 0 % |
+| Ball jumping 3+ ft into his hands at the grab | 6.8 % | 0.6 % |
+| Ball hanging still in the air before the grab | 3.9 % | 0 % |
+| Rebounds that hit the floor first | 0 % | 9 % |
+| Passes bending 2+ ft in the air | 60 % | 50 % |
+| Box-outs of a man 20+ ft from the rim (per miss) | 0.7 | 0.4 |
+
+The animation work is untouched (`tools/audit/anim.js`, 4 games x 20 possessions, `audit/phase2/anim.json`): body
+contact 202 per 10,000 player-frames (208 before), feet stuck behind 31 per 10,000 running frames (29; within the
+noise of different movement), no script errors.
+
+Worse or not better yet (for the next phases):
+- Wide-open catches by decent shooters: 4.5 a game (3.3 before), 2.1 of them passed up (1.7 before). Most are
+  the court's own bookkeeping passes right after the ball comes up (the play's handler gets the ball while his
+  defender is still getting back) and passes on the engine's script; the engine does not know how open the catch
+  is on the court. Phase 3's playbook makes the court's plays and the engine's the same, and the catch a real read.
+- Help defenders more than 12 ft from their man outside a help spot: 11 short episodes a game (4.6 before); two
+  passes away but glued to the man: 1.7 % (0.9 %); more than 10 ft off the handler inside 28 ft: 1.8 % (1.0 %).
+  Mostly defenders lagging a hard cut or the ball's move, not their target spots.
+- Off-ball players standing still: 20 % either way (holding a spacing spot counts), average speed 5.8 ft/s either
+  way; stand-stills of 3 s or more 11.5 a game (8.5).
+- Between the ball handler and the basket: 89.9 % (90.4 %); NBA tracking has 94 to 98 %.
 
 ### Research behind Phase 2
 
@@ -231,8 +342,8 @@ came from search excerpts):
   [HELIOS](https://wrighteagle2d.github.io/robocup/2010/2D_TDP_HELIOS.pdf))
 - Spacing spots (feet from the baseline, from the sideline): corner (3, 2), wing (23, 7), slot (28.5, 15), top
   (30.5, 25), elbow (19, 17), nail (19, 25), block (7 to 8, 16), dunker (2 to 4, 13 to 15), short corner (4, 9 to
-  11); perimeter spots 1 to 1.5 ft behind the line. Ours sit 1.5 to 2.5 ft closer in (wing 21, slot 26, top 29),
-  which is where the audit finds the players. Drive rules: baseline drive, the weak-side wing drifts to the corner;
+  11); perimeter spots 1 to 1.5 ft behind the line. Phase 1 found ours 1.5 to 2.5 ft closer in (wing 21, slot 26,
+  top 29); Phase 2 puts them 1.5 ft behind the line. Drive rules: baseline drive, the weak-side wing drifts to the corner;
   middle drive, the corner lifts; someone fills behind; the "0.5 second" rule on the catch. Off-ball movers average
   about 5 mph, ball-dominant players about 4. ([NBA rule 1](https://official.nba.com/rule-no-1-court-dimensions-equipment/),
   [drive spacing rules](https://coachingtoolbox.net/offense/coaching-basketball-penetration-bailout-spacing-rules.html),
