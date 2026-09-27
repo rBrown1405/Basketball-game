@@ -207,6 +207,47 @@ Offense, court (`js/match/flow.js`, `choreo.js` `assignSpots`):
 Debug overlays (new `js/match/debugdraw.js`, drawn from `view.js` next to the names, toggled in the Live view): each
 defender's man, target spot and job (on ball, deny, help, box out); each offensive player's job; read decisions.
 
+### Research behind Phase 2
+
+Coaching material, NBA tracking studies and how NBA 2K describes its AI (numbers to confirm while building; a few
+came from search excerpts):
+- On-ball gap: about an arm's length (2.5 to 3 ft) on an average handler, about 4 ft on a quick one, tighter on
+  shooters, sagging (and going under screens) on non-shooters; a hand's length once the dribble is picked up.
+  Beaten means hip to hip: then turn and sprint. A sidestep starts about 0.3 s after the cue, so defenders react late
+  by a varying amount and never move in lockstep. ([coach Lynch](https://www.coachlynchbasketball.com/post/three-methods-guarding-the-ball),
+  [reaction study](https://www.sciencedirect.com/science/article/abs/pii/S1050641113001855))
+- Off-ball: tracking puts the average defender at 0.62 of his man, 0.11 of the ball and 0.27 of the hoop; one pass
+  away a hand and a foot in the lane; two passes away "ball-you-man", one foot in the lane with the ball above the
+  free-throw line, on the rim line with the ball on the wing. Help comes from the weak side, never from the
+  strong-side corner; the low man protects the rim; the rotation chain is low man, sink, fill, then X-out on the
+  swing. Closeout: sprint two thirds to three quarters of the way, chop the rest with a high hand, stop at arm's
+  length; a short closeout on drivers and non-shooters. Never double a contained ball and leave a shooter one pass
+  away. ([Franks et al.](https://arxiv.org/abs/2007.10550), [Cleaning the Glass](https://cleaningtheglass.com/how-do-nba-defensive-rotations-work/),
+  [Breakthrough Basketball](https://www.breakthroughbasketball.com/defense/help-positioning))
+- NBA 2K builds its offense and help decisions on 20+ dynamic spacing spots, lets help awareness ratings set how
+  fast help commits, and in 2K27 moved to a rotation engine that scores matchups and help targets instead of fixed
+  spots; RoboCup teams interpolate hand-placed ideal positions between sample ball locations.
+  ([2K25](https://nba.2k.com/2k25/courtside-report/gameplay/), [2K27](https://nba.2k.com/2k27/features/gameplay/),
+  [HELIOS](https://wrighteagle2d.github.io/robocup/2010/2D_TDP_HELIOS.pdf))
+- Spacing spots (feet from the baseline, from the sideline): corner (3, 2), wing (23, 7), slot (28.5, 15), top
+  (30.5, 25), elbow (19, 17), nail (19, 25), block (7 to 8, 16), dunker (2 to 4, 13 to 15), short corner (4, 9 to
+  11); perimeter spots 1 to 1.5 ft behind the line. Ours sit 1.5 to 2.5 ft closer in (wing 21, slot 26, top 29),
+  which is where the audit finds the players. Drive rules: baseline drive, the weak-side wing drifts to the corner;
+  middle drive, the corner lifts; someone fills behind; the "0.5 second" rule on the catch. Off-ball movers average
+  about 5 mph, ball-dominant players about 4. ([NBA rule 1](https://official.nba.com/rule-no-1-court-dimensions-equipment/),
+  [drive spacing rules](https://coachingtoolbox.net/offense/coaching-basketball-penetration-bailout-spacing-rules.html),
+  [NBA speed](https://www.thespax.com/nba/speed-and-distance-traveled-in-the-nba/))
+- Shots: about 39 % of NBA threes are wide open (6+ ft) and 42 % open (4 to 6 ft); shots in the last 4 s of the shot
+  clock are about 7 to 9 %; efficiency falls as the clock runs down; non-shooting centers almost never shoot threes.
+  ([NBA.com closest defender](https://www.nba.com/stats/players/shots-closest-defender), [shot clock](https://www.nba.com/stats/teams/shots-shotclock))
+- Rebounds: misses at the rim come off within 4 ft about half the time; long rebounds (7 to 21 ft) follow about
+  20 % of missed twos and 41 % of missed threes, mostly to the side away from the shooter (corner threes to the
+  opposite side); average rebound distance tops out near 8 ft. The floor bounce restitution is about 0.75, the rim
+  absorbs 35 to 50 % of the impact (deader than the board). Even heavy-crashing teams send three or more to the glass
+  on under a fifth of shots; each defender hits his own man, then goes to the ball.
+  ([Nylon Calculus](https://fansided.com/2020/01/28/nylon-calculus-nba-rebound-tracking/), [Grantland](https://grantland.com/features/how-rebounds-work/),
+  [Okubo and Hubbard](https://link.springer.com/article/10.1007/s12283-014-0165-z))
+
 ## Phase 3: playbook
 
 - New `js/core/playbook.js`: plays as data. A play has roles (ball handler, screener, shooter, cutter, post,
