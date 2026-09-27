@@ -347,16 +347,24 @@
     return best;
   }
 
-  function locFor(ctx, zone, kind) {
+  // near: the shooter's spot in a called play ([u, v]: feet from the baseline, from the sideline) — the shot goes up
+  // on that side of the floor, at about that angle (the zone, and so the make probability, is the same)
+  function locFor(ctx, zone, kind, near) {
     const g = ctx.g, idx = ctx.O.idx;
     const bx = basketX(idx, g.period), dir = dirX(idx, g.period);
     const L = g.L;
     let d, a, x, y;
-    const side = U.chance(0.5) ? 1 : -1;
-    if (zone === 'rim') { d = kind === 'dunk' || kind === 'alley' || kind === 'tip' ? U.range(0.5, 2.5) : U.range(1.5, 4); a = U.range(-1.3, 1.3); }
-    else if (zone === 'paint') { d = U.range(4.5, 12.5); a = U.range(-0.95, 0.95); }
-    else if (zone === 'mid') { d = U.range(10, 21.5); a = U.range(-1.35, 1.35); }
-    else if (zone === 'ab3') { d = U.range(L.threePt.arc + 0.3, L.threePt.arc + (kind === 'heave' ? 40 : U.chance(0.15) ? 5.5 : 2.6)); a = U.range(-1.1, 1.1); }
+    const side = near && Math.abs(near[1] - 25) > 2.5 ? (near[1] > 25 ? 1 : -1) : U.chance(0.5) ? 1 : -1;
+    const aim = (lo, hi) => {
+      if (!near) return U.range(lo, hi);
+      // (the court's angle of that spot, measured the way this function measures it: y = 25 + d sin a)
+      const a0 = Math.atan2(near[1] - 25, Math.max(0.5, near[0] - 5.25));
+      return U.clamp(a0 + U.range(-0.25, 0.25), lo, hi);
+    };
+    if (zone === 'rim') { d = kind === 'dunk' || kind === 'alley' || kind === 'tip' ? U.range(0.5, 2.5) : U.range(1.5, 4); a = aim(-1.3, 1.3); }
+    else if (zone === 'paint') { d = U.range(4.5, 12.5); a = aim(-0.95, 0.95); }
+    else if (zone === 'mid') { d = U.range(10, 21.5); a = aim(-1.35, 1.35); }
+    else if (zone === 'ab3') { d = U.range(L.threePt.arc + 0.3, L.threePt.arc + (kind === 'heave' ? 40 : U.chance(0.15) ? 5.5 : 2.6)); a = aim(-1.1, 1.1); }
     if (zone === 'c3') {
       y = 25 + side * U.range(L.threePt.corner + 0.2, Math.min(24.2, L.threePt.corner + 1.8));
       x = bx - dir * U.range(-4.2, 8.5);
@@ -1291,6 +1299,14 @@
     const plan = planTail(ctx, mode, force3, { branch: o.br, shooter, assister, base, hint, cKey, lob, passKind, keep: true });
     rec.opt = o.label; rec.optI = play.opts.indexOf(o); rec.at = o.at; rec.early = o.at < play.last; rec.base = o.base;
     rec.cov = rx.cov; rec.read = pbWhy(o, rx); rec.shooter = plan.shooter.id;
+    // where the shooter is in the play when he gets the ball (the shot goes up there)
+    if (!ctx.g.lite) {
+      let role = null;
+      for (const r in R) if (R[r] === plan.shooter) role = r;
+      let at = role ? play.align[role] : null;
+      if (role) for (let k = 0; k <= o.at; k++) { const ps = play.steps[k].pos; if (ps && ps[role]) at = ps[role]; }
+      if (at) plan.near = [at[0], pb.side > 0 ? at[1] : 50 - at[1]];
+    }
     return plan;
   }
   /** the play's timeline: steps 0..k1 end at tEnd, the call and the set before them */
@@ -1330,7 +1346,7 @@
     const ids = {}, align = {};
     for (const r in R) ids[r] = R[r].id;
     for (const r in play.align) if (R[r]) align[R[r].id] = mir(play.align[r]);
-    const startRole = play.start || (R.ball ? 'ball' : Object.keys(R)[0]);
+    const startRole = play.start || (play.roles.ball ? 'ball' : Object.keys(play.roles)[0]);
     const first = R[startRole];
     let holder = ctx.handler;
     const tSet = U.round(Math.min(tl.tSet, cut - 0.1), 2);
@@ -1349,7 +1365,9 @@
       const st = play.steps[k], dk = st.d * tl.s;
       const pos = {};
       if (st.pos) for (const r in st.pos) if (R[r]) pos[R[r].id] = mir(st.pos[r]);
-      evAt(ctx, U.round(Tk, 2), 'step', { pb: play.id, k, n: play.steps.length, pos, team: idx });
+      // (who comes off an off-ball screen in this step: he runs off it to his spot instead of walking there)
+      const scr = (st.ev || []).filter(e => e[0] === 'screen' && e[3] !== 'ball' && R[e[1]] && R[e[2]] && R[e[1]] !== R[e[2]]).map(e => [R[e[1]].id, R[e[2]].id]);
+      evAt(ctx, U.round(Tk, 2), 'step', { pb: play.id, k, n: play.steps.length, pos, scr, team: idx });
       const evs = (st.ev || []).filter(e => EV_FRAC[e[0]] != null).map(e => ({ e, t: Tk + dk * EV_FRAC[e[0]] })).sort((a, b) => a.t - b.t);
       for (const x of evs) {
         if (x.t >= cut) break;
@@ -1892,10 +1910,18 @@
     return U.chance(U.clamp((bar - ep) / 0.3, 0, 1) * (0.3 + 0.45 * iq));
   }
   /** the look is passed up: the ball is swung to a teammate and the offense runs something new */
+  // (the roles of a play that live outside: a reset from a called play swings the ball out to one of them)
+  const PERIM_ROLE = { handler: 1, pnr: 1, spacer: 1, shooter: 1, scorer: 1 };
   function resetPossession(ctx, info, plan, tShot, holder) {
     const O = ctx.O;
     const from = holder || plan.shooter;
-    const to = U.pickW(O.on.filter(c => c !== from), c => usageW(ctx, c) * Math.pow(c.r.handle / 70, 1.2) * (c.posN <= 3 ? 1 : 0.4));
+    let pool = O.on.filter(c => c !== from);
+    if (info.pb) {
+      const play = info.pb.play, R = info.pb.roles, out = [];
+      for (const r in R) if (PERIM_ROLE[play.roles[r]] && R[r] !== from && R[r] !== plan.shooter) out.push(R[r]);
+      if (out.length) pool = out;
+    }
+    const to = U.pickW(pool, c => usageW(ctx, c) * Math.pow(c.r.handle / 70, 1.2) * (c.posN <= 3 ? 1 : 0.4));
     ctx.resets = (ctx.resets || 0) + 1;
     if (to && !ctx.g.lite) evAt(ctx, tShot, 'pass', { from: from.id, to: to.id, kind: 'chest', team: O.idx, reset: true, read: ctx.read || undefined });
     ctx.t = tShot;
@@ -1925,7 +1951,7 @@
       else playEvents(ctx, info, plan, tShot);
     }
     ctx.t = tShot;
-    const loc = locFor(ctx, zone, kind);
+    const loc = locFor(ctx, zone, kind, plan.near);
     if (kind === 'heave') {
       const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
       loc.x = U.round(U.clamp(bx - dir * U.range(35, 70), 2, 92), 1); loc.y = U.round(U.range(12, 38), 1); loc.d = Math.round(Math.hypot(loc.x - bx, loc.y - 25));

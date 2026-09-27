@@ -39,7 +39,7 @@
   // slots as in-between options
   const PERIM = [[2.5, 2], [2.5, 48], [23, 7], [23, 43], [30.5, 25], [28.5, 15], [28.5, 35]];
   const PASS_CLIPS = { chest: 'passChest', overhead: 'passOverhead', bounce: 'passBounce' };
-  const LIVE_BEATS = { pass: 1, set: 1, screen: 1, move: 1, handoff: 1, shot: 1, advance: 1 };
+  const LIVE_BEATS = { pass: 1, set: 1, screen: 1, move: 1, handoff: 1, shot: 1, advance: 1, step: 1 };
 
   P.flowProfile = function () { return FLOW[(this.poss && this.poss.offSystem) || 'balanced'] || FLOW.balanced; };
   P.uv = function (a) { return { u: this.U_(a.x), v: a.y }; };

@@ -13,7 +13,7 @@
   const TAU = Math.PI * 2;
   const wrapPi = (a) => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
   const DT = 1 / 60, EVERY = 6, SDT = DT * EVERY; // positions every 0.1 s
-  const LIVE_BEATS = { pass: 1, set: 1, screen: 1, move: 1, handoff: 1, shot: 1, advance: 1 };
+  const LIVE_BEATS = { pass: 1, set: 1, screen: 1, move: 1, handoff: 1, shot: 1, advance: 1, step: 1 };
   const ZONES = ['rim', 'paint', 'short', 'mid', 'corner3', 'arc3', 'deep'];
   const isZone = (s) => /zone|boxone/.test(s || '');
   const bucket3 = (r) => (r < 40 ? '<40' : r < 50 ? '40-49' : r < 60 ? '50-59' : r < 70 ? '60-69' : r < 80 ? '70-79' : '80+');

@@ -463,7 +463,9 @@
         let tx = this.X(U.clamp(this.U_(r.spot.x + r.jx), 2.2, 91.8)), ty = U.clamp(r.spot.y + r.jy, 2.2, 47.8);
         // keep the floor spaced: drift away from a teammate who is too close (NBA spacing ~14 ft; Floor Spacing slider)
         const spc = 14 * this.sliderK('spacing', 0.8, 1.2);
-        if (flow) {
+        // (a player in a called play holds the play's spot: stacks, doubles and the elevator doors stand close on
+        // purpose)
+        if (flow && !r.pb) {
           let px = 0, py = 0;
           for (const o of this.offActors()) {
             if (o === a) continue;
@@ -480,7 +482,7 @@
         // never crowd the ball: an off-ball spot whose target sits on top of the handler moves out to ~14 ft
         // (a pick-and-roll brings four players together; a fifth or sixth body there is broken spacing)
         const bh = b.holder;
-        if (bh && bh !== a && bh.team === this.off && this.phase === 'front' && this.tempo !== 'push' && this.U_(bh.x) < 40) {
+        if (bh && bh !== a && !r.pb && bh.team === this.off && this.phase === 'front' && this.tempo !== 'push' && this.U_(bh.x) < 40) {
           let dx = tx - bh.x, dy = ty - bh.y, dd = Math.hypot(dx, dy);
           if (dd < spc - 2) {
             if (dd < 0.5) { dx = a.x - bh.x; dy = a.y - bh.y; dd = Math.hypot(dx, dy); }
@@ -1040,6 +1042,14 @@
             } else this.at(Math.max(this.T + 0.3, fireAt - 1.0), () => this.giveBall(by, 'over'), 'hand ball');
           } else if (b.holder !== by) this.ensureBall(by);
           by.moveTo(ix, iy, { speed: dead ? 8 : 14, by: fireAt - 0.8, face: { x: rcv.x, y: rcv.y } });
+          // (catching the ball on the way stops him for the catch: he walks on to the spot after it)
+          const keepGoing = () => {
+            if (this.beat !== beat || beat.fired || outside()) return;
+            const gl = by.goal;
+            if (!by.isBusy() && !(gl && gl.mode === 'move' && Math.hypot(gl.x - ix, gl.y - iy) < 0.6)) by.moveTo(ix, iy, { speed: dead ? 9 : 14, face: { x: rcv.x, y: rcv.y } });
+            this.at(this.T + 0.25, keepGoing, 'inbounder to the spot');
+          };
+          this.at(this.T + 0.3, keepGoing, 'inbounder to the spot');
           this.at(Math.max(this.T + 0.2, fireAt - 0.7), () => { if (b.holder === by) by.ballHold = 'over'; by.setStance('inbound'); }, 'overhead');
         }
         to.moveTo(rcv.x, rcv.y, { by: fireAt + flight * 0.6, speed: 15, face: 'move' });
@@ -1123,6 +1133,9 @@
       const nearD = this.nearestTo(this.def, user.x, user.y);
       const man = this.guardOf(user.id);
       const userDef = (zoneD || !man || Math.hypot(man.x - user.x, man.y - user.y) > 9) ? nearD : man;
+      // a called play's off-ball screen: the user runs off it to the spot the play sends him to (plays.js)
+      const rU = this.role[user.id];
+      const pbDest = !onBall && rU && rU.pbDest && this.pbRun ? rU.pbDest : null;
       // screen spot: on the defender's hip, on the side the user will attack (toward the middle / top)
       const toMid = user.y < 25 ? 1 : -1;
       let spot;
@@ -1134,6 +1147,12 @@
         } else spot = { x: user.x + dx / dl * 3.2 + px * 2.2, y: user.y + dy / dl * 3.2 + py * 2.2 };
         // the defender of the user steps up to the ball as the screen comes
         if (userDef && zoneD) { this.dtask[userDef.id] = { until: this.T + 3 }; userDef.moveTo(user.x + dx / dl * 3.4, user.y + dy / dl * 3.4, { speed: 12, face: { x: user.x, y: user.y }, stance: 'defense' }); }
+      } else if (pbDest) {
+        // on the user's path to where the play sends him, at the point of it nearest the screener (a pin-down comes
+        // down to the block, a flare or an elbow screen steps up into the path): the user rubs shoulders with him
+        const dx = pbDest.x - user.x, dy = pbDest.y - user.y, L2 = dx * dx + dy * dy || 1;
+        const t = U.clamp(((scr.x - user.x) * dx + (scr.y - user.y) * dy) / L2, 0.15, 0.7);
+        spot = { x: user.x + dx * t, y: user.y + dy * t };
       } else {
         spot = userDef ? { x: userDef.x + (this.rim.x - userDef.x) * 0.12 + 1.5 * this.dir, y: userDef.y + (user.y < 25 ? -1.5 : 1.5) } : { x: user.x, y: user.y };
       }
@@ -1148,6 +1167,11 @@
         if (onBall) {
           const ru = this.role[user.id]; if (ru) ru.until = fireAt + 0.4;
           user.moveTo(user.x, user.y, { speed: 4, face: this.rim, stance: 'dribble' });
+        } else if (pbDest) {
+          // he sets up his man: a step away from where he is going, then comes off the screen
+          const ru = this.role[user.id]; if (ru) ru.until = fireAt + 1.2;
+          const dx = pbDest.x - user.x, dy = pbDest.y - user.y, dl = Math.hypot(dx, dy) || 1;
+          user.moveTo(user.x - dx / dl * 2, user.y - dy / dl * 2, { by: fireAt - 0.3, speed: 6, pace: 4 });
         } else {
           const ru = this.role[user.id]; if (ru) ru.until = fireAt + 1.2;
           // user sets up his man then comes off the screen
@@ -1158,7 +1182,11 @@
         // after the screen: roll or pop, user attacks/cuts
         const pop = nextSh && ((nextSh.type === 'shot' && !RIM_SHOTS[nextSh.kind] && nextSh.zone !== 'paint') || nextSh.type === 'pass' && nextSh.kind === 'kick');
         const r = this.role[scr.id];
-        if (r) {
+        if (r && !onBall && !nextSh && r.pb && this.pbRun) {
+          // (a play's off-ball screener holds the screen a moment, then goes back to his spot in the play)
+          r.until = this.T + 0.5;
+          this.at(this.T + 0.45, () => { if (r.spot) scr.moveTo(r.spot.x, r.spot.y, { speed: 12, face: 'move' }); }, 'screener back');
+        } else if (r) {
           r.until = this.T + 1.6;
           const dest = pop ? this.P(26.5, scr.y < 25 ? 13.5 : 36.5) : this.P(6, 25 + (Math.random() - 0.5) * 6);
           r.spot = dest;
@@ -1168,23 +1196,97 @@
         if (onBall) {
           const ru = this.role[user.id];
           if (ru) { ru.until = this.T + 1.2; }
-          const side = (spot.y - user.y) >= 0 ? 1 : -1;
-          user.moveTo(user.x + (this.rim.x - user.x) * 0.3, U.clamp(user.y + side * 7, 3, 47), { speed: 15, face: 'move', stance: 'dribble' });
+          // the pick-and-roll coverage: the play's (sent with the screen) or the scheme's
+          const cov = ev.cov || this.schemeCoverage();
+          let side = (spot.y - user.y) >= 0 ? 1 : -1;
+          if (cov === 'ice') side = -side; // (forced away from the screen, to the baseline side)
+          const retreat = cov === 'hedge' || cov === 'blitz';
+          const tx = retreat ? user.x - (this.rim.x - user.x) * 0.08 : user.x + (this.rim.x - user.x) * 0.3;
+          user.moveTo(tx, U.clamp(user.y + side * (retreat ? 3 : 7), 3, 47), { speed: retreat ? 9 : 15, face: 'move', stance: 'dribble' });
           if (v.ball.holder === user) v.ball.dribble(user);
-          // coverage
           const sd = this.guardOf(scr.id);
-          if (userDef && sd) {
-            if (this.scheme === 'switch') { const a = this.matchup[userDef.id]; this.matchup[userDef.id] = this.matchup[sd.id]; this.matchup[sd.id] = a; }
-            else if (this.scheme === 'blitz') { this.dtask[sd.id] = { until: this.T + 1.4 }; sd.track(() => ({ x: user.x + (this.rim.x - user.x) * 0.1 + 2, y: user.y + 2, vx: user.vx, vy: user.vy }), { stance: 'defenseWide' }); }
-            else if (this.scheme === 'drop') { this.dtask[sd.id] = { until: this.T + 1.5 }; sd.moveTo(this.X(12), 25, { speed: 12, face: { x: user.x, y: user.y }, stance: 'defense' }); }
-          }
-          if (userDef) { this.dtask[userDef.id] = { until: this.T + 0.5 }; userDef.moveTo(userDef.x - this.dir * 2, userDef.y + (spot.y - user.y) * 0.5, { speed: 10, stance: 'defense' }); }
+          if (userDef && sd && !zoneD) this.pnrCoverage(cov, user, userDef, scr, sd, spot, side);
+          else if (userDef) { this.dtask[userDef.id] = { until: this.T + 0.5 }; userDef.moveTo(userDef.x - this.dir * 2, userDef.y + (spot.y - user.y) * 0.5, { speed: 10, stance: 'defense' }); }
+        } else if (pbDest) {
+          const ru = this.role[user.id];
+          if (ru) { ru.until = this.T + 1.3; ru.spot = pbDest; ru.spotName = 'play'; ru.pbDest = null; }
+          user.moveTo(pbDest.x, pbDest.y, { speed: 18, face: 'move' });
+          if (userDef && !zoneD) this.offBallCoverage(ev.cov, user, userDef, scr, pbDest);
         } else {
           const ru = this.role[user.id];
           if (ru) { ru.until = this.T + 1.4; const dest = this.P(22, user.y < 25 ? 8 : 42); ru.spot = dest; user.moveTo(dest.x, dest.y, { speed: 17, face: 'move' }); }
         }
       };
       return tReach + 0.4;
+    }
+    /** the pick-and-roll coverage a defensive scheme plays when the engine sends none */
+    schemeCoverage() {
+      const s = this.scheme;
+      return s === 'switch' || s === 'blitz' || s === 'drop' || s === 'hedge' ? s : 'show';
+    }
+    /**
+     * The two defenders of a ball screen (userDef on the handler, sd on the screener):
+     *  drop: sd sits back in the lane to protect the rim; show / at the level: sd steps up level with the screen and
+     *  gets back; hedge: sd jumps out above the screen into the handler's path, then recovers; blitz: both trap the
+     *  handler; switch: they swap men; ice: userDef jumps to the screen side and forces him baseline, sd waits below.
+     */
+    pnrCoverage(cov, user, userDef, scr, sd, spot, side) {
+      const T = this.T, rim = this.rim;
+      const toRimX = this.rim.x - user.x, toRimY = rim.y - user.y, dl = Math.hypot(toRimX, toRimY) || 1;
+      switch (cov) {
+        case 'switch': { const a = this.matchup[userDef.id]; this.matchup[userDef.id] = this.matchup[sd.id]; this.matchup[sd.id] = a; break; }
+        case 'blitz':
+          this.dtask[sd.id] = { until: T + 1.4 };
+          sd.track(() => ({ x: user.x + (rim.x - user.x) * 0.1 + 2, y: user.y + 2, vx: user.vx, vy: user.vy }), { stance: 'defenseWide' });
+          break;
+        case 'drop':
+          this.dtask[sd.id] = { until: T + 1.5 };
+          sd.moveTo(this.X(14), 25 + (user.y - 25) * 0.25, { speed: 12, face: { x: user.x, y: user.y }, stance: 'defense' });
+          break;
+        case 'hedge': {
+          // out above the screen, in the handler's path, for about a second
+          this.dtask[sd.id] = { until: T + 1.0 };
+          sd.moveTo(spot.x - toRimX / dl * 2.5, U.clamp(spot.y + side * 2.5, 3, 47), { speed: 16, face: { x: user.x, y: user.y }, stance: 'defenseWide' });
+          break;
+        }
+        case 'ice': {
+          // the handler's man jumps to the screen side; the big waits below the screen on the baseline side
+          this.dtask[userDef.id] = { until: T + 0.9 };
+          userDef.moveTo(user.x + (spot.x - user.x) * 0.6, user.y + (spot.y - user.y) * 0.6, { speed: 12, face: { x: user.x, y: user.y }, stance: 'defense' });
+          this.dtask[sd.id] = { until: T + 1.3 };
+          sd.moveTo(this.X(17), U.clamp(user.y + side * 9, 6, 44), { speed: 12, face: { x: user.x, y: user.y }, stance: 'defense' });
+          return;
+        }
+        case 'zone': return;
+        default: // show / at the level
+          this.dtask[sd.id] = { until: T + 0.7 };
+          sd.moveTo(spot.x - toRimX / dl * 1.0, spot.y, { speed: 14, face: { x: user.x, y: user.y }, stance: 'defense' });
+      }
+      // the handler's man fights over the screen
+      this.dtask[userDef.id] = { until: T + 0.5 };
+      userDef.moveTo(userDef.x - this.dir * 2, userDef.y + (spot.y - user.y) * 0.5, { speed: 10, stance: 'defense' });
+    }
+    /**
+     * The shooter's man on an off-ball screen: trail (chases him over it, the default), under (goes under the screen
+     * to beat him to the spot), top (top-locks him, taking away the catch), switch (the screener's man takes him).
+     */
+    offBallCoverage(cov, user, userDef, scr, dest) {
+      const T = this.T;
+      if (cov === 'obswitch') {
+        const sd = this.guardOf(scr.id);
+        if (sd) { const a = this.matchup[userDef.id]; this.matchup[userDef.id] = this.matchup[sd.id]; this.matchup[sd.id] = a; }
+        return;
+      }
+      if (cov === 'under') {
+        // the inside route to the spot: between the rim and where he is going
+        this.dtask[userDef.id] = { until: T + 0.9 };
+        userDef.moveTo(dest.x + (this.rim.x - dest.x) * 0.25, dest.y + (25 - dest.y) * 0.25, { speed: 16, face: { x: user.x, y: user.y }, stance: 'defense' });
+      } else if (cov === 'top') {
+        // on his high side, between him and the ball
+        const b = this.v.ball;
+        this.dtask[userDef.id] = { until: T + 0.8 };
+        userDef.moveTo(user.x + (b.x - user.x) * 0.15, user.y + (b.y - user.y) * 0.15, { speed: 15, face: { x: user.x, y: user.y }, stance: 'defense' });
+      }
     }
     // --- dribble hand-off
     p_handoff(ev, beat, gap) {

@@ -120,7 +120,7 @@
       align: { ball: TOP, screen: ELBOW_R, back: NAIL, left: CORNER_L, right: CORNER_R },
       steps: [
         { d: 1.5, text: 'The big sets the ball screen, a shooter waits at the nail', ev: [['screen', 'screen', 'ball', 'ball']] },
-        { d: 1.0, text: 'The big rolls and the shooter back-screens his defender', ev: [['screen', 'back', 'screen', 'off_ball'], ['move', 'ball', 'drive']] },
+        { d: 1.0, text: 'The big rolls and the shooter back-screens his defender', ev: [['screen', 'back', 'screen', 'off_ball'], ['move', 'ball', 'drive']], pos: { screen: [5.5, 23] } },
         { d: 1.0, text: 'The back-screener pops to the top', ev: [['step']], pos: { back: TOP, left: CORNER_L, right: CORNER_R } },
       ],
       opts: [
@@ -280,7 +280,7 @@
       primary: 'shooter', pick: 'shooter', map: { handler: 'ball', shooter: 'shooter', screener: 's2' },
       align: { ball: WING_R, shooter: BLOCK_L, s1: [9, 20], s2: [18, 22], corner: CORNER_R },
       steps: [
-        { d: 1.2, text: 'The shooter comes off the first screen', ev: [['screen', 's1', 'shooter', 'off_ball']] },
+        { d: 1.2, text: 'The shooter comes off the first screen', ev: [['screen', 's1', 'shooter', 'off_ball']], pos: { shooter: [14, 20] } },
         { d: 1.2, text: 'and the second one to the top', ev: [['screen', 's2', 'shooter', 'off_ball']], pos: { shooter: TOP } },
         { d: 0.9, text: 'The pass to the top', ev: [['step']] },
       ],
@@ -317,7 +317,7 @@
       align: { ball: SLOT_L, wing: BLOCK_R, hub: [26, 30], corner: CORNER_L, dunker: DUNK_L },
       steps: [
         { d: 1.1, text: 'The guard passes to the big at the slot', ev: [['pass', 'ball', 'hub', 'chest']], pos: { ball: [20, 30] } },
-        { d: 1.1, text: 'and pins down for the wing', ev: [['screen', 'ball', 'wing', 'off_ball']], pos: { ball: CORNER_R } },
+        { d: 1.1, text: 'and pins down for the wing', ev: [['screen', 'ball', 'wing', 'off_ball']], pos: { ball: CORNER_R, wing: [22, 36] } },
         { d: 1.0, text: 'The wing comes off it into the hand-off', ev: [['handoff', 'hub', 'wing']] },
         { d: 0.8, text: 'Turn the corner or pull up', ev: [['move', 'wing', 'drive']] },
       ],
@@ -352,7 +352,7 @@
       primary: 'wing', pick: 'shooter', map: { handler: 'ball', shooter: 'wing', screener: 'big1' },
       align: { ball: SLOT_L, wing: WING_R, big1: ELBOW_L, big2: ELBOW_R, corner: CORNER_L },
       steps: [
-        { d: 1.2, text: 'The wing runs off the right elbow', ev: [['screen', 'big2', 'wing', 'off_ball']] },
+        { d: 1.2, text: 'The wing runs off the right elbow', ev: [['screen', 'big2', 'wing', 'off_ball']], pos: { wing: [25, 27] } },
         { d: 1.1, text: 'and the left elbow to the wing', ev: [['screen', 'big1', 'wing', 'off_ball']], pos: { wing: WING_L } },
         { d: 1.0, text: 'The pass to the wing', ev: [['pass', 'ball', 'wing', 'chest']] },
         { d: 0.9, text: 'Attack or the ball screen', ev: [['move', 'wing', 'drive']] },

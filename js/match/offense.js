@@ -104,7 +104,7 @@
       const b = this.v.ball, T = this.T;
       for (const a of this.offActors()) {
         const r = this.role[a.id];
-        if (!r || !r.spot || b.holder === a || a.isBusy() || r.path || r.mode === 'locked' || r.until > T) { if (r) r.noJobT = 0; continue; }
+        if (!r || !r.spot || b.holder === a || a.isBusy() || r.path || r.mode === 'locked' || r.until > T || r.pb) { if (r) r.noJobT = 0; continue; }
         const su = this.U_(r.spot.x), sv = r.spot.y;
         const inside = su < 10 && Math.abs(sv - 25) < 22 || this.inPaint(r.spot, 0);
         const beyond = this.beyondArc(su, sv, 0.5);

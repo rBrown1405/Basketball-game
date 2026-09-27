@@ -28,7 +28,7 @@
     home: ['HOME', '#3bc9db'], lowman: ['LOW MAN', '#da77f2'], sink: ['SINK', '#f783ac'], post: ['POST', '#8ce99a'],
   };
   const SCHEME = {
-    man: 'man-to-man', switch: 'switch everything', drop: 'drop coverage', pressure: 'pressure man', packline: 'pack line',
+    man: 'man-to-man', switch: 'switch everything', drop: 'drop coverage', hedge: 'hedge the pick and roll', blitz: 'blitz the pick and roll', pressure: 'pressure man', packline: 'pack line',
     nothree: 'run them off the line', zone23: '2-3 zone', zone32: '3-2 zone', zone131: '1-3-1 zone', boxone: 'box-and-one',
     press: 'full-court press',
   };
@@ -83,7 +83,19 @@
       else if (e.type === 'pass' && e.reset) {
         const r = e.read;
         this.dbgRead(nm(this, e.from) + ' passes up ' + (r && r.zone ? (ZONE[r.zone] || r.zone) + ', ' + r.contest : 'his look') + (r && r.ep != null ? ': worth ' + r.ep.toFixed(2) + ' pts, ' + r.bar.toFixed(2) + ' needed with ' + Math.round(r.sc) + ' s left' : '') + '. Reset to ' + nm(this, e.to), '#ff8787');
+      } else if (e.type === 'set' && e.pb) {
+        const pb = e.pb, why = pb.why && pb.why.length ? ' (' + pb.why.join(', ') + ')' : '';
+        this.dbgRead('Play call: ' + pb.name + why + '. Defense plays ' + covWord(pb.cov), '#66d9e8');
       } else if (e.type === 'set') this.dbgRead('Play call: ' + (e.setName || PLAY[e.play] || e.play) + (e.handler != null ? ' for ' + nm(this, e.handler) : ''), '#66d9e8');
+      else if (e.type === 'inbound' && e.pb) {
+        const pb = e.pb, o = pb.opt || {};
+        this.dbgRead('Inbound play: ' + pb.name + '. Read: ' + (o.label || '?') + (o.read && o.read.length ? ' (' + o.read.join(', ') + ')' : ''), '#66d9e8');
+      }
+      if (e.type === 'shot' && e.pb) {
+        const run = this.pbRun || this._pbLast;
+        const o = run && run.pb && run.pb.opt;
+        this.dbgRead('Read: ' + (e.pb.opt || '?') + (o && o.read && o.read.length ? ' (' + o.read.join(', ') + ')' : '') + (e.pb.early ? '. Early read: the play worked before its last step' : ''), '#b2f2bb');
+      }
     }, this, 'debug read');
   };
   if (base.defPlan) P.defPlan = function () {
@@ -112,6 +124,11 @@
     }
     if (moves.length) this.dbgRead('Drive reads: ' + moves.join(', '), COL.action);
   };
+  const COV = {
+    drop: 'drop coverage', show: 'the big at the level of the screen', hedge: 'a hard hedge', blitz: 'a blitz on the ball',
+    switch: 'a switch on screens', ice: 'ice (no middle on side screens)', zone: 'its zone',
+  };
+  const covWord = (c) => COV[c] || c || 'man-to-man';
   function spotWord(d, p) {
     const u = d.U_(p.x), v = p.y;
     if (u < 14 && Math.abs(v - 25) > 17) return 'corner';
@@ -180,11 +197,29 @@
     else if (a.goal && a.goal.mode === 'move') dest = { x: a.goal.x, y: a.goal.y };
     else if (r.spot) dest = { x: r.spot.x + (r.jx || 0), y: r.spot.y + (r.jy || 0) };
     if (a.isBusy() && a.clip) return [pretty(a.clip.clip.name).toUpperCase(), COL.engine, dest];
+    const run = d.pbRun;
+    if (run && r.pb && run.pb && run.pb.roles) {
+      // (his role in the called play, filled by how his ratings fit it)
+      let role = null;
+      for (const k in run.pb.roles) if (String(run.pb.roles[k]) === String(a.id)) role = k;
+      if (role) return ['PLAY: ' + roleWord(run.pb.id, role), '#63e6be', dest];
+    }
     if (r.mode === 'locked' || r.until > T || b.passTarget === a) return [engineJob(d, a.id), COL.engine, dest];
     if (r.path) return [PATH[r.pathKind] || 'ACTION', COL.action, dest];
     if (r.phase === 'out') return ['V-CUT', COL.action, dest];
     if (r.spot) { const j = spotJob(d, a, r); return [j[0], j[1], dest]; }
     return ['', COL.dim, dest];
+  }
+
+  /** a role of a play in words: its profile (screener, shooter, cutter, ...) */
+  const ROLE_WORD = {
+    handler: 'BALL HANDLER', pnr: 'BALL HANDLER', screener: 'SCREENER', popper: 'SCREEN AND POP', shooter: 'SHOOTER', spacer: 'SPACER',
+    cutter: 'CUTTER', post: 'POST', passer: 'HUB / PASSER', scorer: 'SCORER', inbounder: 'INBOUNDER', dunker: 'DUNKER SPOT', screen2: 'SCREENER',
+  };
+  function roleWord(id, role) {
+    const pl = window.PBC.Playbook && window.PBC.Playbook.get(id);
+    const prof = pl && pl.roles[role];
+    return ROLE_WORD[prof] || String(role).toUpperCase();
   }
 
   // ------------------------------------------------------------ drawing helpers
@@ -269,7 +304,25 @@
     const poss = d.poss || {};
     rows.push(['OFFENSE: ' + (SYS[poss.offSystem] || poss.offSystem || 'balanced') + '   DEFENSE: ' + (SCHEME[d.scheme] || d.scheme) + '   SHOT CLOCK ' + d.shotClock().toFixed(0), COL.dim, 1]);
     const setEv = (d.events || []).find((e) => e && e.type === 'set');
-    rows.push(['PLAY: ' + (PLAY[d.play] || d.play) + (setEv && setEv.setName ? ' · ' + setEv.setName : ''), '#ffffff', 1]);
+    const run = d.pbRun || d._pbLast;
+    const play = run && window.PBC.Playbook ? window.PBC.Playbook.get(run.id) : null;
+    if (play) {
+      // the called play: its steps (done, under way, ahead), the reads open at this step, and the read taken
+      const pb = run.pb, live = d.pbRun === run;
+      rows.push(['PLAY: ' + play.name + (live ? '' : ' (over)') + '   COVERAGE: ' + covWord(pb.cov), '#63e6be', 1]);
+      const k = run.k != null ? run.k : -1;
+      play.steps.forEach((st, i) => {
+        const cur = live && i === k, done = i < k || (!live && i <= k);
+        rows.push([(cur ? '▶ ' : done ? '✓ ' : '   ') + (i + 1) + '. ' + st.text, cur ? '#63e6be' : done ? '#868e96' : '#dee2e6', 0]);
+      });
+      if (!run.inbound && live) {
+        const open = play.opts.filter((o) => o.at === Math.max(0, k)).map((o) => o.label);
+        if (open.length) rows.push(['   reads now: ' + open.join(' · '), '#a5d8ff', 0]);
+      }
+      const o = pb.opt;
+      if (o && (!live || k >= o.at)) rows.push(['   READ: ' + o.label + (o.read && o.read.length ? ' (' + o.read.join(', ') + ')' : '') + (o.at < play.steps.length - 1 ? ', an early read' : ''), '#b2f2bb', 1]);
+      if (pb.why && pb.why.length) rows.push(['   why this call: ' + pb.why.join(', '), '#adb5bd', 0]);
+    } else rows.push(['PLAY: ' + (PLAY[d.play] || d.play) + (setEv && setEv.setName ? ' · ' + setEv.setName : ' (flow, no call)'), '#ffffff', 1]);
     const ev = d.events || [];
     const i0 = Math.max(0, d.ei - 4), i1 = Math.min(ev.length, d.ei + 4);
     for (let i = i0; i < i1; i++) {
