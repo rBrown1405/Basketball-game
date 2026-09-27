@@ -444,6 +444,87 @@ procedural animation is untouched.
 - **Debug view**: the called play, its steps (done, under way, ahead), the reads open at this step and the read
   taken with the reactions behind it, why the coach called it, each player's role in it, and the coverage.
 
+### What the Phase 3 audit shows (52 games, the same 52 seeds as Phases 1 and 2)
+
+Full tables: `audit/phase3/report.md` and `report.html`. The Phase 2 code was measured again with this audit
+(`audit/phase3/phase2-code/`) so both sides are counted the same way; the numbers below compare the two. The audit
+gained the play metrics and three rules that apply to both sides: the two defenders of a ball screen or a hand-off
+are counted apart for 2.5 s after it (their coverage and the recovery), crowding is split into a defender whose own
+spot is on the ball and one passing by on his way to a spot away from it, and a drive's rotation (the low man, the
+man sinking to the low man's man) is help. They take the Phase 2 code's crowding from 13.6 to 12.1 s a game and its
+lost-man episodes from 10.9 to 9.7. The play calls change the random draws, so the two sides play different games
+from the same seeds.
+
+Nothing broken: all 52 games reached the final buzzer, no script errors, no stuck possessions, the court score
+matched the engine in every game, 228 points and 202 possessions a game (230 and 201 before). The engine's league
+numbers over a season are unchanged: men 115.3 points a team game, 99.6 possessions, 48.9 % from the field, 36.3 %
+from three (before 115.1, 99.9, 48.6, 36.4); women 84.9 points, 81.6 possessions (84.6, 81.3). Better teams win a
+little more often (team strength to win % correlation 0.76, 0.69 before): a roster that suits its plays gets more
+out of them. The quick sim takes about twice as long with the play calls (11 ms a game, 5 before).
+
+The playbook on the court:
+
+| | Phase 3 |
+|---|---:|
+| Half-court possessions with a called play (the rest in flow) | 77 % |
+| Plays called a game (inbound plays and resets included) | 154 |
+| Plays that reached a read / an early read, before the last step (of all calls) | 81 % / 6 % |
+| Steps run, of all the plays' steps | 94 % |
+| Players within 5 ft of their play spot 1.2 s into a step (on it, or making a small move around it) | 88 % |
+| more than 10 ft away | 4 % |
+| Ball screens where the screener's man plays the called coverage | 95 % |
+| Inbound plays a game (ball in to the safety, then the half-court call: 73 %) | 12.8 |
+| Points per half-court possession: with a call / in flow | 1.13 / 1.14 |
+
+What changed:
+
+| | Phase 2 | Phase 3 |
+|---|---:|---:|
+| Off-ball players with no job | 5.2 % | 1.9 % |
+| Off-ball players standing still (under 1 ft/s) | 20.1 % | 22.1 % |
+| Stand-stills of 3 s or more (a game) | 11.5 | 3.9 |
+| Off-ball players within 6 ft of a teammate | 18.3 % | 14.0 % |
+| Ball defender backing away from a handler who is not attacking | 3.1 % (60 a game) | 2.2 % (42 a game) |
+| Ball defender more than 10 ft off the handler inside 28 ft | 1.8 % | 1.3 % |
+| Extra cushion for a non-shooter over an elite shooter at the arc | 1.0 ft | 1.6 ft |
+| Two passes away: sees man and ball | 58 % | 66 % |
+| Extra defender crowding a guarded ball, no drive | 12.1 s a game | 15.0 s a game |
+| of it, his own spot on the ball (the rest passing by) | 4.2 s | 4.0 s |
+| Wide-open shooters off the ball found by a pass | 4.4 % | 7.6 % |
+| Time a catcher holds the ball before passing (median) | 2.1 s | 1.5 s |
+| Carom bending 1+ ft through the air into his hands | 9.0 % | 7.6 % |
+| Ball jumping 3+ ft into his hands at the grab | 0.6 % | 0.3 % |
+
+The animation work is untouched (`tools/audit/anim.js`, 4 games x 20 possessions, `audit/phase3/anim.json`): body
+contact 213 per 10,000 player-frames (202 before; 207 with the small moves around the play spots switched off, so
+most of the rise is the feet of those short steps brushing), feet stuck behind 27 per 10,000 running frames (31), no
+script errors.
+
+Found and fixed while checking:
+- Standing around in sets: the first full run had off-ball players standing still 49 % of the time (20 % before) and
+  316 stand-stills of 3 s or more a game. The five were sent to the alignment when the lead-up to the call began
+  (often 5 to 10 s of half court) and held it with no movement. Now the flow runs until the last seconds before the
+  call and a player waiting for his part keeps making small moves around his spot.
+- Rebounds: a rebounder who missed the grab left the ball going on at the planned carom's speed (20 to 34 ft/s), so
+  it flew over the sideline and bounced 30 to 50 ft out of bounds until the rebound was handed over (5 to 8 times in
+  52 games, in Phase 2 as well). It now goes on at a hard carom's speed at most and he runs it down.
+- An open finish at the rim now clears the late help out of the finisher's space, as open jump shots already did.
+
+Worse or not better yet:
+- Standing still 22.1 % (20.1 %), average speed 5.5 ft/s (5.8), jogging or faster 35 % of the time (42 %): a player
+  holding his spot in a set makes small moves around it instead of running the flow's actions. Long stand-stills are
+  down by two thirds.
+- Off-ball defense: one pass away in the passing lane 70 % (73 %), two passes away in help position 57 % (63 %),
+  lost-man episodes (more than 12 ft from his man outside a help spot for 0.5 s or more, none as long as 2 s) 13.8 a
+  game (9.7), crowding by defenders passing by the ball and standing in the handler's path 11.9 s a game (9.2).
+  Mostly defenders chasing the plays' cuts and runs to new spots and recovering after ball screens and hand-offs, and
+  the plays fill both corners with shooters, whose men stay home instead of helping.
+- Non-stretch bigs in the paint or short corner 65 % (75 %), nobody within 12 ft of the rim 25 % (18 %): horns,
+  Spain and the elbow sets put bigs at the elbows and the high post.
+- "Open" shots with a defender within 3 ft at the release 25.6 % (24.2 %); at the rim 53 % (49 %).
+- A ball rolling on the ring can still come off it too fast to land where the rebounder gets it on time and bounce
+  out of bounds (once in 52 games): the rim carom's timing, for later.
+
 ### Research behind Phase 3
 
 Coaching glossaries and breakdowns (search summaries; the play spots and timings are our translation into court

@@ -79,6 +79,8 @@ each other) and feet stuck far behind the hip while running, per 10,000 player-f
 ```
 node tools/audit/anim.js --out audit/phase2/anim.json --baseline audit/phase2/phase1-code/anim.json
 node tools/audit/anim.js --repo /tmp/phase1 --out audit/phase2/phase1-code/anim.json
+node tools/audit/anim.js --repo /tmp/phase2 --out audit/phase3/phase2-code/anim.json
+node tools/audit/anim.js --out audit/phase3/anim.json --baseline audit/phase3/phase2-code/anim.json
 ```
 
 The Live view's coach's debug view (`js/match/debugdraw.js`: the D key or the 🧠 button in a game, or Broadcast

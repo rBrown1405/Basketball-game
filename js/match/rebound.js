@@ -158,6 +158,10 @@
     // (off his fingertips: a tip kills most of its speed, it drops near him)
     if (tipped) { v[0] *= 0.3; v[1] *= 0.3; v[2] = Math.min(v[2], 2); }
     else if (pr.actor && Math.hypot(pr.actor.x - p[0], pr.actor.y - p[1]) < 8) { v[0] *= 0.55; v[1] *= 0.55; } // (a hand on it as it goes by)
+    // (it goes on at a hard carom's speed at most: the planned carom can be fast to meet his hands on time, and carried
+    // on at 20 to 30 ft/s it flew over the sideline and bounced 40 ft out of bounds before the rebound was handed over)
+    const vh = Math.hypot(v[0], v[1]);
+    if (vh > 13) { v[0] *= 13 / vh; v[1] *= 13 / vh; }
     const tf = (v[2] + Math.sqrt(v[2] * v[2] + 2 * G * Math.max(0, p[2] - R))) / G;
     if (tf > 0.02) segs.push(M.Ball.seg(s.t1, p, v, tf));
     b._bounceTail(segs);
