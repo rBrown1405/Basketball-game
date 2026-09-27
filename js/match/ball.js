@@ -10,6 +10,9 @@
   const M = window.PBC.Match, U = M.U;
   const R = 0.39, G = U.G;
   const RIM_Z = 10, RIM_R = 0.75;
+  // one bounce per move: a crossover is quick, between the legs and behind the back take a little longer, a
+  // hesitation hangs (a slower, higher bounce while he rises)
+  const MOVE_T = { cross: 0.36, btl: 0.44, btb: 0.44, hesi: 0.62 };
 
   // ------------------------------------------------------------ contact physics (docs/ANIMATION_RESEARCH.md)
   const ALPHA = 2 / 3;      // I / (m R^2): a basketball is close to a thin shell
@@ -170,8 +173,31 @@
     dribbleMove(type, o) {
       const d = this.dr;
       if (!d) return;
-      d.pendingMove = { type, toHand: 1 - d.hand, onDone: o && o.onDone, period: (o && o.period) || 0.36 };
+      d.combo = null; d.comboDone = null;
+      // (`urgent`: getting it away from a reach, the ride up is cut short and the move goes from the hand at once)
+      d.pendingMove = { type, toHand: 1 - d.hand, onDone: o && o.onDone, period: (o && o.period) || 0.36, urgent: !!(o && o.urgent) };
     }
+    /**
+     * a combo: dribble moves back to back, each from the hand the one before left the ball in (crossovers, between
+     * the legs, behind the back, a hesitation that keeps it in the same hand). list: types or {type, period};
+     * o.onDone(ball) when the last one is done (the moment to go). A move asked for meanwhile replaces the rest
+     */
+    dribbleCombo(list, o) {
+      const d = this.dr;
+      if (!d || !list || !list.length) return;
+      d.combo = list.map((m) => typeof m === 'string' ? { type: m } : m);
+      d.comboDone = (o && o.onDone) || null;
+      this._comboNext(d);
+    }
+    _comboNext(d) {
+      if (this.dr !== d) return;
+      const m = d.combo && d.combo.shift();
+      if (!m) { d.combo = null; const cb = d.comboDone; d.comboDone = null; if (cb) U.safe(() => cb(this), null, 'combo'); return; }
+      const hesi = m.type === 'hesi';
+      d.pendingMove = { type: m.type, toHand: hesi ? d.hand : 1 - d.hand, period: m.period || MOVE_T[m.type] || 0.36, onDone: () => this._comboNext(d) };
+    }
+    /** is a combo (or a single move) under way or waiting to go? */
+    working() { const d = this.dr; return !!(d && (d.move || d.pendingMove || (d.combo && d.combo.length))); }
     /**
      * the spin move's pull: the dribbling hand takes the ball as it comes up and keeps it on top, pulled back tight
      * to the hip while the body turns (it goes around with him); after `hold` s it is pushed down and crosses to the
@@ -654,6 +680,7 @@
           if (pu.on) d.u = Math.max(d.u, 0.999);
         }
       }
+      if (d.pendingMove && d.pendingMove.urgent && !(d.move && d.moveStarted) && d.plan && d.u >= d.plan.uC && d.u < 0.999) d.u = 0.999;
       if (d.pendingMove && d.u < 0.08) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = false; }
       if (d.move && !d.moveStarted && d.u < 0.1) { d.moveStarted = true; d.planned = false; }
       if (d.move && d.moveStarted) period = d.move.period;
@@ -813,6 +840,8 @@
         cx = 0;
         cy = d.move.type === 'cross' ? ty + 0.06 * H : d.move.type === 'btl' ? 0.06 * H : -0.14 * H;
       }
+      // a hesitation: he comes up out of his stance and the ball comes up with him, a higher, hanging bounce
+      if (d.move && d.move.type === 'hesi') { top += 0.08 * H; ctop = top; }
       const rel = Math.max(R + 0.05 * H, top - push);
       const ccatch = ctop - ride;
       const pl = d.plan || (d.plan = {});

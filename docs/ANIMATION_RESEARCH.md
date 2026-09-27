@@ -287,6 +287,21 @@ planted-foot slide stayed about level (+5 %). The Animation Lab adds Sidestep in
 recovers 16 ft and Help defender shadows his man across and back; its Backpedal is now in the defensive stance, since
 out of any other a player going back that far turns and runs.
 
+## Protecting the ball and moves in place (actor.js, ball.js, lab.js)
+
+| Move | How | Sources |
+|---|---|---|
+| Arm bar against a reach | a defender reaching at a dribbler's ball side has the ball taken away first: a quick crossover to the other hand (between the legs when he is close in front, where the legs guard it), cutting the ride up short so it goes at once. Then the body turns side-on (up to ~45 deg) so the off shoulder leads into the reach, the eyes on it, and the off arm comes up as a bar toward the reaching hand at its height, elbow slightly bent, palm out; it shields, it does not push. In the lab the reaching hand now meets the forearm while the ball is in the other hand; before, the off hand sat at head height on the far side (~3.2 ft from the reach) | https://www.coachesclipboard.net/Dribbling.html , https://breakthroughbasketball.com/fundamentals/dribbling-traits.html , https://hoopsking.com/blogs/default-blog/understanding-arm-bar-basketball-tips-for-better-play |
+| The off arm with a man close | a forearm across in front of the chest instead of up by the head: in the deep dribbling stance (trunk bent ~40 deg) the old forearm-up pose held the hand at head height or over it | |
+| Combos | `Ball.dribbleCombo(list, {onDone})` chains moves back to back, each from the hand the one before left the ball in: crossover, between the legs, behind the back, hesitation (same hand, a higher, hanging bounce while he rises); onDone is the moment to go | https://hoopsking.com/blogs/default-blog/how-to-get-by-defenders-in-basketball-7-proven-moves |
+| Between the legs in place | the foot opposite the hand the ball leaves steps forward as the ball goes under it (right to left, the left foot), the weight going onto it; a run of them scissors the feet, and the stance squares up again after | https://www.sportplan.net/drills/Basketball/Dribbling-Techniques/Basic-between-the-legs-dribbling-Basket48.jsp , https://www.youtube.com/watch?v=h7s31K0kPh4 |
+| Behind the back in place | the shoulders turn with the arm that wraps it round (that shoulder back), a slight bend | https://www.breakthroughbasketball.com/drills/17-stationary-dribbling-drills |
+| Hesitation | he comes up out of the stance, trunk and eyes up as if to shoot, the ball coming up with him on a slower bounce, then explodes | https://www.rockstaracademy.com/blog/hesitation-basketball , https://oneupbasketball.com/get-past-your-defender-with-the-hesitation-move/ |
+
+The Animation Lab's Dribbling group adds Crossovers in place, Between the legs in place, Behind the back in place,
+Hesitation then go, and a Combo (crossover, crossover, behind the back, between the legs twice, hesitation, drive)
+against a defender who slides to stay in front of the ball a beat after it switches hands.
+
 ## Transitions without pops (rig.js, actor.js, ball.js, choreo.js)
 
 A per-frame tracer over live possessions (joint accelerations relative to the body, with what changed in the
