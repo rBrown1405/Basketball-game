@@ -163,6 +163,14 @@
     _warned.set(k, n);
     if (n <= 3 && typeof console !== 'undefined') console.warn('[match]', msg, detail !== undefined ? detail : '');
   }
+  /** piecewise-linear lookup in [[x, y], ...] (sorted by x), held flat past both ends */
+  function interp(tbl, x) {
+    if (x <= tbl[0][0]) return tbl[0][1];
+    for (let i = 1; i < tbl.length; i++) {
+      if (x <= tbl[i][0]) { const a = tbl[i - 1], b = tbl[i]; return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); }
+    }
+    return tbl[tbl.length - 1][1];
+  }
   function safe(fn, self, label) {
     try { return fn.call(self); } catch (e) { warn(label || 'error', e); return undefined; }
   }
@@ -170,6 +178,6 @@
   M.U = Object.assign(prev, {
     TAU, DEG, G: 32.174, clamp, sat, lerp, smooth, wrapPi, angLerp, damp, approach, angApproach, spring, hermite,
     keyCurve, loopCurve, loopSample, rng, hashStr, hash2, parseColor: parse, rgbToHex, shade, mul, mix, rgba, lum,
-    contrast, makeCanvas, warn, safe,
+    contrast, makeCanvas, warn, safe, interp,
   });
 })();

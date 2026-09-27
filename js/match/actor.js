@@ -10,6 +10,12 @@
   const D = U.DEG;
 
   let _uid = 1;
+  /** the Player Speed live AI slider (League Settings, 0..100, 50 = default) as a multiplier, 0.8 .. 1.25 */
+  function paceOf(view) {
+    const ai = view && view.opts && view.opts.ai;
+    const x = ai && ai.moveSpeed != null ? U.clamp(+ai.moveSpeed, 0, 100) : 50;
+    return x < 50 ? U.lerp(0.8, 1, x / 50) : U.lerp(1, 1.25, (x - 50) / 50);
+  }
 
   class Foot {
     constructor(side) {
@@ -38,6 +44,9 @@
       this.noHang = !!o.noHang;
       this.lastT = this.t;
       this.data = o.data || null;
+      // reaching for a spot in the world (the rim): { x, y, z, t0, t1 } eases the held ball there over the rise;
+      // { hx, hy, hz, h0, h1, hands } holds the hand(s) on it (a dunker's grip on the rim)
+      this.reach = o.reach || null;
     }
   }
 
@@ -49,8 +58,10 @@
   const POSE_INERT = TORSO_INERT.concat(['ClvE', 'ClvP', 'ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD', 'Fing'].reduce((a, k) => a.concat([RG.CH['l' + k], RG.CH['r' + k]]), []));
   const POSE_INERT_LIN = { [RG.CH.rootX]: 0.02, [RG.CH.rootY]: 0.02, [RG.CH.lClvE]: 0.3, [RG.CH.rClvE]: 0.3, [RG.CH.lClvP]: 0.3, [RG.CH.rClvP]: 0.3, [RG.CH.lFing]: 0.3, [RG.CH.rFing]: 0.3 };
   const POSE_INERT_ARM = new Set(['ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD'].reduce((a, k) => a.concat([RG.CH['l' + k], RG.CH['r' + k]]), []));
-  const GAIT_SMOOTH = ['beta', 'lift', 'reach', 'halfW', 'liftPow', 'drop', 'toePitch', 'heelOff', 'landPitch', 'roll'];
+  const GAIT_SMOOTH = ['beta', 'lift', 'reach', 'halfW', 'liftPow', 'drop', 'toePitch', 'heelOff', 'landPitch', 'roll', 'run'];
   const IDLE_SHIFT = { stand: 1, ready: 1, handsHips: 1, handsKnees: 0.5, holdChest: 1, triple: 0.6, refStand: 1 };
+  // off-ball stances that turn and run when going somewhere, instead of shuffling there squared up to the ball
+  const TURN_EARLY = { stand: 1, ready: 1, handsKnees: 1, handsHips: 1 };
 
   class Actor {
     constructor(view, look, team, kind) {
@@ -67,10 +78,15 @@
       this.style = M.Figure.makeStyle(this.look, teamLook, this.kind);
       this.lefty = this.look.hand === 'L';
       const r = (k, d) => U.clamp(((this.look[k] == null ? d : this.look[k]) - 25) / 74, 0, 1);
-      this.rSpeed = r('speed', 70); this.rAgi = r('agility', 70); this.rVert = r('vert', 65);
-      this.maxSpeed = this.kind === 'ref' ? 16 : 19 + this.rSpeed * 7;
-      this.accel = this.kind === 'ref' ? 12 : 14 + this.rAgi * 7;
-      this.decel = this.accel * 1.5;
+      this.rSpeed = r('speed', 70); this.rAgi = r('agility', 70); this.rVert = r('vert', 65); this.rHandle = r('handle', 55);
+      // top speed 20-28 ft/s by rating (NBA tracking: game peaks ~22 ft/s, the fastest ~29), first-step push 16-24
+      // ft/s^2, braking harder than that (players decelerate faster than they accelerate); all scaled by the Player
+      // Speed live AI slider, which also scales how fast the director moves them (goalK)
+      this.paceK = this.kind === 'ref' ? 1 : paceOf(view);
+      this.goalK = this.kind === 'ref' ? 1 : 1.1 * this.paceK;
+      this.maxSpeed = this.kind === 'ref' ? 16 : (20 + this.rSpeed * 8) * this.paceK;
+      this.accel = this.kind === 'ref' ? 12 : (16 + this.rAgi * 8) * this.paceK;
+      this.decel = this.accel * 1.7;
       // state
       this.x = 47; this.y = 25; this.vx = 0; this.vy = 0; this.facing = 0; this.speed = 0;
       this.ax = 0; this.ay = 0;
@@ -106,7 +122,7 @@
       this.breath = Math.random() * 10;
       this.hidden = false;
       this.alpha = 1;
-      this.lean = 0; this.leanF = 0;
+      this.lean = 0; this.leanF = 0; this.leanv = 0; this.leanFv = 0;
       this.hasBall = false;
       this.ballHold = null; // 'chest' | 'triple' | 'over' | 'pocket' | null
       this.dribble = null; // set by ball controller: {hand:0|1, u (0..1 phase), top:[x,y,z]}
@@ -128,7 +144,7 @@
       this._inT = null;
     }
     resetFeet() {
-      const st = A.STANCE[this.stance] || A.STANCE.stand;
+      const st = stanceOf(this, this.stance);
       for (const f of this.feet) {
         const o = f.side ? st.R : st.L;
         const c = Math.cos(this.facing), s = Math.sin(this.facing);
@@ -143,9 +159,11 @@
     moveTo(x, y, o) {
       o = o || {};
       const g = this.goal;
+      // (a standing turn gives way to a move: it fades out and the run starts from where the turn got to)
+      if (this.clip && this.clip.autoTurn && !this.clip.ending && Math.hypot(x - this.x, y - this.y) > 0.8) this.stopClip();
       g.mode = 'move'; g.x = x; g.y = y;
       g.by = o.by == null ? null : o.by;
-      g.speed = o.speed || this.maxSpeed * 0.85;
+      g.speed = o.speed ? o.speed * this.goalK : this.maxSpeed * 0.85;
       g.arrive = o.arrive !== false;
       g.track = null;
       // timed moves: never slower than this natural pace (walk there and wait instead of creeping in slow motion)
@@ -158,7 +176,7 @@
     track(fn, o) {
       o = o || {};
       const g = this.goal;
-      g.mode = 'track'; g.track = fn; g.speed = o.speed || this.maxSpeed; g.arrive = true; g.by = null; g.pace = 0;
+      g.mode = 'track'; g.track = fn; g.speed = o.speed ? o.speed * this.goalK : this.maxSpeed; g.arrive = true; g.by = null; g.pace = 0;
       if (o.face !== undefined) this.setFace(o.face);
       if (o.stance) this.setStance(o.stance);
       return this;
@@ -196,6 +214,14 @@
     play(name, o) {
       const clip = typeof name === 'string' ? A.get(name) : name;
       if (!clip) return null;
+      // reaching for the ball commits the body: a lunge onto the front foot toward it, the off arm back for balance,
+      // and back out; the man with the ball protects it
+      if (clip.name === 'swipe' && this.kind === 'player') {
+        const b = this.view && this.view.ball, bh = b && b.holder && b.holder !== this ? b.holder : null;
+        const tx = bh ? bh.x : b ? b.x : this.x + Math.cos(this.facing), ty = bh ? bh.y : b ? b.y : this.y + Math.sin(this.facing);
+        this._lunge = { t: this.time, a: Math.atan2(ty - this.y, tx - this.x), stepped: false };
+        if (bh && Math.hypot(bh.x - this.x, bh.y - this.y) < 7 && bh.protectBall) bh.protectBall(this.x, this.y, 0.08);
+      }
       o = Object.assign({}, o || {});
       if (o.mirror == null) o.mirror = this.lefty && clip.handed !== false;
       const cs = new ClipState(clip, Object.assign({ x: this.x, y: this.y, facing: this.facing }, o));
@@ -221,24 +247,366 @@
       if (this.clip) { this.clip.ending = true; if (fade === 0) this._endClip(); }
     }
     isBusy() { return !!(this.clip && !this.clip.done); }
+    /** a body contact: pushed along (nx, ny) with `speed` ft/s of the closing speed. The body is knocked a little off
+     *  its line and thrown off balance (the torso goes with the push, the arms come out, the head lags), then he
+     *  recovers; in the air too, where it does not stop the shot, only how it looks getting there */
+    impact(nx, ny, speed) {
+      if (!(speed > 3)) return;
+      const s = Math.min(speed, 12), h = this.hit;
+      if (h && h.t < 0.2 && h.s >= s) return;
+      // (how much it shows: a brush barely, a real collision clearly; up to ~0.5 ft off his line)
+      const air = (this.jumpZ || 0) > 0.15;
+      this.hit = { nx, ny, s, k: U.smooth((s - 2.5) / 7), t: 0, air };
+      // knocked hard enough, he has to catch his balance: a quick step the way he was pushed (in the air, when he
+      // comes down)
+      // (not leaning on a man on purpose, a box-out, a post-up or a screen, where the bodies push all the time)
+      const lean = this.stance === 'boxout' || this.stance === 'postD' || this.stance === 'postUp' || this.stance === 'screen';
+      if (s > 6.5 && !lean && (air || !this.clip)) this._stumble = { nx, ny, k: U.smooth((s - 6) / 6), t: air ? null : this.time + 0.06 };
+    }
+    /** a defender reaching for the ball: he protects it, the near shoulder turned into the reach and the ball pulled
+     *  away to the far side and down (a dribble drops toward the knees), the head up to see the reach; ~0.6 s */
+    protectBall(fx, fy, delay) {
+      if (!this.hasBall) return;
+      const rel = U.wrapPi(Math.atan2(fy - this.y, fx - this.x) - this.facing);
+      // (a reach from behind gets the body turned, not the ball swung round in front)
+      this._protect = { t: this.time + (delay || 0), sgn: rel >= 0 ? 1 : -1, k: 1 - 0.6 * U.smooth((Math.abs(rel) - 2.2) / 0.6) };
+    }
+    _protectK() {
+      const pr = this._protect;
+      if (!pr) return 0;
+      const t = this.time - pr.t;
+      if (t > 0.7) { this._protect = null; return 0; }
+      return t < 0 ? 0 : U.smooth(t / 0.1) * (1 - U.smooth((t - 0.4) / 0.3)) * pr.k;
+    }
+    /**
+     * pivot to face `angle` on a planted foot (a face-up after a catch, the post turn): the pivot foot keeps its spot
+     * and turns on its ball, the body swings around it and the free foot steps around (two steps for a big turn, so
+     * it never crosses the pivot foot). Turning left pivots on the left foot, right on the right. The ball stays in
+     * the triple threat at the hip. Returns false when the turn is small enough to just face that way
+     */
+    pivotTo(angle, o) {
+      o = o || {};
+      const delta = U.wrapPi(angle - this.facing);
+      if (Math.abs(delta) < 0.55) { this.setFace(angle); return false; }
+      const side = delta > 0 ? 0 : 1; // turning left: pivot on the left foot
+      const pf = this.feet[side], ff = this.feet[1 - side];
+      if (pf.state !== 'plant' || ff.state === 'air') { this.setFace(angle); return false; }
+      const c = Math.cos(this.facing), s = Math.sin(this.facing);
+      const loc = (x, y) => [(x - this.x) * c + (y - this.y) * s, (x - this.x) * s - (y - this.y) * c]; // [fwd, lat]
+      const P = loc(pf.x, pf.y), F0 = loc(ff.x, ff.y);
+      // rotate a clip-frame point about the pivot by phi (+ = left): in (fwd, lat), a left turn takes fwd toward -lat
+      const rot = (q, phi) => { const dx = q[0] - P[0], dy = q[1] - P[1], cp = Math.cos(phi), sp = Math.sin(phi); return [P[0] + dx * cp + dy * sp, P[1] - dx * sp + dy * cp]; };
+      const dur = 0.2 + 0.26 * Math.abs(delta) / Math.PI * (1.15 - 0.3 * (this.rAgi || 0.5));
+      const n = 4, root = [], yaw = [];
+      for (let i = 0; i <= n; i++) {
+        const u = i / n, ue = U.smooth(u), phi = delta * ue;
+        const r = rot([0, 0], phi);
+        root.push([dur * u, r[0], r[1]]);
+        yaw.push([dur * u, phi / D]);
+      }
+      root.push([dur + 0.12, root[n][1], root[n][2]]); yaw.push([dur + 0.12, delta / D]);
+      const big = Math.abs(delta) > 2.0;
+      const steps = [];
+      const fSide = side ? 'l' : 'r';
+      if (big) {
+        const m = rot(F0, delta * 0.5), e = rot(F0, delta);
+        steps.push({ t0: 0.03, t1: dur * 0.5, foot: fSide, to: m, yaw: delta * 0.5 / D, lift: 0.05 });
+        steps.push({ t0: dur * 0.52, t1: dur, foot: fSide, to: e, yaw: delta / D, lift: 0.05 });
+      } else {
+        steps.push({ t0: 0.03, t1: dur, foot: fSide, to: rot(F0, delta), yaw: delta / D, lift: 0.06 });
+      }
+      const noBall = o.ball === false;
+      const hold0 = noBall ? this.stance : o.hold || 'triple';
+      const hold = noBall ? (A.STANCE[hold0] || A.STANCE.stand).pose : this.lefty && HANDED[hold0] ? HANDED[hold0] : hold0, bm = this.lefty ? -1 : 1;
+      const tw = delta > 0 ? 1 : -1;
+      const clip = A.buildClip({
+        name: noBall ? 'turn' : 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
+        pivot: { side, t0: 0, t1: dur + 0.12 },
+        // (the whole body goes round together: the head and shoulders a little ahead, the hips with the feet)
+        keys: noBall ? [
+          { t: 0, p: hold },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.04, chTwist: tw * 9, nkTwist: tw * 12, hdTwist: tw * 4 } },
+          { t: dur + 0.12, p: hold },
+        ] : [
+          { t: 0, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: tw * 12, nkTwist: tw * 10 }, ball: [0.13 * bm, 0.21, 0.55], grip: this.lefty ? 'hipL' : 'hip' },
+          { t: dur + 0.12, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
+        ],
+      });
+      if (!noBall) this.ballHold = 'triple';
+      // (built for this player's own feet and turn: never mirrored for a lefty)
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: this.facing, fadeIn: 0.08, mirror: false });
+      if (cs && noBall) { cs.autoTurn = true; cs.onEnd = () => { this.setStance(hold0); }; }
+      else if (cs) cs.onEnd = () => { this.setStance(hold0); this.setFace(o.faceAfter != null ? o.faceAfter : angle); };
+      return !!cs;
+    }
+    /**
+     * The spin move off the dribble, built for this player's own feet (no canned motion): a hard plant of the foot on
+     * the far side from the ball (a right-hand dribble plants the left foot) in front of his man, a reverse pivot on
+     * the ball of that foot with his back into him (the free leg whips around behind on an arc, the off arm tucked in
+     * so the turn is quick, the head leading), then a second pivot on the foot that just landed while the first swings
+     * through and he comes out past his man, low; the ball is pulled tight to the hip with the hand on top through the
+     * first half turn, then bounced across to the other hand at about 180 degrees.
+     * o: { exitFacing (default: the facing now, a full turn), onEnd }. Returns the clip state (null: not now).
+     */
+    spinMove(o) {
+      o = o || {};
+      const b = this.view && this.view.ball;
+      const dr = b && b.dr && b.dr.actor === this ? b.dr : null;
+      const hand = dr ? dr.hand : (this.lefty ? 0 : 1);
+      // built for a right-hand dribble (plant the left foot, turn right: clockwise from above); a left-hand one is
+      // its mirror image
+      const mir = hand === 0, m = mir ? -1 : 1;
+      const Lg = this.dims.th + this.dims.sh;
+      const f0 = this.facing, c = Math.cos(f0), s = Math.sin(f0);
+      // [fwd, lat (+ = right)] of a world point in the right-hand build
+      const loc = (x, y) => [(x - this.x) * c + (y - this.y) * s, m * ((x - this.x) * s - (y - this.y) * c)];
+      // rotate a build-frame point q about p by phi (+ = left, counter-clockwise from above)
+      const rot = (q, p, phi) => { const dx = q[0] - p[0], dy = q[1] - p[1], cp = Math.cos(phi), sp = Math.sin(phi); return [p[0] + dx * cp + dy * sp, p[1] - dx * sp + dy * cp]; };
+      // keep a foot's landing spot at a stride's distance from the foot it turns around
+      const reach = (q, p, lo, hi) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, k = U.clamp(l, lo, hi) / l; return [p[0] + dx * k, p[1] + dy * k]; };
+      const fr = this.feet[mir ? 0 : 1]; // the free foot (the right in the build)
+      const quick = this._spinQuick();
+      const tA = 0.15, dB = 0.3 * quick, dC = 0.26 * quick;
+      const tB = tA + dB, tC = tB + dC, dur = tC + 0.16;
+      // the whole turn: a full circle back to the facing he had, or round to exitFacing (clockwise in the build)
+      const exitRel = o.exitFacing != null ? U.wrapPi(o.exitFacing - f0) * m : 0;
+      const turn = -2 * Math.PI + U.clamp(exitRel, -0.5, 0.9);
+      // the hips over the foot he stands on: the pelvis centre sits about a hip's width to the inside of it
+      const hw = 0.85 * this.dims.hipX;
+      const inside = (foot, ph, sgn) => [foot[0] + sgn * hw * Math.sin(ph) - 0.06 * Lg * Math.cos(ph), foot[1] + sgn * hw * Math.cos(ph) + 0.06 * Lg * Math.sin(ph)];
+      // 1. the plant: the left foot lands ahead and a little across, in front of his man, as the body brakes onto it
+      const v0 = Math.min(this.speed, 14), ph0 = -8 * D;
+      const P = [0.26 * Lg + 0.1 * v0, -0.05 * Lg];
+      // (the foot lands ahead of the hips, which are still coming on, braking, as it plants)
+      const R1 = [0.85 * v0 * tA, 0.02 * Lg];
+      // 2. the reverse pivot: the right foot swings around behind him to the far side of the pivot
+      const q0 = fr.state === 'swing' && fr.tx != null ? loc(fr.tx, fr.ty) : loc(fr.x, fr.y);
+      const F1 = reach(rot(q0, P, -Math.PI), P, 0.3 * Lg, 0.44 * Lg);
+      // 3. the second pivot, on the right foot: the left swings through past his man
+      const F2 = reach(rot(P, F1, turn + Math.PI), F1, 0.32 * Lg, 0.48 * Lg);
+      const ease = (u) => u * u * (3 - 2 * u);
+      const root = [[0, 0, 0]], yaw = [[0, 0]];
+      root.push([tA, R1[0], R1[1]]); yaw.push([tA, ph0 / D]);
+      const mid1 = [(P[0] + F1[0]) / 2, (P[1] + F1[1]) / 2], mid2 = [(F1[0] + F2[0]) / 2, (F1[1] + F2[1]) / 2];
+      const n1 = 8, n2 = 8;
+      let last = R1;
+      // (on one foot the hips circle it closely; as the other foot lands the weight moves across between the two)
+      for (let i = 1; i <= n1; i++) {
+        const u = i / n1, ph = ph0 + (-Math.PI - ph0) * ease(u);
+        const q = inside(P, ph, 1), d0 = 1 - U.smooth(u / 0.35), dk = U.smooth((u - 0.45) / 0.55) * 0.5;
+        const r0 = [q[0] + (R1[0] - q[0]) * d0, q[1] + (R1[1] - q[1]) * d0];
+        last = [r0[0] + (mid1[0] - r0[0]) * dk, r0[1] + (mid1[1] - r0[1]) * dk];
+        root.push([tA + dB * u, last[0], last[1]]); yaw.push([tA + dB * u, ph / D]);
+      }
+      const R2 = last;
+      for (let i = 1; i <= n2; i++) {
+        const u = i / n2, ph = -Math.PI + (turn + Math.PI) * ease(u);
+        const q = inside(F1, ph, -1), d0 = 1 - U.smooth(u / 0.5), dk = U.smooth((u - 0.45) / 0.55) * 0.5;
+        const r0 = [q[0] + (R2[0] - q[0]) * d0, q[1] + (R2[1] - q[1]) * d0];
+        last = [r0[0] + (mid2[0] - r0[0]) * dk, r0[1] + (mid2[1] - r0[1]) * dk];
+        root.push([tB + dC * u, last[0], last[1]]); yaw.push([tB + dC * u, ph / D]);
+      }
+      // 4. out of it: the momentum carries him on toward where he now faces
+      const fe = [Math.cos(turn), -Math.sin(turn)];
+      root.push([dur, last[0] + fe[0] * 0.75, last[1] + fe[1] * 0.75]); yaw.push([dur, turn / D]);
+      const steps = [
+        { t0: 0, t1: tA, foot: 'l', to: P, yaw: -2, lift: 0.035 },
+        { t0: tA + 0.02, t1: tB - 0.015, foot: 'r', to: F1, yaw: -188, lift: 0.075, arc: { at: P, dir: -1 } },
+        { t0: tB + 0.01, t1: tC - 0.015, foot: 'l', to: F2, yaw: turn / D + 8, lift: 0.06, arc: { at: F1, dir: -1 } },
+      ];
+      // the body: low through it, the head and shoulders leading the turn, the off arm tucked in to spin fast, then
+      // out to the side for balance and to protect the ball in the other hand
+      const low = { base: 'dribbleLow' };
+      const K = (t, o2) => ({ t, p: Object.assign({}, low, o2) });
+      const keys = [
+        K(0, {}),
+        K(tA, { rootZ: -0.155, pelPitch: 27, spFlex: 5, chTwist: -8, nkTwist: -14, lShF: 26, lShA: 18, lShT: 6, lElF: 100, lPro: 70 }),
+        K(tA + dB * 0.5, { rootZ: -0.15, pelPitch: 23, spFlex: 3, chTwist: -18, nkTwist: -34, hdTwist: -8, lShF: 20, lShA: 14, lShT: 4, lElF: 106, lPro: 72 }),
+        K(tB, { rootZ: -0.145, pelPitch: 22, spFlex: 3, chTwist: -14, nkTwist: -30, hdTwist: -6, lShF: 22, lShA: 16, lShT: 4, lElF: 104, lPro: 70 }),
+        K(tB + dC * 0.5, { rootZ: -0.145, pelPitch: 24, spFlex: 4, chTwist: -8, nkTwist: -18, rShF: 24, rShA: 16, rShT: 4, rElF: 100, rPro: 70, lShF: 36, lShA: 26, lElF: 80 }),
+        K(tC, { rootZ: -0.14, pelPitch: 28, spFlex: 6, chTwist: 4, nkTwist: 0, rShF: 38, rShA: 42, rShT: -8, rElF: 62, rPro: 62 }),
+        K(dur, {}),
+      ];
+      const clip = A.buildClip({
+        name: 'spinMove', dur, events: { plant: tA, turn: tB, out: tC }, root, yaw, steps, keys,
+        pivots: [{ side: 0, t0: tA, t1: tB }, { side: 1, t0: tB, t1: tC }],
+        turnRate: 40, offArm: 1, keepV: 1,
+      });
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: f0, fadeIn: 0.1, mirror: mir, onEvent: o.onEvent });
+      if (!cs) return null;
+      // the ball: taken on top as it comes up, pulled to the hip, then across to the other hand as he comes around
+      if (dr) b.spinPull(tA + dB * 0.62, 0.34);
+      cs.onEnd = () => {
+        this.setStance('dribble');
+        // out of it he keeps going: on to the spot given, else a couple of steps on the way he now faces
+        const ex = o.exitTo || { x: this.x + Math.cos(this.facing) * 6, y: this.y + Math.sin(this.facing) * 6 };
+        if (!o.stay) this.moveTo(ex.x, ex.y, { speed: o.exitSpeed || 9, stance: 'dribble' });
+        if (o.onEnd) o.onEnd(this);
+      };
+      return cs;
+    }
+    /**
+     * A jump stop off a run or a drive, built for this player's own speed: a small hop off the last step (~0.16 s in
+     * the air, barely off the floor) and both feet land together, about shoulder width apart and a touch staggered,
+     * out ahead of the hips so the legs brake the body; the knees give, the hips sink and stay back, chest up and
+     * balanced over the feet (not leaning in), the ball chinned if he has it (a dribble is picked up on the hop).
+     * Then he settles into the stance, free to pivot on either foot.
+     * o: { faceTo: {x, y} (turns toward it in the air, up to ~60 deg), stance (after it; default holdChest with the
+     * ball, ready without), onEnd }. Returns the clip state (null: not now).
+     */
+    jumpStop(o) {
+      o = o || {};
+      const b = this.view && this.view.ball;
+      const has = !!(b && b.holder === this);
+      const v = U.clamp(this.speed, 3, 16), H = this.H, Lg = this.dims.th + this.dims.sh;
+      const f0 = this.facing, c = Math.cos(f0), s = Math.sin(f0);
+      // the way he is going, in the clip's frame [fwd, lat (+ = right)]
+      const ux = this.speed > 0.5 ? this.vx / this.speed : c, uy = this.speed > 0.5 ? this.vy / this.speed : s;
+      const mf = ux * c + uy * s, ml = ux * s - uy * c;
+      // the last push (on at speed), the hop (a little slower in the air), the brake onto both feet (to a stop in
+      // ~0.2 s, ~2 g from a 12 ft/s drive) and the settle
+      const tA = 0.08, tB = tA + 0.16, tC = tB + 0.2, dur = tC + 0.22;
+      const dA = v * tA, dB = dA + 0.9 * v * 0.16, dC = dB + 0.8 * v * 0.2 * 0.5;
+      const along = (d) => [mf * d, ml * d];
+      const turn = o.faceTo ? U.clamp(U.wrapPi(Math.atan2(o.faceTo.y - this.y, o.faceTo.x - this.x) - f0), -1.05, 1.05) : 0;
+      const root = [[0, 0, 0], [tA, ...along(dA)], [tB, ...along(dB)], [tB + 0.1, ...along(dB + (dC - dB) * 0.75)], [tC, ...along(dC)], [dur, ...along(dC)]];
+      const yaw = [[0, 0], [tA, 0], [tB, turn / D], [dur, turn / D]];
+      // both feet land where the hips come to rest, square to the way he ends up facing: ~0.22 H apart, the right a
+      // touch back; at touchdown they are out ahead of the hips by the braking distance
+      const land = along(dC + 0.03 * Lg), cf = Math.cos(turn), sf = Math.sin(turn);
+      const spot = (lat, fwd) => [land[0] + fwd * cf + lat * sf, land[1] - fwd * sf + lat * cf];
+      const steps = [
+        { t0: tA - 0.02, t1: tB, foot: 'l', to: spot(-0.11 * H, 0.015 * H), yaw: turn / D + 12, lift: 0.03, easeOut: 1 },
+        { t0: tA, t1: tB, foot: 'r', to: spot(0.11 * H, -0.02 * H), yaw: turn / D - 12, lift: 0.03, easeOut: 1 },
+      ];
+      const st = o.stance || (has ? 'holdChest' : 'ready');
+      const base = (A.STANCE[st] || A.STANCE.ready).pose;
+      const K = (t, p2) => ({ t, p: Object.assign({ base }, p2) });
+      const keys = [
+        K(0, {}),
+        K(tA, { rootZ: -0.035, pelPitch: 14, spFlex: 4 }),
+        K(tA + 0.08, { rootZ: -0.01, pelPitch: 8, spFlex: 2, both: { HipF: 38, Knee: 42, Ank: -6 } }),
+        K(tB, { rootZ: -0.06, pelPitch: 14, spFlex: 2, nkFlex: -6, both: { HipF: 42, Knee: 48, Ank: 10 } }),
+        K(tB + 0.09, { rootZ: -0.1, pelPitch: 20, spFlex: 3, nkFlex: -10, both: { HipF: 55, Knee: 70, Ank: 20 } }),
+        K(tC, { rootZ: -0.085, pelPitch: 18, spFlex: 3, nkFlex: -8 }),
+        K(dur, {}),
+      ];
+      const clip = A.buildClip({ name: 'jumpStop', dur, events: { hop: tA, land: tB }, root, yaw, steps, keys, jump: { t0: tA, t1: tB, h: 0.015 } });
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: f0, fadeIn: 0.06, mirror: false });
+      if (!cs) return null;
+      if (has && b.state === 'dribble') b.give(this, 'chest');
+      else if (has) this.ballHold = this.ballHold || 'chest';
+      cs.onEnd = () => {
+        this.setStance(st);
+        if (o.faceTo) this.setFace(o.faceTo);
+        if (o.onEnd) o.onEnd(this);
+      };
+      return cs;
+    }
+    /** how long a jump stop takes */
+    jumpStopDur() { return 0.08 + 0.16 + 0.2 + 0.22; }
+    _spinQuick() { return 1.12 - 0.24 * (this.rAgi == null ? 0.5 : this.rAgi); }
+    /** how long this player's spin move takes (quicker for the agile) */
+    spinDur() { return 0.15 + 0.56 * this._spinQuick() + 0.16; }
+    /** where the body will be in dt seconds (the playing clip's root motion, else straight on at this velocity) */
+    predictFrame(dt, out) {
+      const cs = this.clip;
+      if (cs && cs.clip.rootKeys && !cs.done) {
+        const r = this._clipRoot(cs, Math.min(cs.t + dt * cs.speed, cs.clip.dur));
+        out.x = r.x; out.y = r.y; out.facing = r.yaw;
+      } else { out.x = this.x + this.vx * dt; out.y = this.y + this.vy * dt; out.facing = this.facing; }
+      return out;
+    }
+    /**
+     * Square the upper body to a point for a moment (a pass: the chest and arms go at the receiver while the feet
+     * turn the rest of the way): the trunk twists up to ~70 deg, easing in over ~0.15 s and out after `until`.
+     */
+    aimAt(pt, until) {
+      if (!pt) { if (this.aim_) this.aim_.until = 0; return; }
+      const w = this.aim_ && this.aim_.w > 0 ? this.aim_.w : 0;
+      this.aim_ = { x: pt.x, y: pt.y, until, w };
+    }
 
     // ============================================================ update
     update(dt, now) {
       this.time = now;
+      const hit = this.hit;
+      if (hit) {
+        hit.t += dt;
+        if (hit.t > 0.6) this.hit = null;
+        else {
+          // knocked off his line: most of it in the first ~0.2 s, ~0.05 ft per ft/s of the impact in all
+          const push = hit.k * 0.5 * Math.exp(-hit.t / 0.09) / 0.09 * dt;
+          if (this.clip) { this.clip.ox += hit.nx * push; this.clip.oy += hit.ny * push; }
+          else { this.x += hit.nx * push; this.y += hit.ny * push; }
+        }
+      }
       if (this.clip) this._updateClip(dt);
+      // how hard a jump comes down: the legs give on landing in proportion (see buildPose)
+      if (dt > 0) {
+        const jz = this.jumpZ || 0, pz = this._jzPrev == null ? jz : this._jzPrev;
+        if (pz > 0.03 && jz <= 0.03 && (this._jzV || 0) < -3) {
+          this._absorb = { v: -this._jzV, t: this.time };
+          // (knocked in the air: he comes down off balance and has to catch himself)
+          if (this._stumble && this._stumble.t == null) this._stumble.t = this.time + 0.05;
+        }
+        this._jzV = (jz - pz) / dt; this._jzPrev = jz;
+      }
       if (this.upper) this._updateUpper(dt);
       if (!this.clip) {
         this._steer(dt);
         this._turn(dt);
         this._locomote(dt);
       }
+      this._contactSteps();
       if (this.stanceBlend < 1) this.stanceBlend = Math.min(1, this.stanceBlend + dt / 0.28);
+      if (this.aim_) {
+        const a = this.aim_;
+        a.w = this.time < a.until ? Math.min(1, a.w + dt / 0.15) : a.w - dt / 0.25;
+        if (a.w <= 0) this.aim_ = null;
+      }
       this._stanceParams();
       for (const f of this.feet) if (f.land) this._settleLanding(f, dt);
       if (this.fall > 0 && !this.clip) this.fall = Math.max(0, this.fall - dt * 0.5);
       this.stillT = (!this.clip && this.speed < 0.6) ? (this.stillT || 0) + dt : 0;
     }
 
+    /** steps forced by contact: the lunge of a reach (the front foot toward the ball, standing) and the step that
+     *  catches the balance after a hard bump (the foot furthest the way he was pushed goes further that way) */
+    _contactSteps() {
+      const H = this.H;
+      const lg = this._lunge;
+      if (lg) {
+        const t = this.time - lg.t;
+        if (t > 0.7) this._lunge = null;
+        else if (!lg.stepped && t > 0.02) {
+          lg.stepped = true;
+          const f = this.feet[1];
+          if (!this.clip && !this.gaitOn && f.state === 'plant') {
+            const c = Math.cos(lg.a), s = Math.sin(lg.a), d = 0.12 * H;
+            this._sepTarget(f, f.x + c * d, f.y + s * d, TD);
+            this._beginStep(f, TD[0], TD[1], f.yaw, 0.16, 0.03);
+          }
+        }
+      }
+      const sb = this._stumble;
+      if (sb && sb.t != null && this.time >= sb.t) {
+        this._stumble = null;
+        // (on the move the stride takes the push; a forced step in the middle of it tangled the feet)
+        if (this.clip || (this.gaitOn && this.speed > 2)) return;
+        let best = null, bd = -1e9;
+        for (const f of this.feet) {
+          if (f.state !== 'plant') continue;
+          const d = (f.x - this.x) * sb.nx + (f.y - this.y) * sb.ny;
+          if (d > bd) { bd = d; best = f; }
+        }
+        if (!best) return;
+        const L = (0.05 + 0.07 * sb.k) * H;
+        this._sepTarget(best, best.x + sb.nx * L, best.y + sb.ny * L, TD);
+        this._beginStep(best, TD[0], TD[1], best.yaw, 0.15, 0.03);
+      }
+    }
     _steer(dt) {
       const g = this.goal;
       let dvx = 0, dvy = 0;
@@ -248,6 +616,15 @@
         if (g.mode === 'track' && g.track) {
           const t = g.track(this);
           if (t) { tx = t.x; ty = t.y; tvx = t.vx || 0; tvy = t.vy || 0; g.x = tx; g.y = ty; }
+          // (how fast what he follows is going: read by the facing, a man on the move is followed at a run)
+          g.tv = Math.hypot(tvx, tvy); g.tvx = tvx; g.tvy = tvy;
+        } else if (dt > 0) {
+          // (a spot that keeps being moved on, the way a spacing spot follows the ball, goes as fast as it is moved:
+          // measured over ~0.25 s, a jump to a new spot aside)
+          const jx = g.x - (g.px == null ? g.x : g.px), jy = g.y - (g.py == null ? g.y : g.py), jl = Math.hypot(jx, jy);
+          const k = 1 - Math.exp(-dt / 0.25), mx = jl < 1 ? jx / dt : 0, my = jl < 1 ? jy / dt : 0;
+          g.tvx = (g.tvx || 0) + (mx - (g.tvx || 0)) * k; g.tvy = (g.tvy || 0) + (my - (g.tvy || 0)) * k;
+          g.tv = Math.hypot(g.tvx, g.tvy); g.px = g.x; g.py = g.y;
         }
         const dx = tx - this.x, dy = ty - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -270,7 +647,11 @@
       const el = Math.sqrt(ex * ex + ey * ey);
       const spd = Math.hypot(this.vx, this.vy);
       const slowing = (dvx * this.vx + dvy * this.vy) < spd * spd;
-      const amax = (slowing ? this.decel : this.accel) * dt;
+      // how hard a player pushes off depends on how fast he wants to go: a walk starts gently (walking speed within
+      // a step or two), a sprint with everything he has (every start used to be a sprinter's push, even into a
+      // walk, and the upper body lurched ahead of the legs)
+      const accelNow = Math.min(this.accel, 4.5 + 1.8 * Math.max(Math.hypot(dvx, dvy), spd));
+      const amax = (slowing ? this.decel : accelNow) * dt;
       if (el > amax) { ex *= amax / el; ey *= amax / el; }
       this.ax = ex / Math.max(dt, 1e-4); this.ay = ey / Math.max(dt, 1e-4);
       // a smoothed copy for predicting where the feet land (the raw value flips sign as a player settles to a stop)
@@ -279,11 +660,21 @@
       this.vx += ex; this.vy += ey;
       this.x += this.vx * dt; this.y += this.vy * dt;
       this.speed = Math.hypot(this.vx, this.vy);
-      // lean into acceleration / turns (smoothed)
+      // lean into acceleration / turns (smoothed): only part of the tilt a push-off needs is the trunk bending at the
+      // hips (most of it is the legs driving from behind the body), ~12 deg at most; it used to reach ~23 deg even on a
+      // walk start and read as the head and shoulders being dragged ahead of the legs
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
       const aF = this.ax * c + this.ay * s, aR = this.ax * s - this.ay * c;
-      this.leanF = U.damp(this.leanF, U.clamp(aF / 32.2, -0.35, 0.4), 6, dt);
-      this.lean = U.damp(this.lean, U.clamp(aR / 32.2, -0.3, 0.3), 6, dt);
+      // (on critically damped springs, ~0.1 s half-life: the lean builds and eases off smoothly with no overshoot;
+      // eased toward the push directly, it started and stopped with a kink every time the push changed)
+      if (dt > 0) {
+        const y = 2 * Math.LN2 / 0.1, e = Math.exp(-y * dt);
+        const tF = U.clamp(aF / 32.2 * 0.5, -0.18, 0.21), tR = U.clamp(aR / 32.2 * 0.6, -0.2, 0.2);
+        let j0 = this.leanF - tF, j1 = this.leanFv + j0 * y;
+        this.leanF = e * (j0 + j1 * dt) + tF; this.leanFv = e * (this.leanFv - j1 * y * dt);
+        j0 = this.lean - tR; j1 = this.leanv + j0 * y;
+        this.lean = e * (j0 + j1 * dt) + tR; this.leanv = e * (this.leanv - j1 * y * dt);
+      }
     }
 
     _desiredFacing() {
@@ -301,16 +692,100 @@
       const moveA = Math.atan2(this.vy, this.vx);
       const diff = Math.abs(U.wrapPi(moveA - face));
       const st = A.STANCE[this.stance] || A.STANCE.stand;
-      const slideMax = this.faceLock && this.faceMode === 'fn' ? 16 : st.slide ? 13 : 7.5;
-      if (sp > slideMax && diff > 0.9) {
-        const k = U.smooth((sp - slideMax) / 4);
-        face = U.angLerp(face, moveA, k);
+      this._watchTo = 0;
+      const locked = this.faceLock && this.faceMode === 'fn';
+      if (st.slide && !this._runMode) {
+        // (the defensive stance slides and backpedals, opening up and running only past ~12 ft/s, ~13.5 locked on
+        // his man. A run already under way carries on into it until it ends as a run does: a help defender near
+        // the edge of the stance's range switched stance back and forth and turned with it)
+        const slideMax = locked ? 13.5 : 12;
+        if (sp > slideMax && diff > 0.9) face = U.angLerp(face, moveA, U.smooth((sp - slideMax) / 4));
+        return face;
       }
+      // anyone else shuffles sideways or backwards only a couple of quick steps: going further at pace he opens up
+      // and runs (the coaches' "turn and run": the hips and legs go the way he is going, the upper body and eyes
+      // stay on what he was facing), and squares up again when he gets there or slows. It is a decision held until
+      // then (a threshold on speed alone flipped the body back and forth as his pace crossed it, and the feet
+      // tangled). He goes when he is headed somewhere over ~6 ft off, or has shuffled ~0.3 s after a man (or a
+      // spot) on the move; the last few feet to a spot are shuffled. Off-ball players go from ~4.5 ft/s (they
+      // shuffled across the floor at up to 13.5 ft/s shadowing their man, like crabs), a man sealing, posting,
+      // screening or with the ball from ~8.5 ft/s. Either way the body holds it for ~0.3 s at least (switched on and
+      // off as he neared his spot, it turned back and forth every frame)
+      const early = TURN_EARLY[this.stance] && !this.hasBall;
+      const g = this.goal, gd = g.mode === 'idle' ? 0 : Math.hypot(g.x - this.x, g.y - this.y), tv = g.mode === 'idle' ? 0 : g.tv || 0;
+      const off = sp > (early ? 4.5 : 8.5) && diff > 1.0;
+      if (!off) this._offT = null; else if (this._offT == null) this._offT = this.time;
+      let rm = !!this._runMode;
+      const held = this.time - (this._rmT == null ? -9 : this._rmT) < 0.3;
+      // (he squares up while he still has pace to step round on: braking to a stop, nearing the spot, or when his
+      // man turns back. Left running until he had all but stopped, the body swung round over feet that had stopped
+      // stepping, and the legs crossed)
+      const brake = sp > 0.1 ? -((this.axF || 0) * this.vx + (this.ayF || 0) * this.vy) / sp : 0, braking = brake > 6 && sp < (early ? 6 : 8);
+      if (!rm) {
+        // (following a man, or a spot on the move: once he has shuffled ~0.3 s with it really going that way,
+        // ~0.5 s when it drifts: a man's jabs and fakes turned a defender back and forth)
+        const offT = this._offT == null ? 0 : this.time - this._offT;
+        const withIt = ((g.tvx || 0) * this.vx + (g.tvy || 0) * this.vy) > 0.7 * tv * sp;
+        if (!held) rm = off && !braking && g.mode !== 'idle' && (gd > 6 || (withIt && ((offT > 0.3 && (gd > 4 || tv > 4)) || (offT > 0.5 && tv > 2))));
+        this._rmAl = false;
+      } else if (g.mode === 'idle' || sp < (early ? 3.5 : 5)) rm = false;
+      else {
+        // (the man turning back counts once the body has come round into the run: before that it read as a
+        // reversal, and the run was called off and started again while he was still turning)
+        const run = Math.abs(U.wrapPi(moveA - this.facing));
+        if (run < 0.5) this._rmAl = true;
+        if (!held) rm = !(diff < 0.5 || (gd < 3 && tv <= 2) || braking || (this._rmAl && run > 1.75));
+      }
+      if (rm !== !!this._runMode) this._rmT = this.time;
+      this._runMode = rm;
+      if (rm) { this._watch = face; this._watchTo = 1; face = moveA; }
       return face;
+    }
+    /** where the body will face in `dt` seconds, turning toward where it wants to face at its turn rate */
+    faceIn(dt) {
+      if (this._wantFace == null) return this.facing;
+      const rate = this._turnRate || 10;
+      return this.facing + U.clamp(U.wrapPi(this._wantFace - this.facing), -rate * dt, rate * dt);
     }
     _turn(dt) {
       const want = this._desiredFacing();
-      const rate = this.speed > 8 ? 5.5 : 7.5;
+      // (the eyes come round to what he was facing, and back, over ~0.15 s)
+      this._watchK = (this._watchK || 0) + ((this._watchTo || 0) - (this._watchK || 0)) * (1 - Math.exp(-dt / 0.12));
+      this._wantFace = want; this._wantT = this.time;
+      // standing and turning far (to face the ball, a man, the other way): the whole body goes round together on a
+      // pivot foot while the other foot steps round it, instead of the upper body turning first and the feet
+      // catching up with a step across (the legs crossed)
+      const g = this.goal, settled = g.mode === 'idle' || (g.mode === 'move' && Math.hypot(g.x - this.x, g.y - this.y) < 0.6);
+      if (this.kind === 'player' && !this.clip && this.speed < 1.2 && settled && !(this.hasBall && !this.dribble) &&
+          this.feet[0].state === 'plant' && this.feet[1].state === 'plant' && Math.abs(U.wrapPi(want - this.facing)) > 0.96 &&
+          this.time - (this._pivotT || -9) > 0.35) {
+        this._pivotT = this.time;
+        if (this.pivotTo(want, { ball: false })) return;
+      }
+      // (a 180 in ~0.3 s standing, ~0.4 s on the run; quicker for the agile)
+      let rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
+      // a big turn on the move (opening up to run, squaring up out of it, facing a new man) goes round over the
+      // right foot: turning left over a right foot planted ahead of him (or a left one behind), the way a player
+      // plants the outside foot to open up, cut or stop. Over the other foot it would end up across the other leg,
+      // and the next step had to come round it (the legs touched on most of these turns). So the turn waits for a
+      // stride to put the right foot down (a quarter of the pace meanwhile, ~0.3 s at most). (Not at a sprint: held
+      // back there, the body ran on sideways with the feet stretched out and dragging)
+      const dA = U.wrapPi(want - this.facing);
+      if (this.kind === 'player' && !this.clip && this.gaitOn && this.speed > 1.5 && this.speed < 9 && Math.abs(dA) > 0.6) {
+        // (judged over the next ~60 deg: a bigger turn goes round in stages, a step at a time, the way a player
+        // drop-steps to go the other way; judged over all of it, a half turn could never go, the feet change sides)
+        const dC = U.clamp(dA, -1.05, 1.05);
+        const c = Math.cos(this.facing), s = Math.sin(this.facing), cd = Math.cos(dC), sd = Math.sin(dC);
+        let ok = true;
+        for (const f of this.feet) {
+          if (f.state !== 'plant') continue;
+          const dx = f.x - this.x, dy = f.y - this.y, fwd = dx * c + dy * s, lat = dx * s - dy * c;
+          if ((f.side ? 1 : -1) * (lat * cd + fwd * sd) < 0.02 * this.H) ok = false;
+        }
+        this._turnWait = ok ? 0 : (this._turnWait || 0) + dt;
+        if (!ok && this._turnWait < 0.3) rate *= 0.25;
+      } else this._turnWait = 0;
+      this._turnRate = rate;
       this.facing = U.angApproach(this.facing, want, rate * dt);
       this.facing = U.wrapPi(this.facing);
     }
@@ -340,6 +815,13 @@
     _locomote(dt) {
       const sp = this.speed;
       const st = A.STANCE[this.stance] || A.STANCE.stand;
+      // how fast the body is turning (smoothed): a foot landing on a curve is set down already turned the way the
+      // body will face while it is on the floor, instead of being left behind as the body turns over it
+      if (dt > 0) {
+        const fr = this._facePrev == null ? 0 : U.clamp(U.wrapPi(this.facing - this._facePrev) / dt, -4, 4);
+        this.faceRate = (this.faceRate || 0) + (fr - (this.faceRate || 0)) * (1 - Math.exp(-dt / 0.12));
+        this._facePrev = this.facing;
+      }
       if (!this.gaitOn && sp > 1.4) this._startGait();
       else if (this.gaitOn && sp < 0.6 && this._feetSettled()) this.gaitOn = false;
       this.gaitK = U.damp(this.gaitK, this.gaitOn ? U.smooth(sp / 3) : 0, 8, dt);
@@ -352,26 +834,48 @@
         const c = Math.cos(this.facing), s = Math.sin(this.facing);
         const fwdDot = this.moveDirX * c + this.moveDirY * s;
         this.fwdDot = fwdDot;
-        // accelerating hard: quicker, shorter steps (sprinter's start)
+        // accelerating hard: quicker, shorter steps (a sprinter's step rate is near its top within the first few
+        // steps out of a start while the step length keeps growing for many more)
         const accF = Math.max(0, this.ax * this.moveDirX + this.ay * this.moveDirY);
         let sps = A.stepsPerSec(Math.min(this.maxSpeed, sp + accF * 0.3), H);
+        // running, the foot is on the floor over about the same distance at any pace (the leg sweeps a set arc under
+        // the hips, ~0.82 of its length: from ~0.8 ft ahead of them to ~1.8 ft behind), so the faster the run, the
+        // shorter the contact: ~0.25 s jogging, ~0.19 s at 15 ft/s, ~0.1 s sprinting. (A set share of the stride kept
+        // the foot down longer than the leg could reach at speed: it landed reaching out ahead, the hips sank to meet
+        // it through the end of each flight, and the foot behind had to leave early)
+        const runW = gp.w.jog + gp.w.sprint;
+        if (runW > 0.001 && sp > 1) {
+          const bGeo = U.clamp(0.82 * (this.dims.th + this.dims.sh) * sps / (2 * sp), 0.15, 0.37);
+          gp.beta = gp.w.walk * 0.6 + runW * bGeo;
+        }
         // (blended, not switched: a hard switch changed the swing foot's lift and timing in a single frame)
         const nfw = U.smooth((0.6 - fwdDot) / 0.2);
         if (nfw > 0) { sps *= 1 + 0.12 * nfw; gp.lift *= 1 - 0.45 * nfw; gp.beta = U.lerp(gp.beta, Math.max(gp.beta, 0.45), nfw); gp.toePitch *= 1 - 0.4 * nfw; }
         // lateral movement: step-slide (lead foot lands ahead, trail foot behind; feet never cross)
         const latK = U.smooth((0.88 - Math.abs(fwdDot)) / 0.4);
         if (latK > 0) {
-          const slideW = U.lerp(0.12, 0.2, this.stP.slide);
+          // (a quick sidestep out of a narrow stance widens it, so the closing foot stays clear of the other)
+          const slideW = U.lerp(0.12 + 0.05 * U.smooth((sp - 4) / 4), 0.2, this.stP.slide);
           // cadence checked against a motion-captured defensive slide (CMU 102_27): at 10-12 ft/s it is a lateral
           // bound (both feet land nearly together, ~2 bounds/s) with the gap between the feet swinging from ~0.14 H to
           // ~0.66 H; with alternating steps that width range needs ~5 steps/s at 10 ft/s (the old ~7 was a pitter-patter)
-          // (only the defensive slide: a sidestep in any other stance keeps the quicker, shorter steps)
           const ks = this.stP.slide;
-          const slideSps = U.lerp(2 * U.clamp(1.7 + 0.19 * sp, 1.9, 3.6), U.clamp(2.8 + 0.24 * sp, 3.4, 5.4), ks);
+          // (a slide is a push and a reach, not a patter. The feet never cross, so a step can only open the gap
+          // between them from nearly together to a wide reach: the body goes ~0.3 H per step at most, and past that
+          // the steps have to come quicker. A slow slide takes ~1.2 ft steps ~4 times a second, a quick one (~11-12
+          // ft/s, the top pace elite players hold over a 5 m shuffle test) ~2 ft steps ~6 times a second)
+          // (a sidestep out of any other stance is a smaller version: ~0.75 ft steps ~2.7 times a second at a slow
+          // shuffle, ~1 ft ~4 times a second at 4 ft/s; the old ~4-5 half-foot steps a second at a walking pace read
+          // as a spider. Steps no longer than ~0.15 H: from a stance this narrow a longer one brings the closing foot
+          // in against the other; going faster, the steps quicken until he turns and runs instead)
+          const slideStep = U.clamp(0.75 + 0.1 * sp, 0.9, 0.3 * H), sideStep = U.clamp(0.55 + 0.1 * sp, 0.7, 0.15 * H);
+          const slideSps = U.lerp(U.clamp(sp / sideStep, 2.2, 5.6), U.clamp(sp / slideStep, 2.6, 6.4), ks);
           gp.halfW = U.lerp(gp.halfW, slideW, latK);
           gp.reach = U.lerp(gp.reach, 0.5, latK);
           gp.lift = U.lerp(gp.lift, 0.035 + 0.02 * ks * U.smooth((sp - 6) / 6), latK);
-          gp.beta = U.lerp(gp.beta, 0.56, latK);
+          // (a slide's feet share the floor for long, but faster than a slide goes, a shuffle's ground contact
+          // shortens like a runner's: at 0.56 a foot stayed down over ~3 ft at 16 ft/s)
+          gp.beta = U.lerp(gp.beta, U.lerp(0.56, 0.36, U.smooth((sp - 8) / 6)), latK);
           gp.toePitch = U.lerp(gp.toePitch, 12 * D, latK);
           gp.landPitch = U.lerp(gp.landPitch, 4 * D, latK);
           sps = U.lerp(sps, slideSps, latK);
@@ -382,11 +886,75 @@
         const gs = this.gpS || (this.gpS = {});
         const kg = gs.beta == null ? 1 : 1 - Math.exp(-dt / 0.08), kb = gs.beta == null ? 1 : 1 - Math.exp(-dt / 0.035);
         for (const k of GAIT_SMOOTH) { gs[k] = gs[k] == null ? gp[k] : gs[k] + (gp[k] - gs[k]) * (k === 'beta' ? kb : kg); gp[k] = gs[k]; }
+        // a planted foot falling behind (a cut, a burst out of a stop): the steps quicken, the way a player's feet
+        // hurry to get back under him, so the swinging foot lands and the one behind can go
+        let lagMax = 0;
+        for (const f of this.feet) {
+          if (f.state !== 'plant') continue;
+          const side = f.side ? 1 : -1;
+          const an = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TD);
+          lagMax = Math.max(lagMax, -((an[0] - this.x - s * side * this.dims.hipX) * this.moveDirX + (an[1] - this.y + c * side * this.dims.hipX) * this.moveDirY));
+        }
+        // (measured against where this stride's toe-off normally is, so a steady run is never hurried; eased: it
+        // used to drop back in one frame as the foot behind lifted, and the swinging foot lurched)
+        const lagOn = Math.min(0.26 * H, (1 - gp.reach) * gp.beta * sp * 2 / sps + 0.05 * H);
+        // (not in a slide: its trailing foot is meant to be behind, and hurrying it made the feet patter)
+        const bT = 1 + 0.8 * U.smooth((lagMax - lagOn) / (0.1 * H)) * (1 - latK);
+        this._boost = (this._boost || 1) + (bT - (this._boost || 1)) * (1 - Math.exp(-dt / (bT > (this._boost || 1) ? 0.05 : 0.15)));
+        // (however hurried, never quicker than ~4.8 steps/s, about the most a sprinter's legs turn over; a slide keeps
+        // its own rhythm)
+        sps = Math.min(sps * this._boost, Math.max(4.8 * Math.sqrt(6.6 / H), latK > 0.5 ? sps : 0));
+        // the stride cycle runs on the distance the body travels: a stride is two steps of speed / cadence, so a
+        // cycle is (distance / stride length) = cadence x time / 2, and the feet step exactly as far as the body goes.
+        // (written on the clock so a foot already in the air still lands on time when the body stops under it: run
+        // on the distance alone, a swing hung in the air beside the other leg as the speed ran out)
         const dphi = sps * 0.5 * dt;
-        const ph0 = this.phase, ph1 = ph0 + dphi;
+        let ph0 = this.phase, ph1 = ph0 + dphi;
         this.phase = ph1 - Math.floor(ph1);
+        // (whole cycles since the gait started: which stride a foot's toe-off belongs to)
+        this.phaseN = (this.phaseN || 0) + Math.floor(ph1);
         const cycleT = 2 / sps;
         const strideLen = sp * cycleT;
+        // (read by the animation lab's gait readout)
+        const gd = this.gaitDbg || (this.gaitDbg = {});
+        gd.sps = sps; gd.stride = strideLen; gd.cycle = cycleT; gd.beta = gp.beta;
+        // one leg at a time: a foot leaves the floor only while the other one is down, or has been in its stride for
+        // over half a step, and never twice running while the other has not moved (a catch-up step of one foot
+        // starting with the other's stride, or two lifts in one frame, read as a two-footed hop)
+        const stepT = cycleT / 2, minLag = 0.55 * stepT;
+        // (a runner's feet are both off the floor for a moment between strides, so running a foot may leave once the
+        // other is well into its swing; a quick step of the other foot (a recovery or stance step) counts once most
+        // of it is done)
+        // (a runner's rear foot leaves as the front one reaches out to land, ~2/3 through its swing; a walker's
+        // only as the front one comes down)
+        // (a sprinter's stance is short: the rear foot's toe-off comes when the front one is only half way through
+        // its swing, 0.5 / (1 - stance share) of it; held for a set 60 % it stayed down past its reach and dragged)
+        const swOk = Math.min(U.lerp(0.85, 0.6, U.smooth((sp - 5) / 5)), 0.5 / (1 - gp.beta) - 0.05);
+        const behindOf = (q) => -((q.x - this.x) * this.moveDirX + (q.y - this.y) * this.moveDirY);
+        // the same foot twice running: never two strides; after a small stance or clip step only if it is clearly
+        // the foot left behind (blocking it outright kept it planted behind for most of the first stride)
+        const repeat = (f) => {
+          if (this._lastSwing !== f.side || this.time - (f.liftT == null ? -9 : f.liftT) >= 1.6 * stepT) return false;
+          if (f.liftKind === 'gait') return true;
+          const o = this.feet[1 - f.side];
+          return o.state === 'plant' && behindOf(f) < behindOf(o) + 0.06 * H;
+        };
+        // (`hurry`: a foot left behind at a sprint, the leg at full stretch, goes once the other one is a third of
+        // the way through its swing: a runner's feet are both off the floor there anyway, and held down it dragged)
+        const canLift = (f, hurry) => {
+          const o = this.feet[1 - f.side];
+          if (o.state !== 'plant') {
+            const since = this.time - (o.liftT == null ? -9 : o.liftT);
+            if (o.mode === 'gait' ? since < Math.max(minLag, 0.09) || (o.sw || 0) < (hurry ? Math.min(swOk, 0.35) : swOk) : (o.s || 0) < 0.92) return false;
+            // (and it really is out in front: a swing that started far back, a foot catching up, can be most of the
+            // way through its time still level with this one, and both feet were in the air side by side)
+            if (o.mode === 'gait' && (o.sw || 0) < 0.92) {
+              const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TF);
+              if ((o.ax - a[0]) * this.moveDirX + (o.ay - a[1]) * this.moveDirY < 0.14 * H) return false;
+            }
+          }
+          return !repeat(f);
+        };
         for (const f of this.feet) {
           const cph = f.side ? 0 : 0.5;
           const lph = cph + gp.beta;
@@ -402,29 +970,78 @@
             const d = Math.hypot(f.x - hx, f.y - hy);
             tooFar = inWindow ? d > 0.5 * H : d > 0.3 * H;
           }
-          if (f.state === 'plant' && tooFar && !crossed(ph0, ph1, lph)) {
+          if (f.state === 'plant' && tooFar && !crossed(ph0, ph1, lph) && this.feet[1 - f.side].state === 'plant' && canLift(f)) {
             // recovery step: foot left too far behind (sharp speed change / turn)
             const side = f.side ? 1 : -1, rx = s, ry = -c;
             const lead = 0.18;
             // targets place the ankle; the ball of the foot (f.x, f.y) is one foot-length-to-ball further along the foot
             const tx = this.x + vx * lead + this.moveDirX * gp.reach * gp.beta * strideLen + rx * side * gp.halfW * H + c * this.dims.ball;
             const ty = this.y + vy * lead + this.moveDirY * gp.reach * gp.beta * strideLen + ry * side * gp.halfW * H + s * this.dims.ball;
-            this._beginStep(f, tx, ty, this.facing + (f.side ? -1 : 1) * 7 * D, 0.17, Math.max(0.03, gp.lift * 0.5));
+            this._sepTarget(f, tx, ty, TD);
+            this._beginStep(f, TD[0], TD[1], this.facing + (f.side ? -1 : 1) * 7 * D, 0.17, Math.max(0.03, gp.lift * 0.5));
+            // (the spot keeps up with the body while the foot is in the air: a player speeding up left a step aimed
+            // at where he was going to be behind him)
+            f.trk = { reach: gp.reach * gp.beta * strideLen, lat: side * gp.halfW * H }; f.liftKind = 'gait';
           }
           // a stance foot left behind the hip and out of the leg's reach even up on its toes lifts now, a little
           // before its scheduled toe-off (dragging it on the toes read as skating)
           const relNow = frac(this.phase - cph);
           const early = f.state === 'plant' && !tooFar && relNow < gp.beta && relNow > 0.45 * gp.beta &&
-            (sp > 9 || this.feet[1 - f.side].state === 'plant') && this._stanceOutOfReach(f, c, s);
-          if (f.state === 'plant' && (early || crossed(ph0, ph1, lph))) {
-            // lift off
-            const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-            f.state = 'swing'; f.mode = 'gait';
-            f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
-            f.nSwing = (f.nSwing || 0) + 1;
-            // the swing runs from here to the contact (its share of the stride fixed now, so later changes of
-            // speed do not move the foot)
-            f.liftRel = early ? relNow : Math.min(relNow, gp.beta);
+            (sp > 9 || this.feet[1 - f.side].state === 'plant') && (this._stanceOutOfReach(f, c, s) || this._hipAtRange(f));
+          // a planted foot the body has run away from (a burst, a cut, a stride planned for a slower speed) goes now
+          // instead of dragging behind with the leg stretched out: a walker's toe-off is ~0.24 H behind the hip, a
+          // runner's ~0.2 H; past ~0.3 H it lifts, once the other foot is down (running: well into its swing)
+          let late = false;
+          if (f.state === 'plant' && sp > 2.5) {
+            const side = f.side ? 1 : -1;
+            const hx = this.x + s * side * this.dims.hipX, hy = this.y - c * side * this.dims.hipX;
+            const an = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TD);
+            const behind = -((an[0] - hx) * this.moveDirX + (an[1] - hy) * this.moveDirY);
+            late = behind > U.lerp(0.3, 0.27, U.smooth((sp - 6) / 6)) * H;
+          }
+          // (a toe-off held back by the one-leg-at-a-time rule goes as soon as it is allowed, while there is still
+          // most of a swing left before the contact; later than that the foot waits for its next stride)
+          if (f.liftPending && (f.state !== 'plant' || relNow > 0.82)) f.liftPending = false;
+          // the toe-off is due when the phase passes it, or when the toe-off point passed the phase: speeding up
+          // shortens the stance share faster than the phase moves, and the lift was skipped (the foot stayed down
+          // for a whole stride while the body ran away from it)
+          const cyc = (this.phaseN || 0) + Math.floor(this.phase - cph);
+          const due = crossed(ph0, ph1, lph) || (f.state === 'plant' && f.liftCyc !== cyc && relNow >= gp.beta && relNow < gp.beta + 0.2 &&
+            !(f.tStep != null && this.time - f.tStep < 0.15));
+          if (f.state === 'plant' && (early || late || due || f.liftPending)) {
+            // the stride's turn says this foot, but the other one is planted further behind: that one goes (the
+            // stride flips half a cycle), else it would be dragged through this whole swing
+            const o = this.feet[1 - f.side];
+            if (due && !late && o.state === 'plant' && sp > 1) {
+              // (also when this one just made a small step and the other is no further ahead: the other goes)
+              const bF = behindOf(f), bO = behindOf(o);
+              if ((bO > bF + 0.1 * H || (repeat(f) && bO > bF - 0.05 * H)) && canLift(o)) {
+                this.phase = frac(this.phase + 0.5);
+                ph0 = frac(ph0 + 0.5); ph1 = ph0 + dphi;
+                const a = this._ankleFromBall(o.x, o.y, o.yaw, o.pitch, TA);
+                o.state = 'swing'; o.mode = 'gait';
+                o.x0 = a[0]; o.y0 = a[1]; o.z0 = a[2]; o.yaw0 = o.yaw; o.p0 = o.pitch;
+                o.nSwing = (o.nSwing || 0) + 1;
+                o.liftRel = frac(this.phase - (o.side ? 0 : 0.5));
+                o.liftPending = false; o.liftT = this.time; this._lastSwing = o.side; o.liftKind = 'gait'; o.liftWhy = 'flip';
+                o.liftCyc = (this.phaseN || 0) + Math.floor(this.phase - (o.side ? 0 : 0.5));
+                f.liftPending = false;
+                continue;
+              }
+            }
+            if (canLift(f, late && sp > 9)) {
+              // lift off
+              const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
+              f.state = 'swing'; f.mode = 'gait';
+              f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
+              f.nSwing = (f.nSwing || 0) + 1;
+              // the swing runs from here to the contact (its share of the stride fixed now, so later changes of
+              // speed do not move the foot)
+              f.liftRel = early || late || f.liftPending ? relNow : Math.min(relNow, gp.beta);
+              // (why it went, for the audits)
+              f.liftWhy = early ? 'early' : late ? 'late' : f.liftPending ? 'pend' : crossed(ph0, ph1, lph) ? 'due' : 'missed';
+              f.liftPending = false; f.liftT = this.time; this._lastSwing = f.side; f.liftCyc = cyc; f.liftKind = 'gait';
+            } else if (due) f.liftPending = true;
           }
           if (crossed(ph0, ph1, cph) && f.state === 'swing' && f.mode === 'gait') {
             // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down
@@ -432,6 +1049,12 @@
             f.sw = 0; f.tPlant = this.time; f.liftRel = null;
           }
           const rel = frac(this.phase - cph);
+          if (f.state === 'plant' && f.mode !== 'step') {
+            // turning hard over a planted foot (a cut, a reversal): it pivots on its ball past ~30 deg instead of
+            // staying pointed the old way while the hips and knee go round (the leg twisted, the knee far off line)
+            const ye = U.wrapPi(this.facing + (f.side ? -1 : 1) * 7 * D - f.yaw);
+            if (Math.abs(ye) > 30 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 30 * D, 14 * dt));
+          }
           if (f.state === 'swing' && f.mode === 'gait') {
             const b0 = f.liftRel != null ? f.liftRel : gp.beta;
             const sw = rel < b0 ? 0 : U.clamp((rel - b0) / (1 - b0), 0, 1);
@@ -449,11 +1072,17 @@
             }
             const reach = gp.reach * gp.beta * strideLen;
             const side = f.side ? 1 : -1;
-            const rx = s, ry = -c;
-            f.tyaw = this.facing + (f.side ? -1 : 1) * 7 * D;
+            // (turning: aimed where the body will face half way through the foot's time on the floor, its heading and
+            // which side of the body it lands on: set out to the side of a body still turning, opening up out of a
+            // shuffle, the step landed behind him)
+            const turnAhead = U.clamp((this.faceRate || 0) * (tLeft + 0.5 * gp.beta * cycleT), -0.5, 0.5);
+            const rx = Math.sin(this.facing + turnAhead), ry = -Math.cos(this.facing + turnAhead);
+            f.tyaw = this.facing + turnAhead + (f.side ? -1 : 1) * 7 * D;
             // `reach` places the ankle ahead of the body at contact; the ball of the foot lies d.ball further along the foot
             let ntx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
             let nty = py + this.moveDirY * reach + ry * side * gp.halfW * H + Math.sin(f.tyaw) * this.dims.ball;
+            // (on its own side of the other foot: moving sideways or on a diagonal the stride used to land it across)
+            this._sepTarget(f, ntx, nty, TD); ntx = TD[0]; nty = TD[1];
             // a foot in the air can re-aim, but only so fast (no teleporting landing spot on a cut or a stop)
             if (f.swT === this._swingId(f) && f.swLastT != null) {
               const mv = (14 + sp) * Math.max(dt, 1 / 240), ddx = ntx - f.tx, ddy = nty - f.ty, dl = Math.hypot(ddx, ddy);
@@ -463,14 +1092,37 @@
             f.tx = ntx; f.ty = nty;
             const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, Math.min(0, gp.landPitch), TB);
             f.sw = sw; f.lax = a1[0]; f.lay = a1[1]; f.laz = a1[2]; f.lpx = px; f.lpy = py;
-            const e = U.smooth(sw);
+            // (a runner's ankle is already moving forward as the foot rolls off the toes, at about a third of the
+            // body's speed; eased out of a standstill, the foot hung back behind the body at speed and pulled the hip
+            // past its range just after toe-off)
+            const e = U.smooth(sw) + 0.35 * (gp.run || 0) * sw * (1 - sw) * (1 - sw);
             // sin^2 starts with zero vertical speed (the old sin^1.1 of sw^0.62 threw the foot up ~0.4 ft in the first
             // frame after toe-off, snapping the knee), and still peaks early in the swing (~40 %)
-            const lift = gp.lift * H * Math.pow(Math.sin(Math.PI * Math.pow(sw, Math.max(0.75, gp.liftPow || 0.8))), 2);
+            // a runner's heel comes up behind first (the knee folds toward the buttock), stays up while the foot passes
+            // under the hip (the knee drives through high), then the shank reaches forward and down to land under
+            // the hips with no vertical speed left; a walker keeps a low arc
+            const pw = Math.pow(Math.sin(Math.PI * Math.pow(sw, Math.max(0.75, gp.liftPow || 0.8))), 2);
+            // (the rise eases in with no jolt at toe-off: smootherstep starts with zero acceleration)
+            const ur = Math.min(1, sw / 0.36), pr = sw < 0.36 ? ur * ur * ur * (ur * (ur * 6 - 15) + 10) : 1 - Math.pow(U.smooth((sw - 0.36) / 0.64), 1.5);
+            const lift = gp.lift * H * U.lerp(pw, pr, gp.run || 0);
             f.ax = f.x0 + (a1[0] - f.x0) * e;
             f.ay = f.y0 + (a1[1] - f.y0) * e;
+            this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1], lift);
+            // a runner's heel comes up behind its own hip, not out to the side: the shank folds in the leg's own
+            // plane while the foot passes under the body, so the ankle eases over toward the hip's line as the heel
+            // rises and back out to where it lands as it comes down
+            const fold = U.smooth((lift / H - 0.05) / 0.1) * (gp.run || 0);
+            if (fold > 0.001) {
+              const side = f.side ? 1 : -1;
+              const lat = (f.ax - this.x) * s - (f.ay - this.y) * c, dl = (side * this.dims.hipX * 0.85 - lat) * fold;
+              f.ax += s * dl; f.ay -= c * dl;
+            }
             f.az = f.z0 + (a1[2] - f.z0) * e + lift;
-            f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
+            // (off the floor the foot, and the knee with it, comes round to the body's heading early in the swing,
+            // left at the old heading a foot planted before a turn carried its knee out to the side; on a curve it
+            // turns on into the landing heading only as it comes down)
+            const r0 = U.wrapPi(f.yaw0 - this.facing), rb = (f.side ? -1 : 1) * 7 * D, rt = U.clamp(U.wrapPi(f.tyaw - this.facing), -0.7, 0.7);
+            f.yawNow = this.facing + U.clamp(U.lerp(U.lerp(r0, rb, U.smooth(sw / 0.3)), rt, U.smooth((sw - 0.55) / 0.45)), -0.7, 0.7);
             f.pitchNow = U.lerp(f.p0 || gp.toePitch, gp.landPitch, U.smooth(sw * 1.15)) + Math.sin(Math.PI * sw) * gp.toePitch * 0.25;
           } else if (f.state === 'plant') {
             if (rel < gp.beta) {
@@ -496,6 +1148,55 @@
     }
 
     _swingId(f) { return f.nSwing || 0; }
+    /** keeps a foot's landing spot (ball of the foot) on its own side of the other foot: never across it (the left
+     *  foot lands left of the right one) and ~6 in apart sideways where the two would sit side by side (feet a
+     *  stride apart may land nearly in line, as a runner's do) */
+    _sepTarget(f, tx, ty, out) {
+      out[0] = tx; out[1] = ty;
+      const o = this.feet[1 - f.side];
+      let ox, oy;
+      if (o.state === 'plant') { ox = o.x; oy = o.y; }
+      else if (o.state === 'swing') { ox = o.tx; oy = o.ty; }
+      else return out;
+      const H = this.H, c = Math.cos(this.facing), s = Math.sin(this.facing), side = f.side ? 1 : -1;
+      const dx = tx - ox, dy = ty - oy;
+      const fwd = dx * c + dy * s, lat = dx * s - dy * c;
+      const need = U.lerp(0.075, 0.025, U.smooth((Math.abs(fwd) - 0.12 * H) / (0.16 * H))) * H;
+      const def = need - side * lat;
+      if (def > 0) { out[0] += s * side * def; out[1] -= c * side * def; }
+      return out;
+    }
+    /** a swinging foot goes around the planted one: where its straight path (x0,y0 -> x1,y1, ankle) would pass
+     *  closer than ~6 in beside it (or through it: a turn, a cut, a sidestep), the whole path bows out to its own
+     *  side, sin-shaped over the swing (e: 0..1 along the path), just enough to clear it everywhere; one smooth
+     *  bow instead of a nudge where the feet pass (at a sprint that nudge came and went in two frames) */
+    _swingClear(f, e, x0, y0, x1, y1, liftNow) {
+      const o = this.feet[1 - f.side];
+      if (o.state !== 'plant') return;
+      // (only a foot low enough to meet the other one needs to go around it: a heel kicked up behind passes over
+      // the planted foot, and pushing it out there fanned the folded leg's knee out to the side)
+      const hK = liftNow == null ? 1 : 1 - U.smooth((liftNow - 0.06 * this.H) / (0.1 * this.H));
+      if (hK <= 0.001) return;
+      const H = this.H, c = Math.cos(this.facing), s = Math.sin(this.facing), side = f.side ? 1 : -1;
+      const a = this._ankleFromBall(o.x, o.y, o.yaw, o.pitch, TE);
+      let D = 0;
+      for (let i = 1; i < 10; i++) {
+        const u = i / 10, dx = x0 + (x1 - x0) * u - a[0], dy = y0 + (y1 - y0) * u - a[1];
+        const fwd = dx * c + dy * s, lat = dx * s - dy * c;
+        const def = U.lerp(0.08, 0, U.smooth((Math.abs(fwd) - 0.1 * H) / (0.18 * H))) * H - side * lat;
+        if (def > 0) D = Math.max(D, def / Math.sin(Math.PI * u));
+      }
+      if (D <= 0) return;
+      D = Math.min(D, 0.14 * H) * Math.sin(Math.PI * U.clamp(e, 0, 1)) * hK;
+      f.ax += s * side * D; f.ay -= c * side * D;
+    }
+    /** is a planted leg's hip at the end of its range (last solve): spread out past ~46 deg, crossed in past ~26, or
+     *  stretched back past ~28 deg? Then the foot steps now (a person steps before the hip gives out) */
+    _hipAtRange(f) {
+      const p = this.sk.pose, pre = f.side ? 'r' : 'l';
+      const A = p[CH[pre + 'HipA']], F = p[CH[pre + 'HipF']];
+      return A > 46 * D || A < -26 * D || F < -28 * D;
+    }
     /** is a planted foot behind the hip and beyond the leg's reach even with the heel fully up? (last solve's pelvis) */
     _stanceOutOfReach(f, c, s) {
       const P = this.sk.P, H = this.H, side = f.side ? 1 : -1;
@@ -535,6 +1236,7 @@
     _startGait() {
       this.gaitOn = true;
       this.gpS = null;
+      this.phaseN = 0; this.feet[0].liftCyc = this.feet[1].liftCyc = null;
       // choose the foot that is further behind (relative to movement) to lift first
       const mx = this.vx / (this.speed || 1), my = this.vy / (this.speed || 1);
       const f0 = this.feet[0], f1 = this.feet[1];
@@ -548,13 +1250,17 @@
       }
       const d0 = (f0.x - this.x) * mx + (f0.y - this.y) * my;
       const d1 = (f1.x - this.x) * mx + (f1.y - this.y) * my;
+      // (from a standstill either foot may go first; one still finishing a step keeps the other down meanwhile)
+      if (f0.state === 'plant' && f1.state === 'plant' && this.time - Math.max(f0.liftT == null ? -9 : f0.liftT, f1.liftT == null ? -9 : f1.liftT) > 0.15) this._lastSwing = -1;
       const gp = A.gaitParams(this.speed, this.gp);
-      // right lifts at beta, left at 0.5+beta
-      this.phase = d1 < d0 ? gp.beta - 0.001 : frac(0.5 + gp.beta - 0.001);
+      // right lifts at beta, left at 0.5+beta (a foot still finishing a small step lands and the planted one makes the
+      // first stride: the stepping foot going again at once read as a stutter)
+      const rFirst = f0.state !== 'plant' && f1.state === 'plant' ? true : f1.state !== 'plant' && f0.state === 'plant' ? false : d1 < d0;
+      this.phase = rFirst ? gp.beta - 0.001 : frac(0.5 + gp.beta - 0.001);
     }
 
     _stanceFeet(dt) {
-      const st = A.STANCE[this.stance] || A.STANCE.stand;
+      const st = stanceOf(this, this.stance);
       const H = this.H;
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
       const rx = s, ry = -c;
@@ -571,8 +1277,18 @@
         if (f.state === 'plant' && f.pitch > 0) f.pitch = Math.max(0, f.pitch - dt * 4);
         else if (f.state === 'plant' && f.pitch < 0) { f.pitch = Math.min(0, f.pitch + dt * 4); f.hs = false; }
       }
-      if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       if (this.clip) return;
+      // turning on the spot: the planted feet pivot on the balls of the feet with the body (the heels swing round)
+      // instead of staying put while the hips turn away above them (the legs twisted into each other); steps take
+      // up the rest. (Also while the other foot is stepping: the foot left down used to stay pointing the old way
+      // through a whole turn, its knee 45-55 deg off the leg's line.)
+      for (const f of this.feet) {
+        if (f.state !== 'plant') continue;
+        const iyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
+        const ye = U.wrapPi(iyaw - f.yaw);
+        if (Math.abs(ye) > 14 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 14 * D, 13 * dt));
+      }
+      if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       // error-driven stepping
       let worst = null, worstE = 0;
       for (const f of this.feet) {
@@ -593,27 +1309,72 @@
           const de = Math.hypot(other.x - other._ix, other.y - other._iy) / H;
           if (de > 0.05) worst = other;
         }
-        this._beginStep(worst, worst._ix + this.vx * 0.12, worst._iy + this.vy * 0.12, worst._iyaw, 0.24, 0.035);
+        // (turning: the step goes to the foot's place for where the body will face when it lands, and keeps
+        // re-aiming as the body comes round; aimed where it faced at lift-off, it landed pointing the old way)
+        const fe = this.faceIn(0.24), ce = Math.cos(fe), se = Math.sin(fe), oo = worst.side ? st.R : st.L;
+        const ex = this.x + se * oo[0] * H + ce * oo[1] * H, ey = this.y - ce * oo[0] * H + se * oo[1] * H;
+        this._sepTarget(worst, ex + this.vx * 0.12, ey + this.vy * 0.12, TD);
+        this._beginStep(worst, TD[0], TD[1], fe + (worst.side ? -1 : 1) * st.yaw * D, 0.24, 0.035);
+        worst.stanceStep = true;
       }
     }
 
     _beginStep(f, tx, ty, tyaw, dur, lift) {
-      const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-      f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur;
-      f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
-      f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H;
+      // (a foot still in the air goes on from where it is: restarted from the spot it last stood on, it jumped back
+      // there for a frame)
+      const inAir = f.state === 'swing' && f.ax != null;
+      const a = inAir ? [f.ax, f.ay, f.az] : this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
+      const yaw0 = inAir && f.yawNow != null ? f.yawNow : f.yaw, p0 = inAir ? f.pitchNow || 0 : f.pitch;
+      f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur; f.trk = null; f.liftKind = 'step';
+      f.liftT = this.time; this._lastSwing = f.side; f.liftPending = false;
+      f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = yaw0; f.p0 = p0;
+      f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H; f.arc = null; f.stanceStep = false; f.easeOut = false;
       this._lastStepT = this.time; this._lastFoot = f.side;
     }
     _advanceStep(f, dt) {
       f.s = Math.min(1, f.s + dt / Math.max(0.05, f.dur));
+      const tk = f.trk;
+      if (tk && this.gaitOn && !this.clip) {
+        const tLeft = (1 - f.s) * f.dur, c = Math.cos(this.facing), s = Math.sin(this.facing);
+        let tx = this.x + this.vx * tLeft + this.moveDirX * tk.reach + s * tk.lat + c * this.dims.ball;
+        let ty = this.y + this.vy * tLeft + this.moveDirY * tk.reach - c * tk.lat + s * this.dims.ball;
+        this._sepTarget(f, tx, ty, TD); tx = TD[0]; ty = TD[1];
+        const mv = (14 + this.speed) * Math.max(dt, 1 / 240), ddx = tx - f.tx, ddy = ty - f.ty, dl = Math.hypot(ddx, ddy);
+        if (dl > mv) { tx = f.tx + ddx * mv / dl; ty = f.ty + ddy * mv / dl; }
+        f.tx = tx; f.ty = ty;
+      } else if (f.stanceStep && !this.gaitOn && !this.clip && f.s < 0.85) {
+        // a step to the stance place while the body turns: re-aimed at where the body will face when it lands
+        const st = stanceOf(this, this.stance), H = this.H, o = f.side ? st.R : st.L;
+        const fe = this.faceIn((1 - f.s) * f.dur), ce = Math.cos(fe), se = Math.sin(fe);
+        let tx = this.x + se * o[0] * H + ce * o[1] * H, ty = this.y - ce * o[0] * H + se * o[1] * H;
+        this._sepTarget(f, tx, ty, TD); tx = TD[0]; ty = TD[1];
+        const mv = 10 * Math.max(dt, 1 / 240), ddx = tx - f.tx, ddy = ty - f.ty, dl = Math.hypot(ddx, ddy);
+        if (dl > mv) { tx = f.tx + ddx * mv / dl; ty = f.ty + ddy * mv / dl; }
+        f.tx = tx; f.ty = ty; f.tyaw = fe + (f.side ? -1 : 1) * st.yaw * D;
+      }
       const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, 0, TB);
-      const e = U.smooth(f.s);
+      const e = f.easeOut ? f.s * (2 - f.s) : U.smooth(f.s);
       f.ax = f.x0 + (a1[0] - f.x0) * e;
       f.ay = f.y0 + (a1[1] - f.y0) * e;
+      const arc = f.arc;
+      if (arc) {
+        // round the pivot foot (angle and radius eased from where it left to where it lands)
+        const r0 = Math.hypot(f.x0 - arc.x, f.y0 - arc.y), r1 = Math.hypot(a1[0] - arc.x, a1[1] - arc.y);
+        const th0 = Math.atan2(f.y0 - arc.y, f.x0 - arc.x);
+        let dth = U.wrapPi(Math.atan2(a1[1] - arc.y, a1[0] - arc.x) - th0);
+        if (arc.dir && dth * arc.dir < 0 && Math.abs(dth) > 0.35) dth += arc.dir * 2 * Math.PI;
+        const th = th0 + dth * e, r = r0 + (r1 - r0) * e;
+        f.ax = arc.x + Math.cos(th) * r; f.ay = arc.y + Math.sin(th) * r;
+      } else this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1], f.h * Math.sin(Math.PI * f.s));
       f.az = f.z0 + (a1[2] - f.z0) * e + f.h * Math.sin(Math.PI * f.s);
-      f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
+      if (f.stanceStep) {
+        // (in the body's own terms: a foot in the air comes round with the hips the short way and never points more
+        // than ~40 deg off the body's heading; interpolated as world angles, a 180 turn sent it round the wrong way)
+        const r0 = U.wrapPi(f.yaw0 - this.facing), r1 = U.clamp(U.wrapPi(f.tyaw - this.facing), -0.56, 0.56);
+        f.yawNow = this.facing + U.clamp(U.lerp(r0, r1, U.smooth(f.s / 0.5)), -0.7, 0.7);
+      } else f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
       f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * 0.18;
-      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; }
+      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; }
     }
 
     // ============================================================ clips
@@ -680,7 +1441,7 @@
       this.vx = (nx - this.x) * idt; this.vy = (ny - this.y) * idt;
       if (!isFinite(this.vx)) { this.vx = 0; this.vy = 0; }
       this.x = nx; this.y = ny; this.speed = Math.hypot(this.vx, this.vy);
-      this.facing = U.angApproach(this.facing, r.yaw, 9 * dt);
+      this.facing = U.angApproach(this.facing, r.yaw, (clip.turnRate || 9) * dt);
       this.jumpZ = this._clipJumpZ(cs, cs.t);
       // feet
       const mode = A.clipFeet(clip, cs.t);
@@ -715,11 +1476,57 @@
               const lat = cs.mirror ? -stp.to[1] : stp.to[1];
               const tx = cs.ox + cs.offX * (1 - U.smooth(stp.t1 / Math.max(0.01, cs.blendT))) + c * stp.to[0] + s * lat;
               const ty = cs.oy + cs.offY * (1 - U.smooth(stp.t1 / Math.max(0.01, cs.blendT))) + s * stp.to[0] - c * lat;
-              if (f.state !== 'air') this._beginStep(f, tx, ty, cs.ofacing + (stp.yaw || 0) * D * (cs.mirror ? -1 : 1), stp.t1 - stp.t0, stp.lift || 0.06);
+              if (f.state !== 'air') {
+                this._beginStep(f, tx, ty, cs.ofacing + (stp.yaw || 0) * D * (cs.mirror ? -1 : 1), stp.t1 - stp.t0, stp.lift || 0.06);
+                // (a hop off the run: the foot leaves already moving and slows into the landing)
+                if (stp.easeOut) f.easeOut = true;
+                // swinging around a pivot (a spin): the foot travels round it on an arc, the given way round
+                if (stp.arc) {
+                  const at = stp.arc.at, al = cs.mirror ? -at[1] : at[1];
+                  f.arc = { x: cs.ox + c * at[0] + s * al, y: cs.oy + s * at[0] - c * al, dir: (stp.arc.dir || 0) * (cs.mirror ? -1 : 1) };
+                }
+              }
             }
           }
         }
         // generic planted-stance correction when the clip holds a stance for long
+        // pivoting: the pivot foot keeps its spot and turns on the ball of the foot with the body
+        // (side 2: both feet turn on their balls, the turnaround of a post fade)
+        const pv = clip.pivot;
+        if (pv && cs.t >= pv.t0 && cs.t <= pv.t1) {
+          if (!cs.pivotYaw0) { cs.pivotYaw0 = [this.feet[0].yaw, this.feet[1].yaw]; cs.pivotFace0 = this.facing; }
+          const turn = U.wrapPi(this.facing - cs.pivotFace0);
+          for (const f of this.feet) if ((pv.side === 2 || f.side === pv.side) && f.state === 'plant') f.yaw = cs.pivotYaw0[f.side] + turn;
+        }
+        // a list of pivots in the clip's own (right-handed) terms, one foot after the other (a spin); the turn is
+        // summed frame by frame, so one past 180 degrees keeps going the same way
+        const pvs = clip.pivots;
+        if (pvs) {
+          const st = cs.pivotSt || (cs.pivotSt = []);
+          for (let i = 0; i < pvs.length; i++) {
+            const q = pvs[i];
+            if (cs.t < q.t0 || cs.t > q.t1) continue;
+            const f = this.feet[cs.mirror ? 1 - q.side : q.side];
+            if (!st[i]) st[i] = { yaw: f.yaw, prev: this.facing, acc: 0 };
+            const e = st[i];
+            e.acc += U.wrapPi(this.facing - e.prev); e.prev = this.facing;
+            // (spinning on the ball of the foot: the heel comes up off the floor as it turns)
+            if (f.state === 'plant') { f.yaw = e.yaw + e.acc; f.pitch = Math.max(f.pitch, 22 * D * U.smooth((cs.t - q.t0) / 0.06)); }
+          }
+        }
+      }
+      // hands on the spot (a dunker grabbing the rim): an explicit IK target, eased in and out
+      const rh = cs.reach;
+      if (rh && rh.h0 != null) {
+        const w = cs.t < rh.h0 ? 0 : cs.t < rh.h0 + 0.07 ? (cs.t - rh.h0) / 0.07 : cs.t < rh.h1 ? 1 : Math.max(0, 1 - (cs.t - rh.h1) / 0.16);
+        const hands = rh.hands || [cs.mirror ? 0 : 1];
+        for (const side of hands) {
+          if (w <= 0.001) { if (this.handTarget[side] && this.handTarget[side].reach) this.handTarget[side] = null; continue; }
+          const off = hands.length > 1 ? (side ? 1 : -1) * 0.34 : 0;
+          const c = Math.cos(this.facing), s = Math.sin(this.facing);
+          const t = this.handTarget[side] || (this.handTarget[side] = { x: 0, y: 0, z: 0, w: 0, reach: true });
+          t.x = rh.hx + s * off; t.y = rh.hy - c * off; t.z = rh.hz; t.w = w; t.reach = true;
+        }
       }
       if (cs.t >= clip.dur && !clip.loop && cs.hold == null) {
         cs.done = true;
@@ -730,9 +1537,11 @@
       const cs = this.clip;
       this.clip = null;
       if (!cs) return;
+      for (let side = 0; side < 2; side++) if (this.handTarget[side] && this.handTarget[side].reach) this.handTarget[side] = null;
       this.jumpZ = 0;
       for (const f of this.feet) if (f.state === 'air') this._landFoot(f, this.facing);
-      this.vx *= 0.5; this.vy *= 0.5;
+      // (a move that goes somewhere, a spin, hands its speed on to the run out of it)
+      if (!cs.clip.keepV) { this.vx *= 0.5; this.vy *= 0.5; }
       // keep any goal issued while the clip was playing (play() cleared the old one)
       if (cs.onEnd) U.safe(() => cs.onEnd(this), null, 'clip end');
     }
@@ -766,10 +1575,70 @@
         if (cs.mirror) bx = -bx;
         const w = cs.w;
         const base = this._holdLocalS(HL);
-        return this.local(U.lerp(base[0], bx * H, w), U.lerp(base[1], by * H, w), U.lerp(base[2], bz * H, w), out);
+        // the ball path is set for the body the clip was made with: when the body sits lower than that (the pelvis let
+        // down so the legs reach planted feet, a crouched stance under an upper-body clip) the ball comes down with
+        // the chest, and forward with a lean, instead of ending up in the chest or the face
+        const q = this.pose;
+        let dz = 0, dy = 0;
+        if (cs === this.clip) dz = Math.min(0, q[CH.rootZ] - this.clipPose[CH.rootZ]) * H * 0.9;
+        else { dz = -Math.max(0, -q[CH.rootZ] - 0.03) * H * 0.85; dy = Math.sin(Math.max(0, q[CH.pelPitch] + q[CH.spFlex] - 14 * D)) * 0.3 * H; }
+        const L = BL;
+        L[0] = U.lerp(base[0], bx * H, w); L[1] = U.lerp(base[1], by * H + dy, w); L[2] = U.lerp(base[2], bz * H + dz, w);
+        this.clearBall(L, BALL_R, true);
+        this.local(L[0], L[1], L[2], out);
+        // going up to the rim: the ball ends the rise at the spot, as close as the arm reaches
+        const r = cs.reach;
+        if (r && r.t1 != null) {
+          const k = cs.t <= r.t0 ? 0 : cs.t >= r.t1 ? 1 : U.smooth((cs.t - r.t0) / Math.max(0.01, r.t1 - r.t0));
+          if (k > 0.001) {
+            const tg = this._reachClamp(r.x, r.y, r.z, cs.mirror ? 0 : 1, 0.1 * H, RT2);
+            out[0] += (tg[0] - out[0]) * k; out[1] += (tg[1] - out[1]) * k; out[2] += (tg[2] - out[2]) * k;
+          }
+        }
+        return out;
       }
       const l = this._holdLocalS(HL);
+      this.clearBall(l, BALL_R, true);
       return this.local(l[0], l[1], l[2], out);
+    }
+    /** where the nearest opponent is for a ball handler: w = threat (0 beyond ~8 ft, 1 inside ~4 ft, less when he
+     *  is behind), side = 0 in front .. 1 out on the off-hand side; eased so the guard arm does not twitch */
+    _guardDir(dt) {
+      const g = this._gd || (this._gd = { w: 0, side: 0 });
+      let best = null, bd = 1e9;
+      const v = this.view;
+      if (v && v.onCourt && v.actors && this.team >= 0) {
+        for (const id of v.onCourt[1 - this.team] || []) {
+          const o = v.actors[id]; if (!o) continue;
+          const d = Math.hypot(o.x - this.x, o.y - this.y);
+          if (d < bd) { bd = d; best = o; }
+        }
+      }
+      let w = 0, side = 0;
+      if (best && bd < 9) {
+        const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        const dx = best.x - this.x, dy = best.y - this.y;
+        const fwd = (dx * c + dy * s) / (bd || 1), lat = (dx * s - dy * c) / (bd || 1);
+        // (lat > 0: he is to the right; the off arm is on the left while the right hand dribbles)
+        const offDir = this.dribble && this.dribble.hand ? -1 : 1;
+        w = U.smooth((8 - bd) / 4) * U.clamp(0.4 + fwd, 0, 1);
+        side = U.clamp(offDir * lat * 1.4, 0, 1);
+      }
+      const k = dt > 0 ? 1 - Math.exp(-dt / 0.18) : 1;
+      g.w += (w - g.w) * k; g.side += (side - g.side) * k;
+      return g;
+    }
+    /** a world point pulled in to within an arm's length (plus `extra`) of the shoulder on `side`. The shoulder is
+     *  placed from the root (glenohumeral centre ~0.80 H up, a touch forward, plus any jump), not read from the last
+     *  solve, so where a held ball goes never depends on whether a frame was drawn */
+    _reachClamp(x, y, z, side, extra, out) {
+      const sh = this.local((side ? 1 : -1) * this.dims.shX, 0.02 * this.H, 0.8 * this.H, RT3);
+      const sx = sh[0], sy = sh[1], sz = sh[2];
+      const L = (this.dims.ua + this.dims.fa) * 0.97 + extra;
+      const dx = x - sx, dy = y - sy, dz = z - sz, d = Math.hypot(dx, dy, dz);
+      const k = d > L && d > 1e-6 ? L / d : 1;
+      out[0] = sx + dx * k; out[1] = sy + dy * k; out[2] = sz + dz * k;
+      return out;
     }
     /** the hold position eased over ~0.1 s, so switching how the ball is held (chest, pocket, overhead...)
      *  moves it through the hands instead of teleporting it */
@@ -787,20 +1656,59 @@
     _holdLocal(out) {
       const H = this.H, m = this.lefty ? -1 : 1;
       switch (this.ballHold) {
-        case 'triple': out[0] = 0.13 * H * m; out[1] = 0.06 * H; out[2] = 0.5 * H; break;
+        // (on the front of the right hip, in toward the middle a little: the other hand reaches across to it from the
+        // crouch and clears the belly)
+        case 'triple': out[0] = 0.13 * H * m; out[1] = 0.2 * H; out[2] = 0.53 * H; break;
         case 'over': out[0] = 0; out[1] = 0.05 * H; out[2] = 1.1 * H; break;
-        case 'pocket': out[0] = 0.07 * H * m; out[1] = 0.14 * H; out[2] = 0.53 * H; break;
+        // (on the shot's line: ~6 in off the belly and a little more, so the straight line up clears the face; just
+        // right of the middle)
+        case 'pocket': out[0] = 0.06 * H * m; out[1] = 0.19 * H; out[2] = 0.55 * H; break;
         case 'low': out[0] = 0.02 * H * m; out[1] = 0.17 * H; out[2] = 0.36 * H; break;
         default: out[0] = 0; out[1] = 0.16 * H; out[2] = 0.66 * H;
       }
+      // (protecting it from a reach: pulled away to the far side and down)
+      const pk = this._protectK();
+      if (pk > 0.001) { out[0] += this._protect.sgn * 0.07 * H * pk; out[1] -= 0.05 * H * pk; out[2] -= 0.06 * H * pk; }
+      // the holds are set for a player standing tall: sitting lower and leaning in, the chest (and the ball held in
+      // front of it) comes down and forward with him (a fixed spot ended up inside a crouched player's chest)
+      const q = this.pose;
+      if (q) {
+        const drop = Math.max(0, -q[CH.rootZ] - 0.03) * H;
+        const lean = Math.max(0, q[CH.pelPitch] + q[CH.spFlex] - 14 * D);
+        out[2] -= drop * 0.85;
+        out[1] += Math.sin(lean) * 0.3 * H;
+      }
       return out;
     }
-    /** where the ball sits at the top of the dribble: hip height, outside the dribble-side foot, a little in front */
+    /** how low he dribbles (0..1): sitting down in the dribbling stance keeps the ball at the lowered hips (a speed
+     *  dribble on the run comes back up), deeper still when protecting it */
+    dribbleDepth() {
+      // (driving he stays down in it; only running it out in the open does the dribble come back up)
+      const st = this.stance === 'dribble' ? 0.35 * (1 - U.smooth((this.speed - 10) / 8)) : 0;
+      return Math.max(this.dribbleLow || 0, st, this._protectK());
+    }
+    /** the dribble's shape for how he is moving (H-fractions, body frame, x toward the dribble hand): tx/ty = where
+     *  the hand has the ball at the top, cx/cy = where it meets the floor, top = its height at the top. Sizing up
+     *  (standing): the ball out wide of the hip with the arm long (the reference guard setup); driving: low, outside
+     *  the foot; running it up the floor: pushed out ahead at thigh height, where he runs onto it */
+    dribbleShape(o) {
+      const low = this.dribbleDepth();
+      const spK = U.smooth((this.speed - 6) / 12), still = 1 - U.smooth((this.speed - 1) / 4);
+      o.tx = U.lerp(0.2, 0.27, still) - 0.03 * spK;
+      o.ty = 0.12 + 0.2 * spK - 0.02 * still;
+      o.cx = o.tx + 0.01;
+      o.cy = o.ty + 0.05 + 0.22 * spK;
+      o.top = 0.5 - 0.2 * low - 0.03 * spK;
+      // (protecting it from a reach: the dribble pulled back beside the hip, a little wider)
+      const pk = this._protectK();
+      if (pk > 0.001) { o.ty -= 0.12 * pk; o.cy -= 0.12 * pk; o.tx += 0.03 * pk; o.cx += 0.03 * pk; }
+      o.low = low; o.spK = spK; o.still = still;
+      return o;
+    }
+    /** where the ball sits at the top of the dribble (see dribbleShape) */
     dribbleTop(hand, out) {
-      const H = this.H, side = hand ? 1 : -1;
-      const low = this.dribbleLow || 0;
-      const spK = U.smooth((this.speed - 6) / 12);
-      return this.local(side * 0.2 * H, (0.13 + 0.14 * spK) * H, (0.5 - low * 0.2 + 0.09 * spK) * H, out);
+      const H = this.H, side = hand ? 1 : -1, g = this.dribbleShape(DSH);
+      return this.local(side * g.tx * H, g.ty * H, g.top * H, out);
     }
 
     // ============================================================ pose
@@ -816,7 +1724,7 @@
       return o;
     }
     _stancePose(name) {
-      const st = A.STANCE[name] || A.STANCE.stand;
+      const st = stanceOf(this, name);
       return PL[st.pose] || PL.stand;
     }
 
@@ -829,6 +1737,16 @@
         const w = U.smooth(this.stanceBlend);
         for (let i = 0; i < RG.NCH; i++) p[i] = this.prevStancePose[i] + (sp[i] - this.prevStancePose[i]) * w;
       } else p.set(sp);
+      // the dribble picked up (holding the ball to pass or shoot): he comes partway up out of the dribbling crouch
+      const tNow = this.time || 0, dtB = U.clamp(tNow - (this._bpT != null ? this._bpT : tNow), 0, 0.1); this._bpT = tNow;
+      const holdUp = this.stance === 'dribble' && this.hasBall && !this.dribble ? 1 : 0;
+      this._holdRise = (this._holdRise || 0) + (holdUp - (this._holdRise || 0)) * (1 - Math.exp(-dtB / 0.18));
+      if (this._holdRise > 0.001) {
+        const k = 0.45 * U.smooth(this._holdRise);
+        p[CH.rootZ] *= 1 - k; p[CH.pelPitch] *= 1 - k * 0.8;
+        for (const c of ['lHipF', 'rHipF', 'lKnee', 'rKnee', 'lAnk', 'rAnk']) p[CH[c]] *= 1 - k;
+        p[CH.nkFlex] *= 1 - k * 0.8;
+      }
       // breathing
       const br = Math.sin(this.time * 1.7 + this.breath);
       p[CH.chFlex] += br * 0.8 * D; p[CH.lClvE] += br * 0.08; p[CH.rClvE] += br * 0.08;
@@ -860,14 +1778,45 @@
         const lat = this.latK || 0;
         const kT = this.gaitK * U.lerp(U.lerp(stp.gaitTorso, 1, U.smooth((this.speed - 6) / 6)), U.lerp(0.35, 0.25, stp.slide), lat);
         const kA = this.gaitK * U.lerp(U.lerp(stp.gaitArms, 1, U.smooth((this.speed - 7) / 6)), U.lerp(0.16, 0.1, stp.slide), Math.max(lat, back * 0.6));
-        A.applyGait(p, this.phase, this.speed, kT, back, kA);
+        A.applyGait(p, this.phase, this.speed, kT, back, kA, this.gaitDbg ? this.gaitDbg.beta : null);
         if (lat > 0.001) A.applySlide(p, this.phase, this.gaitK * lat);
         if (back > 0.001) { p[CH.spFlex] -= 6 * D * this.gaitK * back; p[CH.pelPitch] -= 4 * D * this.gaitK * back; }
       }
-      // lean from acceleration and turns
+      // a single step (not the running cycle): the weight goes over the other foot while this one is up, the
+      // stepping side's hip drops a little and comes through with the leg (a step taken by the leg alone, the hips
+      // parked over the middle, looked like the leg was not part of the body)
+      if (this.gaitK < 0.999 && this.fall <= 0) {
+        const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        for (const f of this.feet) {
+          if (f.state !== 'swing' || f.mode !== 'step') continue;
+          const o = this.feet[1 - f.side];
+          if (o.state !== 'plant') continue;
+          const b = Math.sin(Math.PI * U.clamp(f.s || 0, 0, 1)) * (1 - U.clamp(this.gaitK, 0, 1)) * (this.clip ? 0.5 : 1);
+          if (b <= 0.001) continue;
+          const sg = f.side ? 1 : -1;
+          // (the standing foot's offset to the right, feet)
+          const lat = (o.x - this.x) * s - (o.y - this.y) * c;
+          p[CH.rootX] += U.clamp(lat * 0.3, -0.12, 0.12) * b;
+          p[CH.pelRoll] += sg * 2 * D * b;
+          const fwd = ((f.tx - f.x) * c + (f.ty - f.y) * s) / H;
+          p[CH.pelTwist] += sg * U.clamp(fwd * 0.5, -0.1, 0.1) * b;
+          p[CH.chTwist] -= sg * U.clamp(fwd * 0.2, -0.04, 0.04) * b;
+        }
+      }
+      // driving with the ball: he stays down in it (the dribble drive reference: low, knees bent, leaning into it);
+      // only running it out in the open does he come up
+      if (this.dribble && this.gaitK > 0.001 && !this.clip) {
+        const drvK = U.smooth((this.speed - 3) / 4) * (1 - U.smooth((this.speed - 13) / 5)) * this.gaitK;
+        p[CH.rootZ] -= 0.055 * drvK; p[CH.pelPitch] += 9 * D * drvK; p[CH.spFlex] += 4 * D * drvK; p[CH.nkFlex] -= 9 * D * drvK;
+      }
+      // lean from acceleration and turns: the trunk tilts mostly at the hips, and the neck and head take most of it
+      // back so the eyes stay level (runners hold the head steady; a head nodding with every change of pace looked
+      // like it was being pulled along)
       if (!this.clip) {
-        p[CH.pelPitch] += this.leanF * 0.5; p[CH.spFlex] += this.leanF * 0.6;
+        p[CH.pelPitch] += this.leanF * 0.6; p[CH.spFlex] += this.leanF * 0.4;
+        p[CH.nkFlex] -= this.leanF * 0.5; p[CH.hdFlex] -= this.leanF * 0.3;
         p[CH.pelRoll] += -this.lean * 0.6; p[CH.spLat] += -this.lean * 0.4;
+        p[CH.nkLat] += this.lean * 0.4;
       }
       // 3. upper-body overlay clip
       if (this.upper) {
@@ -878,6 +1827,26 @@
         const mask = maskOf(cs.clip.mask);
         for (const i of mask) p[i] += (this.clipPose[i] - p[i]) * w;
       }
+      // 3a. the body goes with the pass: the weight comes forward and the hips hinge and dip as the arms extend (the
+      // upper-body clips leave the pelvis to the stance, so a pass was thrown by the arms alone with the legs and
+      // hips standing still); a catch gives a little the other way
+      if (this.upper && !this.clip) {
+        const cs = this.upper, ev = cs.clip.events || {}, w = U.smooth(cs.w), t = cs.t;
+        if (ev.release != null) {
+          const r = Math.max(0.05, ev.release);
+          const k = (t < r ? U.smooth(t / r) : Math.exp(-(t - r) / 0.16)) * w;
+          p[CH.rootY] += 0.2 * k; p[CH.rootZ] -= 0.014 * k; p[CH.pelPitch] += 6 * D * k; p[CH.spFlex] += 3 * D * k;
+        } else if (ev.catch != null) {
+          const k = t < ev.catch ? 0 : U.smooth(Math.min(1, (t - ev.catch) / 0.07)) * Math.exp(-Math.max(0, t - ev.catch - 0.07) / 0.18) * w;
+          p[CH.rootY] -= 0.08 * k; p[CH.rootZ] -= 0.01 * k; p[CH.pelPitch] += 2 * D * k; p[CH.spFlex] += 3 * D * k;
+        }
+      }
+      // 3b. squared up to a pass target: the trunk takes the turn the feet have not made yet
+      if (this.aim_ && this.aim_.w > 0.001 && !this.clip) {
+        const a = this.aim_;
+        const rel = U.clamp(U.wrapPi(Math.atan2(a.y - this.y, a.x - this.x) - this.facing), -1.25, 1.25) * U.smooth(a.w);
+        p[CH.pelTwist] += rel * 0.22; p[CH.spTwist] += rel * 0.34; p[CH.chTwist] += rel * 0.3; p[CH.nkTwist] += rel * 0.08;
+      }
       // 4. full-body clip
       if (this.clip) {
         const cs = this.clip;
@@ -887,6 +1856,41 @@
         const mask = maskOf(cs.clip.mask);
         for (const i of mask) p[i] += (this.clipPose[i] - p[i]) * w;
       }
+      // landing from a jump: the legs give under the weight, deeper the harder he comes down (~0.1 ft at 10 ft/s, the
+      // lowest ~0.08 s after touching down, then back up) with the trunk folding a little over the hips, on top of
+      // the landing the move itself is drawn with
+      const ab = this._absorb;
+      if (ab) {
+        const t = this.time - ab.t;
+        if (t > 0.7 || t < 0) this._absorb = null;
+        else {
+          const k = Math.min(1.3, ab.v / 10) * (t / 0.08) * Math.exp(1 - t / 0.08);
+          p[CH.rootZ] -= 0.015 * k; p[CH.pelPitch] += 5 * D * k; p[CH.spFlex] += 3 * D * k; p[CH.nkFlex] -= 3 * D * k;
+        }
+      }
+      // a crossover (between the legs, behind the back) moves the body with the ball: the weight down on the outside
+      // foot as the ball is pushed across (the hips over it, the shoulder on the ball side dipped), over the middle as
+      // the ball crosses and onto the other foot by the catch, the way he pushes off, the head staying level. (Only
+      // the hands and the ball moved: the body stood still over a ball going side to side)
+      const dr = this.dribble && this.dribble.ball && this.dribble.ball.dr;
+      if (dr && dr.actor === this && dr.move && dr.moveStarted && (!this._xo || this._xo.mv !== dr.move)) {
+        this._xo = { mv: dr.move, t: this.time, dur: Math.max(0.2, dr.move.period || 0.36), from: dr.hand === 1 ? 1 : -1, k: dr.move.type === 'cross' ? 1 : 0.7 };
+      }
+      const xo = this._xo;
+      if (xo) {
+        const sx = (this.time - xo.t) / xo.dur;
+        if (sx > 1.6 || sx < 0) this._xo = null;
+        else if (!this.clip) {
+          // (standing or walking into it; on the move, a drive's crossover, the weight shows in the lean into the
+          // push instead: the hips shifted over one foot at speed pulled the other out of its reach)
+          const env = U.smooth(sx / 0.2) * (1 - U.smooth((sx - 0.9) / 0.7)) * xo.k * (1 - U.smooth((this.speed - 5) / 6));
+          const side = xo.from * Math.cos(Math.PI * U.smooth(U.clamp(sx, 0, 1))) * env, dip = Math.sin(Math.PI * U.clamp(sx, 0, 1)) * env;
+          p[CH.rootX] += 0.2 * side; p[CH.rootZ] -= 0.03 * dip;
+          p[CH.pelRoll] += 4 * D * side; p[CH.spLat] += 7 * D * side; p[CH.chLat] += 4 * D * side;
+          p[CH.nkLat] -= 7 * D * side; p[CH.hdLat] -= 3 * D * side;
+          p[CH.pelPitch] += 5 * D * dip; p[CH.spFlex] += 4 * D * dip;
+        }
+      }
       // knocked down (charge)
       if (this.fall > 0) {
         const f = U.smooth(this.fall);
@@ -895,6 +1899,49 @@
       }
       // 5. head look-at
       if (this.look_) this._applyLook(p);
+      // turned to run somewhere, he still watches the ball (or whatever he was facing) over his shoulder
+      else if (this._watchK > 0.05 && !this.clip && this._watch != null) {
+        const rel = U.clamp(U.wrapPi(this._watch - this.facing), -1.35, 1.35) * this._watchK;
+        p[CH.chTwist] += rel * 0.2; p[CH.nkTwist] += rel * 0.35; p[CH.hdTwist] += rel * 0.35;
+      }
+      // 5b. knocked off balance by a contact: the torso goes with the push, the head lags, the arms come out
+      const hit = this.hit;
+      if (hit) {
+        const a = hit.t < 0.07 ? hit.t / 0.07 : Math.exp(-(hit.t - 0.07) / 0.18);
+        const k = hit.k * a;
+        const c = Math.cos(this.facing), sn = Math.sin(this.facing);
+        const lat = hit.nx * sn - hit.ny * c, fwd = hit.nx * c + hit.ny * sn;
+        p[CH.spLat] += lat * 9 * D * k; p[CH.chLat] += lat * 7 * D * k; p[CH.pelRoll] += lat * 3 * D * k;
+        p[CH.spFlex] += fwd * 8 * D * k; p[CH.chFlex] += fwd * 5 * D * k;
+        p[CH.nkLat] -= lat * 7 * D * k; p[CH.nkFlex] -= fwd * 6 * D * k;
+        p[CH.lShA] += 16 * D * k; p[CH.rShA] += 16 * D * k; p[CH.lElF] += 10 * D * k; p[CH.rElF] += 10 * D * k;
+        // in the air nothing holds the legs: the body turns about its middle, the hips and legs swinging the other
+        // way from the shoulders
+        if (hit.air) {
+          p[CH.pelRoll] -= lat * 10 * D * k; p[CH.pelPitch] -= fwd * 6 * D * k;
+          p[CH.lHipA] += lat * 6 * D * k; p[CH.rHipA] -= lat * 6 * D * k;
+        }
+      }
+      // reaching for the ball: the weight goes onto the front foot toward it (the hips forward and down, the trunk
+      // over), the other arm back, and he comes back out of it
+      const lg = this._lunge;
+      if (lg) {
+        const t = this.time - lg.t, e = t < 0.2 ? U.smooth(t / 0.2) : 1 - U.smooth((t - 0.2) / 0.4);
+        if (e > 0.001) {
+          const rel = U.wrapPi(lg.a - this.facing), f = Math.cos(rel), r = -Math.sin(rel);
+          p[CH.rootY] += 0.35 * f * e; p[CH.rootX] += 0.35 * r * e; p[CH.rootZ] -= 0.05 * e;
+          p[CH.pelPitch] += 10 * D * e; p[CH.spFlex] += 4 * D * e;
+          p[CH.lShF] -= 25 * D * e; p[CH.lShA] += 15 * D * e;
+        }
+      }
+      // protecting the ball from a reach: the near shoulder turned into it, leaning away, a little lower, eyes on it
+      const pk = this._protectK();
+      if (pk > 0.001) {
+        const sg = this._protect.sgn;
+        p[CH.chTwist] -= sg * 18 * D * pk; p[CH.spTwist] -= sg * 10 * D * pk; p[CH.pelTwist] -= sg * 6 * D * pk;
+        p[CH.spLat] += sg * 5 * D * pk; p[CH.rootZ] -= 0.025 * pk;
+        p[CH.nkTwist] += sg * 16 * D * pk; p[CH.hdTwist] += sg * 6 * D * pk;
+      }
       // 6. procedural overlays (dribble arm etc.) handled in IK stage
     }
 
@@ -907,6 +1954,92 @@
       p[CH.chTwist] += rel * 0.2; p[CH.nkTwist] += rel * 0.35; p[CH.hdTwist] += rel * 0.35;
     }
 
+    /** one body, turning: (1) the hips take about a third of any turn of the upper body over planted feet (a pass,
+     *  a look, squaring up), spread so the lower spine sits between the hips and the chest instead of the chest
+     *  twisting on still hips; (2) a turn of the whole body starts at the head: the head and neck lead the facing by
+     *  its turn rate, the chest a little, and the hips come round last (standing and walking turns go eyes, head,
+     *  trunk, pelvis, feet). dt: time since the last solve (0 = the same frame again) */
+    _bodyTurn(p, dt) {
+      const kt = this._kt || (this._kt = { f: this.facing, wf: 0, wv: 0, ld: 0, lv: 0 });
+      // the rest of the turn the body is making (where the steering wants it to face), while it steers itself
+      const lead = !this.clip && this._wantT != null && this.time - this._wantT < 0.1 ? U.clamp(U.wrapPi(this._wantFace - this.facing), -0.9, 0.9) : 0;
+      if (!(dt >= 0) || dt > 0.12) { kt.f = this.facing; kt.wf = 0; kt.wv = 0; kt.ld = lead; kt.lv = 0; }
+      else if (dt > 0) {
+        const raw = U.clamp(U.wrapPi(this.facing - kt.f) / dt, -14, 14);
+        kt.f = this.facing;
+        // (the turn rate and the lead eased by critically damped springs, ~40 and ~60 ms, so neither twitches)
+        let y = 2 * Math.LN2 / 0.04, j0 = kt.wf - raw, j1 = kt.wv + j0 * y, e = Math.exp(-y * dt);
+        kt.wf = e * (j0 + j1 * dt) + raw; kt.wv = e * (kt.wv - j1 * y * dt);
+        // (only while the body is really turning: a facing held off its target - a pivot foot, a lock - would
+        // otherwise leave the chest twisted and the hands off a held ball)
+        const leadT = lead * U.smooth((Math.abs(kt.wf) - 0.3) / 1.2);
+        y = 2 * Math.LN2 / 0.06; j0 = kt.ld - leadT; j1 = kt.lv + j0 * y; e = Math.exp(-y * dt);
+        kt.ld = e * (j0 + j1 * dt) + leadT; kt.lv = e * (kt.lv - j1 * y * dt);
+      }
+      // (not boxing out, where the hips stay square to the man sealed behind while the head and chest find the ball,
+      // and half of it in a defensive stance, squared up to the ball handler)
+      const stK = this.stance === 'boxout' ? 0 : this.stance === 'defense' || this.stance === 'defenseWide' ? 0.5 : 1;
+      const kT = 0.3 * (1 - U.clamp(this.gaitK, 0, 1)) * (this.fall > 0 ? 0 : 1) * stK;
+      if (kT > 0.001) {
+        const T = p[CH.spTwist] + p[CH.chTwist];
+        const add = U.clamp(kT * T, -0.1, 0.1), k = Math.abs(T) > 1e-6 ? add / T : 0;
+        p[CH.pelTwist] += add; p[CH.spTwist] *= 1 - k; p[CH.chTwist] *= 1 - k;
+      }
+      // the head and neck turn toward the new direction first, the chest part of the way, the hips last (they
+      // follow the feet); a clip animates its own head and turn, so it gets none of this
+      const ld = kt.ld, wf = this.clip ? 0 : kt.wf;
+      if (Math.abs(ld) > 0.002 || Math.abs(wf) > 0.05) {
+        p[CH.hdTwist] += 0.35 * ld + U.clamp(0.02 * wf, -0.12, 0.12);
+        p[CH.nkTwist] += 0.3 * ld + U.clamp(0.015 * wf, -0.1, 0.1);
+        p[CH.chTwist] += 0.18 * ld + U.clamp(0.008 * wf, -0.05, 0.05);
+        p[CH.spTwist] += 0.07 * ld;
+        p[CH.pelTwist] -= U.clamp(0.012 * wf, -0.08, 0.08);
+      }
+    }
+    /** one body, follow-through and overlap: each segment out along a chain (lower spine, chest, neck, head; upper
+     *  arm, forearm) carries a small lag spring on its world angle, driven by how the animated angle accelerates,
+     *  so it trails a little as a motion starts and carries on a little as it stops ("successive breaking of
+     *  joints"). A landing or a take-off (the pelvis' vertical acceleration) nods the head and neck a touch. Arms
+     *  held on the ball by IK keep their hands there (only their elbows' bulge follows). dt as in _bodyTurn */
+    _followThrough(p, dt) {
+      const kc = this._kc || (this._kc = new KChain(10));
+      const fresh = !(dt >= 0) || dt > 0.12;
+      if (fresh) kc.reset();
+      const go = !fresh && dt > 0;
+      // vertical acceleration of the pelvis, and the body's forward and sideways acceleration (ft/s^2)
+      const hz = p[CH.rootZ] * this.H;
+      let aUp = 0, aF = 0, aL = 0;
+      if (go) {
+        const vz = (hz - kc.hz) / dt; if (kc.warm >= 2) aUp = U.clamp((vz - kc.vz) / dt, -200, 200); kc.vz = vz;
+        if (kc.warm >= 1) {
+          const c = Math.cos(this.facing), s = Math.sin(this.facing), ax = (this.vx - kc.pvx) / dt, ay = (this.vy - kc.pvy) / dt;
+          aF = U.clamp(ax * c + ay * s, -40, 40); aL = U.clamp(ax * s - ay * c, -40, 40);
+        }
+      } else if (fresh) kc.vz = 0;
+      kc.hz = hz; kc.pvx = this.vx; kc.pvy = this.vy;
+      let W = p[CH.pelPitch], prev = 0, chestW = 0;
+      for (let k = 0; k < 4; k++) {
+        const ch = KC_PITCH[k];
+        W += p[ch];
+        if (k === 1) chestW = W;
+        // (landing: the head nods; braking: it tips forward a touch, speeding up: back)
+        const ext = k === 3 ? 0.18 * aUp - 0.12 * aF : k === 2 ? 0.1 * aUp - 0.06 * aF : 0;
+        const o = kc.at(k, W, dt, go, KC_SPINE[k], ext);
+        p[ch] += o - prev; prev = o;
+      }
+      for (let side = 0; side < 2; side++) {
+        const pre = side ? 'r' : 'l', b = 4 + side * 3;
+        const iF = CH[pre + 'ShF'], iE = CH[pre + 'ElF'], iA = CH[pre + 'ShA'];
+        const wUa = chestW + p[iF], wFa = wUa + p[iE];
+        // (the arms hang from the shoulders: braking swings them forward, speeding up leaves them behind, a cut to
+        // one side swings them the other way)
+        const sgA = side ? 1 : -1;
+        const oU = kc.at(b, wUa, dt, go, KC_UA, -0.45 * aF), oF = kc.at(b + 1, wFa, dt, go, KC_FA, 0), oA = kc.at(b + 2, p[iA], dt, go, KC_AB, -0.4 * sgA * aL);
+        p[iF] += oU; p[iE] += oF - oU; p[iA] += oA;
+      }
+      if (go) kc.warm++;
+    }
+
     /** final solve: sets IK requests from feet / ball and runs the skeleton */
     solve() {
       this.buildPose();
@@ -916,6 +2049,8 @@
       const dtI = this._inT == null ? -1 : tNow - this._inT;
       this._inT = tNow;
       this._inDt = dtI;
+      // one body: the hips take their share of a turn of the upper body, and a turn starts at the head
+      this._bodyTurn(p, dtI);
       const fall = this.fall;
       // feet
       let minRootZ = Infinity;
@@ -925,8 +2060,10 @@
         if (f.state === 'air' || fall > 0.5) { ik.on = 0; continue; }
         ik.on = 1;
         if (f.state === 'plant') {
-          const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-          ik.x = a[0]; ik.y = a[1]; ik.z = a[2] + (f.land ? f.lz || 0 : 0); ik.yaw = f.yaw; ik.pitch = f.pitch; ik.soft = false;
+          // (the heel comes up off the floor when the shin leans further over the foot than an ankle bends)
+          const pu = Math.max(f.pitch, f.heelFloor || 0);
+          const a = this._ankleFromBall(f.x, f.y, f.yaw, pu, TA);
+          ik.x = a[0]; ik.y = a[1]; ik.z = a[2] + (f.land ? f.lz || 0 : 0); ik.yaw = f.yaw; ik.pitch = pu; ik.soft = false; f.pitchUsed = pu;
         } else {
           ik.x = f.ax; ik.y = f.ay; ik.z = f.az; ik.yaw = f.yawNow != null ? f.yawNow : f.yaw; ik.pitch = f.pitchNow || 0;
           // (fully soft in mid-swing; a walker's leg reaches its heel strike exactly so the plant does not jump,
@@ -987,7 +2124,11 @@
       this._armTargets();
       // pose channels that jump between frames (stance and clip switches, dribble arm poses, look-at flips) glide
       this._inTorso.apply(p, dtI);
+      // one body: each segment out along the spine and the arms trails and follows through a little
+      this._followThrough(p, dtI);
+      sk.dt = dtI;
       sk.solve(p, this.x, this.y, this.facing);
+      sk.dt = 0;
       // holding the ball up high (dunks, lobs, rebounds, overhead holds) where the grip is out of the arms'
       // reach: the ball goes where the hands can actually hold it instead of floating above them
       const gr = this._grip, vb = this.view && this.view.ball;
@@ -1018,7 +2159,60 @@
         }
       }
       // legs leaving the floor (take-off): the IK pose eases into the clip's air pose instead of switching in one frame
+      sk.limitSwivel(dtI);
       sk.inertLegs(dtI, this.feet[0].state === 'air' || this.fall > 0.5, this.feet[1].state === 'air' || this.fall > 0.5);
+      this._ankleRange(dtI);
+      this._cacheBody();
+    }
+    /** a planted foot's ankle bends ~50 deg at most with the weight on it (weight-bearing lunge test): past ~48 deg
+     *  of shin lean over the foot the heel rises (the foot rolls onto its ball, which stays on its spot), instead of
+     *  the shin folding down over a flat foot in a deep stance, a lunge or a landing */
+    _ankleRange(dt) {
+      const P = this.sk.P, J = RG.J;
+      for (const f of this.feet) {
+        if (f.state !== 'plant') { f.heelFloor = 0; continue; }
+        const s = f.side, kn = (s ? J.R_KN : J.L_KN) * 3, an = (s ? J.R_AN : J.L_AN) * 3, he = (s ? J.R_HEEL : J.L_HEEL) * 3, to = (s ? J.R_TOE : J.L_TOE) * 3;
+        const sx = P[kn] - P[an], sy = P[kn + 1] - P[an + 1], sz = P[kn + 2] - P[an + 2];
+        const fx = P[to] - P[he], fy = P[to + 1] - P[he + 1], fz = P[to + 2] - P[he + 2];
+        const cosT = (sx * fx + sy * fy + sz * fz) / (Math.hypot(sx, sy, sz) * Math.hypot(fx, fy, fz) || 1);
+        const dorsi = Math.PI / 2 - Math.acos(U.clamp(cosT, -1, 1));
+        // (the lean it would have with the heel down: what is measured plus the heel rise already used)
+        // (x1.35: lifting the heel raises the ankle, and the shin leans on a little further over it)
+        const need = Math.max(0, dorsi + (f.pitchUsed || 0) - 47 * D) * 1.3;
+        const k = dt > 0 && dt < 0.12 ? 1 - Math.exp(-dt / 0.04) : 1;
+        f.heelFloor = (f.heelFloor || 0) + (Math.min(need, 55 * D) - (f.heelFloor || 0)) * k;
+      }
+    }
+
+    /** the solved body's trunk, head and leg centre lines in the body frame (x right, y forward, z up from the root
+     *  ground point, jump taken out), read by clearBall until the next solve */
+    _cacheBody() {
+      const P = this.sk.P, c = Math.cos(this.facing), s = Math.sin(this.facing), n = BODY_J.length * 3;
+      if (!this._bodyNow) { this._bodyNow = new Float64Array(n); this._bodyPrev = new Float64Array(n); this._body = new Float64Array(n); this._bodyN = 0; }
+      const Bn = this._bodyNow, Bp = this._bodyPrev, B = this._body, dt = this._inDt;
+      // (a new frame: this one becomes the previous; the same frame solved again only refreshes it)
+      if (dt > 0) { Bp.set(Bn); this._bodyN++; } else if (!(dt >= 0) || dt > 0.12) this._bodyN = 0;
+      for (let i = 0; i < BODY_J.length; i++) {
+        const j = BODY_J[i] * 3, rx = P[j] - this.x, ry = P[j + 1] - this.y;
+        Bn[i * 3] = rx * s - ry * c; Bn[i * 3 + 1] = rx * c + ry * s; Bn[i * 3 + 2] = P[j + 2] - this.jumpZ;
+      }
+      // the ball is placed before the next solve: where the body will be one frame on (legs swing fast when running)
+      const ok = this._bodyN > 1 && dt > 0 && dt < 0.05;
+      for (let i = 0; i < n; i++) B[i] = ok ? Bn[i] + U.clamp(Bn[i] - Bp[i], -0.3, 0.3) : Bn[i];
+    }
+    /** a ball this player holds or dribbles (centre l = [x, y, z] in the body frame, radius r) pushed out of his own
+     *  trunk, head and legs as last solved, so it never sinks into him (the hands hold it where it ends up); legs
+     *  false while it goes between them on purpose. Returns how far it moved. */
+    clearBall(l, r, legs) {
+      const B = this._body;
+      if (!B) return 0;
+      const H = this.H, x0 = l[0], y0 = l[1], z0 = l[2];
+      for (let it = 0; it < 2; it++) {
+        pushSeg(B, 0, 1, 0.063 * H + r, l); pushSeg(B, 1, 2, 0.063 * H + r, l);
+        pushSeg(B, 3, 3, 0.06 * H + r, l);
+        if (legs) { pushSeg(B, 4, 5, 0.044 * H + r, l); pushSeg(B, 7, 8, 0.044 * H + r, l); pushSeg(B, 5, 6, 0.032 * H + r, l); pushSeg(B, 8, 9, 0.032 * H + r, l); }
+      }
+      return Math.hypot(l[0] - x0, l[1] - y0, l[2] - z0);
     }
 
     _armTargets() {
@@ -1026,7 +2220,7 @@
       const grip = this._grip || (this._grip = [0, 0]);
       grip[0] = grip[1] = 0;
       const src = this._armSrc || (this._armSrc = [null, null]);
-      for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; src[side] = null; }
+      for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; sk.armIK[side].fkPole = false; src[side] = null; }
       // explicit
       for (let side = 0; side < 2; side++) {
         const t = this.handTarget[side];
@@ -1046,16 +2240,27 @@
         pp[CH[pre + 'Pro']] = U.lerp(pp[CH[pre + 'Pro']], 150 * D, wAll);
         pp[CH[pre + 'WrD']] = U.lerp(pp[CH[pre + 'WrD']], 8 * D, wAll);
         pp[CH[pre + 'Fing']] = U.lerp(pp[CH[pre + 'Fing']], 0.12, wAll);
-        // off arm: an "arm bar" guard, forearm up in front toward the defender, elbow ~90 deg (not pushing)
+        // off arm: guards the ball from the nearest defender, forearm up with the palm toward him (between him and
+        // the ball, not pushing), in front or out to the side depending on where he is; as well as the handler's
+        // skill allows: a guard keeps it up and turned at his man, a big who can't dribble barely lifts it; with
+        // nobody close it is carried loosely in front
+        // (nobody close: standing, it hangs loose across in front toward the other knee, the reference guard setup;
+        // driving, it rides out to the side for balance; running it up the floor it swings like a runner's arm)
         const off = hand ? 'l' : 'r';
-        const wOff = 0.8 * wAll;
-        pp[CH[off + 'ShF']] = U.lerp(pp[CH[off + 'ShF']], 42 * D, wOff);
-        pp[CH[off + 'ShA']] = U.lerp(pp[CH[off + 'ShA']], 26 * D, wOff);
-        pp[CH[off + 'ShT']] = U.lerp(pp[CH[off + 'ShT']], -6 * D, wOff);
-        pp[CH[off + 'ElF']] = U.lerp(pp[CH[off + 'ElF']], 88 * D, wOff);
-        pp[CH[off + 'Pro']] = U.lerp(pp[CH[off + 'Pro']], 60 * D, wOff);
-        pp[CH[off + 'WrF']] = U.lerp(pp[CH[off + 'WrF']], -10 * D, wOff);
-        pp[CH[off + 'Fing']] = U.lerp(pp[CH[off + 'Fing']], 0.2, wOff);
+        const gd = this._guardDir(this._inDt);
+        const wG = gd.w * (0.2 + 0.8 * this.rHandle);
+        const moveK = U.smooth((this.speed - 1.5) / 4), runK = U.smooth((this.speed - 12) / 6);
+        const ownArm = this.clip && this.clip.clip.offArm ? U.smooth(this.clip.w) * (1 - U.smooth((this.clip.t - this.clip.clip.dur + 0.2) / 0.2)) : 0;
+        const wOff = 0.85 * wAll * (1 - 0.85 * runK * (1 - wG)) * (1 - ownArm);
+        for (let k = 0; k < GUARD_CH.length; k++) {
+          const c = GUARD_CH[k], g = GUARD_FRONT[k] + (GUARD_SIDE[k] - GUARD_FRONT[k]) * gd.side;
+          const base = GUARD_HANG[k] + (GUARD_OUT[k] - GUARD_HANG[k]) * moveK;
+          const v = base + (g - base) * wG;
+          pp[CH[off + c]] = U.lerp(pp[CH[off + c]], c === 'Fing' ? v : v * D, wOff);
+        }
+        // running with it: leaning into the push, head up (the speed dribble reference)
+        const spD = U.smooth((this.speed - 10) / 8) * wAll;
+        if (spD > 0.001) { pp[CH.pelPitch] += 7 * D * spD; pp[CH.spFlex] += 5 * D * spD; pp[CH.nkFlex] -= 7 * D * spD; pp[CH.hdFlex] -= 3 * D * spD; }
         // shoulders turn a little toward the ball side; the dribbling shoulder dips as the push goes down
         pp[CH.chTwist] += (hand ? -1 : 1) * 5 * D * wAll;
         if (d.ph === 'push') pp[CH.chLat] += (hand ? 1 : -1) * 2.5 * D * Math.sin(Math.PI * (d.s || 0)) * wAll;
@@ -1090,21 +2295,36 @@
       // holding the ball: grips from the active clip or hold mode
       if (this.hasBall && this.view && this.view.ball && !this.dribble) {
         const b = this.view.ball;
-        let gripName = null, pole = null;
-        const cs = this.clip || this.upper;
-        if (cs && cs.clip.ballKeys) gripName = A.clipGrip(cs.clip, Math.min(cs.t, cs.clip.dur));
-        // (a plain hold: elbows down and out, palms on the sides of the ball; clips keep their authored elbows)
-        if (!gripName) { gripName = this.ballHold === 'triple' ? 'hip' : this.ballHold === 'over' ? 'over' : 'hold'; pole = HOLD_POLE[gripName] || null; }
-        let grip = A.GRIP[gripName];
-        if (grip) {
-          const mir = cs ? cs.mirror : this.lefty;
-          const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        const cs = this.clip && this.clip.clip.ballKeys ? this.clip : this.upper && this.upper.clip.ballKeys ? this.upper : null;
+        const c = Math.cos(this.facing), s = Math.sin(this.facing);
+        const gi = cs ? A.clipGripAt(cs.clip, Math.min(cs.t, cs.clip.dur), GI) : null;
+        if (gi && (gi.wr > 0.001 || gi.wl > 0.001)) {
+          // a clip's grips, eased from key to key, with the elbows where the clip's own arms have them (the arm is
+          // solved toward its animated elbow, so between key poses it keeps their shape instead of twisting)
+          const mir = cs.mirror;
           for (let side = 0; side < 2; side++) {
-            let g = mir ? (side ? grip.l : grip.r) : (side ? grip.r : grip.l);
+            const g = mir ? (side ? gi.l : gi.r) : (side ? gi.r : gi.l), w = mir ? (side ? gi.wl : gi.wr) : (side ? gi.wr : gi.wl);
+            if (!g || w <= 0.001) continue;
+            const gx = mir ? -g[0] : g[0];
+            const ik = sk.armIK[side];
+            ik.on = w; this._grip[side] = w; src[side] = 'grip'; ik.pole = null; ik.fkPole = true;
+            ik.x = b.x + (s * gx + c * g[1]) * BALL_R;
+            ik.y = b.y + (-c * gx + s * g[1]) * BALL_R;
+            ik.z = b.z + g[2] * BALL_R;
+          }
+        } else if (!cs) {
+          // a plain hold: elbows down and out, palms on the sides of the ball
+          const gripName = this.ballHold === 'triple' ? 'hip' : this.ballHold === 'over' ? 'over' : 'hold';
+          const grip = A.GRIP[gripName], pole = HOLD_POLE[gripName] || null;
+          // (the triple threat stance's arms are fitted to hold the ball: its elbows go where that pose has them)
+          const fk = gripName === 'hip' && this.stance === 'triple';
+          const mir = this.lefty;
+          for (let side = 0; grip && side < 2; side++) {
+            const g = mir ? (side ? grip.l : grip.r) : (side ? grip.r : grip.l);
             if (!g) continue;
             const gx = mir ? -g[0] : g[0];
             const ik = sk.armIK[side];
-            ik.on = 1; this._grip[side] = 1; src[side] = 'grip'; ik.pole = pole;
+            ik.on = 1; this._grip[side] = 1; src[side] = 'grip'; ik.pole = fk ? null : pole; ik.fkPole = fk;
             ik.x = b.x + (s * gx + c * g[1]) * BALL_R;
             ik.y = b.y + (-c * gx + s * g[1]) * BALL_R;
             ik.z = b.z + g[2] * BALL_R;
@@ -1156,10 +2376,10 @@
           ik.x = wx; ik.y = wy; ik.z = wz;
           // remember the hand's spot (body frame) for a later hand-over or release
           bl(wx, wy, wz, v); st.ox = v[0]; st.oy = v[1]; st.oz = v[2]; st.onBall = false;
-          st.has = true; st.src = cur; st.pole = ik.pole;
+          st.has = true; st.src = cur; st.pole = ik.pole; st.fk = !!ik.fkPole;
         } else if (st.w > 0.001 && st.has) {
           // letting go: hold the last spot in the body frame while the weight fades
-          ik.pole = st.pole;
+          ik.pole = st.pole; ik.fkPole = !!st.fk;
           ik.x = this.x + s * st.ox + c * st.oy; ik.y = this.y - c * st.ox + s * st.oy; ik.z = st.oz + this.jumpZ;
           st.src = null; st.xf = null;
         } else { st.has = false; st.src = null; st.xf = null; st.t.reset(); }
@@ -1175,11 +2395,61 @@
     depth(cam) { return cam.depth(this.y, 3); }
   }
 
-  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3);
+  const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), HL = new Float64Array(3), BL = new Float64Array(3);
+  const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3), DSH = {}, GI = {};
+  // body centre lines kept for clearBall: pelvis, chest, neck, head centre, left hip / knee / ankle, right hip / knee / ankle
+  const BODY_J = [RG.J.PEL, RG.J.CHS, RG.J.NCK, RG.J.HC, RG.J.L_HIP, RG.J.L_KN, RG.J.L_AN, RG.J.R_HIP, RG.J.R_KN, RG.J.R_AN];
+  /** move point l out to at least `min` from the segment between body points a and b (a == b: a sphere) */
+  function pushSeg(B, a, b, min, l) {
+    const ax = B[a * 3], ay = B[a * 3 + 1], az = B[a * 3 + 2];
+    const bx = B[b * 3] - ax, by = B[b * 3 + 1] - ay, bz = B[b * 3 + 2] - az;
+    const l2 = bx * bx + by * by + bz * bz;
+    const t = l2 > 1e-9 ? U.clamp(((l[0] - ax) * bx + (l[1] - ay) * by + (l[2] - az) * bz) / l2, 0, 1) : 0;
+    let dx = l[0] - ax - bx * t, dy = l[1] - ay - by * t, dz = l[2] - az - bz * t;
+    const d = Math.hypot(dx, dy, dz);
+    if (d >= min) return;
+    if (d < 1e-6) { dx = 0; dy = 1; dz = 0; } else { dx /= d; dy /= d; dz /= d; }
+    const k = min - d;
+    l[0] += dx * k; l[1] += dy * k; l[2] += dz * k;
+  }
   // dribbling elbow swivel: behind the elbow with a small outward bias (x = outward, y = forward, z = up)
   const DRIB_POLE = [0.28, -0.85, -0.45];
   // holding the ball without a clip: elbows down and out (chest), out and forward (overhead), back (hip pocket)
   const HOLD_POLE = { hold: [0.62, -0.25, -0.75], over: [0.75, 0.25, -0.3], hip: [0.35, -0.8, -0.5] };
+  // stances with a ball side (the ball on the right hip / right of the chest): a lefty gets the mirror image, pose and
+  // feet (the stance poses used to stay right-handed while a lefty's ball went to his left hip, so his hands missed it)
+  const HANDED = { triple: 'tripleL', shotPocket: 'shotPocketL' };
+  const MIR_ST = {};
+  function stanceOf(a, name) {
+    const st = A.STANCE[name] || A.STANCE.stand;
+    if (!a.lefty || !HANDED[name]) return st;
+    return MIR_ST[name] || (MIR_ST[name] = Object.assign({}, st, { pose: HANDED[name], L: [-st.R[0], st.R[1]], R: [-st.L[0], st.L[1]] }));
+  }
+  // follow-through springs (see _followThrough): [gain on the animated angular acceleration, half-life (s), largest
+  // offset (rad)]; further out along a chain = more gain, a softer spring and more room
+  const KC_PITCH = [CH.spFlex, CH.chFlex, CH.nkFlex, CH.hdFlex];
+  const KC_SPINE = [[0.12, 0.05, 1.5 * D], [0.2, 0.06, 2.5 * D], [0.34, 0.07, 4 * D], [0.42, 0.075, 5 * D]];
+  const KC_UA = [0.22, 0.06, 4 * D], KC_FA = [0.4, 0.07, 9 * D], KC_AB = [0.2, 0.06, 3 * D];
+  const KC_AMAX = 160; // (rad/s^2: a finite-difference acceleration capped, for a switch nothing upstream smoothed)
+  /** lag springs on world angles: offset o'' = -w^2 (o - eq) - 2w o', eq = -gain * (angle'' ) / w^2 (+ an outside
+   *  push), critically damped (D. Holden, "Spring-It-On: The Game Developer's Spring-Roll-Call") */
+  class KChain {
+    constructor(n) { this.w = new Float64Array(n); this.v = new Float64Array(n); this.o = new Float64Array(n); this.ov = new Float64Array(n); this.warm = 0; this.hz = 0; this.vz = 0; this.pvx = 0; this.pvy = 0; }
+    reset() { this.o.fill(0); this.ov.fill(0); this.v.fill(0); this.warm = 0; }
+    /** offset for quantity i at world angle W: stepped by dt when go, else the last one (or 0 after a reset) */
+    at(i, W, dt, go, spec, ext) {
+      if (!go) { if (this.warm === 0) { this.w[i] = W; this.v[i] = 0; } return this.o[i]; }
+      const v = (W - this.w[i]) / dt;
+      const a = this.warm >= 2 ? U.clamp((v - this.v[i]) / dt, -KC_AMAX, KC_AMAX) : 0;
+      this.w[i] = W; this.v[i] = this.warm >= 1 ? v : 0;
+      const y = 2 * Math.LN2 / spec[1];
+      const eq = U.clamp((-spec[0] * a + ext) / (y * y), -spec[2], spec[2]);
+      const j0 = this.o[i] - eq, j1 = this.ov[i] + j0 * y, e = Math.exp(-y * dt);
+      this.o[i] = U.clamp(e * (j0 + j1 * dt) + eq, -spec[2] * 1.4, spec[2] * 1.4);
+      this.ov[i] = e * (this.ov[i] - j1 * y * dt);
+      return this.o[i];
+    }
+  }
   const RT = { x: 0, y: 0, yaw: 0 };
   function frac(v) { return v - Math.floor(v); }
   /** did phase go through point p while moving from a to b (b>=a, may exceed 1)? */
@@ -1188,6 +2458,18 @@
     let pa = p; if (pa < a) pa += 1;
     return pa > a && pa <= b;
   }
+  const RT2 = new Float64Array(3), RT3 = new Float64Array(3);
+  // the dribbler's off (guard) arm, fitted to the rig in the low dribble stance (degrees, finger curl 0..1): the
+  // forearm up with the palm to a defender in front, the arm out to the side for one on the off-hand side, and a
+  // loose carry in front when nobody is close
+  const GUARD_CH = ['ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD', 'Fing'];
+  const GUARD_FRONT = [79, 8.5, 12, 110, 166, -26.5, -9, 0.15];
+  const GUARD_SIDE = [40, 44, -49, 107, 166, -30.5, 5, 0.15];
+  const GUARD_CARRY = [25, 21, 0, 93.5, 69, -1.5, 10.5, 0.25];
+  // nobody close: standing (sizing up), the arm hangs loose down and across in front of the bent-over trunk toward
+  // the other knee; driving, it rides out to the side and forward for balance
+  const GUARD_HANG = [56, -23, 26, 30, 84, 6, 0, 0.35];
+  const GUARD_OUT = [38, 48, -8, 58, 62, -8, 0, 0.2];
   const MASKS = {};
   function maskOf(name) {
     if (MASKS[name]) return MASKS[name];

@@ -345,13 +345,25 @@
           // soft push-out, and a hard floor: torsos never pass into each other (bodies ~1 ft deep)
           let k = Math.min(1, 30 * h) * push;
           const hard = push - minD * 0.2;
-          if (hard > k) k = hard;
+          // (a deep overlap is worked out over a few frames, at most ~0.4 ft a frame: all at once it read as a
+          // teleport when two players ran into each other at full speed)
+          if (hard > k) k = Math.min(hard, Math.max(k, 0.4));
           a.x -= nx * k * la / tot; a.y -= ny * k * la / tot;
           b.x += nx * k * lb / tot; b.y += ny * k * lb / tot;
           // contact: stop pressing into each other (inelastic along the contact normal) so steering slides
           // them around one another instead of re-penetrating every frame; bodies are soft, so a light touch takes
           // the closing speed off over ~0.1 s (all at once, a runner lost half his speed in one frame and his stride
           // jumped), a deep one at once
+          // an impact: bodies meeting with speed (a driver into a help defender at the rim, hips on a drive, a
+          // screen) knock each other off balance, each by the other's share of the momentum
+          // (off-ball players brushing past each other only stagger when they really run into each other)
+          const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          const committed = la === 0 || lb === 0 || a.hasBall || b.hasBall;
+          if (vn < (committed ? -3 : -8.5) && a.kind === 'player' && b.kind === 'player' && a.impact) {
+            const ma = a.H * a.H * a.H * (a.dims.bulk || 1), mb = b.H * b.H * b.H * (b.dims.bulk || 1);
+            a.impact(-nx, -ny, -vn * mb / (ma + mb));
+            b.impact(nx, ny, -vn * ma / (ma + mb));
+          }
           const rv = ((b.vx - a.vx) * nx + (b.vy - a.vy) * ny) * Math.max(1 - Math.exp(-h / 0.05), U.clamp(push / (0.3 * minD), 0, 1));
           if (rv < 0) {
             a.vx += nx * rv * la / tot; a.vy += ny * rv * la / tot;
@@ -381,7 +393,8 @@
         ? [{ x: X(-2.2), y: 16 }, { x: X(U.clamp(bu + 10, 26, 48)), y: -2.4 }, { x: X(U.clamp(bu + 2, 18, 40)), y: 52.4 }]
         : [{ x: X(U.clamp(bu - 30, -2.2, 20)), y: 16 }, { x: X(U.clamp(bu + 12, 40, 70)), y: -2.4 }, { x: X(U.clamp(bu - 4, 28, 60)), y: 52.4 }];
       this.refs.forEach((r, i) => {
-        if (r.isBusy() || (b.holder === r)) return;
+        // (an official the director has a job for: fetching the ball, administering a throw-in or a free throw)
+        if (r.isBusy() || (b.holder === r) || (d.active && r.taskUntil > d.T)) return;
         const t = targets[i];
         const dd = Math.hypot(r.x - t.x, r.y - t.y);
         if (dd > 1.5) r.moveTo(t.x, t.y, { speed: dd > 12 ? 15 : 8, face: dd > 6 ? 'move' : { x: b.x, y: b.y }, stance: 'refStand' });
@@ -538,7 +551,7 @@
     // ============================================================ instant replay
     makeRec(cap, maxP) {
       const frames = [];
-      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), ball: new Float32Array(16), net: new Float32Array(64), pan: 47 });
+      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), ball: new Float32Array(16), net: new Float32Array(M.Hoop.SNAP * 2), pan: 47 });
       return { cap, maxP, frames, head: 0, count: 0, lastT: -1e9, tmp: [] };
     }
     /** snapshot everything a frame needs (30 Hz of presentation time, ring buffer of the last ~7 s) */
@@ -563,11 +576,7 @@
       const b = this.ball;
       f.ball[0] = b.x; f.ball[1] = b.y; f.ball[2] = b.z; f.ball[3] = b.squash; f.ball[4] = b.hidden ? 1 : 0;
       for (let k = 0; k < 9; k++) f.ball[5 + k] = b.rot[k];
-      let o = 0;
-      for (const ho of this.hoops) {
-        for (const L of ho.lv) { f.net[o++] = L.dr; f.net[o++] = L.dz; f.net[o++] = L.ox; f.net[o++] = L.oy; }
-        f.net[o++] = ho.rimShake; f.net[o++] = ho.boardShake;
-      }
+      this.hoops.forEach((ho, i) => ho.snapshot(f.net, i * M.Hoop.SNAP));
       f.pan = this.camRig.pan.x;
       R.head = (R.head + 1) % R.cap; R.count = Math.min(R.cap, R.count + 1);
     }
@@ -642,10 +651,10 @@
       }
       ghosts.length = gi;
       const lerp = (k) => a.ball[k] + (b.ball[k] - a.ball[k]) * u;
-      const out = this._rf || (this._rf = { ghosts: null, bx: 0, by: 0, bz: 0, sq: 0, hidden: 0, rot: new Float64Array(9), net: new Float32Array(64) });
+      const out = this._rf || (this._rf = { ghosts: null, bx: 0, by: 0, bz: 0, sq: 0, hidden: 0, rot: new Float64Array(9), net: new Float32Array(M.Hoop.SNAP * 2) });
       out.ghosts = ghosts; out.bx = lerp(0); out.by = lerp(1); out.bz = lerp(2); out.sq = lerp(3); out.hidden = a.ball[4];
       for (let k = 0; k < 9; k++) out.rot[k] = u < 0.5 ? a.ball[5 + k] : b.ball[5 + k];
-      for (let k = 0; k < 64; k++) out.net[k] = a.net[k] + (b.net[k] - a.net[k]) * u;
+      for (let k = 0; k < out.net.length; k++) out.net[k] = a.net[k] + (b.net[k] - a.net[k]) * u;
       return out;
     }
 
@@ -689,10 +698,11 @@
       // replay: apply the recorded ball and net state for this frame (restored after drawing)
       let saved = null;
       if (rp) {
-        saved = { x: b.x, y: b.y, z: b.z, sq: b.squash, hidden: b.hidden, rot: Float64Array.from(b.rot), state: b.state, holder: b.holder, nets: this.hoops.map(ho => ({ lv: ho.lv.map(L => [L.dr, L.dz, L.ox, L.oy]), rs: ho.rimShake, bs: ho.boardShake })) };
+        const nets = this._netSave || (this._netSave = new Float32Array(M.Hoop.SNAP * 2));
+        this.hoops.forEach((ho, i) => ho.snapshot(nets, i * M.Hoop.SNAP));
+        saved = { x: b.x, y: b.y, z: b.z, sq: b.squash, hidden: b.hidden, rot: Float64Array.from(b.rot), state: b.state, holder: b.holder, nets };
         b.x = rp.bx; b.y = rp.by; b.z = rp.bz; b.squash = rp.sq; b.hidden = !!rp.hidden; b.rot.set(rp.rot); b.state = 'flight'; b.holder = null;
-        let o = 0;
-        for (const ho of this.hoops) { for (const L of ho.lv) { L.dr = rp.net[o++]; L.dz = rp.net[o++]; L.ox = rp.net[o++]; L.oy = rp.net[o++]; } ho.rimShake = rp.net[o++]; ho.boardShake = rp.net[o++]; }
+        this.hoops.forEach((ho, i) => ho.restore(rp.net, i * M.Hoop.SNAP));
       }
       // realistic 3D players: rendered into per-person cells now, composited below in depth order
       let R3 = null;
@@ -747,7 +757,7 @@
       } finally {
         if (saved) {
           b.x = saved.x; b.y = saved.y; b.z = saved.z; b.squash = saved.sq; b.hidden = saved.hidden; b.rot.set(saved.rot); b.state = saved.state; b.holder = saved.holder;
-          this.hoops.forEach((ho, i) => { ho.lv.forEach((L, k) => { const v = saved.nets[i].lv[k]; L.dr = v[0]; L.dz = v[1]; L.ox = v[2]; L.oy = v[3]; }); ho.rimShake = saved.nets[i].rs; ho.boardShake = saved.nets[i].bs; });
+          this.hoops.forEach((ho, i) => ho.restore(saved.nets, i * M.Hoop.SNAP));
         }
       }
       arena.drawOverlay(g, cam);

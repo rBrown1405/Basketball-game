@@ -29,9 +29,11 @@
     both: { ShF: -18, ShA: 42, ShT: -25, ElF: 105, Pro: 20, WrF: -20, Fing: 0.2, HipF: 4, HipA: 5, Knee: 6 },
   });
   // athletic ready stance (offense, no ball)
+  // (hands out in front at hip height and outside the hips, ready for the ball; they used to hang at mid-thigh
+  // close together, which from three-quarters read as a hand on the shorts)
   def('ready', {
     rootZ: -0.05, pelPitch: 20, spFlex: 8, chFlex: 4, nkFlex: -14, hdFlex: -2,
-    both: { ShF: 28, ShA: 18, ShT: 22, ElF: 62, Pro: 60, WrF: 10, Fing: 0.25, HipF: 30, HipA: 9, HipT: -8, Knee: 38, Ank: 12 },
+    both: { ShF: 26, ShA: 30, ShT: 0, ElF: 66, Pro: 50, WrF: 10, Fing: 0.25, HipF: 30, HipA: 9, HipT: -8, Knee: 38, Ank: 12 },
   });
   // defensive stance: low hips, flat back ~35 deg, head up, active hands (right high, left low in the lane)
   // defensive stance (coaching consensus): knees ~120 deg included, hips back, chest up over the knees,
@@ -56,11 +58,13 @@
     rShF: 165, rShA: 12, rShT: 0, rElF: 10, rPro: 60, rWrF: -10, rFing: 0.05,
     both: { HipF: 24, HipA: 12, Knee: 30, Ank: 10 },
   });
-  // triple threat (ball on the right hip, left foot forward)
+  // triple threat (ball on the right hip, left foot forward), arms fitted to the rig so both palms are on the ball:
+  // the right hand behind and over its top with the elbow back, the left hand on its front-left side (fingers
+  // forward and up), the ball a little out in front of the hip where the left arm reaches it without crushing the belly
   def('triple', {
     rootZ: -0.075, pelPitch: 26, pelTwist: 10, spFlex: 12, spTwist: 6, chFlex: 8, chTwist: 6, nkFlex: -24, hdFlex: -4, hdTwist: -8,
-    lShF: 42, lShA: 8, lShT: 30, lElF: 70, lPro: 40, lWrF: 10,
-    rShF: 12, rShA: 18, rShT: 30, rElF: 80, rPro: 10, rWrF: -20,
+    lShF: 43.5, lShA: -26.5, lShT: 80, lElF: 61, lPro: 82, lWrF: -32, lWrD: 25,
+    rShF: -44, rShA: 10, rShT: -26, rElF: 126, rPro: 106.5, rWrF: -75, rWrD: 25,
     lHipF: 44, lHipA: 10, lKnee: 48, rHipF: 30, rHipA: 12, rKnee: 44, lAnk: 14, rAnk: 14,
   });
   // ball held at the chest (after a catch / looking to pass)
@@ -75,20 +79,29 @@
     rShF: 26, rShA: 12, rShT: 10, rElF: 118, rPro: 0, rWrF: -55,
     both: { HipF: 30, HipA: 8, Knee: 40, Ank: 12 },
   });
-  // shot set point: ball above the right forehead, elbow under the ball, wrist cocked
+  // shot set point (fitted to the rig so the hands really sit on the ball): the ball above the right forehead and
+  // clear of it, the shooting elbow at shoulder height under the ball with the forearm vertical (the "L"), the wrist
+  // cocked back so the ball rests on the palm and finger pads (fingers back and a little out, thumb in); the guide
+  // hand flat on the side of the ball, fingers up, its elbow bent too
   def('shotSet', {
     rootZ: 0.0, pelPitch: 2, spFlex: -2, chFlex: -6, nkFlex: -8, hdFlex: -4,
-    lShF: 128, lShA: 38, lShT: -10, lElF: 88, lPro: 0, lWrF: -10, lFing: 0.05,
-    rShF: 134, rShA: 14, rShT: -2, rElF: 98, rPro: 0, rWrF: -72, rFing: 0.1,
+    lShF: 109.5, lShA: -13, lShT: 21, lElF: 54, lPro: 90.5, lWrF: -23, lWrD: 1, lFing: 0.05,
+    rShF: 92, rShA: -15.5, rShT: -2.5, rElF: 74.5, rPro: 147, rWrF: -74, rWrD: 15, rFing: 0.12,
     both: { HipF: 4, HipA: 4, Knee: 8, Ank: -30 },
   });
-  // release / gooseneck follow-through: arm extended up-and-out toward the rim, wrist snapped down
+  // release / gooseneck follow-through: arm extended up-and-out toward the rim, wrist snapped down, fingers at the
+  // rim; the guide hand stays up beside where the ball was (palm in, fingers up) instead of falling away: it only
+  // steadied the ball and never pushes (it comes off first)
   def('shotFollow', {
     rootZ: 0.0, pelPitch: 0, spFlex: -2, chFlex: -5, nkFlex: -8, hdFlex: -2,
-    lShF: 118, lShA: 44, lShT: -12, lElF: 58, lPro: 10, lWrF: 0, lFing: 0.05,
-    rShF: 142, rShA: 9, rShT: -4, rElF: 6, rPro: 12, rWrF: 82, rFing: 0.4,
+    lShF: 131, lShA: -13, lShT: 32, lElF: 24.5, lPro: 68, lWrF: -23.5, lWrD: 12.5, lFing: 0.05,
+    rShF: 155, rShA: -0.5, rShT: 62, rElF: 6.5, rPro: 105, rWrF: 82, rWrD: -12, rFing: 0.2,
     both: { HipF: 10, HipA: 4, Knee: 16, Ank: -38 },
   });
+  // left-handed versions of the handed holds (a lefty's triple threat has the ball on the left hip and the right foot
+  // forward; his shot pocket is on the left of the chest)
+  lib.tripleL = RG.mirrorPose(lib.triple, new Float32Array(lib.triple.length));
+  lib.shotPocketL = RG.mirrorPose(lib.shotPocket, new Float32Array(lib.shotPocket.length));
   // running reference keys (used by viewer / tests)
   def('runA', {
     rootZ: -0.03, pelPitch: 10, pelTwist: -8, spFlex: 8, chTwist: 12, nkFlex: -6,

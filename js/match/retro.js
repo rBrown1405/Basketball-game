@@ -358,7 +358,8 @@
           const fbx = this.basketX(ev.team != null ? ev.team : off);
           const fx = fbx > 47 ? 75 : 19, fy = 25;
           if (this.actors[ev.shooter]) { const a = this.actors[ev.shooter]; a.tx = fx; a.ty = fy; a.x = lerp(a.x, fx, 0.6); a.y = lerp(a.y, fy, 0.6); }
-          ocO.concat(ocD).forEach((id, k) => { if (id !== ev.shooter && this.actors[id]) { const a = this.actors[id]; const lane = k % 2 ? 1 : -1; a.tx = fbx + (fbx > 47 ? -6 - (k >> 1) * 2 : 6 + (k >> 1) * 2); a.ty = 25 + lane * (5 + (k % 3)); } });
+          // (a technical free throw: nobody lines up on the lane)
+          if (!ev.tech) ocO.concat(ocD).forEach((id, k) => { if (id !== ev.shooter && this.actors[id]) { const a = this.actors[id]; const lane = k % 2 ? 1 : -1; a.tx = fbx + (fbx > 47 ? -6 - (k >> 1) * 2 : 6 + (k >> 1) * 2); a.ty = 25 + lane * (5 + (k % 3)); } });
           this.ball.state = 'gather'; this.ball.holder = ev.shooter;
           break;
         }
