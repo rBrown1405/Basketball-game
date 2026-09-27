@@ -292,7 +292,7 @@
       }
       // never so far from his man that he cannot close out on the pass; in help, either in the lane or within 12 ft of
       // him (not stranded in between, too far to close out and helping nobody)
-      if ((role === 'help' || role === 'home') && !(Math.abs(py - 25) <= 10 && this.U_(px) <= 21)) leash = Math.min(leash, 12);
+      if ((role === 'help' || role === 'home') && !(Math.abs(py - 25) <= 10 && this.U_(px) <= 21)) leash = Math.min(leash, 11.5);
       const gx = px - m.x, gy = py - m.y, gl = Math.hypot(gx, gy);
       if (gl > leash) { px = m.x + gx / gl * leash; py = m.y + gy / gl * leash; }
       // he reacts to the ball a moment late (by his help-defense rating), each defender on his own clock; he follows
@@ -379,6 +379,9 @@
     let e = ev;
     if (!atRim && own && String(ev.defender) !== String(own.id) && !ev.blocked && !ev.fouled) e = Object.assign({}, ev, { defender: own.id });
     base.planContest.call(this, e, sh, spot, fireAt);
+    // (an open finish at the rim: the help is late, nobody but the contest in the finisher's space; jump shots have
+    // this from the Director)
+    if (atRim && !this.shotAvoid && (ev.contest || 'contested') === 'open' && !ev.fouled && !ev.blocked) this.shotAvoid = { x: spot.x, y: spot.y, r: 4.5, until: fireAt + 0.3, except: this.A(e.defender) || own };
     if (this.shotAvoid) this.shotAvoid.shooter = sh;
     const df = this.A(e.defender) || own;
     if (df && df.team === this.def && sh && !df.isBusy()) { df.setFace((me) => Math.atan2(sh.y - me.y, sh.x - me.x)); df.faceLock = true; }

@@ -46,10 +46,15 @@ outside free throws, timeouts and dead balls):
    turned while walking away, running with crossed feet while not beaten, cushion by the handler's 3PT rating.
 2. **Off-ball defense** (man schemes): one pass away in the passing lane, two passes away in help position (in or
    next to the lane, or on the line from the ball to the rim), extra defenders crowding a ball that is already
-   guarded with no drive to help on, defenders far from their man and not helping.
+   guarded with no drive to help on (and how much of that is a defender whose own spot is on the ball, against one
+   passing by on his way to a spot away from it), defenders far from their man and not helping (a drive's rotation,
+   the low man or the man sinking to the low man's man, is help). The two defenders of a ball screen or a hand-off
+   are counted apart for 2.5 s after it: two on the ball there is the coverage (a hedge, a show, a blitz, ice) and
+   the recovery, not crowding.
 3. **Offense movement**: off-ball players standing still (under 1 ft/s), their average speed and time at a jog or
    faster, not having moved 3 ft in 3 s, long stand-stills, clumping, and each player's job (moving for the engine's
-   next event, running a half-court action, holding a spacing spot, or no job).
+   next event, running a half-court action, on or around his spot in a called play, holding a spacing spot, or no
+   job).
    The report also breaks down what was moving each flagged defender (his own positioning rule, a planner for the
    engine's next event, a clip), the engine beat under way and the handler's distance from the rim.
 4. **Shot selection**: the engine's shots as the Live view shows them: threes by rating and position, the engine's

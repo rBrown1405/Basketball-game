@@ -59,6 +59,9 @@ function metrics(games) {
   m.crowdEps = G.flatMap((g) => g.offball.eps.crowd).length / n;
   m.pathSec = (of('path') * 0.1) / n;
   m.rimHelpSec = (of('rimHelp') * 0.1) / n;
+  m.covTwoSec = (of('covTwo') * 0.1) / n;
+  m.crowdStaySec = (of('crowdStay') * 0.1) / n;
+  m.screenedOffPct = pct(of('screenedOff'), of('n'));
   m.abandoned = pct(of('abandoned'), of('n'));
   m.abandonedEps = G.flatMap((g) => g.offball.eps.abandoned).length / n;
   m.zoneShare = pct(of('zoneN'), hcN);
@@ -74,7 +77,7 @@ function metrics(games) {
   m.still5Eps = tot((g) => g.idle.eps['5-8'] + g.idle.eps['8+']) / n;
   const jobs = {}; for (const g of G) for (const k in (g.idle.jobs || {})) jobs[k] = (jobs[k] || 0) + g.idle.jobs[k];
   const jobT = sum(Object.values(jobs));
-  if (jobT) { m.jobEngine = pct(jobs.engine || 0, jobT); m.jobFlow = pct(jobs.flow || 0, jobT); m.jobClip = pct(jobs.clip || 0, jobT); m.jobSpacing = pct(jobs.spacing || 0, jobT); m.jobNone = pct(jobs.none || 0, jobT); }
+  if (jobT) { m.jobEngine = pct(jobs.engine || 0, jobT); m.jobFlow = pct(jobs.flow || 0, jobT); m.jobClip = pct(jobs.clip || 0, jobT); m.jobSpacing = pct(jobs.spacing || 0, jobT); m.jobNone = pct(jobs.none || 0, jobT); m.jobPlay = pct(jobs.play || 0, jobT); }
   const nz = {}; for (const g of G) for (const k in (g.idle.noJobZone || {})) nz[k] = (nz[k] || 0) + g.idle.noJobZone[k];
   const nzT = sum(Object.values(nz)); if (nzT) for (const z of ZONES) m['noJob_' + z] = pct(nz[z] || 0, nzT);
   const jbp = {}; for (const g of G) for (const k in (g.idle.jobByPos || {})) { const a = jbp[k] || (jbp[k] = {}); for (const j in g.idle.jobByPos[k]) a[j] = (a[j] || 0) + g.idle.jobByPos[k][j]; }
@@ -176,7 +179,8 @@ function metrics(games) {
     const EXPECT = { drop: ['back in the lane'], blitz: ['on the ball'], switch: ['switched'], show: ['at the screen', 'on the ball'], hedge: ['at the screen', 'on the ball'], ice: ['back in the lane', 'at the screen'] };
     let cm = 0, cn = 0;
     const seen = {};
-    for (const g of PB) for (const c in g.pb.covSeen) { const o = seen[c] || (seen[c] = {}); for (const k in g.pb.covSeen[c]) { o[k] = (o[k] || 0) + g.pb.covSeen[c][k]; cn += g.pb.covSeen[c][k]; if ((EXPECT[c] || []).includes(k)) cm += g.pb.covSeen[c][k]; } }
+    // (a zone plays ball screens its own way: it is shown in the table but has no coverage to match)
+    for (const g of PB) for (const c in g.pb.covSeen) { const o = seen[c] || (seen[c] = {}); for (const k in g.pb.covSeen[c]) { o[k] = (o[k] || 0) + g.pb.covSeen[c][k]; if (!EXPECT[c]) continue; cn += g.pb.covSeen[c][k]; if (EXPECT[c].includes(k)) cm += g.pb.covSeen[c][k]; } }
     m.pbCovMatch = cn ? pct(cm, cn) : null;
     m._pbCovSeen = seen;
     // by family and by play
@@ -227,7 +231,10 @@ const SECTIONS = [
     ['crowdSec', 'Extra defender crowding a guarded ball 12+ ft from the rim, no drive (seconds per game)', 's', 'down', '~0'],
     ['crowdPct', '  share of half-court time', '%', 'down', ''],
     ['crowdEps', '  episodes per game', '', 'down', ''],
+    ['crowdStaySec', '  crowding time spent staying there (his own spot is on the ball; the rest is passing by on his way to a spot away from it)', 's', 'down', ''],
     ['pathSec', 'Extra defender standing in the handler\'s path 12+ ft from the rim (seconds per game)', 's', 'down', ''],
+    ['covTwoSec', 'Two on the ball for the coverage of a ball screen or hand-off (hedge, show, blitz, ice) and getting back, 2.5 s after it: not counted above', 's', '', ''],
+    ['screenedOffPct', 'Screened off his man (his man came off an off-ball screen in the last 2 s): not counted as lost', '%', '', ''],
     ['rimHelpSec', 'Help at the rim (an extra defender on the ball inside 12 ft; the right play), seconds per game', 's', '', ''],
     ['abandoned', 'More than 12 ft from his man and not in a help spot', '%', 'down', ''],
     ['abandonedEps', '  episodes per game', '', 'down', ''],
@@ -244,6 +251,7 @@ const SECTIONS = [
     ['jobNone', 'No job: holding or drifting around a spot that is not spacing (mid-range, paint, too deep)', '%', 'down', ''],
     ['noJob_mid', '  of that time, in the mid-range', '%', '', ''],
     ['jobSpacing', 'Spacing: holding a spot beyond the arc (a non-stretch big: by the rim)', '%', '', ''],
+    ['jobPlay', 'In a called play: on or around his spot in it', '%', '', ''],
     ['jobFlow', 'Running a half-court action (screen away, cut, relocate, exchange, big flash)', '%', 'up', ''],
     ['jobEngine', 'Moving for the engine\'s next event (screen, cut, catch)', '%', '', ''],
     ['jobClip', 'In an animation (catch, screen, pass, ...)', '%', '', ''],
@@ -318,7 +326,7 @@ const SECTIONS = [
     ['pbEndReset', 'Plays whose look was passed up (reset into a new call)', '%', '', ''],
     ['pbEndTo', 'Plays stopped by a turnover', '%', 'down', ''],
     ['pbEndFoul', 'Plays stopped by a foul (side-out or free throws)', '%', '', ''],
-    ['pbPppHalf', 'Points per half-court possession', '', '', 'NBA ~0.97-1.0'],
+    ['pbPppHalf', 'Points per half-court possession (the whole possession: second chances and free throws included)', '', '', ''],
     ['pbPppCalled', '  with a called play', '', '', ''],
     ['pbPppFlow', '  in flow', '', '', ''],
     ['pbSpot2', 'Players within 2 ft of their play spot 1.2 s into a step', '%', 'up', ''],

@@ -422,10 +422,16 @@ procedural animation is untouched.
 - **Defense**: a hedge scheme was added to the schemes (the big jumps out on every ball screen); within man-to-man
   the team's pick-and-roll coverage decides how ball screens are played (guards' screens are switched more, and late
   in the clock).
-- **On the court** (`js/match/plays.js`, `choreo.js`): at the call the five go to the play's alignment and stay out
-  of the half-court flow (no swings, probes, cuts or drive reactions of their own) until the play ends; each step
-  moves the players it names; a player coming off an off-ball screen sets up his man and runs off it, the screen set
-  on his path near the screener; the screener then goes back to his spot in the play. The screener's man plays the
+- **On the court** (`js/match/plays.js`, `choreo.js`): the half-court flow runs up to the call (the wait before a
+  called set is often 5 to 10 s after the ball comes up: swings, screens away, cuts, relocations), and the five get
+  into the play's alignment in its last seconds, at a jog, in the time the farthest of them needs. From then on they
+  stay out of the flow's own actions (no swings, probes, cuts or drive reactions of their own) until the play ends;
+  each step moves the players it names at a run. A player waiting for his part stays alive around his spot instead
+  of standing on it: a shooter slides a step or two along the arc, lifts from the corner (the "shake") or v-cuts in
+  and back out, a big seals a step toward the lane or slides along the baseline, a man about to come off a screen
+  walks his defender down a step first, with short pauses between the moves. A player coming off an off-ball screen
+  sets up his man and runs off it, the screen set on his path near the screener; the screener then goes back to his
+  spot in the play. The screener's man plays the
   called coverage from the moment the screen comes: drop (waits back at the free-throw line, then protects the
   rim), at the level, hedge (above the screen in the handler's path, then recovers), blitz (traps), switch (the two
   swap men), ice (the handler's man jumps the screen side, the big waits below it); off the ball the shooter's man
@@ -472,6 +478,10 @@ feet and seconds):
   less than other half-court plays (0.84 against 0.89), so a set after a timeout is a matter of getting a good
   look against a set defense, not a boost. ([ESPN](https://www.espn.com/nba/story/_/id/47243702/nba-2025-2026-season-postups-trends-kristaps-porzingis-victor-wembanyama),
   [Vice](https://www.vice.com/en/article/the-myth-of-brilliant-nba-timeout-play-calling/))
+- Off the ball in a set: a corner shooter lifts along the arc toward the wing behind a driving handler (the
+  "shake") so the passing lane opens, wings lift and drift with the drive, shooters v-cut to get open; the rule is to
+  stay active off the ball, not to stand on a spot. ([Hoop Student](https://hoopstudent.com/basketball-shake-action/),
+  [The Basketball Dictionary](https://medium.com/the-basketball-dictionary/shake-edc95f8acf13))
 - How coaches call plays: most possessions flow into spacing and ball screens (Kerr); called sets cluster at dead
   balls, after timeouts and at the ends of quarters; late in games familiarity beats surprise and every team
   isolates more; when the defense takes the first option away, go to that set's counter; mismatch hunting has the

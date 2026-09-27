@@ -285,16 +285,30 @@
           const dH = Math.hypot(X.x - h.x, X.y - h.y);
           const guarded = D && Math.hypot(D.x - h.x, D.y - h.y) < 7;
           const nearRim = dRimH < 12;
-          const crowd = dH < 6 && dMan > 8 && guarded && !driving && !nearRim;
-          if (crowd) { OF.crowd++; cause(X, h, 'crowd'); }
-          if (dH < 6 && dMan > 8 && nearRim) OF.rimHelp++;
+          // (two on the ball because the coverage says so: the two defenders of the last ball screen or hand-off, for
+          // 2.5 s after it: a hedge, a show, a blitz or ice, then getting back to his man)
+          const covTwo = covWin && d.T - covWin.t < 2.5 && covWin.ids[String(id)];
+          const crowd = dH < 6 && dMan > 8 && guarded && !driving && !nearRim && !covTwo;
+          if (crowd) {
+            OF.crowd++; cause(X, h, 'crowd');
+            // (staying there: his own spot is on the ball; else passing by on his way to a spot away from it)
+            const tg = X._dTgt;
+            if (tg && d.T - tg.T < 0.2 && Math.hypot(tg.x - h.x, tg.y - h.y) < 6) OF.crowdStay = (OF.crowdStay || 0) + 1;
+          }
           const hx = rim.x - h.x, hy = rim.y - h.y, hl = Math.hypot(hx, hy) || 1;
-          if (!driving && !nearRim && dH < 8 && ((X.x - h.x) * hx + (X.y - h.y) * hy) / (hl * dH || 1) > 0.8 && dMan > 8) OF.path++;
+          const inPath = !driving && !nearRim && dH < 8 && ((X.x - h.x) * hx + (X.y - h.y) * hy) / (hl * dH || 1) > 0.8 && dMan > 8;
+          if ((dH < 6 && dMan > 8 && guarded && !driving && !nearRim || inPath) && covTwo) OF.covTwo = (OF.covTwo || 0) + 1;
+          if (dH < 6 && dMan > 8 && nearRim) OF.rimHelp++;
+          if (inPath && !covTwo) OF.path++;
           // abandoned: far from his man and neither helping (lane / between ball and rim) nor on the ball
           const segT = U01(((X.x - h.x) * hx + (X.y - h.y) * hy) / (hl * hl)), sx = h.x + hx * segT, sy = h.y + hy * segT;
-          const helping = d.inPaint(X, -2) || Math.hypot(X.x - sx, X.y - sy) < 6 || dH < 8;
-          const aband = dMan > 12 && !helping && d.U_(M.x) < 40;
+          // (a drive's rotation, the low man in front of the rim or the man sinking to the low man's man, is help)
+          const helping = d.inPaint(X, -2) || Math.hypot(X.x - sx, X.y - sy) < 6 || dH < 8 || X._dRole === 'sink' || X._dRole === 'lowman';
+          // (his man just came off an off-ball screen: the screen did its job, he is chasing)
+          const screened = screenedT[String(M.id)] != null && d.T - screenedT[String(M.id)] < 2.2;
+          const aband = dMan > 12 && !helping && d.U_(M.x) < 40 && !screened;
           if (aband) { OF.abandoned++; cause(X, h, 'abandoned'); }
+          if (dMan > 12 && !helping && d.U_(M.x) < 40 && screened) OF.screenedOff = (OF.screenedOff || 0) + 1;
           crowdStep(String(id), crowd, { X: String(id), h: hid, m: String(M.id) });
           abandStep(String(id), aband, { X: String(id), m: String(M.id), dMan });
         }
@@ -315,6 +329,7 @@
         const r = d.role[a.id];
         let job = a.isBusy() ? 'clip' : !r ? 'spot' : r.mode === 'locked' || r.until > d.T ? 'engine' : r.path ? 'flow' : 'spot';
         if (job === 'spot' && r && r.phase === 'out') job = 'flow'; // (a v-cut: dip in, come back out)
+        if (job === 'spot' && r && r.pb && d.pbRun) job = 'play'; // (holding or moving around his spot in a called play)
         if (job === 'spot') {
           // judged by where he is going: on his way to a spot (3+ ft from it), by that spot; at it, by where he stands
           let zz = z, rd = rimDist(a);
@@ -434,12 +449,15 @@
         if (r.opt) inc(pb.reads, (r.early ? 'early: ' : '') + r.opt);
       }
     }
-    let pbSeen = null, pbCheckAt = -1, covChecks = [];
+    let pbSeen = null, pbCheckAt = -1, covChecks = [], covWin = null;
+    const screenedT = {};
     function pbSample() {
       const run = d.pbRun;
       // (the screener's man before the screen fires: a switch swaps the matchups when it does)
       const bt = d.beat;
-      if (bt && !bt.fired && bt.type === 'screen' && bt.ev && bt.ev.kind === 'ball' && bt.ev._audSd == null) for (const id in d.matchup) if (String(d.matchup[id]) === String(bt.ev.screener)) bt.ev._audSd = id;
+      if (bt && !bt.fired && bt.type === 'screen' && bt.ev && bt.ev.kind === 'ball' && bt.ev._audSd == null) {
+        for (const id in d.matchup) { if (String(d.matchup[id]) === String(bt.ev.screener)) bt.ev._audSd = id; if (String(d.matchup[id]) === String(bt.ev.user)) bt.ev._audUd = id; }
+      }
       if (run && !run.inbound && (!pbSeen || pbSeen.run !== run || pbSeen.k !== run.k) && run.k >= 0) { pbSeen = { run, k: run.k }; pbCheckAt = d.T + 1.2; }
       if (run && pbCheckAt > 0 && d.T >= pbCheckAt) {
         pbCheckAt = -1;
@@ -469,6 +487,16 @@
       }
     }
     function onEvent(e) {
+      if (e && e.type === 'screen') {
+        // the defenders of a ball screen (for the crowding check), the man coming off an off-ball screen
+        if (e.kind === 'ball') { covWin = { t: d.T, ids: {} }; if (e._audSd != null) covWin.ids[String(e._audSd)] = 1; if (e._audUd != null) covWin.ids[String(e._audUd)] = 1; }
+        else screenedT[String(e.user)] = d.T;
+      }
+      if (e && e.type === 'handoff') {
+        // the defenders of a hand-off: the giver's (on the ball until the hand-off) and the receiver's
+        covWin = { t: d.T, ids: {} };
+        for (const id in d.matchup) if (String(d.matchup[id]) === String(e.from) || String(d.matchup[id]) === String(e.to)) covWin.ids[String(id)] = 1;
+      }
       if (e && e.type === 'screen' && e.kind === 'ball' && e.cov && d.pbRun) {
         const scr = v.actor(e.screener);
         const sd = e._audSd;
