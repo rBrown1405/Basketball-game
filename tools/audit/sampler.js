@@ -75,8 +75,8 @@
       poss: 0, frames: 0, stuck: 0, samplerErrors: 0, warns: {}, schemes: {}, systems: {}, plays: {},
       hc: { n: 0 },
       onball: { n: 0, man: 0, between: 0, beaten: 0, lowStance: 0, upright: 0, backTurned: 0, turnAway: 0, backpedal: 0, retreat: 0, runClose: 0, far: 0, cushion: {}, eps: { retreat: [], turnAway: [], far: [] } },
-      offball: { n: 0, one: 0, deny: 0, two: 0, help: 0, sag: 0, sees: 0, tightTwo: 0, crowd: 0, path: 0, abandoned: 0, crowd3: 0, eps: { crowd: [], abandoned: [] } },
-      idle: { offSec: 0, stillSec: 0, loiterSec: 0, byPos: {}, eps: { '2-3': 0, '3-5': 0, '5-8': 0, '8+': 0 }, epsByZone: {}, loiterByZone: {}, clumpSec: 0, pairClose: 0 },
+      offball: { n: 0, one: 0, deny: 0, two: 0, help: 0, sag: 0, sees: 0, tightTwo: 0, rimHelp: 0, crowd: 0, path: 0, abandoned: 0, crowd3: 0, eps: { crowd: [], abandoned: [] } },
+      idle: { offSec: 0, stillSec: 0, loiterSec: 0, jobs: {}, jobByPos: {}, noJobZone: {}, byPos: {}, eps: { '2-3': 0, '3-5': 0, '5-8': 0, '8+': 0 }, epsByZone: {}, loiterByZone: {}, clumpSec: 0, pairClose: 0 },
       spacing: { n: 0, byPos: {}, nOut: [0, 0, 0, 0, 0, 0], noInside: 0, fiveOut: 0 },
       openOff: { n: 0, found: 0, sec: 0 }, shots: [], catches: [], rebounds: [], boxouts: [], gives: { catch: [], rebound: [], steal: [], other: [] }, hang: [],
       examples: [], players: {}, causes: {},
@@ -179,8 +179,10 @@
       const lock = d.dtask[X.id] && d.dtask[X.id].until > d.T;
       const mover = (tracker ? 'defensive tracker' : g0.mode === 'track' ? 'other track' : g0.mode === 'move' ? 'planner move' : g0.mode || '?') + (lock ? ' (locked by a planner)' : '');
       const dr = rimDist(h), band = dr < 10 ? 'under 10 ft' : dr < 17 ? '10-17 ft' : dr < 23 ? '17-23 ft' : dr < 28 ? '23-28 ft' : dr < 35 ? '28-35 ft' : '35+ ft';
-      const C = R.causes[tag] || (R.causes[tag] = { mover: {}, beat: {}, handlerDist: {}, clip: {}, handlerClip: {}, scheme: {} });
-      inc(C.mover, mover); inc(C.beat, d.beat && !d.beat.fired ? d.beat.type : 'none'); inc(C.handlerDist, band);
+      const C = R.causes[tag] || (R.causes[tag] = { mover: {}, beat: {}, shotCall: {}, handlerDist: {}, clip: {}, handlerClip: {}, scheme: {} });
+      const bt = d.beat && !d.beat.fired ? d.beat : null;
+      inc(C.mover, mover); inc(C.beat, bt ? bt.type : 'none'); inc(C.handlerDist, band);
+      if (bt && bt.type === 'shot') inc(C.shotCall, (bt.ev.contest || '?') + (String(bt.ev.shooter) === String(h.id) ? ' (his man shoots)' : ' (another shooter)'));
       inc(C.clip, X.clip && !X.clip.done ? X.clip.clip.name : 'none'); inc(C.handlerClip, h.clip && !h.clip.done ? h.clip.clip.name : 'none'); inc(C.scheme, d.scheme || '?');
     };
     function sample() {
@@ -222,7 +224,8 @@
         const vAway = (D.vx * dx + D.vy * dy) / dist; // his own speed away from the handler
         const sep = prevOB && prevOB.D === D && prevOB.h === h ? (dist - prevOB.dist) / SDT : 0;
         const slowH = h.speed < 4;
-        const retreat = !beaten && slowH && sep > 2.5 && vAway > 2 && dRimH < 32;
+        const backdown = h.stance === 'postUp' || (h.clip && !h.clip.done && /backdown/.test(h.clip.clip.name));
+        const retreat = !beaten && slowH && sep > 2.5 && vAway > 2 && dRimH < 32 && !backdown;
         const turnAway = !beaten && backTurned && D.speed > 1.5 && vAway > 1 && dRimH < 32;
         if (retreat) { OB.retreat++; if (!backTurned) OB.backpedal++; cause(D, h, 'retreat'); }
         if (turnAway) { OB.turnAway++; cause(D, h, 'turnAway'); }
@@ -273,10 +276,12 @@
           // crowding: an extra defender on the ball (his man far away, the ball already guarded, no drive to help on)
           const dH = Math.hypot(X.x - h.x, X.y - h.y);
           const guarded = D && Math.hypot(D.x - h.x, D.y - h.y) < 7;
-          const crowd = dH < 6 && dMan > 8 && guarded && !driving;
+          const nearRim = dRimH < 12;
+          const crowd = dH < 6 && dMan > 8 && guarded && !driving && !nearRim;
           if (crowd) { OF.crowd++; cause(X, h, 'crowd'); }
+          if (dH < 6 && dMan > 8 && nearRim) OF.rimHelp++;
           const hx = rim.x - h.x, hy = rim.y - h.y, hl = Math.hypot(hx, hy) || 1;
-          if (!driving && dH < 8 && ((X.x - h.x) * hx + (X.y - h.y) * hy) / (hl * dH || 1) > 0.8 && dMan > 8) OF.path++;
+          if (!driving && !nearRim && dH < 8 && ((X.x - h.x) * hx + (X.y - h.y) * hy) / (hl * dH || 1) > 0.8 && dMan > 8) OF.path++;
           // abandoned: far from his man and neither helping (lane / between ball and rim) nor on the ball
           const segT = U01(((X.x - h.x) * hx + (X.y - h.y) * hy) / (hl * hl)), sx = h.x + hx * segT, sy = h.y + hy * segT;
           const helping = d.inPaint(X, -2) || Math.hypot(X.x - sx, X.y - sy) < 6 || dH < 8;
@@ -297,6 +302,12 @@
         if (z === 'corner3' || z === 'arc3' || z === 'deep') nOut++;
         if (rimDist(a) < 12) inside++;
         if (a === h) { trail[id] = null; openEnd(id, true); continue; }
+        // his job right now: an engine event's move (screen, cut, catch), a half-court flow action, a clip, or holding
+        // a spot; a spot is spacing only beyond the arc (or, for a big, by the rim), anywhere else he has no job
+        const r = d.role[a.id];
+        let job = a.isBusy() ? 'clip' : !r ? 'spot' : r.mode === 'locked' || r.until > d.T ? 'engine' : r.path ? 'flow' : 'spot';
+        if (job === 'spot') job = z === 'corner3' || z === 'arc3' ? 'spacing' : big(id) && !stretch(id) && (z === 'rim' || z === 'paint' || z === 'short') ? 'spacing' : 'none';
+        { const J = R.idle.jobs, jp = R.idle.jobByPos[pk] || (R.idle.jobByPos[pk] = {}); inc(J, job, SDT); inc(jp, job, SDT); if (job === 'none') inc(R.idle.noJobZone, z, SDT); }
         // a wide-open shooter off the ball (nearest defender 10+ ft, rated 70+ for a shot from there, within 26 ft)
         const ndA = nearestDef(a);
         if (ndA.d >= 10 && rimDist(a) <= 26 && rating(a.id, a) >= 70 && d.shotClock() > 4) { const o = openT[id] || (openT[id] = { n: 0, snap: null, poss: cur && cur.n, when: clockStr(), r: rating(a.id, a), z }); o.n++; if (o.n === 10) o.snap = snap({ open: id, handler: hid }); }
@@ -369,7 +380,8 @@
       if (dur >= 5 && s.snap && (ex.still || 0) < EX_MAX) {
         ex.still = (ex.still || 0) + 1;
         const p = info[id] || {};
-        R.examples.push({ kind: 'still', seed, poss: s.poss, when: s.when, text: `${p.name} (${p.pos}) stands still for ${r1(dur)} s at ${s.z === 'arc3' ? 'the arc' : s.z === 'corner3' ? 'the corner' : 'the ' + s.z} while his team runs its half-court offense.`, snap: s.snap });
+        const where = { rim: 'at the rim', paint: 'in the paint', short: 'in the short corner', mid: 'in the mid-range', corner3: 'in the corner', arc3: 'at the arc', deep: 'well beyond the arc' }[s.z] || '';
+        R.examples.push({ kind: 'still', seed, poss: s.poss, when: s.when, text: `${p.name} (${p.pos}) stands still for ${r1(dur)} s ${where} while his team runs its half-court offense.`, snap: s.snap });
       }
     }
     const nm = (id) => (info[id] ? info[id].name + ' (' + info[id].pos + ')' : id);
@@ -377,7 +389,7 @@
       retreat: { kind: 'retreat', fn: (e, dur) => `${nm(e.D)} backs away from ${nm(e.h)} for ${r1(dur)} s while the ball handler is not attacking (gap ${r1(e.d0)} -> ${r1(e.d1)} ft).` },
       turnAway: { kind: 'turn_away', fn: (e, dur) => `${nm(e.D)} turns his back on the ball handler ${nm(e.h)} and walks away for ${r1(dur)} s (gap ${r1(e.d0)} -> ${r1(e.d1)} ft).` },
       far: { kind: 'far', fn: (e, dur) => `${nm(e.D)} is more than 10 ft off the ball handler ${nm(e.h)} inside 28 ft for ${r1(dur)} s.` },
-      crowd: { kind: 'crowd', fn: (e, dur) => `${nm(e.X)} leaves his man ${nm(e.m)} to crowd the ball handler ${nm(e.h)} for ${r1(dur)} s (the ball is already guarded, no drive).` },
+      crowd: { kind: 'crowd', fn: (e, dur) => `${nm(e.X)} leaves his man ${nm(e.m)} to crowd the ball handler ${nm(e.h)} for ${r1(dur)} s (the ball is already guarded, 12+ ft from the rim, no drive).` },
       abandoned: { kind: 'abandoned', fn: (e, dur) => `${nm(e.X)} is more than 12 ft from his man ${nm(e.m)} for ${r1(dur)} s without being in a help spot.` },
     };
 

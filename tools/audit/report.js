@@ -58,6 +58,7 @@ function metrics(games) {
   m.crowdSec = (of('crowd') * 0.1) / n; m.crowdPct = pct(of('crowd'), hcN);
   m.crowdEps = G.flatMap((g) => g.offball.eps.crowd).length / n;
   m.pathSec = (of('path') * 0.1) / n;
+  m.rimHelpSec = (of('rimHelp') * 0.1) / n;
   m.abandoned = pct(of('abandoned'), of('n'));
   m.abandonedEps = G.flatMap((g) => g.offball.eps.abandoned).length / n;
   m.zoneShare = pct(of('zoneN'), hcN);
@@ -68,6 +69,13 @@ function metrics(games) {
   m.clumped = pct(tot((g) => g.idle.pairClose * 2), offSec);
   m.still3Eps = tot((g) => g.idle.eps['3-5'] + g.idle.eps['5-8'] + g.idle.eps['8+']) / n;
   m.still5Eps = tot((g) => g.idle.eps['5-8'] + g.idle.eps['8+']) / n;
+  const jobs = {}; for (const g of G) for (const k in (g.idle.jobs || {})) jobs[k] = (jobs[k] || 0) + g.idle.jobs[k];
+  const jobT = sum(Object.values(jobs));
+  if (jobT) { m.jobEngine = pct(jobs.engine || 0, jobT); m.jobFlow = pct(jobs.flow || 0, jobT); m.jobClip = pct(jobs.clip || 0, jobT); m.jobSpacing = pct(jobs.spacing || 0, jobT); m.jobNone = pct(jobs.none || 0, jobT); }
+  const nz = {}; for (const g of G) for (const k in (g.idle.noJobZone || {})) nz[k] = (nz[k] || 0) + g.idle.noJobZone[k];
+  const nzT = sum(Object.values(nz)); if (nzT) for (const z of ZONES) m['noJob_' + z] = pct(nz[z] || 0, nzT);
+  const jbp = {}; for (const g of G) for (const k in (g.idle.jobByPos || {})) { const a = jbp[k] || (jbp[k] = {}); for (const j in g.idle.jobByPos[k]) a[j] = (a[j] || 0) + g.idle.jobByPos[k][j]; }
+  for (const k of POS_ORDER) if (jbp[k]) { const t = sum(Object.values(jbp[k])); m['noJob_pos_' + k] = pct(jbp[k].none || 0, t); }
   const idlePos = {};
   for (const g of G) for (const k in g.idle.byPos) { const a = idlePos[k] || (idlePos[k] = [0, 0, 0]); const b = g.idle.byPos[k]; a[0] += b[0]; a[1] += b[1]; a[2] += b[2] || 0; }
   for (const k of POS_ORDER) if (idlePos[k]) { m['still_' + k] = pct(idlePos[k][0], idlePos[k][1]); m['loiter_' + k] = pct(idlePos[k][2], idlePos[k][1]); }
@@ -169,10 +177,11 @@ const SECTIONS = [
     ['sagTwo', 'Two passes away: sagged toward the rim from his man', '%', 'up', ''],
     ['seesTwo', 'Two passes away: can see man and ball', '%', 'up', ''],
     ['tightTwo', 'Two passes away: glued to his man (no help)', '%', 'down', ''],
-    ['crowdSec', 'Extra defender crowding a guarded ball, no drive (seconds per game)', 's', 'down', '~0'],
+    ['crowdSec', 'Extra defender crowding a guarded ball 12+ ft from the rim, no drive (seconds per game)', 's', 'down', '~0'],
     ['crowdPct', '  share of half-court time', '%', 'down', ''],
     ['crowdEps', '  episodes per game', '', 'down', ''],
-    ['pathSec', 'Extra defender standing in the handler\'s path (seconds per game)', 's', 'down', ''],
+    ['pathSec', 'Extra defender standing in the handler\'s path 12+ ft from the rim (seconds per game)', 's', 'down', ''],
+    ['rimHelpSec', 'Help at the rim (an extra defender on the ball inside 12 ft; the right play), seconds per game', 's', '', ''],
     ['abandoned', 'More than 12 ft from his man and not in a help spot', '%', 'down', ''],
     ['abandonedEps', '  episodes per game', '', 'down', ''],
     ['zoneShare', 'Half-court time against zones (not in these numbers)', '%', '', ''],
@@ -183,6 +192,12 @@ const SECTIONS = [
     ['still3Eps', 'Stand-stills of 3 s or longer per game', '', 'down', ''],
     ['still5Eps', 'Stand-stills of 5 s or longer per game', '', 'down', ''],
     ['clumped', 'Off-ball players within 6 ft of a teammate', '%', 'down', ''],
+    ['jobNone', 'No job: holding or drifting around a spot that is not spacing (mid-range, paint, too deep)', '%', 'down', ''],
+    ['noJob_mid', '  of that time, in the mid-range', '%', '', ''],
+    ['jobSpacing', 'Spacing: holding a spot beyond the arc (a non-stretch big: by the rim)', '%', '', ''],
+    ['jobFlow', 'Running a half-court action (screen away, cut, relocate, exchange, big flash)', '%', 'up', ''],
+    ['jobEngine', 'Moving for the engine\'s next event (screen, cut, catch)', '%', '', ''],
+    ['jobClip', 'In an animation (catch, screen, pass, ...)', '%', '', ''],
   ]],
   ['4. Shot selection (engine)', [
     ['fgaPerGame', 'Field goal attempts per game (both teams)', '', '', 'NBA ~178'],
@@ -262,8 +277,9 @@ function tables(m, base) {
   // spacing by position (a table of its own)
   const pos = { title: '6b. Where each position spends its half-court time (offense)', head: ['Position'].concat(ZONES.map((z) => ZONE_LABEL[z])), rows: [] };
   for (const p of POS_ORDER) if (m['sp_' + p + '_rim'] != null) pos.rows.push([p].concat(ZONES.map((z) => f1(m['sp_' + p + '_' + z]) + '%' + (base && base['sp_' + p + '_' + z] != null ? ' (was ' + f1(base['sp_' + p + '_' + z]) + '%)' : ''))));
-  const idle = { title: '3b. Standing around by position (share of off-ball time)', head: ['Position', 'still (<1 ft/s)', 'moved <3 ft in 3 s'], rows: [] };
-  for (const p of POS_ORDER) if (m['still_' + p] != null) idle.rows.push([p, f1(m['still_' + p]) + '%' + (base && base['still_' + p] != null ? ' (was ' + f1(base['still_' + p]) + '%)' : ''), f1(m['loiter_' + p]) + '%' + (base && base['loiter_' + p] != null ? ' (was ' + f1(base['loiter_' + p]) + '%)' : '')]);
+  const was = (k) => (base && base[k] != null ? ' (was ' + f1(base[k]) + '%)' : '');
+  const idle = { title: '3b. Standing around by position (share of off-ball time)', head: ['Position', 'still (<1 ft/s)', 'moved <3 ft in 3 s', 'no job'], rows: [] };
+  for (const p of POS_ORDER) if (m['still_' + p] != null) idle.rows.push([p, f1(m['still_' + p]) + '%' + was('still_' + p), f1(m['loiter_' + p]) + '%' + was('loiter_' + p), m['noJob_pos_' + p] != null ? f1(m['noJob_pos_' + p]) + '%' + was('noJob_pos_' + p) : 'n/a']);
   return { sections: out, extra: [idle, pos] };
 }
 
@@ -327,7 +343,7 @@ function build(games, o) {
 }
 
 const CAUSE_TITLE = { retreat: 'Ball defender backing away', turnAway: 'Ball defender turning away', crowd: 'Off-ball defender crowding the ball', abandoned: 'Off-ball defender lost his man' };
-const CAUSE_PART = { mover: 'moved by', beat: 'engine beat', handlerDist: 'handler from the rim', clip: 'defender clip', handlerClip: 'handler clip', scheme: 'scheme' };
+const CAUSE_PART = { mover: 'moved by', beat: 'engine beat', shotCall: 'during a shot beat, the engine called the shot', handlerDist: 'handler from the rim', clip: 'defender clip', handlerClip: 'handler clip', scheme: 'scheme' };
 function causes(games) {
   const out = [];
   for (const tag of Object.keys(CAUSE_TITLE)) {
