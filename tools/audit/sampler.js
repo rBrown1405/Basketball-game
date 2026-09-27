@@ -80,6 +80,9 @@
       spacing: { n: 0, byPos: {}, nOut: [0, 0, 0, 0, 0, 0], noInside: 0, fiveOut: 0 },
       openOff: { n: 0, found: 0, sec: 0 }, shots: [], catches: [], rebounds: [], boxouts: [], gives: { catch: [], rebound: [], steal: [], other: [] }, hang: [],
       examples: [], players: {}, causes: {},
+      // called plays (js/core/playbook.js): the engine's records, how close the players get to the play's spots, and
+      // the pick-and-roll coverage the court's defenders actually play
+      pb: { poss: 0, withCall: 0, calls: 0, ends: {}, early: 0, done: 0, steps: 0, stepsOf: 0, byPlay: {}, byFam: {}, byBase: {}, flow: { n: 0, pts: 0 }, all: { n: 0, pts: 0 }, cov: {}, reads: {}, inb: { n: 0, safety: 0 }, spot: { n: 0, lt2: 0, lt5: 0, lt10: 0, far: 0 }, covSeen: {} },
     };
     const ex = {}; const EX_MAX = 2;
     const example = (kind, text, flags) => { if ((ex[kind] = (ex[kind] || 0) + 1) > EX_MAX) return; R.examples.push({ kind, seed, poss: cur && cur.n, when: clockStr(), text, snap: snap(flags) }); };
@@ -406,7 +409,71 @@
     };
 
     // ------------------------------------------------------------ engine events (shots) and box-outs
+    // ------------------------------------------------------------ called plays
+    function pbRecord(P, pts) {
+      const pb = R.pb;
+      const half = P.play !== 'transition' && P.play !== 'putback' && P.play !== 'none';
+      if (!half && !P.pbs.length) return;
+      // half-court possessions: with a call or played in flow (points of the whole possession)
+      pb.poss++; pb.all.n++; pb.all.pts += pts;
+      if (P.pbs.length) pb.withCall++; else { pb.flow.n++; pb.flow.pts += pts; }
+      for (const r of P.pbs) {
+        pb.calls++;
+        inc(pb.ends, r.end || '?');
+        const fam = r.family || '?';
+        const bp = pb.byPlay[r.id] || (pb.byPlay[r.id] = { n: 0, pts: 0, early: 0, done: 0, name: r.name, fam });
+        const bf = pb.byFam[fam] || (pb.byFam[fam] = { n: 0, pts: 0, early: 0, done: 0 });
+        bp.n++; bf.n++; bp.pts += r.pts || 0; bf.pts += r.pts || 0;
+        if (r.base) { const bb = pb.byBase[r.base] || (pb.byBase[r.base] = { n: 0, pts: 0 }); bb.n++; bb.pts += r.pts || 0; }
+        if (fam === 'blob' || fam === 'slob') { pb.inb.n++; if (r.end === 'safety') pb.inb.safety++; }
+        if (r.early) { pb.early++; bp.early++; bf.early++; }
+        // got to its read (early or at the end) = the play worked through; a turnover or a foul stopped it
+        if (r.end === 'shot' || r.end === 'safety') { pb.done++; bp.done++; bf.done++; }
+        if (r.step >= 0 && r.last >= 0) { pb.steps += r.step + 1; pb.stepsOf += r.last + 1; }
+        if (r.cov) inc(pb.cov, r.cov);
+        if (r.opt) inc(pb.reads, (r.early ? 'early: ' : '') + r.opt);
+      }
+    }
+    let pbSeen = null, pbCheckAt = -1, covChecks = [];
+    function pbSample() {
+      const run = d.pbRun;
+      // (the screener's man before the screen fires: a switch swaps the matchups when it does)
+      const bt = d.beat;
+      if (bt && !bt.fired && bt.type === 'screen' && bt.ev && bt.ev.kind === 'ball' && bt.ev._audSd == null) for (const id in d.matchup) if (String(d.matchup[id]) === String(bt.ev.screener)) bt.ev._audSd = id;
+      if (run && !run.inbound && (!pbSeen || pbSeen.run !== run || pbSeen.k !== run.k) && run.k >= 0) { pbSeen = { run, k: run.k }; pbCheckAt = d.T + 1.2; }
+      if (run && pbCheckAt > 0 && d.T >= pbCheckAt) {
+        pbCheckAt = -1;
+        for (const id in run.ids) {
+          const r = d.role[id], a = v.actor(id);
+          if (!r || !a || !r.pb || !r.spot || b.holder === a || a.isBusy() || r.until > d.T + 0.5) continue;
+          const dd = Math.hypot(r.spot.x - a.x, r.spot.y - a.y);
+          const sp = R.pb.spot; sp.n++;
+          if (dd < 2) sp.lt2++; else if (dd < 5) sp.lt5++; else if (dd < 10) sp.lt10++; else sp.far++;
+        }
+      }
+      // 0.6 s after a ball screen in a play: where the screener's man is (dropped, level, hedged above, trapping)
+      for (let i = covChecks.length - 1; i >= 0; i--) {
+        const c = covChecks[i];
+        if (d.T < c.at) continue;
+        covChecks.splice(i, 1);
+        const sd = v.actor(c.sd), h = v.actor(c.h);
+        if (!sd || !h) continue;
+        const su = d.U_(sd.x), hu = d.U_(h.x);
+        let k;
+        if (String(d.matchup[c.sd]) === String(c.h)) k = 'switched';
+        else if (Math.hypot(sd.x - h.x, sd.y - h.y) < 4.5) k = 'on the ball';
+        else if (su < c.u - 5) k = 'back in the lane';
+        else k = 'at the screen';
+        const o = R.pb.covSeen[c.cov] || (R.pb.covSeen[c.cov] = {});
+        inc(o, k);
+      }
+    }
     function onEvent(e) {
+      if (e && e.type === 'screen' && e.kind === 'ball' && e.cov && d.pbRun) {
+        const scr = v.actor(e.screener);
+        const sd = e._audSd;
+        if (scr && sd != null) covChecks.push({ at: d.T + 0.6, sd, h: e.user, cov: e.cov, u: d.U_(scr.x) });
+      }
       if (!e || e.type !== 'shot' || e.pending) return;
       const sh = v.actor(e.shooter);
       const nd = sh ? nearestDef(sh) : { d: null };
@@ -437,11 +504,13 @@
     // ------------------------------------------------------------ play the game
     const t0 = performance.now();
     for (let guard = 0; guard < (opt.maxPoss || 600); guard++) {
+      const s0 = g.score.slice();
       const P = PBC.Sim.nextPossession(g);
       if (!P) break;
       if (g.pending) PBC.Sim.resolvePending(g, P, { quality: 'good' });
       R.poss++;
       cur = { n: (P.n || 0) + 1, play: P.play || 'none', sys: P.offSystem, scheme: P.defScheme };
+      if (P.pbs) pbRecord(P, g.score[P.off] - s0[P.off]);
       inc(R.schemes, P.defScheme || '?'); inc(R.systems, P.offSystem || '?'); inc(R.plays, P.play || 'none');
       let done = false;
       prevOB = null; lastFlight = null; catchRec = null; missRec = null; looseSince = null;
@@ -458,7 +527,7 @@
           if (b.segs) { lastSegs = b.segs; lastSegsT = b.time; }
           if (b.state === 'flight' && lastFlight && lastFlight.kind === 'pass' && b.passTarget && !lastFlight.tgt) { lastFlight.tgt = b.passTarget; openFound(String(b.passTarget.id)); }
           openFlush(false);
-          if (i % EVERY === 0) sample();
+          if (i % EVERY === 0) { sample(); pbSample(); }
         } catch (err) { R.samplerErrors++; if (R.samplerErrors < 3) console.log('sampler', err && err.stack); }
       }
       if (!done) { R.stuck++; d.forceFinish(); }

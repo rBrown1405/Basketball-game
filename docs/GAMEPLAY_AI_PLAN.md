@@ -378,6 +378,108 @@ came from search excerpts):
   defense plays its coverage on the screens.
 - Team page: a Playbook tab to see the plays.
 
+### Phase 3: what was built
+
+On top of the existing systems again: the engine keeps its calibrated shot model (a play's reads end in the same
+kinds of shots it always produced), the court keeps its formations, flow and Phase 2 defense between plays, and the
+procedural animation is untouched.
+
+- **The play library** (`js/core/playbook.js`): 36 plays as data. Pick and roll (high, side, Spain, pick and pop,
+  drag), horns (base, flare, twist, elbow hand-off), floppy, pin-down, stagger, hammer, Chicago, dribble hand-off,
+  Iverson cut, post (low-post isolation, high-low, duck-in, elbow isolation), isolation (top, wing), flex, UCLA,
+  Chin backdoor, motion swing, drive and kick, zone offense (overload, high post), three inbound plays under the
+  basket (box stagger, stack, back-screen lob), two from the sideline (zipper, stack), and end-of-game and
+  after-timeout sets (last-shot pick and roll, elevator doors). Each play has roles (ball handler, screener, popper,
+  shooter, spacer, cutter, post, hub, scorer, dunker spot, inbounder) with a rating profile each, an alignment,
+  steps (screens on and off the ball, passes, hand-offs, drives, where the other roles go) and reads: each read opens
+  at a step, ends in one of the engine's shot branches, and lists the defensive reactions that open it (the
+  pick-and-roll coverage, how the shooter's man plays an off-ball screen, help on the drive, denial, a double on the
+  post, a zone).
+- **Every team's playbook**: built from its offensive system and its players (12 to 14 half-court plays its system
+  likes and its starters fit, two zone plays, two or three inbound plays each kind, the end-of-game sets), plus its
+  pick-and-roll coverage (drop for a rim-protecting big who is slow, switch for versatile defenders, hedge or show
+  for mobile bigs, blitz for quick hands). Saved with the team, rebuilt each season and when the system changes
+  (unless the user picked the plays himself); older saves get one when first needed.
+- **The AI coach's call** (`js/core/playcall.js`): the engine first draws the kind of action from the system as it
+  always has, then the coach calls a play for it, scored on the situation (the last shot, a need for a three, a
+  two-for-one, early offense, right after a timeout), the fit of the five on the floor to the roles, the opponent's
+  scheme and coverage (the plays whose reads that coverage opens up; zone offense only against zones), what has
+  worked this game (points per possession shrunk toward the team's average, a play that scored twice is not a sure
+  thing), and variety (rarely the same play twice in a row). Families that score are leaned on a little more. About
+  a quarter of half-court possessions are played in flow with no call (more after a defensive rebound or a steal,
+  and in motion and read-and-react systems): coaches call sets at dead balls and after timeouts and let the offense
+  flow otherwise.
+- **The engine runs the call** (`js/core/sim.js`): the primary role goes to the player the engine's usage weights
+  pick (so the league's usage stays as it was), the other roles to the best fit of ratings to roles; the defense's
+  reactions are drawn (its coverage, the off-ball coverage by the shooter's man, help by the driver's threat, denial
+  by the scheme, a double by the post threat); the reads are weighed against them and the players' own habits, and
+  the read taken decides who shoots, who passes and the shot model. A read before the last step is an early read:
+  the play worked, and it is recorded that way. The steps become court events timed to end at the engine's shot time.
+  A look passed up is swung out to a perimeter role and the next call comes; a turnover or a foul stops the play
+  where it was. Inbound plays run on side-outs and blocked shots out of bounds in the front court: a quick hitter
+  off the throw-in, or the ball in to the safety and then the half-court call. Every call is recorded (the play, the
+  roles, the read, how far it got, why it ended, the points while it was on) for Phase 5.
+- **Defense**: a hedge scheme was added to the schemes (the big jumps out on every ball screen); within man-to-man
+  the team's pick-and-roll coverage decides how ball screens are played (guards' screens are switched more, and late
+  in the clock).
+- **On the court** (`js/match/plays.js`, `choreo.js`): at the call the five go to the play's alignment and stay out
+  of the half-court flow (no swings, probes, cuts or drive reactions of their own) until the play ends; each step
+  moves the players it names; a player coming off an off-ball screen sets up his man and runs off it, the screen set
+  on his path near the screener; the screener then goes back to his spot in the play. The screener's man plays the
+  called coverage from the moment the screen comes: drop (waits back at the free-throw line, then protects the
+  rim), at the level, hedge (above the screen in the handler's path, then recovers), blitz (traps), switch (the two
+  swap men), ice (the handler's man jumps the screen side, the big waits below it); off the ball the shooter's man
+  trails, goes under, top-locks or switches. Inbound plays are acted out while the ball is dead: the alignment, the
+  screens and cuts, then the throw-in to the man the read found. The shot goes up on the shooter's side of the play.
+- **Playbook page** (Team: Playbook): every play drawn as X's and O's (numbered roles, the ball, cuts, passes,
+  dribbles and screens coloured by step), who fills each role among your starters and how well they fit, the steps
+  and the reads (early reads marked), a switch to put plays in or take them out of the book (a library of the rest),
+  the inbound plays, and the defense: the scheme and the pick-and-roll coverage with how well the roster suits each.
+- **Debug view**: the called play, its steps (done, under way, ahead), the reads open at this step and the read
+  taken with the reactions behind it, why the coach called it, each player's role in it, and the coverage.
+
+### Research behind Phase 3
+
+Coaching glossaries and breakdowns (search summaries; the play spots and timings are our translation into court
+feet and seconds):
+- Pick-and-roll reads by coverage: against drop, pull up at the free-throw line or float, pop the screener, or snake
+  back; against a hedge or show, retreat a dribble or two and hit the roller behind it or skip to the weak corner when
+  the low man tags; against a blitz, release early to the short roll (four on three) or the popper; against a
+  switch, attack the big or feed the screener sealing the small; against ice, flip the screen, reject it or go
+  baseline. The tag on the roller comes from the weak-side low man, so the weak corner is the open pass; both
+  corners filled is now the default spacing. ([FiveThirtyEight](https://fivethirtyeight.com/features/more-nba-teams-are-using-a-pick-and-role-hack-sticking-two-guys-in-the-corners/),
+  [Basketball Action Dictionary](https://medium.com/thebasketballactiondictionary/how-to-identify-pick-and-roll-coverages-a1e8dffe54e9),
+  [Hooper University](https://www.hooperuniversity.com/breakdowns/ball-screen-offense-attacking-drop-coverage))
+- Off-ball screens: the defender trails tight, curl; trails with space, straight cut and catch; cheats under, fade
+  to the corner; top-locks, reject and backdoor; switch or help, the screener slips. Flare: under, shoot; chased
+  over, drive the space. Hand-offs: trail, turn the corner; under, shoot; jumped, keep or backdoor.
+  ([Stephen Curry MasterClass](https://www.masterclass.com/classes/stephen-curry-teaches-shooting-ball-handling-and-scoring/chapters/off-screens-curl-pop-and-fade),
+  [flare](https://www.basketballforcoaches.com/flare-screen/), [DHO](https://www.basketballforcoaches.com/dho-basketball/))
+- The plays: Spain (a back screen on the roller's defender, the screener pops; Scariolo), horns and its flare,
+  twist and elbow series, floppy (single on one side, double or stagger on the other), hammer (baseline drive, a
+  flare for the weak-side corner shooter; Karl's Bucks, the Spurs), Chicago (pin-down into a hand-off), Iverson cut
+  (over the top of both elbows), flex, UCLA (the high-post back screen), Princeton chin and backdoor, zone overload
+  and the high-post flash, box, stack and elevator inbounds, the sideline zipper.
+  ([Coach's Clipboard](https://www.coachesclipboard.net/spain-pick-and-roll.html), [Breakthrough: hammer](https://www.breakthroughbasketball.com/plays/spurshammer),
+  [Chicago](https://medium.com/thebasketballactiondictionary/chicago-72a00bdf2338), [floppy](https://www.coachesclipboard.net/floppy-basketball-plays.html),
+  [BLOB box](https://www.breakthroughbasketball.com/plays/baseline-box-plays), [SLOB zipper](https://www.thehoopsgeek.com/basketball-plays/zipper-slob/))
+- Coverages in the league: ball screens about 69 per 100 possessions (2023-24); two on the ball (hedge, show, trap,
+  blitz) fell from 26.6 to 15.7 per 100 in a decade while offense against them rose from 0.88 to 0.97 points per
+  possession; drop is the most common coverage; switching is 32 to 42 % on guards' screens and under 15 % on bigs'.
+  ([theScore](https://www.thescore.com/nba/news/2614859), [FiveThirtyEight](https://fivethirtyeight.com/features/want-to-confuse-an-nba-defense-have-a-guard-set-a-ball-screen))
+- Efficiency priors: cuts about 1.28 points per possession, transition 1.11, spot-ups 1.01, isolation 0.91 to 0.99,
+  post-ups 0.86 to 1.04, pick and roll and hand-offs about 0.98 per chance; after-timeout plays score slightly
+  less than other half-court plays (0.84 against 0.89), so a set after a timeout is a matter of getting a good
+  look against a set defense, not a boost. ([ESPN](https://www.espn.com/nba/story/_/id/47243702/nba-2025-2026-season-postups-trends-kristaps-porzingis-victor-wembanyama),
+  [Vice](https://www.vice.com/en/article/the-myth-of-brilliant-nba-timeout-play-calling/))
+- How coaches call plays: most possessions flow into spacing and ball screens (Kerr); called sets cluster at dead
+  balls, after timeouts and at the ends of quarters; late in games familiarity beats surprise and every team
+  isolates more; when the defense takes the first option away, go to that set's counter; mismatch hunting has the
+  weakest defender's man set the screen. Late-game: hold for the last shot and start the action with about 8 s
+  left; down three, a stagger, floppy, pin-down into a hand-off, or the elevator.
+  ([Cleaning the Glass](https://cleaningtheglass.com/flipping-the-switch/), [end of game](https://darrylblackport.com/posts/2020-09-16-nba-final-possession-shots/),
+  [two-for-one](https://cleaningtheglass.com/two-for-one-or-two-for-none/))
+
 ## Phase 4: play drawing and timeout calls
 
 - New `js/ui/playdesigner.js`: a whiteboard half court; draw each step's moves, cuts, screens, passes and dribbles,

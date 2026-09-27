@@ -236,3 +236,21 @@
   .b-round { min-width: 178px; }
   .ls-ldr-top .v { font-size: 28px; }
 }
+
+/* ---------------------------------------------------------------- playbook */
+.pb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+.pb-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.pb-card.on { border-color: rgba(255, 107, 26, .45); }
+.pb-top { display: flex; gap: 12px; align-items: flex-start; }
+.pb-dia { flex: 0 0 auto; border-radius: 6px; }
+.pb-info { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pb-name { font: 900 16px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .4px; }
+.pb-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.pb-desc { color: var(--muted); margin-top: 8px; }
+.pb-more summary { cursor: pointer; color: #9fb3d1; margin-top: 8px; }
+.pb-steps, .pb-reads { margin: 6px 0 0; padding-left: 18px; line-height: 1.55; }
+.pb-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.pb-role { font-size: 12px; line-height: 1.6; }
+.pb-role b { display: inline-block; width: 16px; text-align: center; border: 1px solid #adb5bd; border-radius: 50%; font-size: 10px; line-height: 14px; margin-right: 4px; }
+.strat-card.locked { opacity: .55; cursor: not-allowed; }
+@media (max-width: 560px) { .pb-top { flex-direction: column; } .pb-grid { grid-template-columns: minmax(0, 1fr); } }

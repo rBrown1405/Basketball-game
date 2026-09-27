@@ -1167,6 +1167,9 @@
         if (onBall) {
           const ru = this.role[user.id]; if (ru) ru.until = fireAt + 0.4;
           user.moveTo(user.x, user.y, { speed: 4, face: this.rim, stance: 'dribble' });
+          // the coverage gets set as the screen comes (a drop big waits back, a hedge or show big meets it)
+          const sd = this.guardOf(scr.id);
+          if (userDef && sd && !zoneD) this.pnrCoverageStart(ev.cov || this.schemeCoverage(), user, userDef, scr, sd, spot, fireAt);
         } else if (pbDest) {
           // he sets up his man: a step away from where he is going, then comes off the screen
           const ru = this.role[user.id]; if (ru) ru.until = fireAt + 1.2;
@@ -1218,6 +1221,33 @@
         }
       };
       return tReach + 0.4;
+    }
+    /** as the ball screen is being set: the screener's man (sd) takes his spot for the coverage by the screen */
+    pnrCoverageStart(cov, user, userDef, scr, sd, spot, fireAt) {
+      const T = this.T, by = Math.max(T + 0.2, fireAt - 0.1);
+      const up = this.U_(spot.x), side = spot.y >= 25 ? 1 : -1;
+      const face = { x: user.x, y: user.y };
+      this.dtask[sd.id] = { until: fireAt + 0.05 };
+      switch (cov) {
+        case 'drop':
+          // back at the free-throw line, between the screen and the rim
+          sd.moveTo(this.X(Math.min(up - 6, 19)), 25 + (spot.y - 25) * 0.35, { speed: 12, by, face, stance: 'defense' });
+          break;
+        case 'hedge': case 'blitz':
+          // up above the screen on the ball side, ready to jump out
+          sd.moveTo(this.X(up + 1.5), U.clamp(spot.y + side * 1.5, 4, 46), { speed: 14, by, face, stance: 'defense' });
+          break;
+        case 'ice':
+          // below the screen on the baseline side; the handler's man gets over to the screen side
+          sd.moveTo(this.X(Math.max(12, up - 7)), U.clamp(spot.y + (spot.y >= user.y ? -1 : 1) * 6, 5, 45), { speed: 12, by, face, stance: 'defense' });
+          this.dtask[userDef.id] = { until: fireAt + 0.05 };
+          userDef.moveTo(user.x + (spot.x - user.x) * 0.45, user.y + (spot.y - user.y) * 0.45, { speed: 10, by, face, stance: 'defense' });
+          break;
+        case 'switch': delete this.dtask[sd.id]; break;
+        default:
+          // at the level of the screen
+          sd.moveTo(this.X(up - 1.5), spot.y, { speed: 12, by, face, stance: 'defense' });
+      }
     }
     /** the pick-and-roll coverage a defensive scheme plays when the engine sends none */
     schemeCoverage() {

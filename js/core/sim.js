@@ -347,7 +347,7 @@
     return best;
   }
 
-  // near: the shooter's spot in a called play ([u, v]: feet from the baseline, from the sideline) — the shot goes up
+  // near: the shooter's spot in a called play ([u, v]: feet from the baseline, from the sideline): the shot goes up
   // on that side of the floor, at about that angle (the zone, and so the make probability, is the same)
   function locFor(ctx, zone, kind, near) {
     const g = ctx.g, idx = ctx.O.idx;

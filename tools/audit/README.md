@@ -7,6 +7,8 @@ ball. It is rerun after every gameplay phase to show what improved and that noth
 ```
 node tools/audit/run.js --games 52 --procs 4 --seed 101 --out audit/phase1 --label "Phase 1 baseline"
 node tools/audit/run.js --games 52 --out audit/phase2 --label "Phase 2" --baseline audit/phase1/metrics.json --baseLabel "Phase 1"
+node tools/audit/run.js --repo /tmp/phase2 --games 52 --out audit/phase3/phase2-code --label "Phase 2 code"
+node tools/audit/run.js --games 52 --out audit/phase3 --label "Phase 3" --baseline audit/phase3/phase2-code/metrics.json --baseLabel "Phase 2"
 ```
 
 When the audit itself gained metrics since the last phase, measure the last phase's code again with this audit
@@ -58,6 +60,12 @@ outside free throws, timeouts and dead balls):
    above-break 3, deep), players beyond the arc, bigs inside.
 7. **Rebounding and the ball**: grab height, how far a carom bends in the air toward the rebounder's hands, balls
    that jump or hang, floor bounces, box-outs.
+8. **Called plays** (Phase 3 on; earlier code shows n/a): half-court possessions with a call or in flow, plays per
+   game, plays that reached a read (early reads counted as the play working), steps run, why plays ended (a reset,
+   a turnover, a foul), points per half-court possession with a call and in flow, how close the players are to the
+   play's spots 1.2 s into each step, inbound plays, and the pick-and-roll coverage: what the screener's man is
+   doing 0.6 s after a ball screen (back in the lane, at the screen, on the ball, switched) against the coverage the
+   engine called. Tables by play family, the most-called plays and the reads taken.
 
 **Animation checks** (`anim.js`): the procedural animation work's regression checks, run on real possessions:
 body contact (the ball, hands or forearms inside the player's own body; knees, shins or feet of the two legs through

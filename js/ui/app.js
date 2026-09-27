@@ -17,6 +17,7 @@
       { key: 'roster', label: 'Roster', icon: '👥', group: 'Team' },
       { key: 'lineup', label: 'Lineup & Minutes', icon: '📋', group: 'Team' },
       { key: 'strategy', label: 'Strategy', icon: '🧠', group: 'Team' },
+      { key: 'playbook', label: 'Playbook', icon: '📓', group: 'Team' },
       { key: 'practice', label: 'Practice', icon: '🏋️', group: 'Team', dot: S => PBC.Season.practiceAvailable(S) },
       { key: 'schedule', label: 'Schedule', icon: '📅', group: 'Season' },
       { key: 'standings', label: 'Standings', icon: '📊', group: 'Season' },

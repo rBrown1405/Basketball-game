@@ -40,7 +40,7 @@
   const DUR = {
     jump_ball: 1.6, sub: 0.7, timeout: 1.0, inbound: 1.2, advance: 1.5, set: 1.0,
     pass: 0.6, screen: 0.7, handoff: 0.7, move: 0.8, shot: 1.9, rebound: 1.0,
-    turnover: 1.1, foul: 1.4, ft: 1.5, period_end: 1.4,
+    turnover: 1.1, foul: 1.4, ft: 1.5, period_end: 1.4, step: 0.5,
   };
 
   class RetroView {
@@ -307,7 +307,15 @@
         }
         case 'set': {
           this.sendToSpots(off, this.playSpots(P.play, off, ev), null, 1);
+          // a called play: its alignment (feet from the attacked baseline, from the sideline)
+          if (ev.pb && ev.pb.align) { const toX = (u) => (bx > 47 ? 94 - u : u); for (const id in ev.pb.align) { const p = ev.pb.align[id]; put(id, toX(p[0]), p[1]); } }
           this.sendDefense(def, ocD, ocO, this.playSpots(P.play, off, ev), scheme, ball.x, ball.y, this.basketX(def));
+          break;
+        }
+        case 'step': {
+          // a step of a called play: the players it names go to their spots
+          const toX = (u) => (bx > 47 ? 94 - u : u);
+          for (const id in ev.pos || {}) { const p = ev.pos[id]; put(id, toX(p[0]), p[1]); }
           break;
         }
         case 'pass': {

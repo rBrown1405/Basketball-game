@@ -151,6 +151,45 @@ function metrics(games) {
   m.perimBoxPerMiss = sum(bo, (b) => b.perim) / Math.max(1, bo.length);
   m.defNearRimPerMiss = sum(bo, (b) => b.nearRim) / Math.max(1, bo.length);
   m.offNearRimPerMiss = sum(bo, (b) => b.offNear) / Math.max(1, bo.length);
+  // ---- called plays (games from before the playbooks have none)
+  const PB = G.filter((g) => g.pb);
+  if (PB.length) {
+    const pt = (f) => sum(PB, f), pn = PB.length;
+    const calls = pt((g) => g.pb.calls), poss = pt((g) => g.pb.poss);
+    m.pbHalfPoss = poss / pn;
+    m.pbCallShare = pct(pt((g) => g.pb.withCall), poss);
+    m.pbCallsPerGame = calls / pn;
+    m.pbDone = pct(pt((g) => g.pb.done), calls);
+    m.pbEarly = pct(pt((g) => g.pb.early), calls);
+    m.pbSteps = pct(pt((g) => g.pb.steps), pt((g) => g.pb.stepsOf));
+    const end = (k) => pct(pt((g) => g.pb.ends[k] || 0), calls);
+    m.pbEndReset = end('reset'); m.pbEndTo = end('turnover'); m.pbEndFoul = end('foul') + end('def3');
+    const allN = pt((g) => g.pb.all.n), allP = pt((g) => g.pb.all.pts), flN = pt((g) => g.pb.flow.n), flP = pt((g) => g.pb.flow.pts);
+    m.pbPppHalf = allN ? allP / allN : null;
+    m.pbPppCalled = allN - flN ? (allP - flP) / (allN - flN) : null;
+    m.pbPppFlow = flN ? flP / flN : null;
+    const sp = (k) => pt((g) => g.pb.spot[k] || 0), spN = sp('n');
+    m.pbSpot2 = pct(sp('lt2'), spN); m.pbSpot5 = pct(sp('lt2') + sp('lt5'), spN); m.pbSpotFar = pct(sp('far'), spN);
+    m.pbInbPerGame = pt((g) => g.pb.inb.n) / pn;
+    m.pbInbSafety = pct(pt((g) => g.pb.inb.safety), pt((g) => g.pb.inb.n));
+    // the court's coverage against the coverage the engine called (0.6 s after the screen)
+    const EXPECT = { drop: ['back in the lane'], blitz: ['on the ball'], switch: ['switched'], show: ['at the screen', 'on the ball'], hedge: ['at the screen', 'on the ball'], ice: ['back in the lane', 'at the screen'] };
+    let cm = 0, cn = 0;
+    const seen = {};
+    for (const g of PB) for (const c in g.pb.covSeen) { const o = seen[c] || (seen[c] = {}); for (const k in g.pb.covSeen[c]) { o[k] = (o[k] || 0) + g.pb.covSeen[c][k]; cn += g.pb.covSeen[c][k]; if ((EXPECT[c] || []).includes(k)) cm += g.pb.covSeen[c][k]; } }
+    m.pbCovMatch = cn ? pct(cm, cn) : null;
+    m._pbCovSeen = seen;
+    // by family and by play
+    const fam = {}, play = {}, base = {}, reads = {}, cov = {};
+    for (const g of PB) {
+      for (const k in g.pb.byFam) { const f = fam[k] || (fam[k] = { n: 0, pts: 0, early: 0, done: 0 }); const x = g.pb.byFam[k]; f.n += x.n; f.pts += x.pts; f.early += x.early; f.done += x.done; }
+      for (const k in g.pb.byPlay) { const f = play[k] || (play[k] = { n: 0, pts: 0, early: 0, done: 0, name: g.pb.byPlay[k].name, fam: g.pb.byPlay[k].fam }); const x = g.pb.byPlay[k]; f.n += x.n; f.pts += x.pts; f.early += x.early; f.done += x.done; }
+      for (const k in g.pb.byBase) { const f = base[k] || (base[k] = { n: 0, pts: 0 }); f.n += g.pb.byBase[k].n; f.pts += g.pb.byBase[k].pts; }
+      for (const k in g.pb.reads) reads[k] = (reads[k] || 0) + g.pb.reads[k];
+      for (const k in g.pb.cov) cov[k] = (cov[k] || 0) + g.pb.cov[k];
+    }
+    m._pbFam = fam; m._pbPlay = play; m._pbBase = base; m._pbReads = reads; m._pbCov = cov; m._pbGames = pn;
+  }
   return m;
 }
 
@@ -269,6 +308,26 @@ const SECTIONS = [
     ['defNearRimPerMiss', 'Defenders within 10 ft of the rim on a miss', '', '', ''],
     ['offNearRimPerMiss', 'Offensive players within 10 ft of the rim on a miss', '', '', ''],
   ]],
+  ['8. Called plays (the playbook)', [
+    ['pbHalfPoss', 'Half-court possessions per game (both teams)', '', '', ''],
+    ['pbCallShare', 'Half-court possessions with a called play (the rest played in flow)', '%', '', 'NBA: most flow, sets at dead balls and ATOs'],
+    ['pbCallsPerGame', 'Plays called per game (resets and inbound plays included)', '', '', ''],
+    ['pbDone', 'Plays that reached a read (a shot, or the ball in on an inbound)', '%', 'up', ''],
+    ['pbEarly', '  taken early (an opening before the last step: the play working)', '%', '', ''],
+    ['pbSteps', 'Steps run, of all the plays\' steps', '%', '', ''],
+    ['pbEndReset', 'Plays whose look was passed up (reset into a new call)', '%', '', ''],
+    ['pbEndTo', 'Plays stopped by a turnover', '%', 'down', ''],
+    ['pbEndFoul', 'Plays stopped by a foul (side-out or free throws)', '%', '', ''],
+    ['pbPppHalf', 'Points per half-court possession', '', '', 'NBA ~0.97-1.0'],
+    ['pbPppCalled', '  with a called play', '', '', ''],
+    ['pbPppFlow', '  in flow', '', '', ''],
+    ['pbSpot2', 'Players within 2 ft of their play spot 1.2 s into a step', '%', 'up', ''],
+    ['pbSpot5', '  within 5 ft', '%', 'up', ''],
+    ['pbSpotFar', '  more than 10 ft away', '%', 'down', ''],
+    ['pbInbPerGame', 'Inbound plays per game (under the basket, sideline)', '', '', ''],
+    ['pbInbSafety', '  ball in to the safety, then the half-court call', '%', '', ''],
+    ['pbCovMatch', 'Ball screens where the screener\'s man plays the called coverage (drop, level, hedge, blitz, switch, ice)', '%', 'up', ''],
+  ]],
 ];
 
 function fmtVal(v, unit) {
@@ -295,7 +354,26 @@ function tables(m, base) {
   const was = (k) => (base && base[k] != null ? ' (was ' + f1(base[k]) + '%)' : '');
   const idle = { title: '3b. Standing around by position (share of off-ball time)', head: ['Position', 'still (<1 ft/s)', 'moved <3 ft in 3 s', 'no job'], rows: [] };
   for (const p of POS_ORDER) if (m['still_' + p] != null) idle.rows.push([p, f1(m['still_' + p]) + '%' + was('still_' + p), f1(m['loiter_' + p]) + '%' + was('loiter_' + p), m['noJob_pos_' + p] != null ? f1(m['noJob_pos_' + p]) + '%' + was('noJob_pos_' + p) : 'n/a']);
-  return { sections: out, extra: [idle, pos] };
+  const extra = [idle, pos];
+  if (m._pbFam) {
+    const FAM = { pnr: 'Pick and roll', horns: 'Horns', offscreen: 'Off-screen', handoff: 'Hand-off', post: 'Post', iso: 'Isolation', cut: 'Cutting', spot: 'Motion', zone: 'Zone offense', blob: 'Baseline inbound', slob: 'Sideline inbound' };
+    const tot = sum(Object.values(m._pbFam), (f) => f.n);
+    const fam = { title: '8b. Called plays by family', head: ['Family', 'calls per game', 'share', 'points per call', 'reached a read', 'early read'], rows: [] };
+    for (const k of Object.keys(m._pbFam).sort((a, b) => m._pbFam[b].n - m._pbFam[a].n)) { const f = m._pbFam[k]; fam.rows.push([FAM[k] || k, f1(f.n / m._pbGames), f1(pct(f.n, tot)) + '%', (f.pts / f.n).toFixed(2), f1(pct(f.done, f.n)) + '%', f1(pct(f.early, f.n)) + '%']); }
+    const pl = { title: '8c. The most-called plays', head: ['Play', 'calls per game', 'points per call', 'reached a read', 'early read'], rows: [] };
+    for (const k of Object.keys(m._pbPlay).sort((a, b) => m._pbPlay[b].n - m._pbPlay[a].n).slice(0, 16)) { const f = m._pbPlay[k]; pl.rows.push([f.name || k, f1(f.n / m._pbGames), (f.pts / f.n).toFixed(2), f1(pct(f.done, f.n)) + '%', f1(pct(f.early, f.n)) + '%']); }
+    const ct = sum(Object.values(m._pbCov));
+    const cv = { title: '8d. The defense\'s pick-and-roll coverage on called plays, and what the court shows 0.6 s after the ball screen', head: ['Coverage', 'share of calls', 'screener\'s man: back in the lane', 'at the screen', 'on the ball', 'switched'], rows: [] };
+    for (const k of Object.keys(m._pbCov).sort((a, b) => m._pbCov[b] - m._pbCov[a])) {
+      const o = (m._pbCovSeen || {})[k] || {}, on = sum(Object.values(o));
+      const sh = (x) => (on ? f1(pct(o[x] || 0, on)) + '%' : 'n/a');
+      cv.rows.push([k, f1(pct(m._pbCov[k], ct)) + '%', sh('back in the lane'), sh('at the screen'), sh('on the ball'), sh('switched')]);
+    }
+    const rd = { title: '8e. The reads taken most often', head: ['Read', 'per game'], rows: [] };
+    for (const k of Object.keys(m._pbReads).sort((a, b) => m._pbReads[b] - m._pbReads[a]).slice(0, 14)) rd.rows.push([k, f1(m._pbReads[k] / m._pbGames)]);
+    extra.push(fam, pl, cv, rd);
+  }
+  return { sections: out, extra };
 }
 
 /** players with a low 3PT rating who shot threes anyway, across all games */
