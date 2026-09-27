@@ -9,8 +9,8 @@
   const is3 = z => z === 'c3' || z === 'ab3';
   // tunable constants (calibrated with test/calibrate.js)
   Sim.K = {
-    usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 14.3, shotTimeW: 14.8,
-    zoneAdj: { rim: -0.38, paint: 0.02, mid: -0.12, c3: -0.3, ab3: -0.15 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
+    usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 14.45, shotTimeW: 14.85,
+    zoneAdj: { rim: -0.38, paint: 0.02, mid: -0.12, c3: -0.3125, ab3: -0.1625 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
     coast: 1, // how much a team with a big lead lets up (shooting focus, glass, pressure); 0 = never
   };
   Sim.debug = null;
@@ -91,7 +91,7 @@
     return {
       p, id: p.id, r: p.r, pos: p.pos, posN: C.POS_NUM[p.pos], energy: 100, sec: 0, pf: 0, on: false, starter: false,
       target: 0, hot: 0, out: false, inj: false, injNew: null, st: PBC.Stats.emptyLine(), last: p.last, name: PBC.Player.name(p),
-      hgt: p.hgt, tn: tendProfile(p),
+      hgt: p.hgt, tn: tendProfile(p), pbFit: null,
     };
   }
   const avgDev = (T, k) => { let s = 0; for (const c of T.on) s += c.tn.d[k]; return T.on.length ? s / T.on.length : 0; };
@@ -143,7 +143,7 @@
     return {
       tid, idx, team, players, on: starters, strat: Object.assign({}, team.strat),
       fouls: 0, fouls2: 0, timeouts: L.timeouts, qs: [0], toRequest: false, autoSubs: true, autoTO: true,
-      manualSubs: [], poss: 0, lastTimeoutClock: 9999,
+      manualSubs: [], poss: 0, lastTimeoutClock: 9999, pb: null, lineupV: 0,
     };
   }
 
@@ -178,6 +178,8 @@
     g.homeMult = sl.home * (1 + 0.5 * I);
     g.clutchMult = sl.clutch * (1 + 0.8 * I);
     g.t = [makeTeamCtx(S, g, homeTid, 0), makeTeamCtx(S, g, awayTid, 1)];
+    // each team's playbook, the coach's play-calling memory and its pick-and-roll coverage (js/core/playcall.js)
+    if (PBC.PlayCall) PBC.PlayCall.setup(g);
     if (g.userIdx >= 0) {
       const ut = g.t[g.userIdx];
       ut.autoTO = S.settings.autoTimeouts !== false;
@@ -441,7 +443,7 @@
   }
 
   function newCtx(g, P) {
-    return { g, P, O: g.t[P.off], D: g.t[1 - P.off], t: 0, scStart: 0, scLen: g.L.shotClock, done: false, segN: 0, transition: false, info: null, newPlay: true, advT: 0, frontcourt: false, periodOver: false, starId: null };
+    return { g, P, O: g.t[P.off], D: g.t[1 - P.off], t: 0, scStart: 0, scLen: g.L.shotClock, done: false, segN: 0, transition: false, info: null, newPlay: true, advT: 0, frontcourt: false, periodOver: false, starId: null, inbound: null, pbCalls: 0, score0: g.score[P.off], tActPre: null };
   }
 
   Sim.nextPossession = function (g, opts) {
@@ -454,7 +456,7 @@
     const P = {
       n: g.possN++, off: g.poss, period: g.period, clockStart: U.round(g.clock, 2), clockEnd: null,
       start: g.nextStart, startSpot: g.nextSpot, play: 'none', setName: '', defScheme: g.t[1 - g.poss].strat.def,
-      events: [], endScore: null, gim: opts.gim || null,
+      events: [], endScore: null, gim: opts.gim || null, pbs: [], pb: null,
     };
     const ctx = newCtx(g, P);
     ctx.starId = starOf(ctx.O);
@@ -601,6 +603,7 @@
       if (!i) break;
       usedIns.add(i);
       T.on[T.on.indexOf(o)] = i;
+      T.lineupV = (T.lineupV || 0) + 1;
       o.on = false; i.on = true;
       ev(ctx, 'sub', { team: idx, out: o.id, in: i.id, text: `${i.name} checks in for ${o.last}${o.out ? ' (fouled out)' : o.inj ? ' (injured)' : ''}` });
     }
@@ -730,11 +733,11 @@
     if (t0 + 8.05 < g.clock - 0.3 && U.chance(0.0004 * k)) {
       // never got it across: the advance never happened
       if (!g.lite) { for (let i = P.events.length - 1; i >= 0; i--) if (P.events[i].type === 'advance') { P.events.splice(i, 1); break; } }
-      turnover(ctx, { play: 'none', handler: h, noSet: true }, t0 + 8.05, 'eight_seconds');
+      { const ni = mkInfo('none', '', h); ni.noSet = true; turnover(ctx, ni, t0 + 8.05, 'eight_seconds'); }
       return;
     }
     const tb = ctx.advT + U.range(0.4, 2.4);
-    if (tb < g.clock - 0.3 && tb < t0 + 22 && U.chance(0.00095 * k)) turnover(ctx, { play: 'none', handler: h, noSet: true }, tb, 'backcourt');
+    if (tb < g.clock - 0.3 && tb < t0 + 22 && U.chance(0.00095 * k)) { const ni = mkInfo('none', '', h); ni.noSet = true; turnover(ctx, ni, tb, 'backcourt'); }
   }
 
   // Defensive three seconds: a defender in the lane for three seconds without actively guarding anyone. A team
@@ -749,6 +752,7 @@
   function defensiveThree(ctx, info, t) {
     const g = ctx.g, O = ctx.O, D = ctx.D, L = g.L;
     ctx.t = Math.min(t, g.clock - 0.05);
+    if (info.pb) pbCut(ctx, info, ctx.t, 'def3');
     const who = U.pickW(D.on, c => 0.4 + c.posN * 0.3 + (100 - c.r.perD) / 100);
     D.techs = (D.techs || 0) + 1;
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play; ctx.P.setName = info.setName || ''; }
@@ -761,17 +765,18 @@
     if (made) addPoints(ctx, O.idx, 1);
     // the offense keeps it
     const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
-    ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'sideline', x: U.round(bx - dir * 13.75, 1), y: U.chance(0.5) ? -1 : 51, team: O.idx });
+    const ie = ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'sideline', x: U.round(bx - dir * 13.75, 1), y: U.chance(0.5) ? -1 : 51, team: O.idx });
     const scLeft = ctx.scStart + ctx.scLen - ctx.t;
     ctx.scStart = ctx.t; ctx.scLen = Math.max(L.orebShotClock, Math.min(L.shotClock, scLeft));
     ctx.advT = ctx.t; ctx.newPlay = true; ctx.transition = false; ctx.putbackBy = null;
+    ctx.inbound = { kind: 'sideline', ev: ie };
   }
 
   function heave(ctx) {
     const g = ctx.g, O = ctx.O;
     const sh = ctx.handler;
     const plan = { branch: 'heave', shooter: sh, assister: null, zone: 'ab3', kind: 'heave', cKey: 'lastShot', passKind: null };
-    const info = { play: ctx.transition ? 'transition' : 'none', handler: sh, setName: '' };
+    const info = mkInfo(ctx.transition ? 'transition' : 'none', '', sh);
     ctx.t = Math.max(0.2, g.clock - U.range(0.1, 0.45));
     takeShot(ctx, info, ctx.t, 'lastShot', {}, plan);
   }
@@ -781,7 +786,7 @@
     let guard = 0;
     while (!ctx.done && !ctx.pendingShot && guard++ < 14) segment(ctx, opts);
     if (!ctx.done && !ctx.pendingShot) { // safety: end possession with a turnover (shot clock)
-      turnover(ctx, { play: 'none', handler: ctx.handler }, Math.min(ctx.g.clock, ctx.t + 1), 'shot_clock');
+      turnover(ctx, mkInfo('none', '', ctx.handler), Math.min(ctx.g.clock, ctx.t + 1), 'shot_clock');
     }
   }
 
@@ -825,11 +830,19 @@
       }
     }
     let info;
-    if (ctx.putbackBy) info = { play: 'putback', handler: ctx.putbackBy };
+    if (ctx.putbackBy) info = mkInfo('putback', '', ctx.putbackBy);
     else if (ctx.newPlay || !ctx.info) info = choosePlay(ctx, mode, opts);
     else info = ctx.info;
     ctx.info = info; ctx.newPlay = false;
-    const tAct = actionTime(ctx, info, mode, clockLeft, scLeft);
+    // (the action time is drawn once: by the play call when there was one, so a possession played in flow keeps the
+    // time drawn for it and the calls do not bend the league's shot timing)
+    let tAct;
+    if (info.pb && info.pb.tAct != null) { tAct = info.pb.tAct; info.pb.tAct = null; }
+    else if (ctx.tActPre != null && info.play !== 'putback' && info.play !== 'transition') tAct = ctx.tActPre;
+    else tAct = actionTime(ctx, info, mode, clockLeft, scLeft);
+    ctx.tActPre = null;
+    // (a quick hitter off an inbound: the catch and the shot)
+    if (info.pb && info.pb.inbound) tAct = Math.min(tAct, ctx.t + U.range(0.9, 1.9), ctx.g.clock - 0.05);
     ctx.segN++;
     if (ctx.gimForced) { takeShot(ctx, info, tAct, mode, opts); return; }
     const pTO = toProb(ctx, info) * (tAct - ctx.t < 1 ? 0.3 : 1);
@@ -911,17 +924,29 @@
     if (!need) return 0;
     if (need === 'versatile') return U.clamp((Math.min(...T.on.map(c => c.r.perD)) - 52) / 10, -1, 1);
     if (need === 'rim') return U.clamp((Math.max(...T.on.map(c => c.r.block)) - 74) / 8, -1, 1);
+    if (need === 'mobile') {
+      // (hedging: the bigs on the floor have to get out to the ball and back; small-ball lineups use their two tallest)
+      const bigs = U.sortBy(T.on, c => c.hgt || c.posN * 2 + 76, true).slice(0, 2);
+      return U.clamp((Math.min(...bigs.map(c => (c.r.speed + c.r.agility) / 2)) - 58) / 8, -1, 1);
+    }
     return 0;
   }
 
   // ---- choose play & actors ----
+  /** a play in the engine: its type, name and actors (one object shape for every kind, the hot paths read it) */
+  function mkInfo(play, setName, handler) {
+    return { play, setName: setName || '', handler: handler || null, screener: null, poster: null, shooter: null, cutter: null, big: null, pop: false, noSet: false, pb: null };
+  }
   function choosePlay(ctx, mode, opts) {
     const O = ctx.O, D = ctx.D;
     const gim = ctx.P.gim;
     if (ctx.transition && ctx.segN === 0 && !gim) {
       const handler = ctx.handler;
-      return { play: 'transition', handler, setName: U.pick(SET_NAMES.transition) };
+      return mkInfo('transition', U.pick(SET_NAMES.transition), handler);
     }
+    // a throw-in in the frontcourt: the coach's inbound play (a quick hitter, or the ball in to the safety and then
+    // the half-court call below)
+    if (ctx.inbound) { const ib = !gim && O.pb ? pbInbound(ctx, mode) : null; ctx.inbound = null; if (ib) return ib; }
     const off = C.OFFENSES[O.strat.off];
     const w = Object.assign({}, off.plays);
     const on = O.on;
@@ -937,9 +962,13 @@
     const dm = C.DEFENSES[D.strat.def].mods;
     if (dm.isZone) { w.iso *= 0.7; w.pnr *= 0.8; w.spot *= 1.35; w.post *= 1.1; w.cut *= 0.8; }
     if (D.strat.def === 'switch') { w.iso *= 1.25; w.post *= 1.15; }
+    // what is working this game: the coach leans on the kinds of action that have been scoring
+    if (O.pb && !gim) for (const k in w) w[k] *= PBC.PlayCall.familyBoost(ctx.g, O, k);
     let play = gim ? gim.play : U.pickKey(w);
     if (mode === 'hurry3' && !gim) play = U.pickKey({ pnr: 30, spot: 40, offscreen: 20, iso: 10 });
-    const info = { play, setName: '' };
+    // the coach calls a play from the playbook for that kind of action (or it is played in flow: below)
+    if (O.pb && !gim) { const called = pbCall(ctx, play, mode); if (called) return called; }
+    const info = mkInfo(play, '');
     const pickFrom = (list, fn) => U.pickW(list, c => Math.max(0.0001, fn(c)));
     const others = arr => on.filter(c => !arr.includes(c));
     switch (play) {
@@ -995,6 +1024,449 @@
     }
     if (!info.handler) info.handler = ctx.handler;
     return info;
+  }
+
+  // ---- playbook plays (js/core/playbook.js; the coach's call: js/core/playcall.js) ----
+  // A called play keeps the engine's shot model: its reads end in the same families and branches the league is
+  // calibrated on (a pick-and-roll read is a pnr handler / roller / kick shot, an off-screen read an offscreen shot).
+  // What the play adds: who fills each role (the primary by the usage weights the engine always used, the rest by how
+  // their ratings fit the roles), the defense's reactions and the read they open, and the steps the court acts out.
+  const handlerWOf = (ctx, c) => usageW(ctx, c) * Math.pow(c.r.handle / 70, 1.5) * (c.posN <= 2 ? 1 : c.posN === 3 ? 0.55 : 0.12);
+  /** hunting the mismatch against a switching defense: scorers who have a weak defender to go at */
+  function mismatchK(ctx, c) {
+    const D = ctx.D;
+    if (D.strat.def !== 'switch' || !D.on.length) return 1;
+    const weak = Math.min(...D.on.map(d => d.r.perD));
+    return 1 + U.clamp((scoreSkill(c.r) - weak - 5) / 40, 0, 0.5);
+  }
+  function pbPickPrimary(ctx, play) {
+    const on = ctx.O.on;
+    const W = fn => U.pickW(on, c => Math.max(0.0001, fn(c)));
+    switch (play.pick) {
+      case 'pnr': return W(c => handlerWOf(ctx, c) * c.tn.f.pnr);
+      case 'iso': return W(c => Math.pow(usageW(ctx, c), 1.25) * (c.posN <= 3 ? 1 : 0.55) * c.tn.f.iso * mismatchK(ctx, c));
+      case 'post': return W(c => Math.pow(c.r.post / 60, 2.5) * (c.posN >= 3 ? 1 : 0.3) * usageW(ctx, c) * c.tn.f.post * mismatchK(ctx, c));
+      case 'shooter': return W(c => Math.pow(Math.max(c.tn.x3, c.tn.xMid) / 65, 5) * usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.3));
+      case 'dho': return W(c => usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.2));
+      case 'cutter': return W(c => Math.pow((c.r.layup + c.r.dunk + c.r.speed) / 3 / 65, 4) * usageW(ctx, c) * c.tn.f.cut);
+      default: return W(c => handlerWOf(ctx, c));
+    }
+  }
+  function pbFit(ctx, c, prof) {
+    // (cached on the game's player object: ratings do not change during a game)
+    const fc = c.pbFit || (c.pbFit = {});
+    const v = fc[prof];
+    return v != null ? v : (fc[prof] = PBC.Playbook.fit(c, prof));
+  }
+  /** the other roles by the best fit of ratings to roles (kept while the lineup is the same) */
+  /** the role fits of the five on the floor, kept until the lineup changes (a sub, a foul-out, an injury) */
+  function lineupCache(T) {
+    const v = T.lineupV || 0;
+    if (!T.pb.lc || T.pb.lcV !== v) {
+      // (lineups come back during a game: the fits are kept by the five, in any order)
+      const players = T.on.slice().sort((a, b) => a.id - b.id);
+      const key = players.map(c => c.id).join(',');
+      const all = T.pb.lcAll || (T.pb.lcAll = {});
+      T.pb.lc = all[key] || (all[key] = { fit: {}, fill: {}, rows: {}, players });
+      T.pb.lcV = v;
+    }
+    return T.pb.lc;
+  }
+  /** one role profile's fit for each of the five (in the lineup cache's order) */
+  function lineupRow(ctx, lc, prof) {
+    return lc.rows[prof] || (lc.rows[prof] = lc.players.map(c => pbFit(ctx, c, prof)));
+  }
+  function pbFill(ctx, play, primary) {
+    const O = ctx.O;
+    const key = play.id + '|' + primary.id;
+    const lc = lineupCache(O), cache = lc.fill;
+    if (cache[key]) return cache[key];
+    const pi = lc.players.indexOf(primary);
+    const roles = play._others || (play._others = Object.keys(play.roles).filter(r => r !== play.primary));
+    const a = pi >= 0 ? PBC.Playbook.assignF(roles.map(r => lineupRow(ctx, lc, play.roles[r])), lc.players.length, 1 << pi) : null;
+    const out = { [play.primary]: primary };
+    const rest = lc.players.filter(c => c !== primary);
+    roles.forEach((r, i) => { out[r] = a ? lc.players[a.idx[i]] : rest[i]; });
+    const fit = ((a ? a.total : 0) + pbFit(ctx, primary, play.roles[play.primary])) / (roles.length + 1);
+    return (cache[key] = { roles: out, fit });
+  }
+  function pbSituation(ctx, mode, tAct) {
+    const D = ctx.D, P = ctx.P;
+    const t0 = Math.max(ctx.t, ctx.advT || 0);
+    const early = ctx.segN === 0 && !ctx.resets && (P.start === 'dreb' || P.start === 'steal' || P.start === 'made_basket' || P.start === 'ft_made') && tAct != null && tAct - t0 < 5.5;
+    return { mode, ato: !!ctx.timeoutCalled && !ctx.pbCalls, early, zone: !!C.DEFENSES[D.strat.def].mods.isZone, cov: PBC.PlayCall.coverage(D), second: (ctx.resets || 0) > 0 };
+  }
+  /** the call: a play of that kind of action (or one the situation asks for) for the five on the floor */
+  function pbCall(ctx, family, mode) {
+    const O = ctx.O, g = ctx.g, bk = O.pb;
+    if (!bk || O.on.length !== 5) return null;
+    const clockLeft = g.clock - ctx.t, scLeft = ctx.scStart + ctx.scLen - ctx.t;
+    const tAct = ctx.tActPre = actionTime(ctx, { play: family }, mode, clockLeft, scLeft);
+    const sit = pbSituation(ctx, mode, tAct);
+    // some possessions are played in flow, without a call
+    const live = ctx.P.start === 'dreb' || ctx.P.start === 'steal';
+    if (mode === 'normal' && !sit.ato && !sit.early && U.chance(PBC.PlayCall.flowShare(O, sit.second, live))) return null;
+    const ck = family + '|' + mode + '|' + (sit.ato ? 1 : 0) + (sit.early ? 1 : 0) + (sit.zone ? 1 : 0);
+    const cc = bk.candCache || (bk.candCache = {});
+    let ok = cc[ck];
+    if (!ok) {
+      const seen = {}, list = [];
+      const add = p => { if (!seen[p.id]) { seen[p.id] = 1; list.push(p); } };
+      for (const p of bk.byBase[family] || []) add(p);
+      for (const p of bk.plays) {
+        const t = p.tags;
+        if ((mode === 'lastShot' && t.includes('eog')) || (mode === 'hurry3' && (t.includes('need3') || t.includes('three'))) || (mode === 'twoForOne' && t.includes('twoForOne')) || (sit.ato && t.includes('ato'))) add(p);
+      }
+      ok = cc[ck] = list.filter(p => {
+        const t = p.tags;
+        if (p.family === 'blob' || p.family === 'slob') return false;
+        if (p.family === 'zone' && !sit.zone) return false;
+        if (t.includes('half') || t.includes('zone')) return true;
+        // the special-situation sets only in their situation
+        return (t.includes('eog') && mode === 'lastShot') || (t.includes('need3') && mode === 'hurry3') || (t.includes('ato') && sit.ato) ||
+          (t.includes('early') && (sit.early || mode === 'quick')) || (t.includes('twoForOne') && mode === 'twoForOne');
+      });
+    }
+    if (!ok.length) return null;
+    const c = pbChoose(ctx, ok, sit);
+    if (!c) return null;
+    const info = pbInfo(ctx, c, sit);
+    info.pb.tAct = tAct; info.pb.tAct0 = tAct;
+    return info;
+  }
+  /** the coach's pick among plays (scored on the lineup's best fit), then who it is run for and who fills the rest */
+  function pbChoose(ctx, plays, sit) {
+    const O = ctx.O, lc = lineupCache(O);
+    const lf = lc.fit;
+    const cands = plays.map(play => {
+      let f = lf[play.id];
+      if (f == null) {
+        const pr = play._profs || (play._profs = Object.keys(play.roles).map(r => play.roles[r]));
+        const a = PBC.Playbook.assignF(pr.map(pf => lineupRow(ctx, lc, pf)), lc.players.length);
+        const fit = a ? a.total / pr.length : 60;
+        f = lf[play.id] = { fit, k: Math.pow(U.clamp(fit, 35, 95) / 65, 2.5) };
+      }
+      return { play, fit: f.fit, fitK: f.k };
+    });
+    const c = PBC.PlayCall.pick(ctx.g, O, cands, sit);
+    if (!c) return null;
+    c.primary = pbPickPrimary(ctx, c.play);
+    const fill = pbFill(ctx, c.play, c.primary);
+    c.roles = fill.roles; c.fit = fill.fit;
+    return c;
+  }
+  function pbInfo(ctx, c, sit) {
+    const play = c.play, R = c.roles;
+    const info = mkInfo(PBC.PlayCall.baseOf(play), play._up || (play._up = play.name.toUpperCase()));
+    for (const k in play.map) if (R[play.map[k]]) info[k] = R[play.map[k]];
+    if (!info.handler) info.handler = R.ball || ctx.handler;
+    const rec = {
+      id: play.id, name: play.name, family: play.family, base: info.play, fit: U.round(c.fit, 1), why: (c.why || []).slice(0, 3),
+      roles: {}, ato: !!sit.ato, mode: sit.mode, opt: null, optI: -1, at: -1, step: -1, last: play.last, early: false, end: null,
+      cov: null, s0: ctx.g.score[ctx.O.idx], pts: 0, t: U.round(ctx.t, 2),
+    };
+    for (const r in R) rec.roles[r] = R[r].id;
+    info.pb = { play, roles: R, side: U.chance(0.5) ? 1 : -1, sit, rec, t0: Math.max(ctx.t, ctx.advT || 0), tAct: null, tAct0: null };
+    ctx.P.pbs.push(rec);
+    ctx.pbCalls = (ctx.pbCalls || 0) + 1;
+    return info;
+  }
+  /**
+   * The defense's reactions on this call: its pick-and-roll coverage (the scheme's, or the playbook's within man),
+   * how the shooter's man plays off-ball screens (trail, under, top-lock, switch), whether help comes on the drive,
+   * denial on the wings, a double team on the post, a zone.
+   */
+  function pbReactions(ctx, info) {
+    const D = ctx.D, sch = D.strat.def;
+    const zone = !!C.DEFENSES[sch].mods.isZone;
+    let cov = zone ? 'zone' : PBC.PlayCall.coverage(D);
+    // (most teams switch a guard's ball screen far more often than a big's, and switch more late in the clock)
+    if (!zone && cov !== 'switch' && sch !== 'blitz' && sch !== 'hedge' && sch !== 'drop') {
+      const scLeft = ctx.scStart + ctx.scLen - ctx.t;
+      if ((info.screener && info.screener.posN <= 2 && U.chance(0.4)) || (scLeft < 7 && U.chance(0.25))) cov = 'switch';
+    }
+    const sh = info.shooter || info.cutter;
+    let ob = null;
+    if (!zone) {
+      if (sch === 'switch') ob = U.chance(0.8) ? 'obswitch' : 'trail';
+      else if (sch === 'nothree' || sch === 'pressure') ob = U.chance(0.6) ? 'top' : 'trail';
+      else {
+        const d = sh ? matchupDefender(D, sh, ctx) : null;
+        const t3 = sh ? sh.r.three : 70, dq = d ? (d.r.perD + d.r.agility) / 2 : 65;
+        ob = t3 < 62 ? (U.chance(0.7) ? 'under' : 'trail') : U.pickKey({ trail: Math.max(5, 40 + (dq - 65)), under: Math.max(5, 25 - (t3 - 70) * 0.8), top: 10, obswitch: 8 });
+      }
+    }
+    const drv = info.handler;
+    const threat = drv ? scoreSkill(drv.r) / 72 : 1;
+    const helpK = { packline: 1.4, zone23: 1.3, zone32: 1.1, zone131: 1.1, boxone: 1.2, nothree: 0.75, switch: 0.85 }[sch] || 1;
+    const help = U.chance(U.clamp(0.45 * threat * threat * helpK * (avgOn(D, 'helpD') / 64), 0.1, 0.85));
+    const deny = U.chance(sch === 'pressure' ? 0.55 : sch === 'nothree' ? 0.35 : sch === 'press' ? 0.3 : 0.1);
+    const post = info.poster;
+    const double = post ? U.chance(U.clamp(0.15 * Math.pow(post.r.post / 72, 4) * (zone ? 0.6 : 1), 0.02, 0.5)) : false;
+    return { cov, ob, help, deny, double, zone };
+  }
+  const RX_WORD = {
+    drop: 'the big dropped', show: 'the big showed', hedge: 'the big hedged', blitz: 'they blitzed the ball', switch: 'they switched', ice: 'they iced it',
+    zone: 'the zone', trail: 'his man trailed', under: 'his man went under', top: 'his man top-locked', obswitch: 'they switched the screen',
+    help: 'the help came', deny: 'they denied the pass', double: 'they doubled the post',
+  };
+  /** how open a read is against these reactions (and the decision maker's own habits: keep it or move it) */
+  function pbOptW(ctx, pb, o, rx) {
+    let w = o.w;
+    const tr = o.trig;
+    if (tr) {
+      if (rx.zone) { if (tr.zone) w *= tr.zone; }
+      else if (tr[rx.cov]) w *= tr[rx.cov];
+      if (rx.ob && tr[rx.ob]) w *= tr[rx.ob];
+      if (rx.help && tr.help) w *= tr.help;
+      if (rx.deny && tr.deny) w *= tr.deny;
+      if (rx.double && tr.double) w *= tr.double;
+    }
+    const R = pb.roles;
+    const who = Array.isArray(o.who) ? null : R[o.who];
+    const from = o.from ? R[o.from] : null;
+    const f = (from || who) && (from || who).tn ? (from || who).tn.f : null;
+    if (f && !o.safety) {
+      if (from && o.br !== 'shooter') w *= f.passOut;
+      else if (o.br === 'handler' || o.br === 'receiver') w *= f.keep * f.pull;
+      else if (o.br === 'self') w *= f.keep;
+      else if (o.br === 'shooter' && who && who.tn) w *= who.tn.f.keep;
+    }
+    return w;
+  }
+  /** the triggers of a read that fired (for the play log and the debug view) */
+  function pbWhy(o, rx) {
+    const out = [];
+    const tr = o.trig || {};
+    const on = k => { if (tr[k] && tr[k] > 1.05) out.push(RX_WORD[k] || k); };
+    if (rx.zone) on('zone'); else on(rx.cov);
+    if (rx.ob) on(rx.ob);
+    if (rx.help) on('help');
+    if (rx.deny) on('deny');
+    if (rx.double) on('double');
+    return out;
+  }
+  const KICK_T = {
+    pnr: { c3: 36, ab3: 48, mid: 8, rim: 8 }, iso: { c3: 40, ab3: 50, rim: 10 }, post: { c3: 40, ab3: 48, mid: 7, rim: 5 },
+    handoff: { c3: 40, ab3: 45, mid: 10, rim: 5 },
+  };
+  /** the read: which option, who shoots, who passes, and the shot model of that branch */
+  function pbPlan(ctx, info, mode, force3) {
+    const pb = info.pb, play = pb.play, R = pb.roles, rec = pb.rec;
+    const rx = pb.rx || (pb.rx = pbReactions(ctx, info));
+    let o = pb.preset;
+    if (!o) o = U.pickW(play.opts.filter(x => !x.safety), x => Math.max(1e-4, pbOptW(ctx, pb, x, rx)));
+    pb.opt = o;
+    info.play = o.base;
+    const from = o.from ? R[o.from] : null;
+    let shooter;
+    if (Array.isArray(o.who)) {
+      const cands = o.who.map(r => R[r]).filter(c => c && c !== from);
+      shooter = !cands.length ? null : o.br === 'drive' ? U.pickW(cands, c => usageW(ctx, c)) : U.pickW(cands, c => Math.pow(U.clamp((c.tn.x3 - 35) / 35, 0.05, 2), 3) * Math.sqrt(usageW(ctx, c)));
+    } else shooter = R[o.who];
+    if (!shooter) shooter = info.handler || ctx.handler;
+    let assister = from && from !== shooter ? from : null, base, hint, cKey, lob = false, passKind = null;
+    switch (o.base + ':' + o.br) {
+      case 'pnr:handler': base = { rim: 30, paint: 21, mid: 20, c3: 1, ab3: 28 }; hint = 'offDribble'; cKey = 'pnr_handler'; assister = null; break;
+      case 'pnr:roller':
+        cKey = 'roller';
+        if (o.pop) { base = { mid: 25, ab3: 68, c3: 7 }; hint = 'catch'; passKind = 'kick'; }
+        else { base = { rim: 80, paint: 17, mid: 3 }; hint = 'roll'; lob = U.chance(0.3); passKind = lob ? 'lob' : 'bounce'; }
+        if (!assister) assister = info.handler !== shooter ? info.handler : null;
+        break;
+      case 'iso:self': base = { rim: 30, paint: 15, mid: 27, ab3: 28 }; hint = 'iso'; cKey = 'iso'; assister = null; break;
+      case 'post:self': base = { rim: 38, paint: 46, mid: 14, ab3: 2 }; hint = 'post'; cKey = 'post'; assister = U.chance(0.26) ? (from || (info.handler !== shooter ? info.handler : null)) : null; break;
+      case 'spot:shooter': base = { c3: 32, ab3: 50, mid: 14, rim: 4 }; hint = 'catch'; cKey = 'spot'; passKind = 'swing'; if (!assister && info.handler !== shooter) assister = info.handler; break;
+      case 'spot:drive': base = { rim: 58, paint: 26, mid: 16 }; hint = 'offDribble'; cKey = 'drive'; assister = shooter !== info.handler && U.chance(0.6 * info.handler.tn.f.assist) ? info.handler : null; break;
+      case 'offscreen:shooter': base = { ab3: 56, c3: 12, mid: 30, rim: 2 }; hint = 'catch'; cKey = 'offscreen'; passKind = 'chest'; if (!assister && info.handler !== shooter) assister = info.handler; break;
+      case 'offscreen:kick': base = { rim: 45, paint: 25, mid: 15, ab3: 15 }; hint = 'catch'; cKey = 'kick'; passKind = 'chest'; break;
+      case 'handoff:receiver': base = { rim: 26, paint: 12, mid: 20, ab3: 42 }; hint = 'offDribble'; cKey = 'handoff'; assister = U.chance(0.5) && info.big && info.big !== shooter ? info.big : null; break;
+      case 'handoff:big': base = { rim: 60, paint: 25, mid: 15 }; hint = 'roll'; cKey = 'big'; passKind = 'bounce'; if (!U.chance(0.5)) assister = null; break;
+      case 'cut:cutter': base = { rim: 86, paint: 14 }; hint = 'cut'; cKey = 'cut'; lob = U.chance(0.2); passKind = lob ? 'lob' : 'bounce'; if (!assister && info.handler !== shooter) assister = info.handler; break;
+      default:
+        if (o.br === 'kick' && KICK_T[o.base]) { base = Object.assign({}, KICK_T[o.base]); hint = 'catch'; cKey = 'kick'; passKind = 'kick'; }
+        else { base = { rim: 30, paint: 12, mid: 20, c3: 10, ab3: 28 }; hint = 'offDribble'; cKey = 'iso'; }
+    }
+    if (o.zk) for (const z in base) if (o.zk[z] != null) base[z] *= o.zk[z];
+    const plan = planTail(ctx, mode, force3, { branch: o.br, shooter, assister, base, hint, cKey, lob, passKind, keep: true });
+    rec.opt = o.label; rec.optI = play.opts.indexOf(o); rec.at = o.at; rec.early = o.at < play.last; rec.base = o.base;
+    rec.cov = rx.cov; rec.read = pbWhy(o, rx); rec.shooter = plan.shooter.id;
+    return plan;
+  }
+  /** the play's timeline: steps 0..k1 end at tEnd, the call and the set before them */
+  function pbTimeline(pb, k1, tEnd) {
+    const play = pb.play, t0 = pb.t0;
+    let dSum = 0;
+    for (let k = 0; k <= k1; k++) dSum += play.steps[k].d;
+    const room = Math.max(0.2, tEnd - t0 - 0.9);
+    const s = U.clamp(room / dSum, 0.2, 1.25);
+    const tStart = Math.max(t0 + 0.2, tEnd - dSum * s);
+    const T = [];
+    let acc = tStart;
+    for (let k = 0; k <= k1; k++) { T.push(acc); acc += play.steps[k].d * s; }
+    return { s, T, tStart, tEnd: acc, tSet: Math.max(t0 + 0.05, tStart - 1.8) };
+  }
+  const EV_FRAC = { move: 0.3, pass: 0.45, handoff: 0.6, screen: 0.6 };
+  const KICKS = { kick: 1 };
+  /**
+   * The play on the court (live games): the call and the alignment ('set'), each step ('step': where the other roles
+   * go) with its screens, passes, hand-offs and moves, then the read (the pass to the shooter, the drive). end:
+   * 'shot', 'reset' (the look was passed up: steps only), or { cut: t } (a turnover or a foul stops the play at t).
+   * Returns who has the ball after the steps.
+   */
+  function pbEvents(ctx, info, plan, tShot, end) {
+    const g = ctx.g, pb = info.pb, play = pb.play, R = pb.roles, idx = ctx.O.idx;
+    if (g.lite || pb.inbound) return null;
+    const o = pb.opt;
+    const cut = end && typeof end === 'object' ? end.cut : Infinity;
+    const k1 = o ? o.at : play.last;
+    const sh = plan ? plan.shooter : null, as = plan ? plan.assister : null;
+    const kickFin = !!(o && as && KICKS[o.br] && o.base !== 'offscreen');
+    const fin = end === 'shot' ? (kickFin ? 1.1 : as ? 0.7 : plan.zone === 'rim' || plan.zone === 'paint' ? 0.8 : 0.45) : end === 'reset' ? 0.45 : 0;
+    const tEnd = (typeof end === 'object' ? (end.tAct || tShot) : tShot) - fin;
+    const tl = pbTimeline(pb, k1, tEnd);
+    const rx = pb.rx || null;
+    const mir = p => [U.round(p[0], 1), U.round(pb.side > 0 ? p[1] : 50 - p[1], 1)];
+    const ids = {}, align = {};
+    for (const r in R) ids[r] = R[r].id;
+    for (const r in play.align) if (R[r]) align[R[r].id] = mir(play.align[r]);
+    const startRole = play.start || (R.ball ? 'ball' : Object.keys(R)[0]);
+    const first = R[startRole];
+    let holder = ctx.handler;
+    const tSet = U.round(Math.min(tl.tSet, cut - 0.1), 2);
+    if (tSet < pb.t0) return holder;
+    evAt(ctx, tSet, 'set', {
+      play: info.play, setName: info.setName, handler: first ? first.id : holder.id, screener: info.screener ? info.screener.id : undefined, target: sh ? sh.id : undefined, team: idx,
+      pb: { id: play.id, name: play.name, side: pb.side, roles: ids, align, cov: rx ? rx.cov : PBC.PlayCall.coverage(ctx.D), opt: o ? { label: o.label, at: o.at, i: play.opts.indexOf(o), read: pb.rec.read } : null, last: play.last, why: pb.rec.why },
+    });
+    // the entry: the ball to the player the play starts with
+    const tEntry = U.round((tSet + tl.T[0]) / 2, 2);
+    if (first && holder && first !== holder && tEntry < cut && tl.T[0] - tSet > 0.5) { evAt(ctx, tEntry, 'pass', { from: holder.id, to: first.id, kind: 'chest', team: idx }); holder = first; }
+    let lastDrive = -9;
+    for (let k = 0; k <= k1; k++) {
+      const Tk = tl.T[k];
+      if (Tk >= cut) break;
+      const st = play.steps[k], dk = st.d * tl.s;
+      const pos = {};
+      if (st.pos) for (const r in st.pos) if (R[r]) pos[R[r].id] = mir(st.pos[r]);
+      evAt(ctx, U.round(Tk, 2), 'step', { pb: play.id, k, n: play.steps.length, pos, team: idx });
+      const evs = (st.ev || []).filter(e => EV_FRAC[e[0]] != null).map(e => ({ e, t: Tk + dk * EV_FRAC[e[0]] })).sort((a, b) => a.t - b.t);
+      for (const x of evs) {
+        if (x.t >= cut) break;
+        const e = x.e, tt = U.round(x.t, 2);
+        if (e[0] === 'screen') {
+          const s = R[e[1]], u = R[e[2]];
+          if (s && u && s !== u) evAt(ctx, tt, 'screen', { screener: s.id, user: u.id, kind: e[3] === 'ball' && u === holder ? 'ball' : 'off_ball', cov: e[3] === 'ball' ? (rx ? rx.cov : undefined) : (rx && rx.ob) || undefined, team: idx });
+        } else if (e[0] === 'pass' || e[0] === 'handoff') {
+          const f = R[e[1]], to = R[e[2]];
+          if (f && to && f !== to) {
+            if (holder && f !== holder && holder !== to) { evAt(ctx, U.round(Math.max(Tk, tt - 0.5), 2), 'pass', { from: holder.id, to: f.id, kind: 'chest', team: idx }); holder = f; }
+            evAt(ctx, tt, e[0], e[0] === 'pass' ? { from: f.id, to: to.id, kind: e[3] || 'chest', team: idx } : { from: f.id, to: to.id, team: idx });
+            holder = to;
+          }
+        } else if (e[0] === 'move') {
+          const a = R[e[1]];
+          if (a && a === holder) { evAt(ctx, tt, 'move', { player: a.id, move: e[2], team: idx }); if (e[2] === 'drive') lastDrive = x.t; }
+        }
+      }
+    }
+    if (end !== 'shot' || !sh || tEnd >= cut) return holder;
+    // the read: the ball to the shooter
+    const quick = (g.sl && g.sl.quick) || 1;
+    const tLast = U.round(tShot - Math.max(0.22, 0.45 / quick), 2);
+    if (as) {
+      if (holder !== as && holder !== sh) { evAt(ctx, U.round(tEnd, 2), 'pass', { from: holder.id, to: as.id, kind: 'chest', team: idx }); holder = as; }
+      if (holder === as) {
+        if (kickFin && tEnd - lastDrive > 1.2) evAt(ctx, U.round(tEnd + 0.05, 2), 'move', { player: as.id, move: 'drive', team: idx });
+        evAt(ctx, tLast, 'pass', { from: as.id, to: sh.id, kind: plan.passKind || 'chest', team: idx });
+        holder = sh;
+      }
+    } else {
+      if (holder !== sh) { evAt(ctx, U.round(tEnd, 2), 'pass', { from: holder.id, to: sh.id, kind: o && o.base === 'post' ? 'entry' : 'chest', team: idx }); holder = sh; }
+      if (plan.kind === 'stepback') evAt(ctx, U.round(tShot - 0.35, 2), 'move', { player: sh.id, move: 'stepback', team: idx });
+      else if (o && o.base === 'post' && o.br === 'self') evAt(ctx, U.round(tEnd + 0.1, 2), 'move', { player: sh.id, move: 'backdown', team: idx });
+      else if ((plan.zone === 'rim' || plan.zone === 'paint') && tEnd - lastDrive > 1.2) evAt(ctx, U.round(tEnd + 0.1, 2), 'move', { player: sh.id, move: 'drive', team: idx });
+    }
+    return holder;
+  }
+  /** how far the play got at time t (-1: it had not started) */
+  function pbStepAt(pb, t) {
+    const tl = pbTimeline(pb, pb.play.last, pb.tAct0 != null ? pb.tAct0 : t);
+    let k = -1;
+    for (let i = 0; i < tl.T.length; i++) if (tl.T[i] <= t) k = i;
+    return k;
+  }
+  /** a turnover or a foul stops the play: its steps up to then, and the record */
+  function pbCut(ctx, info, t, why) {
+    const pb = info.pb;
+    if (!ctx.g.lite) pbEvents(ctx, info, null, t, { cut: t, tAct: pb.tAct0 });
+    pb.rec.end = why; pb.rec.step = pbStepAt(pb, t);
+  }
+  function pbEnd(ctx, info, end, plan) {
+    const rec = info.pb.rec;
+    rec.end = end;
+    rec.step = rec.at;
+  }
+  /** a throw-in from under the basket (BLOB) or the sideline (SLOB) in the frontcourt */
+  function pbInbound(ctx, mode) {
+    const O = ctx.O, ib = ctx.inbound, g = ctx.g;
+    ctx.inbound = null;
+    if (!O.pb || O.on.length !== 5 || !ib) return null;
+    const list = O.pb.inb[ib.kind === 'baseline' ? 'blob' : 'slob'] || [];
+    if (!list.length) return null;
+    const sit = pbSituation(ctx, mode, null);
+    const c = pbChoose(ctx, list, sit);
+    if (!c) return null;
+    const info = pbInfo(ctx, c, sit);
+    const pb = info.pb, play = c.play, R = c.roles, rec = pb.rec;
+    pb.inbound = true;
+    const rx = pb.rx = pbReactions(ctx, info);
+    const scLeft = ctx.scStart + ctx.scLen - ctx.t;
+    const o = U.pickW(play.opts, x => Math.max(1e-4, pbOptW(ctx, pb, x, rx) * (x.safety ? 1 : scLeft < 10 ? 1.6 : 1)));
+    const to = (Array.isArray(o.who) ? R[o.who[0]] : R[o.who]) || ctx.handler;
+    rec.opt = o.label; rec.optI = play.opts.indexOf(o); rec.at = o.at; rec.step = o.at; rec.cov = rx.cov; rec.read = pbWhy(o, rx);
+    if (ib.ev) {
+      // the throw-in: from the play's inbounder to the man the read finds, after the play's action (dead ball)
+      const side = ib.ev.y > 25 ? -1 : 1;
+      pb.side = side;
+      const mir = p => [U.round(p[0], 1), U.round(side > 0 ? p[1] : 50 - p[1], 1)];
+      const ids = {}, align = {};
+      for (const r in R) ids[r] = R[r].id;
+      for (const r in play.align) if (R[r]) align[R[r].id] = mir(play.align[r]);
+      const seq = play.steps.slice(0, o.at + 1).map(st => {
+        const pos = {};
+        if (st.pos) for (const r in st.pos) if (R[r]) pos[R[r].id] = mir(st.pos[r]);
+        const scr = (st.ev || []).filter(e => e[0] === 'screen' && R[e[1]] && R[e[2]]).map(e => [R[e[1]].id, R[e[2]].id]);
+        return { d: st.d, pos, scr };
+      });
+      ib.ev.by = R.inb.id; ib.ev.to = to.id;
+      ib.ev.pb = { id: play.id, name: play.name, side, roles: ids, align, seq, opt: { label: o.label, at: o.at, safety: !!o.safety, read: rec.read }, why: rec.why };
+    }
+    if (o.safety) {
+      // the ball is in to the safety: the offense runs its half-court call
+      rec.end = 'safety';
+      ctx.handler = to;
+      return null;
+    }
+    pb.preset = o;
+    info.play = o.base;
+    return info;
+  }
+  /** end of the possession: each call's points (until the next call), the coach's memory */
+  function pbPossessionDone(ctx) {
+    const P = ctx.P, g = ctx.g;
+    if (!ctx.O.pb) return;
+    const pbs = P.pbs;
+    if (pbs && pbs.length) {
+      for (let i = 0; i < pbs.length; i++) {
+        const next = pbs[i + 1];
+        pbs[i].pts = (next ? next.s0 : g.score[P.off]) - pbs[i].s0;
+      }
+      P.pb = pbs[pbs.length - 1];
+      PBC.PlayCall.remember(g, ctx.O, pbs);
+    } else if (P.play && P.play !== 'transition' && P.play !== 'putback' && P.play !== 'none') {
+      PBC.PlayCall.rememberFlow(g, ctx.O, P.play, g.score[P.off] - ctx.score0);
+    }
   }
 
   // ---- shot planning ----
@@ -1105,6 +1577,8 @@
       branch = 'gim';
       return { branch, shooter, assister, zone: z, kind: gim.kind || chooseKind(ctx, z, hint, shooter, false), cKey, passKind };
     }
+    // a called play: its reads decide who shoots and how
+    if (info.pb) return pbPlan(ctx, info, mode, force3);
     switch (info.play) {
       case 'pnr':
         if (branch === 'handler') { shooter = info.handler; base = { rim: 30, paint: 21, mid: 20, c3: 1, ab3: 28 }; hint = 'offDribble'; cKey = 'pnr_handler'; }
@@ -1149,11 +1623,19 @@
       default:
         shooter = info.handler || pickShooter(ctx, [], 'usage'); base = { rim: 30, paint: 12, mid: 20, c3: 10, ab3: 28 }; hint = 'offDribble'; cKey = 'iso';
     }
+    return planTail(ctx, mode, force3, { branch, shooter, assister, base, hint, cKey, lob, passKind });
+  }
+  /** the end of every shot plan: the late-game three, the shot's zone and type */
+  function planTail(ctx, mode, force3, p) {
+    const O = ctx.O;
+    let { branch, shooter, assister, base, hint, cKey, lob, passKind } = p;
     if (!shooter) shooter = pickShooter(ctx, [], 'usage');
     if (assister === shooter) assister = null;
     if (force3) {
-      // late game: need a three — best shooter, off the dribble or catch
-      shooter = U.maxBy(O.on, c => c.r.three + usageW(ctx, c) * 6 + U.rand() * 4);
+      // late game: need a three — best shooter, off the dribble or catch (a called play keeps its own shooter when
+      // he is about as good a shooter)
+      const best = U.maxBy(O.on, c => c.r.three + usageW(ctx, c) * 6 + U.rand() * 4);
+      if (!(p.keep && shooter.r.three >= best.r.three - 5)) shooter = best;
       base = { ab3: 75, c3: 25 }; hint = assister ? 'catch' : 'offDribble'; cKey = assister ? 'kick' : 'pnr_handler';
       if (assister === shooter) assister = null;
     }
@@ -1410,9 +1892,9 @@
     return U.chance(U.clamp((bar - ep) / 0.3, 0, 1) * (0.3 + 0.45 * iq));
   }
   /** the look is passed up: the ball is swung to a teammate and the offense runs something new */
-  function resetPossession(ctx, info, plan, tShot) {
+  function resetPossession(ctx, info, plan, tShot, holder) {
     const O = ctx.O;
-    const from = plan.shooter;
+    const from = holder || plan.shooter;
     const to = U.pickW(O.on.filter(c => c !== from), c => usageW(ctx, c) * Math.pow(c.r.handle / 70, 1.2) * (c.posN <= 3 ? 1 : 0.4));
     ctx.resets = (ctx.resets || 0) + 1;
     if (to && !ctx.g.lite) evAt(ctx, tShot, 'pass', { from: from.id, to: to.id, kind: 'chest', team: O.idx, reset: true, read: ctx.read || undefined });
@@ -1430,9 +1912,18 @@
     const contest = kind === 'heave' ? 'tight' : contestLevel(ctx, plan.cKey, plan);
     const d = shotDefender(ctx, sh, zone, info);
     if (forcePlan) ctx.read = null;
-    else if (passUp(ctx, plan, contest, d, info, tShot, mode)) { resetPossession(ctx, info, plan, tShot); return; }
+    else if (passUp(ctx, plan, contest, d, info, tShot, mode)) {
+      // (a called play ran to its read, the look was not good enough: the ball is swung and the next call comes)
+      const holder = info.pb ? pbEvents(ctx, info, plan, tShot, 'reset') : null;
+      if (info.pb) pbEnd(ctx, info, 'reset', plan);
+      resetPossession(ctx, info, plan, tShot, holder);
+      return;
+    }
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play; ctx.P.setName = info.setName || ''; }
-    if (!forcePlan) playEvents(ctx, info, plan, tShot);
+    if (!forcePlan) {
+      if (info.pb) { pbEvents(ctx, info, plan, tShot, 'shot'); pbEnd(ctx, info, 'shot', plan); }
+      else playEvents(ctx, info, plan, tShot);
+    }
     ctx.t = tShot;
     const loc = locFor(ctx, zone, kind);
     if (kind === 'heave') {
@@ -1446,6 +1937,7 @@
       fouled: false, fouler: null, andOne: false, pending: false,
     };
     if (ctx.read && !g.lite) shot.read = ctx.read;
+    if (info.pb && info.pb.rec && !g.lite) { const r = info.pb.rec; shot.pb = { id: r.id, opt: r.opt, at: r.at, early: r.early }; }
     const pending = { plan, sh, d, zone, kind, contest, info, pts, loc };
     if (ctx.P.gim && !ctx.gimShotDone) {
       shot.pending = true;
@@ -1576,10 +2068,11 @@
     if (shot.blocked && U.chance(0.32)) {
       ev(ctx, 'rebound', { player: null, team: O.idx, off: true, text: `Ball out of bounds — ${O.team.name} ball` });
       const scLeft = ctx.scStart + ctx.scLen - ctx.t;
-      ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'baseline', x: dir > 0 ? 95 : -1, y: U.round(U.range(18, 32), 1), team: O.idx });
+      const ie = ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'baseline', x: dir > 0 ? 95 : -1, y: U.round(U.range(18, 32), 1), team: O.idx });
       ctx.scStart = ctx.t; ctx.scLen = Math.max(5, Math.min(24, scLeft));
       ctx.newPlay = true; ctx.putbackBy = null;
       ctx.advT = ctx.t;
+      ctx.inbound = { kind: 'baseline', ev: ie };
       return;
     }
     if (U.chance(0.03)) {
@@ -1645,7 +2138,8 @@
     }
     if (who) who.st.tov++;
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play === 'putback' ? 'none' : info.play; ctx.P.setName = info.setName || ''; }
-    if (info.play && !info.noSet && info.play !== 'transition' && info.play !== 'putback' && !g.lite && ctx.t - Math.max(ctx.t, ctx.advT) >= 0) {
+    if (info.pb) pbCut(ctx, info, ctx.t, 'turnover');
+    else if (info.play && !info.noSet && info.play !== 'transition' && info.play !== 'putback' && !g.lite && ctx.t - Math.max(ctx.t, ctx.advT) >= 0) {
       if (ctx.t - ctx.advT > 1.5) evAt(ctx, U.round(ctx.advT + 0.4, 2), 'set', { play: info.play, setName: info.setName, handler: handler.id, team: O.idx });
     }
     const ss = g.sl.stl;   // steals slider: share of live-ball turnovers that are steals
@@ -1694,6 +2188,7 @@
     const fouler = U.pickW(D.on, c => (100 - c.r.helpD) * (0.6 + c.r.steal / 150) * (c.pf >= foulLimit(g.period, L) ? 0.4 : 1) * c.tn.f.foul);
     const fouled = U.chance(0.55) ? (info.handler || ctx.handler) : U.pickW(O.on, c => c.r.drawFoul);
     const clockLeft = g.clock - ctx.t;
+    if (info.pb) pbCut(ctx, info, ctx.t, 'foul');
     // is this foul in the bonus? (counts the foul itself)
     const willBonus = D.fouls + 1 >= L.bonus || (clockLeft <= 120 && D.fouls2 + 1 >= 2);
     const kind = U.chance(0.75) ? 'personal' : 'loose_ball';
@@ -1703,10 +2198,11 @@
     // side out, possession continues
     const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
     const x = U.round(U.clamp(bx - dir * U.range(18, 32), 3, 91), 1);
-    ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'sideline', x, y: U.chance(0.5) ? -1 : 51, team: O.idx });
+    const ie = ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'sideline', x, y: U.chance(0.5) ? -1 : 51, team: O.idx });
     const scLeft = ctx.scStart + ctx.scLen - ctx.t;
     ctx.scStart = ctx.t; ctx.scLen = Math.max(L.orebShotClock, Math.min(L.shotClock, scLeft));
     ctx.advT = ctx.t; ctx.newPlay = true; ctx.transition = false; ctx.putbackBy = null;
+    ctx.inbound = { kind: 'sideline', ev: ie };
   }
 
   function intentionalFoul(ctx, clockLeft) {
@@ -1718,10 +2214,11 @@
     commitFoul(ctx, fouler, fouled, 'intentional', willBonus ? 2 : 0, ctx.t);
     if (willBonus) { freeThrows(ctx, fouled, 2, ctx.t); return; }
     const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
-    ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'sideline', x: U.round(bx - dir * 28, 1), y: -1, team: O.idx });
+    const ie = ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'sideline', x: U.round(bx - dir * 28, 1), y: -1, team: O.idx });
     const scLeft = ctx.scStart + ctx.scLen - ctx.t;
     ctx.scStart = ctx.t; ctx.scLen = Math.max(L.orebShotClock, Math.min(L.shotClock, scLeft));
     ctx.advT = ctx.t; ctx.newPlay = true;
+    ctx.inbound = { kind: 'sideline', ev: ie };
   }
 
   function endPeriod(ctx) {
@@ -1782,6 +2279,7 @@
     P.endScore = g.score.slice();
     if (!P.play || P.play === 'none') P.play = ctx.transition ? 'transition' : ctx.info ? ctx.info.play : 'none';
     if (!P.setName && ctx.info) P.setName = ctx.info.setName || '';
+    pbPossessionDone(ctx);
     if (g.clock <= 0) {
       advancePeriod(g);
     } else {

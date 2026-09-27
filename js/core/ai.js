@@ -80,7 +80,7 @@
     else if (avg('perD') >= 70) def = rd < 0.55 ? 'switch' : 'pressure';
     else if (avg('steal') >= 68) def = rd < 0.5 ? 'pressure' : 'blitz';
     else if ((avg('perD') + avg('intD')) / 2 < 58) def = U.pick(['zone23', 'packline', 'zone32']);
-    else def = U.pick(['man', 'man', 'drop', 'switch', 'nothree']);
+    else def = U.pick(['man', 'man', 'drop', 'switch', 'hedge', 'nothree']);
     const spd = avg('speed');
     const ageAvg = U.avg(roster, p => p.age);
     let tempo = 'normal';
