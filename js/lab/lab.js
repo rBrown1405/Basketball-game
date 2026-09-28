@@ -122,6 +122,16 @@
     c.at(2.4, () => go(c, 0, 15, 60));
     c.at(4.4, () => go(c, 80, 15));
   });
+  // (Trial 4: a 6-2 guard and a 7-0 center with the same ratings, side by side: both start at once, cut 90 degrees at
+  // once and stop at once; the bigger, heavier body gets going, comes round and stops later)
+  add('Locomotion', 'weight', 'Guard and center: start, cut, stop together', 9, (c) => {
+    for (const [p, s] of [[c.a, -2.5], [c.d, 2.5]]) { p.place(c.x0 + c.rx * s, c.y0 + c.ry * s, c.f0); p.setStance('stand'); p.setFace(c.f0); }
+    const both = (fn) => { for (const p of [c.a, c.d]) fn(p); };
+    c.at(0.4, () => both((p) => p.moveTo(p.x + c.fx * 300, p.y + c.fy * 300, { speed: 22 })));
+    c.at(2.8, () => both((p) => p.moveTo(p.x - c.rx * 300, p.y - c.ry * 300, { speed: 22 })));
+    // (both back to full speed first: the stop starts from the same speed)
+    c.at(6.0, () => both((p) => p.stop()));
+  }, { two: true, sizes: [74, 84] });
   add('Locomotion', 'turn', 'Turn in place 180', 5.2, (c) => {
     c.a.setStance('ready');
     c.at(0.6, () => c.a.setFace(c.f0 + Math.PI));
@@ -346,12 +356,14 @@
       reseed(set.seed * 7919 + 13);
       const W = new World();
       const f0 = 0, x0 = 47, y0 = 25;
-      const a = W.add(makeLook(set, 0), 0);
+      // (a scenario may pick its own two sizes: the weight one pits a guard against a center)
+      const ls = sc.sizes ? Object.assign({}, set, { height: sc.sizes[0], height2: sc.sizes[1] }) : set;
+      const a = W.add(makeLook(ls, 0), 0);
       a.place(x0, y0, f0);
       const b = new M.Ball(W); W.ball = b;
       b.x = x0 + 3; b.y = y0; b.z = 0.39;
       const ctx = { W, a, b, f0, fx: Math.cos(f0), fy: Math.sin(f0), rx: Math.sin(f0), ry: -Math.cos(f0), x0, y0, ev: [] };
-      if (sc.two) { ctx.d = W.add(makeLook(set, 1), 1); }
+      if (sc.two) { ctx.d = W.add(makeLook(ls, 1), 1); }
       ctx.at = (t, fn) => { ctx.ev.push({ t, fn }); ctx.ev.sort((p, q) => p.t - q.t); };
       this.world = W; this.ctx = ctx; this.sc = sc;
       this.simT = 0; this.sub = 0; this.frame = 0;

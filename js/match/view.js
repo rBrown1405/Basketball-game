@@ -384,22 +384,68 @@
           const cdx = dx + b._chx - a._chx, cdy = dy + b._chy - a._chy, minC = (a.H + b.H) * 0.125;
           const c2 = cdx * cdx + cdy * cdy;
           if (c2 < minC * minC && minC - Math.sqrt(c2) > minD - Math.sqrt(d2)) { dx = cdx; dy = cdy; d2 = c2; minD = minC; }
-          if (d2 >= minD * minD) continue;
+          const TW = M.Tune.weight, zone = minD + TW.avoidFt + (a.clip || b.clip ? TW.yieldFt : 0);
+          if (d2 >= zone * zone) continue;
           const d = Math.sqrt(d2) || 0.01;
           const push = (minD - d);
           const nx = d > 0.011 ? dx / d : Math.cos(i + j), ny = d > 0.011 ? dy / d : Math.sin(i + j);
-          // clips with root motion (shots, jumps) and ball handlers win; the other gives way
-          const la = a.isBusy() ? 0 : a.hasBall ? 0.3 : 1, lb = b.isBusy() ? 0 : b.hasBall ? 0.3 : 1;
+          // clips with root motion (shots, jumps) and ball handlers win; the other gives way, a heavier body less
+          // (Trial 4: each by the other's share of the mass)
+          const la = (a.isBusy() ? 0 : a.hasBall ? 0.3 : 1) * TW.refLb / (a.mass || TW.refLb), lb = (b.isBusy() ? 0 : b.hasBall ? 0.3 : 1) * TW.refLb / (b.mass || TW.refLb);
           const tot = la + lb;
-          if (tot <= 0) continue;
-          // soft push-out, and a hard floor: torsos never pass into each other (bodies ~1 ft deep)
-          let k = Math.min(1, 30 * h) * push;
-          const hard = push - minD * 0.2;
-          // (a deep overlap is worked out over a few frames, at most ~0.4 ft a frame: all at once it read as a
-          // teleport when two players ran into each other at full speed)
-          if (hard > k) k = Math.min(hard, Math.max(k, 0.4));
-          a.x -= nx * k * la / tot; a.y -= ny * k * la / tot;
-          b.x += nx * k * lb / tot; b.y += ny * k * lb / tot;
+          if (tot <= 0) {
+            // two bodies in moves (a dunker into a defender going straight up): the moves' paths give way to each other,
+            // a little each step (Trial 4: they went through each other for the length of the moves and the first to
+            // finish was shoved out in one step)
+            if (push > 0 && a.clip && b.clip) {
+              const k = Math.min(push, 0.02 + push * 0.15) * 0.5;
+              a.clip.ox -= nx * k; a.clip.oy -= ny * k; b.clip.ox += nx * k; b.clip.oy += ny * k;
+            }
+            continue;
+          }
+          const vn0 = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          const committed = la === 0 || lb === 0 || a.hasBall || b.hasBall;
+          // (one of the two in a move with its own path, a layup or a dunk, the other not)
+          const busy = la === 0 ? a : lb === 0 ? b : null, free = busy === a ? b : a, sgB = busy === a ? -1 : 1;
+          if (push <= 0) {
+            // not touching yet: two players about to run into each other by accident (no ball handler driving into a
+            // man) ease off their approach so they meet softly, the one not in a move doing all of it (Trial 4:
+            // arriving at speed, the contact below could not stop them in its depth and the hard floor shoved them
+            // apart in a step)
+            if (vn0 < 0 && !a.hasBall && !b.hasBall) {
+              const acc = Math.min(TW.contactMaxFtps2, vn0 * vn0 / (2 * (-push + TW.softFt)));
+              if (acc > 1) {
+                a.extAx = (a.extAx || 0) - nx * acc * la / tot; a.extAy = (a.extAy || 0) - ny * acc * la / tot;
+                b.extAx = (b.extAx || 0) + nx * acc * lb / tot; b.extAy = (b.extAy || 0) + ny * acc * lb / tot;
+              }
+            } else if (vn0 < 0 && busy && busy.clip) {
+              // a move running at a man in its way (a finish into a help defender): he brakes and gives ground, first
+              // call on his push, and the move gives way too, its path bent back off him at a body's push through its
+              // origin (Actor._updateClip), so they meet softly (Trial 4: a finish into a man closing at ~20 ft/s drove
+              // ~1 ft into him and shoved him ~1.5 in a step for four steps)
+              const need = vn0 * vn0 / (2 * (-push + TW.softFt));
+              if (need > 1) {
+                const af = Math.min(TW.contactMaxFtps2, need), ab = Math.min(TW.clipAccelMax, need - af), sf = -sgB;
+                free.extHx = (free.extHx || 0) + sf * nx * af; free.extHy = (free.extHy || 0) + sf * ny * af;
+                if (ab > 0) { busy.clip.yax = (busy.clip.yax || 0) + sgB * nx * ab; busy.clip.yay = (busy.clip.yay || 0) + sgB * ny * ab; }
+              }
+            }
+            continue;
+          }
+          // a hard floor: torsos never pass into each other (bodies ~1 ft deep). A free body is pushed out through its
+          // speed, the first call on its push (Tune.weight.hardK, hardC; Actor._steer); a body in a move gives way at
+          // the move's origin, which its root follows at a body's push (Actor._updateClip) (Trial 4: the positions were
+          // pushed apart by up to ~0.4 ft a step, 100-460 ft/s^2 in one step when two bodies met deep, a layup into a
+          // man in its way; moved straight out only past a last-resort depth, torsos overlapped no less often)
+          const hard = push - minD * TW.hardShare;
+          if (hard > 0) {
+            const ha = TW.hardK * hard + TW.hardC * Math.max(0, -vn0);
+            a.extHx = (a.extHx || 0) - nx * ha * la / tot; a.extHy = (a.extHy || 0) - ny * ha * la / tot;
+            b.extHx = (b.extHx || 0) + nx * ha * lb / tot; b.extHy = (b.extHy || 0) + ny * ha * lb / tot;
+            const k = Math.min(0.4, hard * U.smooth(hard / 0.25));
+            if (la === 0 && a.clip) { a.clip.ox -= nx * k; a.clip.oy -= ny * k; }
+            if (lb === 0 && b.clip) { b.clip.ox += nx * k; b.clip.oy += ny * k; }
+          }
           // contact: stop pressing into each other (inelastic along the contact normal) so steering slides
           // them around one another instead of re-penetrating every frame; bodies are soft, so a light touch takes
           // the closing speed off over ~0.1 s (all at once, a runner lost half his speed in one frame and his stride
@@ -407,17 +453,20 @@
           // an impact: bodies meeting with speed (a driver into a help defender at the rim, hips on a drive, a
           // screen) knock each other off balance, each by the other's share of the momentum
           // (off-ball players brushing past each other only stagger when they really run into each other)
-          const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-          const committed = la === 0 || lb === 0 || a.hasBall || b.hasBall;
+          const vn = vn0;
           if (vn < (committed ? -3 : -8.5) && a.kind === 'player' && b.kind === 'player' && a.impact) {
             const ma = a.H * a.H * a.H * (a.dims.bulk || 1), mb = b.H * b.H * b.H * (b.dims.bulk || 1);
             a.impact(-nx, -ny, -vn * mb / (ma + mb));
             b.impact(nx, ny, -vn * ma / (ma + mb));
           }
-          const rv = ((b.vx - a.vx) * nx + (b.vy - a.vy) * ny) * Math.max(1 - Math.exp(-h / 0.05), U.clamp(push / (0.3 * minD), 0, 1));
-          if (rv < 0) {
-            a.vx += nx * rv * la / tot; a.vy += ny * rv * la / tot;
-            b.vx -= nx * rv * lb / tot; b.vy -= ny * rv * lb / tot;
+          // soft contact (Trial 4): the overlap pushes the two apart through their velocities, a spring and a damper
+          // on the closing speed (Tune.weight.contact*), no harder than a body pushes: a bump is felt over a few steps
+          // (the positions used to be pushed apart by half the overlap every step, a jump in speed at every touch)
+          const acc = Math.min(TW.contactMaxFtps2, TW.contactK * Math.min(push, minD * TW.hardShare) + TW.contactC * Math.max(0, -vn));
+          // (as a push on each body, taken with its own push next step inside a body's limit: Actor._steer)
+          if (acc > 0) {
+            a.extAx = (a.extAx || 0) - nx * acc * la / tot; a.extAy = (a.extAy || 0) - ny * acc * la / tot;
+            b.extAx = (b.extAx || 0) + nx * acc * lb / tot; b.extAy = (b.extAy || 0) + ny * acc * lb / tot;
           }
         }
       }

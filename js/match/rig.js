@@ -102,7 +102,7 @@
     const wIn = U.clamp(+look.wing || hIn + dflt, hIn * TB.spanClamp[0], hIn * TB.spanClamp[1]);
     const arm = wIn / 24 + TB.spanOffsetH * H / 2 - shX - hand;
     const d = {
-      H, fem, bulk, musc, wing: wIn / 12, kLeg, kHd, kT,
+      H, fem, bulk, musc, wing: wIn / 12, kLeg, kHd, kT, mass: wt,
       hipH: hipF * H,
       pelSp: 0.095 * H * kT, spCh: 0.1 * H * kT, chNk: 0.1 * H * kT, neck: 0.07 * H * kT,
       // head: radius, centre and top above the head joint (C1), and their forward offsets
@@ -642,7 +642,10 @@
         const bend = U.smooth((k - 0.7) / 1.0);
         const hi = U.lerp(0.62, 0.12, bend), lo = U.lerp(-0.4, -0.12, bend);
         // (a guide for a leg in the air, not a joint limit: not flagged in the lab's limit overlay)
-        if (hipA > hi) hipA = hi; else if (hipA < lo) hipA = lo;
+        // (coming in over the first part of the swing, ik.guardK: a leg planted far out to the side in a hard turn was
+        // pulled in up to ~17 in on its first frame off the floor, Trial 4)
+        const g = ik.guardK == null ? 1 : ik.guardK, hc = hipA > hi ? hi : hipA < lo ? lo : hipA;
+        hipA += (hc - hipA) * g;
       }
       p[CH[pre + 'HipF']] = w >= 1 ? sol.f : U.angLerp(F0, sol.f, w);
       p[CH[pre + 'HipA']] = w >= 1 ? hipA : U.angLerp(A0, hipA, w);

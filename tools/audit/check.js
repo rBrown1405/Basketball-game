@@ -259,14 +259,183 @@ console.log('the floor: pivots, strides, landings');
   a.solve();
 }
 
-console.log('the floor in a real game (the first minute of seed 7)');
+console.log('the weight (Trial 4)');
+{
+  // one-player labs: a body's own push, braking and turning, measured from its root the way the meters see it
+  const dt = 1 / 60, TW = M.Tune.weight, Tn = M.Tune.debug;
+  const lab1 = (h, lb, spd, agi) => {
+    const w = { actors: {}, refs: [], onCourt: [[], []], opts: { ai: { moveSpeed: 50 } }, teamLook: () => ({}), sound() {}, time: 0 };
+    const b = new M.Actor(w, { id: 'w1', teamIdx: 0, height: h, weight: lb, hand: 'R', gender: 'm', look: { build: 0.5 }, speed: spd, agility: agi }, 0, 'player');
+    w.actors.w1 = b; w.ball = { x: 0, y: 0, z: -50, state: 'dead', holder: null, rot: new Float64Array(9), hidden: true };
+    b.place(5, 25, 0); b.setStance('stand');
+    const s = { b, px: b.x, py: b.y, pvx: 0, pvy: 0, pf: b.facing, pw: 0, n: 0, maxA: 0, maxAl: 0, v: 0, vx: 0, vy: 0 };
+    s.step = () => {
+      w.time += dt; b.update(dt, w.time); b.solve();
+      // (the course is 94 ft: past x 70 the body, its feet and its goal are carried back 60 ft)
+      if (b.x > 70) { b.x -= 60; s.px -= 60; for (const q of b.feet) for (const k of ['x', 'ax', 'tx', 'x0', 'lax', 'lpx', 'pax']) if (q[k] != null) q[k] -= 60; if (b.goal.x != null) b.goal.x -= 60; b.solve(); }
+      const vx = (b.x - s.px) / dt, vy = (b.y - s.py) / dt, wv = U.wrapPi(b.facing - s.pf) / dt;
+      if (s.n > 2) { s.maxA = Math.max(s.maxA, Math.hypot(vx - s.pvx, vy - s.pvy) / dt); s.maxAl = Math.max(s.maxAl, Math.abs(wv - s.pw) / dt); }
+      s.n++; s.px = b.x; s.py = b.y; s.pvx = vx; s.pvy = vy; s.pf = b.facing; s.pw = wv; s.v = Math.hypot(vx, vy); s.vx = vx; s.vy = vy;
+    };
+    for (let i = 0; i < 30; i++) s.step();
+    return s;
+  };
+  const lab = (h, lb, spd, agi) => {
+    const r = { peakA: 0, peakAlpha: 0 }, keep = (s) => { r.peakA = Math.max(r.peakA, s.maxA); r.peakAlpha = Math.max(r.peakAlpha, s.maxAl); };
+    // from a standstill to 15 ft/s
+    let s = lab1(h, lb, spd, agi), t = 0; s.b.moveTo(4000, 25, { speed: 40 });
+    while (s.v < 15 && t < 5) { s.step(); t += dt; }
+    r.to15 = +t.toFixed(2); keep(s);
+    // full speed, then stop
+    s = lab1(h, lb, spd, agi); s.b.moveTo(4000, 25, { speed: 40 });
+    for (let i = 0; i < 150; i++) s.step();
+    r.vTop = +s.v.toFixed(1);
+    let d = 0; s.b.stop(); t = 0;
+    while (s.v > 0.3 && t < 4) { s.step(); t += dt; d += s.v * dt; }
+    r.stopFt = +d.toFixed(1); keep(s);
+    // a standing 180
+    s = lab1(h, lb, spd, agi); s.b.setFace(Math.PI); t = 0;
+    while (Math.abs(U.wrapPi(s.b.facing - Math.PI)) > 10 * U.DEG && t < 3) { s.step(); t += dt; }
+    r.turnS = +t.toFixed(2); keep(s);
+    // a 15 ft/s run turned round, and a 90 deg cut at 15 ft/s (to 60 deg off the old way)
+    for (const kind of ['back', 'cut']) {
+      s = lab1(h, lb, spd, agi); s.b.moveTo(4000, 25, { speed: 15 / s.b.goalK });
+      while (s.v < 14.5) s.step();
+      for (let i = 0; i < 30; i++) s.step();
+      if (kind === 'back') s.b.moveTo(s.b.x - 60, 25, { speed: 15 / s.b.goalK }); else s.b.moveTo(s.b.x, 85, { speed: 15 / s.b.goalK });
+      t = 0;
+      while ((kind === 'back' ? s.vx > 0 : Math.atan2(s.vy, s.vx) < 60 * U.DEG) && t < 3) { s.step(); t += dt; }
+      r[kind === 'back' ? 'reverseS' : 'cutS'] = +t.toFixed(2); keep(s);
+    }
+    return r;
+  };
+  const guard = lab(74, 185, 70, 70), center = lab(84, 260, 70, 70), fast = lab(74, 185, 90, 90);
+  ok(center.to15 > guard.to15 && center.stopFt > guard.stopFt && center.reverseS > guard.reverseS && center.cutS > guard.cutS && center.turnS >= guard.turnS,
+    `same ratings, a 6-2 185 lb guard vs a 7-0 260 lb center: to 15 ft/s ${guard.to15} vs ${center.to15} s, stopping from ${guard.vTop} ft/s ${guard.stopFt} vs ${center.stopFt} ft, turning a 15 ft/s run round ${guard.reverseS} vs ${center.reverseS} s, a 90 deg cut ${guard.cutS} vs ${center.cutS} s, a standing 180 ${guard.turnS} vs ${center.turnS} s`);
+  ok(fast.vTop >= 26 && fast.vTop <= 30, `the fastest reach ${fast.vTop} ft/s (NBA top sprint ~8-9 m/s, 26-29.5 ft/s)`);
+  const all = [guard, center, fast];
+  ok(all.every(r => r.peakA <= TW.totalAccelMax + 0.5 && r.peakAlpha <= Tn.turnSnapRadps2),
+    `nothing starts, stops or turns at once: the hardest change of speed ${Math.max(...all.map(r => r.peakA)).toFixed(1)} ft/s^2 in a step (a body's limit ${TW.totalAccelMax}), of turn rate ${Math.max(...all.map(r => r.peakAlpha)).toFixed(0)} rad/s^2 (a snap past ${Tn.turnSnapRadps2})`);
+}
+{
+  // the hips rise and fall with every step, more running than walking (walking ~2-5 cm, running ~6-9 cm)
+  const dt = 1 / 60, bob = (v) => {
+    const w = { actors: {}, refs: [], onCourt: [[], []], opts: { ai: { moveSpeed: 50 } }, teamLook: () => ({}), sound() {}, time: 0 };
+    const b = new M.Actor(w, { id: 'b1', teamIdx: 0, height: 78, weight: 215, hand: 'R', gender: 'm', look: { build: 0.5 }, speed: 80, agility: 80 }, 0, 'player');
+    w.actors.b1 = b; w.ball = { x: 0, y: 0, z: -50, state: 'dead', holder: null, rot: new Float64Array(9), hidden: true };
+    b.place(5, 25, 0); b.setStance('stand');
+    const zs = [], lands = []; let prev = null;
+    for (let i = 0; i < 60 * 8; i++) {
+      w.time += dt;
+      if (i === 20) b.moveTo(4000, 25, { speed: v / b.goalK });
+      b.update(dt, w.time); b.solve();
+      if (b.x > 85) { b.x -= 80; for (const q of b.feet) for (const k of ['x', 'ax', 'tx', 'x0', 'lax', 'lpx', 'pax']) if (q[k] != null) q[k] -= 80; b.goal.x -= 80; b.solve(); }
+      if (i < 60 * 4) continue;
+      zs.push(b.sk.P[2] * 12);
+      const st = b.feet.map(f => f.state);
+      if (prev && st.some((x, k) => x === 'plant' && prev[k] !== 'plant')) lands.push(zs.length - 1);
+      prev = st;
+    }
+    const amp = [];
+    for (let k = 1; k < lands.length; k++) { const seg = zs.slice(lands[k - 1], lands[k] + 1); amp.push(Math.max(...seg) - Math.min(...seg)); }
+    amp.sort((p, q) => p - q);
+    return amp[Math.floor(amp.length / 2)];
+  };
+  const b = [4.5, 10, 16].map(bob);
+  ok(b[0] >= 0.7 && b[0] <= 2.2 && b[1] > b[0] && b[2] >= b[1] && b[1] >= 2.3 && b[2] <= 4,
+    `the hips rise and fall each step: walking ${b[0].toFixed(2)} in, running 10 ft/s ${b[1].toFixed(2)} in, 16 ft/s ${b[2].toFixed(2)} in`);
+}
+{
+  // hard cuts and hard stops at the weight meter: every one on a planted foot pushing the right way (the outside of the
+  // cut, out ahead braking) with the hips dropping; and no foot jumps as it leaves the floor on the way
+  const dt = 1 / 60, J = M.Rig.J;
+  const res = [];
+  for (const [h, lb] of [[74, 185], [84, 260]]) {
+    const w = { actors: {}, refs: [], onCourt: [[], []], opts: { ai: { moveSpeed: 50 } }, teamLook: () => ({}), sound() {}, time: 0 };
+    const b = new M.Actor(w, { id: 'c1', teamIdx: 0, height: h, weight: lb, hand: 'R', gender: 'm', look: { build: 0.5 }, speed: 75, agility: 75 }, 0, 'player');
+    w.actors.c1 = b; w.ball = { x: 0, y: 0, z: -50, state: 'dead', holder: null, rot: new Float64Array(9), hidden: true };
+    const mt = new M.Debug.Meters(() => ({ people: [b], ball: w.ball, time: w.time, view: null, dt }));
+    b.place(10, 10, 0); b.setStance('stand');
+    // (at lift-off: how hard the ankle's motion changes, the second difference of its position over the lift-off frame,
+    // against the joint-pop meter's threshold: an ankle already moving as the heel comes up carries on moving)
+    let lifts = 0, jump = 0, prev = null, prev2 = null;
+    const step = () => {
+      w.time += dt; b.update(dt, w.time); b.solve(); mt.frame();
+      const P = b.sk.P, cur = b.feet.map((f, i) => { const j = (i ? J.R_AN : J.L_AN) * 3; return { st: f.state, x: P[j], y: P[j + 1], z: P[j + 2] }; });
+      if (prev && prev2) for (let i = 0; i < 2; i++) if (prev[i].st === 'plant' && cur[i].st === 'swing') {
+        lifts++;
+        jump = Math.max(jump, Math.hypot(cur[i].x - 2 * prev[i].x + prev2[i].x, cur[i].y - 2 * prev[i].y + prev2[i].y, cur[i].z - 2 * prev[i].z + prev2[i].z) / (dt * dt));
+      }
+      prev2 = prev; prev = cur;
+    };
+    // (straight runs at 16 and 20 ft/s, each ending in a 90 deg cut, to one side then the other)
+    for (const v of [16, 20]) for (let r = 0; r < 5; r++) {
+      b.place(10, 25, 0); b.setStance('stand'); prev = null; prev2 = null;
+      b.moveTo(200, 25, { speed: v / b.goalK });
+      let n = 0; while (b.speed < v - 0.5 && n++ < 240) step();
+      for (let i = 0; i < 20; i++) step();
+      b.moveTo(b.x, 25 + (r % 2 ? 200 : -200), { speed: v / b.goalK });
+      for (let i = 0; i < 70; i++) step();
+    }
+    for (let r = 0; r < 3; r++) {
+      b.place(10, 40, 0); prev = null; prev2 = null;
+      b.moveTo(70, 40, { speed: 20 / b.goalK });
+      let n = 0; while (b.speed < 19 && n++ < 200) step();
+      for (let i = 0; i < 20; i++) step();
+      b.stop(); for (let i = 0; i < 90; i++) step();
+    }
+    const sc = mt.summary();
+    res.push({ h, lb, c: sc.weight.cuts, s: sc.weight.brakes, lifts, jump, snaps: sc.motion.accelSnapsPerPlayerMin + sc.motion.instantTurnsPerPlayerMin + sc.weight.turnSnapsPerPlayerMin, hip: sc.weight.hipJumps, hipMax: sc.weight.hipJumpWorstIn });
+  }
+  for (const r of res) {
+    ok(r.c.events >= 3 && r.c.footPlantedPct === 100 && r.c.hipDropPct === 100 && r.s.events >= 3 && r.s.footPlantedPct === 100 && r.s.hipDropPct === 100,
+      `${r.h} in ${r.lb} lb: ${r.c.events} hard cuts and ${r.s.events} hard stops, each on a planted foot with the hips dropping (cuts p50 ${r.c.hipDropIn.p50} in, stops p50 ${r.s.hipDropIn.p50} in)`);
+    ok(r.snaps === 0 && r.hip === 0 && r.jump < M.Tune.debug.jointSnapFtps2, `${r.h} in ${r.lb} lb: no snap in speed or turn, no hip jump (${r.hip}, the pelvis moving over ${M.Tune.debug.hipJumpIn} in in a step); ${r.lifts} lift-offs, the ankle's motion changing at most ${r.jump.toFixed(0)} ft/s^2 leaving the floor (a pop past ${M.Tune.debug.jointSnapFtps2})`);
+  }
+}
+{
+  // two bodies running straight at each other (and one into a man standing): they see each other in time, and meet,
+  // if they do, no harder than a body pushes (View.separate, Actor._avoid)
+  const dt = 1 / 60;
+  const meet = (vA, vB, offY) => {
+    const w = { actors: {}, refs: [], onCourt: [[], []], opts: { ai: { moveSpeed: 50 } }, teamLook: () => ({}), sound() {}, time: 0 };
+    const mk = (id, h, lb) => { const b = new M.Actor(w, { id, teamIdx: 0, height: h, weight: lb, hand: 'R', gender: 'm', look: { build: 0.5 }, speed: 80, agility: 80 }, 0, 'player'); w.actors[id] = b; return b; };
+    const A = mk('h1', 78, 215), B = mk('h2', 80, 240);
+    w.ball = { x: 0, y: 0, z: -50, state: 'dead', holder: null, rot: new Float64Array(9), hidden: true };
+    A.place(5, 25, 0); B.place(85, 25 + offY, Math.PI); A.setStance('stand'); B.setStance('stand');
+    A.moveTo(90, 25, { speed: vA / A.goalK }); if (vB > 0) B.moveTo(0, 25 + offY, { speed: vB / B.goalK });
+    const st = new Map(); let maxA = 0, minD = 99;
+    for (let i = 0; i < 60 * 6; i++) {
+      w.time += dt;
+      for (const b of [A, B]) b.update(dt, w.time);
+      M.View.prototype.separate.call(w, dt);
+      for (const b of [A, B]) b.solve();
+      for (const b of [A, B]) {
+        const k = st.get(b) || { px: b.x, py: b.y, vx: 0, vy: 0, n: 0 }, vx = (b.x - k.px) / dt, vy = (b.y - k.py) / dt;
+        if (k.n >= 2) maxA = Math.max(maxA, Math.hypot(vx - k.vx, vy - k.vy) / dt);
+        st.set(b, { px: b.x, py: b.y, vx, vy, n: k.n + 1 });
+      }
+      minD = Math.min(minD, Math.hypot(A.x - B.x, A.y - B.y));
+    }
+    return { minD, touch: (A.H + B.H) * 0.15, maxA };
+  };
+  const runs = [[24, 24, 0], [20, 20, 0.5], [24, 0, 0]].map(q => [q, meet(...q)]);
+  ok(runs.every(([, r]) => r.minD > r.touch * 0.7 && r.maxA <= M.Tune.debug.accelSnapFtps2),
+    'running into each other: ' + runs.map(([q, r]) => `${q[0]} vs ${q[1]} ft/s ${r.minD.toFixed(2)} ft apart at the closest (touching at ${r.touch.toFixed(2)}), ${r.maxA.toFixed(1)} ft/s^2 at the most`).join('; '));
+}
+
+console.log('the floor and the weight in a real game (the first minute of seed 7)');
 {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'quarter.js'), '--seed', '7', '--frames', '3600'], { encoding: 'utf8', maxBuffer: 1 << 26 });
-  const sc = JSON.parse(r.stdout).scorecard, ft = sc.feet, fl = sc.floor;
+  const sc = JSON.parse(r.stdout).scorecard, ft = sc.feet, fl = sc.floor, mo = sc.motion, wt = sc.weight;
   ok(ft.slideIn_all.overOk === 0 && ft.sinkPctPlayerFrames === 0 && ft.hoverPctPlantFrames === 0,
     `no contact sliding over 0.25 in (worst ${ft.slideWorst} in), nothing through the floor, no planted foot floating`);
   ok(fl.clearStepPct >= 99.5, `${fl.steps} steps, ${fl.clearStepPct}% with a clear plant, stance and lift`);
   ok(sc.body.kneeOverToeDeg.cavePct < 0.1, `planted knees over the toes (caving in ${sc.body.kneeOverToeDeg.cavePct}%)`);
+  ok(mo.accelSnapsPerPlayerMin === 0 && mo.instantTurnsPerPlayerMin === 0 && wt.turnSnapsPerPlayerMin === 0 && wt.hipJumps === 0,
+    `no instant start, stop or change of speed (${mo.accelSnapsPerPlayerMin} per player-minute), no instant turn (${mo.instantTurnsPerPlayerMin}), no turn snap (${wt.turnSnapsPerPlayerMin}), no hip jump (${wt.hipJumps})`);
+  ok(wt.cuts.events > 0 && wt.cuts.footPlantedPct === 100 && wt.cuts.hipDropPct === 100,
+    `${wt.cuts.events} hard cuts, every one on a planted outside foot (${wt.cuts.footPlantedPct}%) with the hips dropping (${wt.cuts.hipDropPct}%, p50 ${wt.cuts.hipDropIn.p50} in)`);
 }
 
 console.log('determinism: identical frames at every playback speed and frame rate');

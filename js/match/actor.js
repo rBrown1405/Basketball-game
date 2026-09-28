@@ -93,8 +93,14 @@
       this.paceK = this.kind === 'ref' ? 1 : paceOf(view);
       this.goalK = this.kind === 'ref' ? 1 : 1.1 * this.paceK;
       this.maxSpeed = this.kind === 'ref' ? 16 : (20 + this.rSpeed * 8) * this.paceK;
-      this.accel = this.kind === 'ref' ? 12 : (16 + this.rAgi * 8) * this.paceK;
-      this.decel = this.accel * 1.7;
+      // (Trial 4: a heavier body pushes and turns less for its weight, Tune.weight)
+      const TW = M.Tune.weight;
+      this.mass = this.dims.mass || TW.refLb;
+      this.kMass = Math.pow(this.mass / TW.refLb, TW.massExp);
+      this.accel = (this.kind === 'ref' ? 12 : (16 + this.rAgi * 8) * this.paceK) * this.kMass;
+      this.decel = this.accel * TW.decelRatio;
+      this.turnAcc = TW.turnAccel * this.kMass * Math.pow(this.H / TW.refHeightFt, TW.turnHeightExp) * (0.85 + 0.3 * this.rAgi);
+      this.acx = 0; this.acy = 0; this.faceW = 0;
       // state
       this.x = 47; this.y = 25; this.vx = 0; this.vy = 0; this.facing = 0; this.speed = 0;
       this.ax = 0; this.ay = 0;
@@ -114,6 +120,8 @@
       // (and the spine and neck on their own, catching the smaller jumps too: Tune.spine.jumpDeg)
       const TS = M.Tune.spine;
       this._inSpine = new RG.Inert(SPINE_INERT, SPINE_INERT.map(() => 1), SPINE_INERT.map(() => TS.jumpDeg * D), TS.jumpHalfLifeS, TS.jumpCoolS);
+      // (and the pose's own pelvis height, before the legs' reach is worked out from it: Tune.weight.hipJumpH)
+      this._inHip = new RG.Inert([CH.rootZ], [0], [M.Tune.weight.hipJumpH], M.Tune.weight.hipJumpS);
       // arm IK inputs, smoothed: weight, target (body frame) and elbow pole
       this._armS = [0, 1].map(() => ({ w: 0, t: new RG.Inert([0, 1, 2], [0, 0, 0], [0.2, 0.2, 0.2], 0.07), v: new Float64Array(3), pole: null, lx: 0, ly: 0, lz: 0, has: false }));
       this._inT = null;
@@ -147,7 +155,7 @@
 
     // ============================================================ commands
     place(x, y, facing) {
-      this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.speed = 0;
+      this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.speed = 0; this.acx = 0; this.acy = 0; this.faceW = 0;
       if (facing != null) { this.facing = facing; this.faceAngle = facing; }
       this.goal.mode = 'idle'; this.goal.x = x; this.goal.y = y;
       this.gaitOn = false; this.gaitK = 0;
@@ -164,6 +172,9 @@
         f.y = this.y + ry * o[0] * this.H + s * o[1] * this.H;
         f.yaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
         f.pitch = 0; f.state = 'plant'; f.planted = true;
+        // (nothing of a swing from before the placement is kept: its spot and aim are from somewhere else)
+        const a = this._ankleFromBall(f.x, f.y, f.yaw, 0, TA);
+        f.ax = a[0]; f.ay = a[1]; f.az = a[2]; f.tx = f.x; f.ty = f.y; f.swT = null; f.swLastT = null; f.pax = null;
       }
     }
     /** move to (x,y). o: {by (abs time), speed (cap), face ('move'|angle|{x,y}), stance, arrive(bool)} */
@@ -254,8 +265,14 @@
         const off = Math.hypot(cs.offX, cs.offY);
         if (off > 1.5 && o.blendT == null) cs.blendT = Math.max(cs.blendT, Math.min(0.9, off / 7));
         this.clip = cs;
-        this.vx *= 0.3; this.vy *= 0.3;
         this.goal.mode = 'idle';
+        // (its root's speed at the start against the body's own that way: much faster, and its clock starts slow)
+        if (clip.rootKeys) {
+          const q0 = this._clipRoot(cs, cs.t), x0 = q0.x, y0 = q0.y, q1 = this._clipRoot(cs, cs.t + 0.03);
+          const ux = (q1.x - x0) / 0.03, uy = (q1.y - y0) / 0.03, vc = Math.hypot(ux, uy);
+          const vin = vc > 1e-3 ? (this.vx * ux + this.vy * uy) / vc : 0;
+          if (vc > Math.max(0, vin) + M.Tune.weight.clipWarpFtps) cs.warp0 = U.clamp((Math.max(0, vin) + M.Tune.weight.clipWarpFtps) / vc, 0.25, 1);
+        }
         this._clipFeetStart(cs);
       } else {
         this.upper = cs;
@@ -550,18 +567,41 @@
     // ============================================================ update
     update(dt, now) {
       this.time = now;
+      // (the speed a knock's push gave the body last step, for a move starting this step to carry on from, see _updateClip)
+      this._hitPrevVx = this._hitVx || 0; this._hitPrevVy = this._hitVy || 0;
       const hit = this.hit;
       if (hit) {
+        const t0 = hit.t;
         hit.t += dt;
         if (hit.t > 0.6) this.hit = null;
         else {
-          // knocked off his line: most of it in the first ~0.2 s, ~0.05 ft per ft/s of the impact in all
-          const push = hit.k * 0.5 * Math.exp(-hit.t / 0.09) / 0.09 * dt;
+          // knocked off his line: up to ~0.5 ft over Tune.weight.hitPushS, the push building up and easing off
+          // (smootherstep: no jump in speed; before, the whole knock started at full speed in one step, Trial 4)
+          const T = M.Tune.weight.hitPushS, S = (u) => { u = U.clamp(u, 0, 1); return u * u * u * (u * (u * 6 - 15) + 10); };
+          const push = hit.k * 0.5 * (S(hit.t / T) - S(t0 / T));
           if (this.clip) { this.clip.ox += hit.nx * push; this.clip.oy += hit.ny * push; }
           else { this.x += hit.nx * push; this.y += hit.ny * push; }
+          // (its speed, for a move starting now to carry on from: see _updateClip)
+          this._hitVx = !this.clip && dt > 0 ? hit.nx * push / dt : 0; this._hitVy = !this.clip && dt > 0 ? hit.ny * push / dt : 0;
+          // (the push's own acceleration this step comes out of what the steering may use, Actor._steer: on top of a
+          // full push of his own it made ~65 ft/s^2)
+          this._hitA = dt > 0 ? Math.abs(push - (hit.lastPush || 0)) / (dt * dt) : 0;
+          hit.lastPush = push;
         }
       }
-      if (this.clip) this._updateClip(dt);
+      if (!this.hit) { this._hitA = 0; this._hitVx = 0; this._hitVy = 0; }
+      // (a move that moves and turns the body this step: the steering takes over next step, or the body moved and
+      // turned twice in one step, a jump in its speed and its turn; a move that ends before it moves the body, its
+      // fade done, leaves this step to the steering, or the body stood still for a step, Trial 4)
+      const clipMoved = this.clip ? this._updateClip(dt) : false;
+      // (the pushes of bodies it touched while in a move are not saved up for when it ends, and the braking and cutting
+      // shape it went in with dies away: the steering sets it again after)
+      if (this.clip) {
+        this.extAx = 0; this.extAy = 0; this.extHx = 0; this.extHy = 0;
+        const e = Math.exp(-dt / M.Tune.weight.poseHalfLifeS * Math.LN2);
+        this.brakeK = (this.brakeK || 0) * e; this.cutK = (this.cutK || 0) * e; this.brakeKv = 0; this.cutKv = 0;
+        this.dropK = (this.dropK || 0) * e; this._dHold = (this._dHold || 0) * e; this.dropKv = 0;
+      }
       // how hard a jump comes down: the legs give on landing in proportion (see buildPose)
       if (dt > 0) {
         const jz = this.jumpZ || 0, pz = this._jzPrev == null ? jz : this._jzPrev;
@@ -574,8 +614,8 @@
       }
       if (this.upper) this._updateUpper(dt);
       if (!this.clip) {
-        this._steer(dt);
-        this._turn(dt);
+        this._steer(clipMoved ? 0 : dt);
+        this._turn(clipMoved ? 0 : dt);
         this._locomote(dt);
       }
       this._contactSteps();
@@ -665,6 +705,8 @@
         dvx += tvx; dvy += tvy;
         const dl = Math.hypot(dvx, dvy);
         if (dl > this.maxSpeed * 1.1) { dvx *= this.maxSpeed * 1.1 / dl; dvy *= this.maxSpeed * 1.1 / dl; }
+        const av = this._avoid(dvx, dvy);
+        dvx = av[0]; dvy = av[1];
       }
       // acceleration limits
       let ex = dvx - this.vx, ey = dvy - this.vy;
@@ -675,15 +717,114 @@
       // a step or two), a sprint with everything he has (every start used to be a sprinter's push, even into a
       // walk, and the upper body lurched ahead of the legs)
       const accelNow = Math.min(this.accel, 4.5 + 1.8 * Math.max(Math.hypot(dvx, dvy), spd));
-      const amax = (slowing ? this.decel : accelNow) * dt;
-      if (el > amax) { ex *= amax / el; ey *= amax / el; }
-      this.ax = ex / Math.max(dt, 1e-4); this.ay = ey / Math.max(dt, 1e-4);
+      // the body is a mass (Trial 4): the push toward the wanted velocity builds up and eases off at a human rate of
+      // force development (Tune.weight.jerkFtps3) instead of switching on and off in one step, and eases off as the
+      // velocity gets there so it is spent just as it arrives (a little overshoot, then it settles)
+      const TW = M.Tune.weight, J = (slowing ? TW.brakeJerkFtps3 : TW.jerkFtps3) * this.kMass * (this.paceK || 1);
+      // (only a foot on the floor can push: running, with both feet in the air for a moment between strides, the body
+      // barely changes its course, so a cut or a stop happens on the plant, Tune.weight.airPushK)
+      // (not braking: the stop is planned on the full brake, and braking the steps come too quick to leave the floor)
+      const inAir = this.gaitOn && this.speed > 8 && this.feet[0].state === 'swing' && this.feet[1].state === 'swing', air = inAir && !slowing;
+      // (both feet off the floor longer than a step's own flight, Tune.weight.airSlackS, a skip off a foot the body ran
+      // away from: nothing pushes it, braking or not, until a foot is down (Tune.weight.skipPushK); a body braked and cut
+      // in the air for a third of a second, Trial 4)
+      const both = this.gaitOn && this.feet[0].state === 'swing' && this.feet[1].state === 'swing';
+      if (dt > 0) this._airT = both ? (this._airT || 0) + dt : 0;
+      const skip = both ? U.smooth(((this._airT || 0) - (this._flightS || 0) - TW.airSlackS) / 0.04) : 0;
+      const kAir = air ? TW.airPushK : 1, kPush = kAir + (Math.min(kAir, TW.skipPushK) - kAir) * skip;
+      // (and near the wanted velocity a push in proportion, Tune.weight.velGain: bang-bang to the end, it chattered about
+      // a standstill at ~4 ft/s^2)
+      const aMag = el > 1e-6 ? Math.min((slowing ? this.decel : accelNow) * kPush, Math.sqrt(2 * J * el), el * TW.velGain) : 0;
+      let wax = el > 1e-6 ? ex / el * aMag : 0, way = el > 1e-6 ? ey / el * aMag : 0;
+      // (braking in the air, the push across still waits for a foot: a cut made while braking turned him between his
+      // plants, with no foot down outside it, Trial 4)
+      if (inAir && slowing && spd > 0.1) { const ux = this.vx / spd, uy = this.vy / spd, lat = way * ux - wax * uy, k = (1 - TW.airBrakeLatK) * lat; wax += uy * k; way -= ux * k; }
+      // (running, a cut is pushed off the outside foot: with only the inside foot down the push across is less, so the
+      // turn comes on the outside plant, Tune.weight.insidePushK)
+      // (from a jog up: at 7 ft/s a cut pushed ~0.3 s off the inside foot alone, both feet on the inside of the turn)
+      // (only a foot on the floor pushes across: in the air a push across cannot start or grow, it carries on only what
+      // the last foot down gave, and a foot planted outside the cut pushes Tune.weight.plantPushK harder, a real cut's
+      // force going down through the plant; a cut made in a stride's flight off a foot under the body landed on the
+      // inside foot with no plant outside at all, Trial 4)
+      if (this.gaitOn && spd > 4) {
+        const ux = this.vx / spd, uy = this.vy / spd, lat = way * ux - wax * uy, am = Math.hypot(wax, way);
+        // (how far the best planted foot is on the side the push comes from: full support Tune.weight.plantFullH out)
+        let best = null;
+        for (const f of this.feet) {
+          if (f.state !== 'plant' || am < 1e-6) continue;
+          const d = -((f.x - this.x) * wax + (f.y - this.y) * way) / am;
+          if (best == null || d > best) best = d;
+        }
+        const kR = U.smooth((spd - 4) / 3);
+        let latN = lat;
+        if (best != null) {
+          const sup = U.smooth(best / (TW.plantFullH * this.H)), kL = TW.insidePushK + (TW.plantPushK - TW.insidePushK) * sup;
+          // (no more than the velocity error's own proportional push, so it never overshoots)
+          const eLat = Math.abs(ey * ux - ex * uy);
+          latN = Math.sign(lat) * Math.min(Math.abs(lat) * (1 + (kL - 1) * kR), Math.max(Math.abs(lat), eLat * TW.velGain));
+        } else if (both) {
+          const g = this._latG || 0;
+          latN = lat * g > 0 ? Math.sign(lat) * Math.min(Math.abs(lat), Math.abs(g)) : lat * (1 - kR);
+        }
+        if (!both) this._latG = latN;
+        if (latN !== lat) { const k = latN - lat; wax -= uy * k; way += ux * k; }
+      } else this._latG = 0;
+      if (dt > 0) {
+        const jx = wax - this.acx, jy = way - this.acy, jl = Math.hypot(jx, jy), jm = J * dt;
+        if (jl > jm) { this.acx += jx * jm / jl; this.acy += jy * jm / jl; } else { this.acx = wax; this.acy = way; }
+      }
+      // (and the push of a body it is touching, from the last step's separation: together never past a body's limit,
+      // Tune.weight.totalAccelMax; added straight to the speed, a bump and a brake together made 60-200 ft/s^2)
+      // (a body pressed deep into another is pushed out of it first, out of the same limit, and whatever is left goes
+      // to the rest; less a knock's own push this step, see update)
+      const TL = Math.max(0, TW.totalAccelMax - (this._hitA || 0));
+      const hx = this.extHx || 0, hy = this.extHy || 0, hm = Math.hypot(hx, hy), hk = hm > TL ? TL / hm : 1;
+      const rest = TL - hm * hk;
+      let tax = this.acx + (this.extAx || 0), tay = this.acy + (this.extAy || 0);
+      this.extAx = 0; this.extAy = 0; this.extHx = 0; this.extHy = 0;
+      const tam = Math.hypot(tax, tay);
+      if (tam > rest) { tax *= rest / tam; tay *= rest / tam; }
+      tax += hx * hk; tay += hy * hk;
+      ex = tax * dt; ey = tay * dt;
+      this.ax = tax; this.ay = tay;
       // a smoothed copy for predicting where the feet land (the raw value flips sign as a player settles to a stop)
       const kA = 1 - Math.exp(-dt / 0.1);
       this.axF = (this.axF || 0) + (this.ax - (this.axF || 0)) * kA; this.ayF = (this.ayF || 0) + (this.ay - (this.ayF || 0)) * kA;
       this.vx += ex; this.vy += ey;
       this.x += this.vx * dt; this.y += this.vy * dt;
       this.speed = Math.hypot(this.vx, this.vy);
+      // how hard he is braking and cutting (the push against and across the way he is going), read by the stride (quick
+      // braking steps, feet out ahead or to the outside) and the pose (the hips drop), Trial 4
+      const sp1 = this.speed;
+      let bkT = 0, ctT = 0;
+      if (sp1 > 0.05) {
+        // (from the push he wants as well as the one he has: the hips start down as he commits to the cut, while the
+        // push is still building)
+        const ux = this.vx / sp1, uy = this.vy / sp1;
+        const aPar = Math.min(this.ax * ux + this.ay * uy, wax * ux + way * uy), aLat = Math.max(Math.abs(this.ay * ux - this.ax * uy), Math.abs(way * ux - wax * uy));
+        bkT = U.smooth((-aPar - TW.brakeFrom) / TW.brakeSpan) * U.smooth((sp1 - 1) / 2);
+        ctT = U.smooth((aLat - TW.cutFrom) / TW.cutSpan) * U.smooth((sp1 - 5) / 4);
+      }
+      // (eased on critically damped springs, Tune.weight.poseHalfLifeS: read straight off the push they switched the
+      // hips and the step rate in two steps, and the knees and toes popped)
+      if (dt > 0) {
+        const y = 2 * Math.LN2 / TW.poseHalfLifeS, e = Math.exp(-y * dt);
+        let j0 = (this.brakeK || 0) - bkT, j1 = (this.brakeKv || 0) + j0 * y;
+        this.brakeK = e * (j0 + j1 * dt) + bkT; this.brakeKv = e * ((this.brakeKv || 0) - j1 * y * dt);
+        j0 = (this.cutK || 0) - ctT; j1 = (this.cutKv || 0) + j0 * y;
+        this.cutK = e * (j0 + j1 * dt) + ctT; this.cutKv = e * ((this.cutKv || 0) - j1 * y * dt);
+        // and how far the hips drop for it (heights, see solve): held at its deepest for Tune.weight.dropHoldS, then let
+        // back up no faster than a full drop in dropRiseS, on the same spring (the push comes and goes with each plant
+        // and eases at the slowest point of a plant-and-go: followed straight, the hips bobbed up between the plants of
+        // one cut, and a spring on the push alone never got them all the way down)
+        // (a defender's slide is low already: its quick reversals do not pump the hips; a fast one stopping does drop them)
+        const latD = 1 - (this.latK || 0) * (1 - U.smooth((sp1 - TW.slideDropFrom) / TW.slideDropSpan));
+        const dT = (TW.brakeDropH * bkT + TW.cutDropH * ctT) * latD;
+        if (dT >= (this._dHold || 0)) { this._dHold = dT; this._dHoldT = 0; }
+        else if ((this._dHoldT = (this._dHoldT || 0) + dt) > TW.dropHoldS) this._dHold = Math.max(dT, this._dHold - dt * Math.max(TW.brakeDropH, TW.cutDropH) / TW.dropRiseS);
+        j0 = (this.dropK || 0) - this._dHold; j1 = (this.dropKv || 0) + j0 * y;
+        this.dropK = e * (j0 + j1 * dt) + this._dHold; this.dropKv = e * ((this.dropKv || 0) - j1 * y * dt);
+      }
       // lean into acceleration / turns (smoothed): only part of the tilt a push-off needs is the trunk bending at the
       // hips (most of it is the legs driving from behind the body), ~12 deg at most; it used to reach ~23 deg even on a
       // walk start and read as the head and shoulders being dragged ahead of the legs
@@ -699,6 +840,78 @@
         j0 = this.lean - tR; j1 = this.leanv + j0 * y;
         this.lean = e * (j0 + j1 * dt) + tR; this.leanv = e * (this.leanv - j1 * y * dt);
       }
+    }
+
+    /** other bodies in the way (Trial 4). A body on a collision course with another steers round it in time: the
+     *  velocity it wants gets a sideways part, enough to pass Tune.weight.passFt clear at the closest approach, shared
+     *  with the other body (all of it if the other is in a move); not a man with the ball driving into a defender, and
+     *  not bodies meant to lean on each other (box-outs, posts, screens). And a body touching another never tries to go
+     *  on through it: the part of the velocity it wants that goes into the other is taken out as they touch, so it
+     *  leans on him and slides round him (before, two players crossing ran into each other at full speed, and a
+     *  box-out or a screen pushed on until the separation shoved them apart in a step). Returns the velocity wanted. */
+    _avoid(dvx, dvy) {
+      const out = this._avOut || (this._avOut = [0, 0]);
+      out[0] = dvx; out[1] = dvy;
+      const v = this.view, TW = M.Tune.weight;
+      if (!v || !v.actors || this.fall > 0) return out;
+      const lean = (a) => a.stance === 'boxout' || a.stance === 'postD' || a.stance === 'postUp' || a.stance === 'screen';
+      const steer = !this.hasBall && !lean(this);
+      let ax = 0, ay = 0;
+      // (players and the officials: an official ran through the players at up to 13 ft/s)
+      const others = this._avList || (this._avList = []);
+      others.length = 0;
+      for (const id in v.actors) others.push(v.actors[id]);
+      if (v.refs) for (const r of v.refs) others.push(r);
+      for (const b of others) {
+        if (b === this || b.hidden) continue;
+        const rx = b.x - this.x, ry = b.y - this.y, r2 = rx * rx + ry * ry;
+        const touch = (this.H + b.H) * 0.15;
+        // (as far off as the two can close in Tune.weight.avoidAheadS, 10 ft at least: two bodies running at each other
+        // at full speed, ~35 ft/s between them, were seen too late to steer or stop and ran into each other)
+        const reach = Math.max(10, (this.speed + (b.speed || 0)) * TW.avoidAheadS + touch);
+        if (r2 > reach * reach) continue;
+        const far = r2 > 100;
+        if (steer && !b.hasBall && !lean(b)) {
+          // (relative to where this one wants to go and where the other is going)
+          const wx = b.vx - dvx, wy = b.vy - dvy, w2 = wx * wx + wy * wy;
+          if (w2 >= 1) {
+            const tca = -(rx * wx + ry * wy) / w2;
+            if (tca > 0 && tca < TW.avoidAheadS) {
+              const cx = rx + wx * tca, cy = ry + wy * tca, dca = Math.hypot(cx, cy), R = touch + TW.passFt;
+              if (dca < R) {
+                // (sideways, away from where the other will be at the closest approach; straight at each other, to
+                // the right)
+                let nx = -cx, ny = -cy, nl = dca;
+                if (nl < 1e-3) { const ww = Math.sqrt(w2); nx = wy / ww; ny = -wx / ww; nl = 1; }
+                const share = b.isBusy && b.isBusy() ? 1 : 0.5;
+                const k = Math.min(TW.avoidMaxFtps, (R - dca) / Math.max(0.15, tca)) * share;
+                ax += nx / nl * k; ay += ny / nl * k;
+              }
+            }
+          }
+        }
+        // closing on him: no faster than a body can stop by the time they touch (braking at Tune.weight.leanBrake,
+        // meeting at Tune.weight.meetFtps at most, a little more for a man with the ball going into a defender), and
+        // touching, not on through him
+        const r = Math.sqrt(r2);
+        if (r > 1e-3) {
+          const nx = rx / r, ny = ry / r, into = (out[0] + ax) * nx + (out[1] + ay) * ny - (b.vx * nx + b.vy * ny);
+          // (past 10 ft only a body it would run into: one it passes clear of is not braked for)
+          let hit = !far;
+          if (far && into > 0) {
+            const wx = b.vx - out[0] - ax, wy = b.vy - out[1] - ay, w2 = wx * wx + wy * wy;
+            const tca = w2 > 1e-6 ? -(rx * wx + ry * wy) / w2 : 0;
+            hit = tca > 0 && Math.hypot(rx + wx * tca, ry + wy * tca) < touch + TW.passFt;
+          }
+          if (hit && into > 0) {
+            const v0 = this.hasBall ? TW.meetBallFtps : TW.meetFtps, gap = r - touch;
+            const allow = gap <= 0 ? v0 * U.smooth(1 + gap / TW.leanFt) : Math.sqrt(v0 * v0 + 2 * TW.leanBrake * gap);
+            if (into > allow) { ax -= nx * (into - allow); ay -= ny * (into - allow); }
+          }
+        }
+      }
+      out[0] += ax; out[1] += ay;
+      return out;
     }
 
     _desiredFacing() {
@@ -780,11 +993,14 @@
       // pivot foot while the other foot steps round it, instead of the upper body turning first and the feet
       // catching up with a step across (the legs crossed)
       const g = this.goal, settled = g.mode === 'idle' || (g.mode === 'move' && Math.hypot(g.x - this.x, g.y - this.y) < 0.6);
-      if (this.kind === 'player' && !this.clip && this.speed < 1.2 && settled && !(this.hasBall && !this.dribble) &&
+      // (not while the body is already turning: the move starts from a standstill; started part way into a turn it
+      // stopped the turn dead for a step, Trial 4)
+      if (this.kind === 'player' && !this.clip && this.speed < 1.2 && settled && !(this.hasBall && !this.dribble) && Math.abs(this.faceW || 0) < 1.5 &&
           this.feet[0].state === 'plant' && this.feet[1].state === 'plant' && Math.abs(U.wrapPi(want - this.facing)) > 0.96 &&
           this.time - (this._pivotT || -9) > 0.35) {
         this._pivotT = this.time;
-        if (this.pivotTo(want, { ball: false })) return;
+        // (the turn it had going carries on this step: the pivot takes it from the next, Trial 4)
+        if (this.pivotTo(want, { ball: false })) { if (dt > 0) this.facing = U.wrapPi(this.facing + (this.faceW || 0) * dt); return; }
       }
       // (a 180 in ~0.3 s standing, ~0.4 s on the run; quicker for the agile)
       let rate = (this.speed > 8 ? 8 : 11) * (0.9 + 0.25 * this.rAgi) * (this.paceK || 1);
@@ -810,8 +1026,25 @@
         if (!ok && this._turnWait < 0.3) rate *= 0.25;
       } else this._turnWait = 0;
       this._turnRate = rate;
-      this.facing = U.angApproach(this.facing, want, rate * dt);
-      this.facing = U.wrapPi(this.facing);
+      this._faceStep(want, rate, this.turnAcc * (this.paceK || 1), dt);
+    }
+    /** the facing turns as a body does (Trial 4): the turn rate builds up and eases off at the body's angular
+     *  acceleration (`alpha`, rad/s^2; less for a bigger, heavier body) up to `rate`, braking so it stops at `want`
+     *  (before, it turned at its full rate from the first step to the last: 59% of turns started instantly) */
+    _faceStep(want, rate, alpha, dt) {
+      if (!(dt > 0)) return;
+      // (never past a body's own limit, Tune.weight.turnAccelMax: a move's quicker turn, clipTurnK, on a light body
+      // reached ~210 rad/s^2)
+      alpha = Math.min(alpha, M.Tune.weight.turnAccelMax);
+      const dA = U.wrapPi(want - this.facing), w0 = this.faceW || 0;
+      const wDes = Math.sign(dA) * Math.min(rate, Math.sqrt(2 * alpha * 0.85 * Math.abs(dA)));
+      const w = w0 + U.clamp(wDes - w0, -alpha * dt, alpha * dt);
+      // (settled on the target, from a turn slow enough to stop in one step: settled from any turn it still had after
+      // braking this step, a turn at ~3 rad/s stopped dead in one step when its target came back to meet it; now it
+      // goes a little past and comes back, Trial 4)
+      if (Math.abs(dA) < 2e-3 && Math.abs(w0) < alpha * dt) { this.faceW = 0; this.facing = U.wrapPi(want); return; }
+      this.faceW = w;
+      this.facing = U.wrapPi(this.facing + w * dt);
     }
 
     // ============================================================ locomotion / feet
@@ -874,7 +1107,7 @@
         }
         // (blended, not switched: a hard switch changed the swing foot's lift and timing in a single frame)
         const nfw = U.smooth((0.6 - fwdDot) / 0.2);
-        if (nfw > 0) { sps *= 1 + 0.12 * nfw; gp.lift *= 1 - 0.45 * nfw; gp.beta = U.lerp(gp.beta, Math.max(gp.beta, 0.45), nfw); gp.toePitch *= 1 - 0.4 * nfw; }
+        if (nfw > 0) { sps *= 1 + 0.12 * nfw; gp.lift *= 1 - M.Tune.floor.backLiftCut * nfw; gp.beta = U.lerp(gp.beta, Math.max(gp.beta, 0.45), nfw); gp.toePitch *= 1 - 0.4 * nfw; }
         // lateral movement: step-slide (lead foot lands ahead, trail foot behind; feet never cross)
         const latK = U.smooth((0.88 - Math.abs(fwdDot)) / 0.4);
         if (latK > 0) {
@@ -896,7 +1129,9 @@
           const slideSps = U.lerp(U.clamp(sp / sideStep, 2.2, 5.6), U.clamp(sp / slideStep, 2.6, 6.4), ks);
           gp.halfW = U.lerp(gp.halfW, slideW, latK);
           gp.reach = U.lerp(gp.reach, 0.5, latK);
-          gp.lift = U.lerp(gp.lift, 0.035 + 0.02 * ks * U.smooth((sp - 6) / 6), latK);
+          // (a slide's shuffle clears the floor by a couple of inches: at 0.035 H the lowest 1-2% of steps at a slow
+          // slide scraped under 0.75 in, and any lower hips took more under, Trials 3 and 4)
+          gp.lift = U.lerp(gp.lift, M.Tune.floor.slideLiftH + 0.02 * ks * U.smooth((sp - 6) / 6), latK);
           // (a slide's feet share the floor for long, but faster than a slide goes, a shuffle's ground contact
           // shortens like a runner's: at 0.56 a foot stayed down over ~3 ft at 16 ft/s)
           gp.beta = U.lerp(gp.beta, U.lerp(0.56, 0.36, U.smooth((sp - 8) / 6)), latK);
@@ -905,6 +1140,9 @@
           sps = U.lerp(sps, slideSps, latK);
         }
         this.latK = latK;
+        // braking hard: short, quick steps (a player chops his feet to stop: Tune.weight.brakeSps)
+        const bkS = (this.brakeK || 0) * (1 - latK);
+        if (bkS > 0) sps = U.lerp(sps, Math.max(sps, M.Tune.weight.brakeSps * Math.sqrt(6.6 / H)), bkS);
         // the stride's shape follows speed changes over ~0.1 s: a sudden speed change (a bump) re-scaled the swing
         // share against a new stance share in one frame and threw the swing foot backwards
         const gs = this.gpS || (this.gpS = {});
@@ -939,6 +1177,8 @@
         this.phaseN = (this.phaseN || 0) + Math.floor(ph1);
         const cycleT = 2 / sps;
         const strideLen = sp * cycleT;
+        // (a step's own flight, both feet off the floor: longer than that is a skip, see _steer)
+        this._flightS = Math.max(0, 0.5 - gp.beta) * cycleT;
         // (read by the animation lab's gait readout)
         const gd = this.gaitDbg || (this.gaitDbg = {});
         gd.sps = sps; gd.stride = strideLen; gd.cycle = cycleT; gd.beta = gp.beta;
@@ -1056,6 +1296,9 @@
                 const a = this._ankleFromBall(o.x, o.y, o.yaw, o.pitch, TA);
                 o.state = 'swing'; o.mode = 'gait'; o.pax = null;
                 o.x0 = a[0]; o.y0 = a[1]; o.z0 = a[2]; o.yaw0 = o.yaw; o.p0 = o.pitch;
+                // (its swing is worked out from the next step on: until then it is where it leaves the floor, not where
+                // its last swing ended, which after a placement was up to 55 in away, Trial 4)
+                o.ax = a[0]; o.ay = a[1]; o.az = a[2];
                 o.nSwing = (o.nSwing || 0) + 1;
                 o.liftRel = frac(this.phase - (o.side ? 0 : 0.5));
                 o.liftPending = false; o.liftT = this.time; this._lastSwing = o.side; o.liftKind = 'gait'; o.liftWhy = 'flip';
@@ -1140,6 +1383,23 @@
             // `reach` places the ankle ahead of the body at contact; the ball of the foot lies d.ball further along the foot
             let ntx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
             let nty = py + this.moveDirY * reach + ry * side * gp.halfW * H + Math.sin(f.tyaw) * this.dims.ball;
+            // (the foot goes down where the leg can push the body the way it has to go, out against the push: out ahead
+            // braking, to the outside of a cut, a share of the lean a body needs for it, tan = a / g from the foot to the
+            // hips; speeding up the stride already puts it under him. Tune.weight.footLead, Trial 4)
+            {
+              const TW = M.Tune.weight, fax = this.axF || 0, fay = this.ayF || 0, along = fax * this.moveDirX + fay * this.moveDirY;
+              const lx = fax - Math.max(0, along) * this.moveDirX, ly = fay - Math.max(0, along) * this.moveDirY;
+              const kk = TW.footLead * 0.55 * H / 32.2, ol = Math.hypot(lx, ly) * kk, om = TW.footLeadMaxH * H;
+              let ox = 0, oy = 0;
+              if (ol > 1e-4) { const q = Math.min(1, om / ol); ox = -lx * kk * q; oy = -ly * kk * q; }
+              // (decided early in the swing and eased, then held: moved with the push all the way down, the landing
+              // spot twitched and the knees and toes popped)
+              const sid = this._swingId(f);
+              if (f.leadSw !== sid) { f.leadSw = sid; f.leadX = ox; f.leadY = oy; }
+              const kl = (1 - Math.exp(-dt / TW.poseHalfLifeS)) * (1 - U.smooth((sw - TW.leadFreezeSw) / 0.3));
+              f.leadX += (ox - f.leadX) * kl; f.leadY += (oy - f.leadY) * kl;
+              ntx += f.leadX; nty += f.leadY;
+            }
             // (on its own side of the other foot: moving sideways or on a diagonal the stride used to land it across)
             this._sepTarget(f, ntx, nty, TD); ntx = TD[0]; nty = TD[1];
             // (never further from where the hip will be at contact than the leg reaches with the pelvis settled a little,
@@ -1176,7 +1436,11 @@
             const pw = Math.pow(Math.sin(Math.PI * Math.pow(sw, Math.max(0.75, gp.liftPow || 0.8))), 2);
             // (the rise eases in with no jolt at toe-off: smootherstep starts with zero acceleration)
             const ur = Math.min(1, sw / 0.36), pr = sw < 0.36 ? ur * ur * ur * (ur * (ur * 6 - 15) + 10) : 1 - Math.pow(U.smooth((sw - 0.36) / 0.64), 1.5);
-            const lift = gp.lift * H * U.lerp(pw, pr, gp.run || 0);
+            // (the hips dropped for a cut or a brake take a runner's heel kick down with them, up to half of it: at full
+            // height the leg folded tight under a low hip and the knee swept up ~20 in in two frames as the ankle passed
+            // under it; a walk's or a slide's low arc keeps its clearance)
+            const hd = this._hipDrop || 0, lk = hd > 0 ? 1 - (gp.run || 0) * (1 - (this.latK || 0)) * Math.min(0.5, hd / Math.max(1e-3, gp.lift * H)) : 1;
+            const lift = gp.lift * H * U.lerp(pw, pr, gp.run || 0) * lk;
             f.ax = f.x0 + (a1[0] - f.x0) * e;
             f.ay = f.y0 + (a1[1] - f.y0) * e;
             this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1], lift);
@@ -1195,7 +1459,12 @@
             // turns on into the landing heading only as it comes down)
             const r0 = U.wrapPi(f.yaw0 - this.facing), rb = (f.side ? -1 : 1) * 7 * D, rt = U.clamp(U.wrapPi(f.tyaw - this.facing), -0.7, 0.7);
             f.yawNow = this.facing + U.clamp(U.lerp(U.lerp(r0, rb, U.smooth(sw / 0.3)), rt, U.smooth((sw - 0.55) / 0.45)), -0.7, 0.7);
-            f.pitchNow = U.lerp(f.p0 || gp.toePitch, gp.landPitch, U.smooth(sw * 1.15)) + Math.sin(Math.PI * sw) * gp.toePitch * 0.25;
+            // (from the pitch it left the floor with, a foot that left flat tipping toes-down as a foot off the floor hangs,
+            // no faster than an ankle turns, Tune.floor.toeTipDegps: tipped in one frame, a first step from a standstill
+            // threw the foot 57 deg toes-down and the floor its ankle up ~6.5 in, Trial 4)
+            const p0 = f.p0 != null ? f.p0 : gp.toePitch, tip = Math.max(0, gp.toePitch - p0);
+            const pS = p0 + Math.min(tip, M.Tune.floor.toeTipDegps * D * Math.max(0, this.time - (f.liftT != null ? f.liftT : this.time) + dt));
+            f.pitchNow = U.lerp(pS, gp.landPitch, U.smooth(sw * 1.15)) + Math.sin(Math.PI * sw) * gp.toePitch * 0.25;
           } else if (f.state === 'plant') {
             if (rel < gp.beta) {
               if (f.hs && rel < gp.roll) {
@@ -1351,7 +1620,12 @@
       else if (Math.abs(e) < T.doneDeg * D) f.pvOn = false;
       f.pvK = U.clamp((f.pvK || 0) + (f.pvOn ? dt / T.upS : -dt / T.downS), 0, 1);
       f.pvPitch = T.pitchDeg * D * U.smooth(f.pvK);
-      if (f.pvOn && Math.max(f.pitch, f.pvPitch, f.heelFloor || 0) >= T.turnAtDeg * D) f.yaw = U.wrapPi(f.yaw + U.clamp(e, -rate * dt, rate * dt));
+      // (and the heel really was up at the last solve: the hip guard can bring it down to keep the ankle in range, and
+      // a foot turning with its heel down slides, Trial 4)
+      if (f.pvOn && Math.max(f.pitch, f.pvPitch, f.heelFloor || 0) >= T.turnAtDeg * D && !(f.pitchUsed < T.turnAtDeg * D)) {
+        f.pvPrevYaw = f.yaw; f.pvTurned = this.time;
+        f.yaw = U.wrapPi(f.yaw + U.clamp(e, -rate * dt, rate * dt));
+      }
     }
 
     _stanceFeet(dt) {
@@ -1367,7 +1641,7 @@
           f.tx = this.x + rx * o[0] * H + c * o[1] * H;
           f.ty = this.y + ry * o[0] * H + s * o[1] * H;
           f.tyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
-          f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow || f.yaw; f.p0 = f.pitchNow || 0; f.h = 0.02 * H;
+          f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow != null ? f.yawNow : f.yaw; f.p0 = f.pitchNow || 0; f.h = 0.02 * H;
         }
         if (f.state === 'plant' && f.pitch > 0) f.pitch = Math.max(0, f.pitch - dt * 4);
         else if (f.state === 'plant' && f.pitch < 0) { f.pitch = Math.min(0, f.pitch + dt * 4); f.hs = false; }
@@ -1532,16 +1806,32 @@
           const rem = f.mode === 'step' ? (1 - (f.s || 0)) * (f.dur || 0.12) : 0.12;
           f.mode = 'step'; f.s = 0; f.dur = U.clamp(rem, 0.06, 0.14);
           f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow != null ? f.yawNow : f.yaw; f.p0 = f.pitchNow || 0; f.h = 0.015 * this.H;
+          // (aimed where the leg reaches from where the hip will be as it lands, with the pelvis settled a little: kept
+          // on the stride's aim, a spot the stride had put out ahead of a body speeding up, as far as 7 ft, was reached
+          // for in a tenth of a second and the pelvis dropped ~10 in in one frame at contact, Trial 4)
+          if (f.tx != null) {
+            const H = this.H, side = f.side ? 1 : -1, c = Math.cos(this.facing), s = Math.sin(this.facing);
+            const hx = this.x + this.vx * f.dur + s * side * this.dims.hipX, hy = this.y + this.vy * f.dur - c * side * this.dims.hipX;
+            const a0 = this._ankleFromBall(f.tx, f.ty, f.tyaw, 0, TB);
+            const vz = (this._hipZPose != null ? this._hipZPose : this.dims.hipH) - (0.012 + M.Tune.floor.landSettleH) * H - a0[2];
+            const L = (this.dims.th + this.dims.sh) * 0.9986, dhMax = Math.sqrt(Math.max(0.01, L * L - vz * vz));
+            const ex = a0[0] - hx, ey = a0[1] - hy, dh = Math.hypot(ex, ey);
+            if (dh > dhMax) { f.tx -= ex * (1 - dhMax / dh); f.ty -= ey * (1 - dhMax / dh); }
+          }
         }
       }
     }
     _updateClip(dt) {
       const cs = this.clip;
       const clip = cs.clip;
+      // (a move whose root leaves faster than the body is going starts on a slow clock that comes up to speed over
+      // Tune.weight.clipWarpS: the body pushes off into it instead of being at the move's speed in one step)
+      let wk = 1;
+      if (cs.warp0 != null && cs.warp0 < 1) { cs.realT = (cs.realT || 0) + dt; wk = cs.warp0 + (1 - cs.warp0) * U.smooth(cs.realT / M.Tune.weight.clipWarpS); }
       if (cs.hold != null && cs.t >= cs.hold) { cs.t = cs.hold; }
-      else cs.t += dt * cs.speed;
+      else cs.t += dt * cs.speed * wk;
       // fade
-      if (cs.ending) { cs.w -= dt / Math.max(0.05, cs.fadeOut); if (cs.w <= 0) { this._endClip(); return; } }
+      if (cs.ending) { cs.w -= dt / Math.max(0.05, cs.fadeOut); if (cs.w <= 0) { this._endClip(); return false; } }
       else if (cs.w < 1) cs.w = Math.min(1, cs.w + dt / Math.max(0.01, cs.fadeIn));
       // events
       if (clip.events) {
@@ -1549,6 +1839,17 @@
           const et = clip.events[k];
           if (!cs.fired[k] && cs.t >= et) { cs.fired[k] = true; if (cs.onEvent) U.safe(() => cs.onEvent(k, this, cs), null, 'clip event'); }
         }
+      }
+      // (a move bent off a man in its way, View.separate: the push asked of it kept as a speed of its origin, dying away
+      // at Tune.weight.yieldDecay once nothing pushes, Trial 4)
+      if (cs.yax || cs.yay || cs.yvx || cs.yvy) {
+        const TW = M.Tune.weight;
+        cs.yvx = (cs.yvx || 0) + (cs.yax || 0) * dt; cs.yvy = (cs.yvy || 0) + (cs.yay || 0) * dt;
+        if (!cs.yax && !cs.yay) {
+          const yv = Math.hypot(cs.yvx, cs.yvy), dv = TW.yieldDecay * dt;
+          if (yv <= dv) { cs.yvx = 0; cs.yvy = 0; } else { cs.yvx *= 1 - dv / yv; cs.yvy *= 1 - dv / yv; }
+        }
+        cs.ox += cs.yvx * dt; cs.oy += cs.yvy * dt; cs.yax = 0; cs.yay = 0;
       }
       // root motion
       const r = this._clipRoot(cs, Math.min(cs.t, clip.dur));
@@ -1559,11 +1860,27 @@
       const tau = 0.12, mk = tau * (1 - Math.exp(-cs.t / tau));
       const clipV0 = clip.rootKeys ? 0 : 1;
       const nx = r.x + cs.offX * bo + (cs.v0x || 0) * mk * bl * clipV0, ny = r.y + cs.offY * bo + (cs.v0y || 0) * mk * bl * clipV0;
-      const idt = 1 / Math.max(dt, 1e-4);
-      this.vx = (nx - this.x) * idt; this.vy = (ny - this.y) * idt;
-      if (!isFinite(this.vx)) { this.vx = 0; this.vy = 0; }
-      this.x = nx; this.y = ny; this.speed = Math.hypot(this.vx, this.vy);
-      this.facing = U.angApproach(this.facing, r.yaw, (clip.turnRate || 9) * dt);
+      // the body follows the move's root as a mass (Trial 4): exactly, as long as that takes no more than a body's
+      // push (Tune.weight.clipAccelMax); a move whose root changes speed harder than that between its keys is caught up
+      // with over a few steps (Tune.weight.clipCatchUp) instead of jumping (the start of a move is eased separately:
+      // its clock starts slow, see play)
+      // (starting from the speed the body really had, a knock's push included: without it a move started on a knocked
+      // body changed its speed ~70 ft/s^2 in a step, Trial 4)
+      const rs = cs.rs || (cs.rs = { x: this.x, y: this.y, vx: this.vx + (this._hitPrevVx || 0), vy: this.vy + (this._hitPrevVy || 0), tx: nx, ty: ny });
+      if (dt > 0) {
+        const TW = M.Tune.weight;
+        const tvx = (nx - rs.tx) / dt + TW.clipCatchUp * (nx - rs.x), tvy = (ny - rs.ty) / dt + TW.clipCatchUp * (ny - rs.y);
+        rs.tx = nx; rs.ty = ny;
+        let ax = (tvx - rs.vx) / dt, ay = (tvy - rs.vy) / dt;
+        const am = Math.hypot(ax, ay);
+        if (am > TW.clipAccelMax) { ax *= TW.clipAccelMax / am; ay *= TW.clipAccelMax / am; }
+        rs.vx += ax * dt; rs.vy += ay * dt;
+        rs.x += rs.vx * dt; rs.y += rs.vy * dt;
+      }
+      this.vx = rs.vx; this.vy = rs.vy;
+      if (!isFinite(this.vx) || !isFinite(rs.x)) { rs.x = nx; rs.y = ny; rs.vx = 0; rs.vy = 0; this.vx = 0; this.vy = 0; }
+      this.x = rs.x; this.y = rs.y; this.speed = Math.hypot(this.vx, this.vy);
+      this._faceStep(r.yaw, clip.turnRate || 9, this.turnAcc * M.Tune.weight.clipTurnK * (this.paceK || 1), dt);
       this.jumpZ = this._clipJumpZ(cs, cs.t);
       // feet
       const mode = A.clipFeet(clip, cs.t);
@@ -1656,6 +1973,7 @@
         cs.done = true;
         this._endClip();
       }
+      return true;
     }
     _endClip() {
       const cs = this.clip;
@@ -1664,8 +1982,9 @@
       for (let side = 0; side < 2; side++) if (this.handTarget[side] && this.handTarget[side].reach) this.handTarget[side] = null;
       this.jumpZ = 0;
       for (const f of this.feet) if (f.state === 'air') this._landFoot(f, this.facing);
-      // (a move that goes somewhere, a spin, hands its speed on to the run out of it)
-      if (!cs.clip.keepV) { this.vx *= 0.5; this.vy *= 0.5; }
+      // (the body leaves the move with the speed it has: the steering takes it from there at a body's push; halved in
+      // one step at the end of every move that did not go somewhere, Trial 4)
+      this.acx = 0; this.acy = 0;
       // keep any goal issued while the clip was playing (play() cleared the old one)
       if (cs.onEnd) U.safe(() => cs.onEnd(this), null, 'clip end');
     }
@@ -2192,6 +2511,17 @@
       this._inDt = dtI;
       // one body: the hips take their share of a turn of the upper body, and a turn starts at the head
       this._bodyTurn(p, dtI);
+      // the pose's own pelvis height glides over a jump: a stance, stride or move switching it in one step dropped or
+      // lifted the hips up to ~5 in in one frame (Trial 4: ~60 times a quarter past 3 in)
+      this._inHip.apply(p, dtI);
+      // (and it moves no faster than Tune.weight.hipPoseFtps: a move fading in over its first 0.06 s from a slide's low
+      // hips lifted them ~12 in in four frames, and a stance lowering into a slide at a run dropped them 2 in a frame)
+      {
+        const zIn = p[CH.rootZ] * H, hp = this._hpz;
+        if (hp == null || !(dtI >= 0) || dtI > 0.12) this._hpz = zIn;
+        else if (dtI > 0) { const m = M.Tune.weight.hipPoseFtps * dtI; this._hpz = hp + U.clamp(zIn - hp, -m, m); }
+        p[CH.rootZ] = this._hpz / H;
+      }
       const fall = this.fall;
       // feet
       let minRootZ = Infinity;
@@ -2220,6 +2550,11 @@
           // there left the ankle ~1 in short of where the planted leg had it, a pop at every lift-off, Trial 3)
           if (f.mode === 'gait' && f.sw != null) ik.softK *= U.smooth(f.sw / 0.2);
           else if (f.mode === 'step' && f.s != null) ik.softK *= U.smooth(f.s / 0.2);
+          // (the guide that holds a leg in the air with its knee over its own line comes in over the same first part: a
+          // planted leg may be far past it, its foot held on its spot out to the side in a hard turn, and at lift-off it
+          // snapped the leg in, the ankle up to ~17 in in one frame, Trial 4)
+          const tf = M.Tune.floor.airGuardSw;
+          ik.guardK = f.mode === 'gait' && f.sw != null ? U.smooth(f.sw / tf) : f.mode === 'step' && f.s != null ? U.smooth(f.s / tf) : 1;
           // late in a gait swing the pelvis already settles so the leg meets the floor with the knee a little bent
           // (runners land at ~15-20 deg of knee flexion) instead of locking straight and dropping at contact
           if (f.mode === 'gait' && f.sw > 0.55 && f.lax != null && this.gaitOn && !this.clip) {
@@ -2251,7 +2586,10 @@
         // the way real runners and walkers do, instead of the pelvis sinking to reach a flat foot
         // (zmax is the highest the hip JOINT can be; the pelvis root sits 0.012 H above it)
         const wantZ = this.dims.hipH + p[CH.rootZ] * H + this.jumpZ - 0.012 * H;
-        const behind = (f.x - hx) * c + (f.y - hy) * s < 0;
+        // (behind the hips as he faces, or as he goes: a body sliding or running sideways, or backpedalling, leaves a
+        // foot at his side or in front of him; held flat, the leg ran out of reach and the pelvis dropped 3 to 6 in in a
+        // frame, Trial 4)
+        const behind = (f.x - hx) * c + (f.y - hy) * s < 0 || (this.speed > 3 && (f.x - hx) * this.vx + (f.y - hy) * this.vy < 0);
         if (zmax < wantZ && behind && this.gaitOn && !this.clip) {
           const maxPitch = (this.speed > 9 ? 68 : 58) * D;
           let pitch = Math.max(0, f.pitch);
@@ -2293,6 +2631,47 @@
         }
       }
       rootZ = rootZ0 + Math.min(rz.d, want);
+      // braking and cutting, the hips drop (the knees bend to take the push), below wherever the legs put them and below
+      // the level they rode at before the push (Tune.weight.rideS): on the pose alone it hid under the running legs' own
+      // settle, and on the legs alone the short quick steps of a brake carried the hips up about as far as it dropped
+      // them (Trial 4); eased out going into a move or off the floor, and back in after
+      {
+        const TW = M.Tune.weight, on = this.clip || this.jumpZ >= 0.05 ? 0 : 1, z0 = rootZ - this.jumpZ;
+        const fresh = this._dropW == null || !(dtI >= 0) || dtI > 0.12;
+        if (fresh) { this._dropW = on; this._ride = z0; }
+        else if (dtI > 0) this._dropW += (on - this._dropW) * (1 - Math.exp(-dtI / 0.08));
+        const dk = (this.dropK || 0) * H * this._dropW;
+        if (!fresh && dtI > 0 && dk < 0.004 * H) this._ride += (z0 - this._ride) * (1 - Math.exp(-dtI / TW.rideS));
+        // (and during a real push it still follows the hips down, never up, over Tune.weight.rideDownS: held from before a
+        // defender's slide or a set stance, it stayed at the running height, and a cut out of the crouch let the hips
+        // rise 4 to 6 in through it, Trial 4)
+        else if (!fresh && dtI > 0 && z0 < this._ride && dk >= TW.rideDownH * H) this._ride += (z0 - this._ride) * (1 - Math.exp(-dtI / TW.rideDownS));
+        // (how far the legs carry the hips over that level taken off smoothly, over Tune.weight.rideBlendH, and only as
+        // the drop comes in: a hard minimum kinked the hips' path at the top of every stride's bob, and one switched on
+        // with the drop jumped; the knees and toes popped with both)
+        if (dk > 0) {
+          const kb = TW.rideBlendH * H, ex = z0 - this._ride, over = 0.5 * (ex + Math.sqrt(ex * ex + kb * kb));
+          rootZ = z0 - dk - over * U.smooth(dk / (TW.rideInH * H)) + this.jumpZ;
+        }
+        // (how far down that put the hips, for the swinging foot's arc next step, see _locomote)
+        if (dtI !== 0) this._hipDrop = Math.max(0, z0 + this.jumpZ - rootZ);
+      }
+      // the pelvis never goes down faster than Tune.weight.hipDropFtps, whatever takes it there (the legs' reach, a
+      // brake's or cut's drop, the pose; a jump's own flight aside): past that a leg left short of its foot has its heel
+      // come up, then steps (see _hipGuard, which gets what is left of it). A body run away from a planted foot (a
+      // sideways run, a move's step) dropped it 3 to 9 in in a frame, Trial 4
+      {
+        const cz = this._cz || (this._cz = { prev: null, base: null, lo: -Infinity, cap: Infinity, used: 0 });
+        if (cz.prev == null || !(dtI >= 0) || dtI > 0.12) { cz.base = null; cz.lo = -Infinity; cz.cap = Infinity; }
+        else if (dtI > 0) { cz.base = cz.prev; cz.cap = M.Tune.weight.hipDropFtps * dtI; cz.lo = cz.base - cz.cap; }
+        const zNow = rootZ - this.jumpZ, z1 = Math.max(zNow, cz.lo);
+        this._dropCap = zNow < cz.lo - 1e-9;
+        cz.used = cz.base != null ? Math.max(0, cz.base - z1) : 0;
+        // (kept from the step's own solve only: solved again in the same frame (recording, drawing, dribble fix-ups) it
+        // must not change the next step, or the game would depend on the frame rate)
+        if (dtI !== 0) cz.prev = z1;
+        rootZ = z1 + this.jumpZ;
+      }
       p[CH.rootZ] = (rootZ - this.dims.hipH) / H;
       // arms: ball / explicit targets
       this._armTargets();
@@ -2368,7 +2747,9 @@
      *  easing away with Tune.hipGuard.releaseS, added to the pose */
     _hipShift(p, dt) {
       const G = M.Tune.hipGuard, hg = this._hg || (this._hg = { x: 0, y: 0, z: 0, n: 0 });
-      if (!(dt >= 0) || dt > 0.12) { hg.x = hg.y = hg.z = 0; } else if (dt > 0) { const k = Math.exp(-Math.LN2 * dt / G.releaseS); hg.x *= k; hg.y *= k; hg.z *= k; }
+      // (where it held the pelvis down to last frame: it goes no lower this frame than the legs' reach left room for,
+      // Tune.weight.hipDropFtps)
+      if (!(dt >= 0) || dt > 0.12) { hg.x = hg.y = hg.z = 0; hg.zPrev = null; } else if (dt > 0) { hg.zPrev = hg.z; const k = Math.exp(-Math.LN2 * dt / G.releaseS); hg.x *= k; hg.y *= k; hg.z *= k; }
       if (Math.abs(hg.x) + Math.abs(hg.y) + Math.abs(hg.z) < 1e-5) { hg.x = hg.y = hg.z = 0; }
       p[CH.rootX] += hg.x; p[CH.rootY] += hg.y; p[CH.rootZ] += hg.z;
       return hg;
@@ -2387,7 +2768,9 @@
       // (the leg's full reach, as the IK allows it; not while a jump lifts the body off planted feet at take-off)
       const c = Math.cos(this.facing), s = Math.sin(this.facing), Lmax = (this.dims.th + this.dims.sh) * 0.9995, reach = this.jumpZ < 0.05;
       hg.n = 0;
-      const need = [false, false], drop = [false, false];
+      const need = [false, false], drop = [false, false], cz = this._cz;
+      let capHit = false;
+      const zLo = Math.max(-G.maxDropH, (hg.zPrev != null ? hg.zPrev : hg.z) - (cz && cz.cap !== Infinity ? Math.max(0, cz.cap - cz.used) : Infinity) / H);
       for (let it = 0; it < G.iterations; it++) {
         let wx = 0, wy = 0, dz = 0, any = false, ank = 0;
         for (let side = 0; side < 2; side++) {
@@ -2402,6 +2785,8 @@
             // (a little over the excess: the leg's answer to a higher heel gives some of it back)
             const pit = U.clamp(ik.pitch + 1.3 * (an > aHi ? an - aHi : an - aLo), -30 * D, 75 * D);
             if (Math.abs(pit - ik.pitch) > 1e-4) {
+              // (a foot that turned this step as a pivot and now has its heel brought down does not turn this step)
+              if (f.pvTurned === this.time && pit < M.Tune.floor.pivot.turnAtDeg * D && f.pvPrevYaw != null) { f.yaw = f.pvPrevYaw; ik.yaw = f.yaw; f.pvTurned = null; }
               const t = this._ankleFromBall(f.x, f.y, f.yaw, pit, TA);
               ik.x = t[0]; ik.y = t[1]; ik.z = t[2] + (f.land ? f.lz || 0 : 0); ik.pitch = pit; f.pitchUsed = pit;
               if (an > aHi) f.heelFloor = Math.max(f.heelFloor || 0, pit);
@@ -2438,8 +2823,10 @@
         let bx = wx * s - wy * c, by = wx * c + wy * s;
         const lim = G.maxShiftH * H, nx = hg.x + bx, ny = hg.y + by, nl = Math.hypot(nx, ny);
         if (nl > lim) { bx = nx * lim / nl - hg.x; by = ny * lim / nl - hg.y; }
-        // (the pelvis goes down only so far for a foot out of reach: past that the foot steps, see the strain below)
-        const bz = Math.max(-dz / H, Math.min(0, -G.maxDropH - hg.z));
+        // (the pelvis goes down only so far for a foot out of reach, and only so fast: past that the foot steps, see the
+        // strain and the last resort below)
+        const bz = Math.max(-dz / H, Math.min(0, zLo - hg.z));
+        if (-dz / H < zLo - hg.z - 1e-9 && zLo > -G.maxDropH + 1e-9) capHit = true;
         const moved = Math.abs(bx) + Math.abs(by) + Math.abs(bz) >= 1e-5;
         if (!moved && !ank) break;
         // (the pelvis moved: the whole body is solved again; only a heel moved: just that leg)
@@ -2464,7 +2851,10 @@
         const pre = side ? 'r' : 'l', an = (side ? RG.J.R_AN : RG.J.L_AN) * 3;
         // (or the leg cannot hold its ankle where the foot is: out of reach with the pelvis down as far as it goes, or the
         // hip's twist at its end; Trial 3: the foot hung off its spot or went through the floor)
-        if (!past(pre) && !(reach && Math.hypot(P[an] - ik.x, P[an + 1] - ik.y, P[an + 2] - ik.z) > G.missFt)) continue;
+        // (a leg left short because the pelvis may go down only so fast steps at a smaller miss, before the foot slides:
+        // Tune.weight.hipDropMissFt)
+        const miss = this._dropCap || capHit ? Math.min(G.missFt, M.Tune.weight.hipDropMissFt) : G.missFt;
+        if (!past(pre) && !(reach && Math.hypot(P[an] - ik.x, P[an + 1] - ik.y, P[an + 2] - ik.z) > miss)) continue;
         const sgn = side ? 1 : -1, w = 0.1 * H;
         this._sepTarget(f, this.x + this.vx * 0.15 + s * sgn * w + c * this.dims.ball, this.y + this.vy * 0.15 - c * sgn * w + s * this.dims.ball, TD);
         this._beginStep(f, TD[0], TD[1], this.facing - sgn * 7 * D, 0.16, 0.04);
@@ -2518,17 +2908,26 @@
      *  leg bends it up by the depth, the foot kept at the angle it had */
     _airFloor() {
       const sk = this.sk, P = sk.P, R = sk.R, J = RG.J;
+      const low = (side) => Math.min(P[(side ? J.R_HEEL : J.L_HEEL) * 3 + 2], P[(side ? J.R_BALL : J.L_BALL) * 3 + 2], P[(side ? J.R_TOE : J.L_TOE) * 3 + 2]);
       for (let side = 0; side < 2; side++) {
         const ik = sk.legIK[side];
         if (ik.on > 0.001) continue;
-        const z = Math.min(P[(side ? J.R_HEEL : J.L_HEEL) * 3 + 2], P[(side ? J.R_BALL : J.L_BALL) * 3 + 2], P[(side ? J.R_TOE : J.L_TOE) * 3 + 2]);
+        let z = low(side);
         if (z >= -0.002) continue;
         const an = (side ? J.R_AN : J.L_AN) * 3, ft = (side ? RG.F.R_FT : RG.F.L_FT) * 9;
         ik.yaw = Math.atan2(R[ft + 4], R[ft + 1]); ik.pitch = Math.asin(U.clamp(-R[ft + 7], -1, 1));
-        ik.x = P[an]; ik.y = P[an + 1]; ik.z = P[an + 2] + 0.004 - z;
-        ik.on = 1; ik.soft = true; ik.softW = 0.02; ik.softK = 1;
-        sk._leg(side);
-        ik.on = 0;
+        const x0 = P[an], y0 = P[an + 1], z0 = P[an + 2];
+        let lift = 0;
+        // (a few times over, like a swinging foot's: a leg nearly straight at take-off gave back a quarter of the lift and
+        // left the toes ~0.9 in in the floor, Trial 4)
+        for (let it = 0; it < M.Tune.floor.swingFixIters && z < -0.002; it++) {
+          lift += (0.004 - z) * (it ? M.Tune.floor.swingFixGain : 1);
+          ik.x = x0; ik.y = y0; ik.z = z0 + lift;
+          ik.on = 1; ik.soft = true; ik.softW = 0.02; ik.softK = 1;
+          sk._leg(side);
+          ik.on = 0;
+          z = low(side);
+        }
       }
     }
     /** the real bend of an ankle whose foot is set by the floor or its steering (+ = dorsiflexion), last solve: the

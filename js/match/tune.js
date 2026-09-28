@@ -68,6 +68,17 @@
       landFirstIn: 0.3,             // heel or forefoot first: that end this much lower than the other at contact (in)
       toeOutDeg: 7,                 // a foot's natural turn out from the way the body goes
       toeTravelOffDeg: 20,          // toes further than this from the way he is going (past the turn out) are off
+      // weight meters (Trial 4): a hard cut or brake is a push across or against the way he goes past cutFtps2 at
+      // hardMoveFtps or more; it should drop the hips hipDropIn below the level they rode at (averaged over hipRefS, the
+      // body's own drop for a push and a stretched leg's pull taken back out of it), with a foot planted where the push
+      // comes from (a cut: on the side the push comes from, outside or, braking into it, ahead; a brake: out ahead);
+      // the facing's turn rate jumping past turnSnapRadps2 is a turn snap; bodies are grouped by weight at massClassLb
+      // (hard from jogging speed up: the gauntlet's own jog is 3-4 m/s, 10-13 ft/s)
+      cutFtps2: 18, hardMoveFtps: 10, hipDropIn: 1.5, hipRefS: 0.3, turnSnapRadps2: 180, massClassLb: [205, 240],
+      hardPeakFtps2: 22, hardMinS: 0.1, // a hard cut or brake peaks past this and lasts this long (s)...
+      cutTurnDeg: 35, cutMaxS: 0.7, brakeShed: 0.3, // ...a cut turns his way this far within cutMaxS, a brake sheds this share of his speed
+      pushGapS: 0.15,               // ...and one push goes on through a gap this long (a running stride's flight)
+      hipJumpIn: 3,                 // the pelvis going up or down more than this in one step on the floor is a hip jump (in)
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -186,6 +197,86 @@
       missFt: 0.035,                // a planted ankle this far off its spot (~0.4 in) after all that steps now
     },
 
+    // ---------------------------------------------------------------- the weight (Trial 4)
+    // The body moves as a mass: its push (acceleration) builds up at a human rate of force development instead of
+    // switching on in one step, braking is stronger than pushing off, the facing turns with an angular acceleration,
+    // and a bigger, heavier body pushes and turns less for its size (ratings still set the base values)
+    weight: {
+      refLb: 215, refHeightFt: 6.5, // the reference body the ratings describe
+      massExp: -1 / 3,              // push per pound ~ m^-1/3 (leg force grows with muscle cross-section, ~m^2/3)
+      decelRatio: 1.35,             // braking / pushing off (team-sport tracking: maximal decelerations beat accelerations;
+                                    // ~6.5-10 m/s^2 at the top, from a 16-24 ft/s^2 first-step push)
+      velGain: 12,                  // within a few ft/s of the velocity wanted the push is in proportion (1/s)
+      jerkFtps3: 320,               // how fast a push builds (ft/s^3): a full push in ~0.06 s...
+      brakeJerkFtps3: 480,          // ...and a brake (a plant is quicker than a push-off)
+      turnAccel: 70,                // the facing's angular acceleration for the reference body (rad/s^2)...
+      turnHeightExp: -1,            // ...times (H / ref)^-1 and the mass factor (inertia ~ m H^2, torque ~ m^2/3 H)
+      clipTurnK: 1.6,               // moves (clips) turn this much quicker (their turns are authored)...
+      turnAccelMax: 150,            // ...but no body's facing ever speeds up or slows down its turn faster than this (rad/s^2)
+      clipAccelMax: 55,             // a body follows a move's root motion exactly while that takes no more push than
+      clipCatchUp: 6,               // this (ft/s^2), and catches up what it lost at this rate (1/s)
+      clipWarpS: 0.3,               // a move whose root leaves faster than the body is going (by clipWarpFtps) starts
+      clipWarpFtps: 3,              // on a slow clock that comes up to speed over this long (s)
+      hitPushS: 0.34,               // a bump knocks a body off its line over this long (s)
+      // two bodies touching push apart through their velocities: stiffness (1/s^2 per ft of overlap), damping of the
+      // closing speed (1/s), and no harder than this (ft/s^2)
+      contactK: 300, contactC: 25, contactMaxFtps2: 40,
+      totalAccelMax: 55,            // a body's own push and a contact's together never pass this (ft/s^2, ~1.7 g)
+      airPushK: 0.35,               // running with both feet off the floor, a body pushes only this share (it steers on
+                                    // its plants)...
+      airBrakeLatK: 1,              // ...braking there, the push across it this share (the braking goes on; less made a
+                                    // cut drag over two or three strides, a 90 deg cut at 15 ft/s 0.15 s slower)...
+      airSlackS: 0.04,              // ...but both feet off the floor this much longer than a step's own flight is a skip:
+      skipPushK: 0.1,               // the body pushes only this share until a foot is down, braking or not
+      // braking (pushing against the way he goes) harder than brakeFrom (ft/s^2), fully at brakeFrom + brakeSpan: the
+      // steps quicken toward brakeSps (per s, a 6'6" player) and the hips drop brakeDropH (heights)
+      brakeFrom: 8, brakeSpan: 16, brakeSps: 4.2, brakeDropH: 0.04,
+      // cutting (pushing across the way he goes) harder than cutFrom, fully at cutFrom + cutSpan: the hips drop cutDropH
+      cutFrom: 9, cutSpan: 14, cutDropH: 0.04,
+      // a landing foot goes down this share of the lean geometry out against the push (ahead braking, outside a cut),
+      // at most footLeadMaxH (heights)
+      footLead: 0.35, footLeadMaxH: 0.12,
+      leadFreezeSw: 0.4,            // the landing offset is set until this far through the swing, then held over the next 0.3
+      insidePushK: 0.3,             // running, the push across off the inside foot alone is this share (a foot on the
+                                    // inside of the turn cannot push the body into it: cuts go off the outside plant)...
+      plantPushK: 1.4,              // ...off a foot outside, this much more (the cut's force goes down through the plant;
+                                    // in the air a push across cannot start or grow)...
+      plantFullH: 0.04,             // ...graded by how far out the foot is on the side the push comes from, fully this far
+                                    // (heights): a foot under the body gives no push across
+      slideDropFrom: 5, slideDropSpan: 3, // a sideways slide drops the hips only from this speed, fully this much faster (ft/s):
+                                    // a defender's slide is low already and its quick reversals do not pump the hips
+      dropHoldS: 0.2,               // the hips stay down this long after the push peaks (through a stride's flight)...
+      dropRiseS: 0.35,              // ...then a full drop comes back up over no less than this
+      rideS: 0.4,                   // the level the hips ride at (a brake or cut drops them below it) follows over this
+      rideDownS: 0.15,              // ...and during a push past rideDownH (heights of drop), only down, over this (s): a
+      rideDownH: 0.01,              // slow slide's small pushes lowered it, and its shuffle steps with it
+      rideBlendH: 0.02,             // ...the legs carrying them higher are held down to it smoothly over this (heights)...
+      rideInH: 0.015,               // ...fully once the drop is this deep (heights)
+      poseHalfLifeS: 0.1,           // how fast the braking and cutting shape (hips, step rate, where the feet land) follows
+      hardShare: 0.3,               // past this share of the touching distance a torso is pushed out hard, before all else:
+      hardK: 400,                   // ...ft/s^2 per ft of that depth...
+      hardC: 30,                    // ...plus per ft/s still closing (a body in a move gives way at its origin instead)
+      yieldFt: 1.5,                 // a move (layup, dunk) closing on a man starts to give way this much further out...
+      yieldDecay: 30,               // ...and the speed it gave way at dies away at this once clear (ft/s^2)
+      avoidFt: 1.2,                 // two players closing on each other by accident ease off from this far apart...
+      softFt: 0.2,                  // ...so they meet within this much give
+      // players on a collision course steer round each other: looking this far ahead (s), passing this far clear of
+      // touching (ft), at most this much sideways (ft/s)
+      avoidAheadS: 1.2, passFt: 0.35, avoidMaxFtps: 8,
+      leanFt: 0.25,                 // a body this far into another stops going on into him (it leans, slides)
+      leanBrake: 22,                // a body closing on another brakes at this (ft/s^2) to meet him at no more than...
+      meetFtps: 2.5, meetBallFtps: 4.5, // ...this (ft/s; a man with the ball going into a defender, this)
+      // the pose's own pelvis height glides over a jump (a stance, stride or move switching it in one step): a change
+      // past what its motion explains by more than hipJumpH (heights, per 60 Hz step) is taken out and eased back in
+      // with this half-life (s)
+      hipJumpH: 0.012, hipJumpS: 0.08,
+      hipPoseFtps: 7,               // the pose's own pelvis height moves no faster than this (ft/s)...
+      hipDropFtps: 9,               // ...and the pelvis never goes down faster than this, whatever takes it there (ft/s):
+                                    // past it a leg's heel comes up, then its foot leaves the floor (a quick step)...
+      hipDropMissFt: 0.015,         // ...as soon as its ankle is this far short of its spot (ft; a contact sliding past
+                                    // Tune.debug.slideOkIn, 0.25 in, is a slide)
+    },
+
     // ---------------------------------------------------------------- the floor (Trial 3)
     floor: {
       // a planted foot turns only as a pivot: on the ball of the foot with the heel up (coaching: pivot on the ball;
@@ -202,9 +293,14 @@
       hardMinStanceS: 0.05,         // ...and, even run away from, this long (3 steps of the clock)
       minSwingS: 0.15,              // a stride swing shorter than this (a lift late in the stride) is a quick step instead
       landSettleH: 0.04,            // a stride's landing is aimed within the leg's reach with the pelvis this much lower
+      slideLiftH: 0.045,            // a slow slide's shuffle step lifts the ankle this high (heights)...
+      backLiftCut: 0.35,            // ...and a backpedal's step lifts this much less than a forward one (0.45 scraped)
       pelvisUpHz: 8,                // a pelvis let go by the leg that held it down comes back up on this spring (Hz)...
       pelvisUpFtps: 2.5,            // ...never faster than this (a running body's centre of mass rises at ~1.5-3 ft/s)
       toeBendMaxDeg: 60,            // toes brushing the floor bend up at the ball this far at most (MTP extension ~70, AAOS)
+      airGuardSw: 0.25,             // a leg in the air is held with its knee over its own line from this far into a swing
+      toeTipDegps: 600,             // a foot that left the floor flat tips toes-down no faster than this (deg/s; an ankle
+                                    // plantarflexes ~300-400 deg/s at a walking toe-off, faster running)
       swingFixReleaseS: 0.06,       // a swinging foot lifted clear of the floor eases back onto its own path (half-life, s)
       swingFixIters: 8,             // tries at lifting a swinging foot clear of the floor in one step...
       swingFixGain: 1.5,            // ...each lifting it this many times its depth

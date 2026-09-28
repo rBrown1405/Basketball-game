@@ -130,6 +130,7 @@
         spShare: [[], [], []], spKink: [0, 0, 0], spinePops: 0, spinePopBy: {}, spineAcc: [],
         cad: new Map(), guardFrames: 0, guardShift: [], guardAnk: 0, guardSlip: 0,
         step: {}, headTravel: [], headTravelOff: 0, speedBins: {},
+        wt: { cut: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, brake: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, turnSnaps: 0, byMass: {}, hipJumps: 0, hipJumpBy: {}, hipJumpWorst: 0, hipJumpWorstAt: '' },
       };
     }
     tracker(a) {
@@ -156,6 +157,10 @@
         const t = this.tracker(a);
         const count = a.kind === 'player' && onCourt;
         if (count) S.playerFrames++;
+        // (a body placed somewhere new, a substitute put on the floor, is a new start: its feet were not dragged there;
+        // over 3 ft in one step, as in _kin)
+        if (t.rootX != null && Math.hypot(a.x - t.rootX, a.y - t.rootY) > 3) for (const st of t.pts) { st.on = false; st.cur = 0; }
+        t.rootX = a.x; t.rootY = a.y;
         this._feet(a, t, count, s);
         this._limits(a, t, count);
         this._com(a, t, count);
@@ -164,6 +169,7 @@
         this._hands(a, t, count, ball);
         this._body(a, t, count, dt);
         this._steps(a, t, count, s.time || 0);
+        this._weight(a, t, count, dt, s.time || 0);
         t.label = stateLabel(a, s.view);
       }
       this._pairs(list);
@@ -271,6 +277,8 @@
     _kin(a, t, count, dt) {
       const S = this.S, Tn = TU();
       const k = t.kin || (t.kin = { px: a.x, py: a.y, pf: a.facing, vx: 0, vy: 0, w: 0, ax: 0, ay: 0, n: 0, loc: null, loc1: null });
+      // (a body placed somewhere new between plays is a new start, not a motion: over 3 ft in one step)
+      if (Math.hypot(a.x - k.px, a.y - k.py) > 3) { k.px = a.x; k.py = a.y; k.pf = a.facing; k.vx = 0; k.vy = 0; k.w = 0; k.ax = 0; k.ay = 0; k.n = 0; if (t.wt) t.wt.ev = null; }
       const vx = (a.x - k.px) / dt, vy = (a.y - k.py) / dt, w = wrap(a.facing - k.pf) / dt;
       if (k.n >= 1) {
         k.ax = (vx - k.vx) / dt; k.ay = (vy - k.vy) / dt;
@@ -482,6 +490,116 @@
         if (k) { const b = S.speedBins[k] || (S.speedBins[k] = { n: 0, v: 0, sps: 0 }); b.n++; b.v += v; b.sps += a.gaitDbg.sps; }
       }
     }
+    /** the weight (Trial 4), from each body's own measured root motion: a hard cut or brake (the push across or
+     *  against the way he goes past Tune.debug.cutFtps2 at speed) should show a foot planted where it pushes from (the
+     *  outside of the cut, ahead of him braking) and the hips dropping (below where they rode before it); the facing's
+     *  turn rate should never jump (turn snaps); and a heavier body should push and turn less */
+    _weight(a, t, count, dt, time) {
+      const S = this.S, Tn = TU(), k = t.kin;
+      if (!k || a.kind !== 'player' || !(dt > 0)) return;
+      const W = t.wt || (t.wt = { zRef: null, ev: null, wPrev: null, zBuf: null, zN: 0 });
+      const z = a.sk.P[2] - (a.jumpZ || 0);
+      const air = a.feet[0].state === 'air' || a.feet[1].state === 'air' || (a.jumpZ || 0) > 0.02;
+      const sp = Math.hypot(k.vx, k.vy);
+      // hip jumps: the pelvis going up or down more than Tune.debug.hipJumpIn in one step with the body on the floor
+      // (not a jump's own flight, not a body placed somewhere new)
+      if (W.hz != null && !air && !W.hAir && Math.hypot(a.x - W.hx, a.y - W.hy) < 3) {
+        const dz = Math.abs(z - W.hz) * IN;
+        if (count && dz > Tn.hipJumpIn) {
+          S.wt.hipJumps++;
+          const c = this.ctx(a).split(':').slice(0, 2).join(':');
+          S.wt.hipJumpBy[c] = (S.wt.hipJumpBy[c] || 0) + 1;
+          if (dz > S.wt.hipJumpWorst) { S.wt.hipJumpWorst = dz; S.wt.hipJumpWorstAt = c + ' #' + a.id + ' t' + (+time).toFixed(2); }
+        }
+      }
+      W.hz = z; W.hAir = air; W.hx = a.x; W.hy = a.y;
+      // turn snaps: the facing's rate jumping (the angular acceleration past Tune.debug.turnSnapRadps2)
+      if (k.n >= 3 && W.wPrev != null) {
+        const alpha = Math.abs(k.w - W.wPrev) / dt;
+        if (count && alpha > Tn.turnSnapRadps2) S.wt.turnSnaps++;
+        if (count && alpha > 5) this._wtClass(a).turn.push(alpha);
+      }
+      W.wPrev = k.n >= 1 ? k.w : null;
+      if (k.n < 3) return;
+      const am = Math.hypot(k.ax, k.ay);
+      if (count && am > 5 && !a.clip) this._wtClass(a).push.push(am);
+      const ux = sp > 0.1 ? k.vx / sp : 0, uy = sp > 0.1 ? k.vy / sp : 0;
+      const aPar = k.ax * ux + k.ay * uy, aLat = k.ay * ux - k.ax * uy;
+      // the level the hips ride at, the reference a cut or brake drops them from: their average over the last
+      // Tune.debug.hipRefS on the floor (a running stride, its bob averaged out), with whatever the body has them held
+      // down for a push already taken back out, and a stretched leg's pull on them (Actor._rz: a cut begun as a long
+      // stride's leg had them 2-3 in down read as no drop with the hips 3 in under their running height all through it)
+      // (Actor._hipDrop: through a long curve, a run of cuts or a light brake
+      // before one, a level of the hips as they were sank with the hips it measures, and one kept only while no push
+      // held them down went stale for seconds; a slowly followed level lagged far behind hips coming up out of a crouch)
+      if (!air && !W.ev && !a.clip) {
+        const nb = Math.max(1, Math.round(Tn.hipRefS / dt));
+        if (!W.zBuf || W.zBuf.length !== nb) { W.zBuf = new Float64Array(nb); W.zN = 0; }
+        W.zBuf[W.zN % nb] = z + (a._hipDrop || 0) - (a._rz ? Math.min(0, a._rz.d) : 0); W.zN++;
+        let sum = 0; const m = Math.min(W.zN, nb);
+        for (let i = 0; i < m; i++) sum += W.zBuf[i];
+        W.zRef = sum / m;
+      }
+      // (one starts at speed; once going it lasts as long as the push does, a brake down to a stop)
+      const push = a.clip ? null : Math.abs(aLat) >= Tn.cutFtps2 ? 'cut' : -aPar >= Tn.cutFtps2 ? 'brake' : null;
+      const kind = push && (sp >= Tn.hardMoveFtps || (W.ev && sp > 1)) ? push : null;
+      let ev = W.ev;
+      if (kind && !ev) ev = W.ev = { kind, z0: W.zRef == null ? z : W.zRef, drop: 0, plantCut: false, plantBrake: false, n: 0, quiet: 0, peakCut: 0, peakBrake: 0, impCut: 0, impBrake: 0, h0: Math.atan2(k.vy, k.vx), turn: 0, v0: sp, vMin: sp };
+      if (!ev) return;
+      // (how far the way he goes turns, and how much speed he sheds, over it: a cut changes direction, a curve only
+      // leans round; a brake sheds speed)
+      if (sp > 1) ev.turn = Math.max(ev.turn, Math.abs(wrap(Math.atan2(k.vy, k.vx) - ev.h0)));
+      ev.vMin = Math.min(ev.vMin, sp);
+      if (kind) { ev.quiet = 0; ev.n++; } else ev.quiet++;
+      // (a cut or a stop by which push it mostly is over the whole of it: a push across that turns into a stop to a
+      // walk is a stop with a turn, and plants the way a stop does)
+      ev.peakCut = Math.max(ev.peakCut, Math.abs(aLat)); ev.peakBrake = Math.max(ev.peakBrake, -aPar);
+      ev.impCut += Math.abs(aLat) * dt; ev.impBrake += Math.max(0, -aPar) * dt;
+      if (!air) ev.drop = Math.max(ev.drop, (ev.z0 - z) * IN);
+      // (a foot on the floor where the push comes from, the floor pushing the body away from it: in a cut on the side
+      // the push comes from, outside the cut or, braking into it, out ahead; braking, out ahead)
+      for (const f of a.feet) {
+        if (f.state !== 'plant') continue;
+        const dx = f.x - a.x, dy = f.y - a.y;
+        if (dx * k.ax + dy * k.ay < 0) ev.plantCut = true;
+        if (dx * ux + dy * uy > 0.05 * a.H) ev.plantBrake = true;
+      }
+      // (one push through a running stride's flight, when a foot cannot push: Tune.debug.pushGapS)
+      if (ev.quiet * dt >= Tn.pushGapS - 1e-6) {
+        W.ev = null;
+        // (a hard one: a real plant and push, not a lean round a curve: a cut turns his way by Tune.debug.cutTurnDeg in
+        // under cutMaxS, a brake sheds brakeShed of his speed)
+        ev.kind = ev.impCut >= ev.impBrake ? 'cut' : 'brake';
+        const cut = ev.kind === 'cut', peak = cut ? ev.peakCut : ev.peakBrake, plant = cut ? ev.plantCut : ev.plantBrake;
+        if (!count || ev.n * dt < Tn.hardMinS - 1e-6 || peak < Tn.hardPeakFtps2) return;
+        if (cut ? ev.turn < Tn.cutTurnDeg * U.DEG || (ev.n + ev.quiet) * dt > Tn.cutMaxS : ev.vMin > ev.v0 * (1 - Tn.brakeShed)) return;
+        const b = S.wt[ev.kind];
+        b.n++; if (plant) b.plant++; if (ev.drop >= Tn.hipDropIn) b.drop++;
+        b.dropIn.push(ev.drop); b.peak.push(peak);
+        // (which kinds of move miss the plant or the drop, for the report)
+        if (!plant || ev.drop < Tn.hipDropIn) { const c = this.ctx(a).split(':').slice(0, 2).join(':') + (!plant ? ' no-plant' : '') + (ev.drop < Tn.hipDropIn ? ' no-drop' : ''); b.miss[c] = (b.miss[c] || 0) + 1; }
+      }
+    }
+    _wtClass(a) {
+      const S = this.S, Tn = TU(), m = a.mass || 215, c = m < Tn.massClassLb[0] ? 'light' : m < Tn.massClassLb[1] ? 'mid' : 'heavy';
+      const b = S.wt.byMass[c] || (S.wt.byMass[c] = { push: [], turn: [], players: new Set(), lb: 0, n: 0 });
+      if (!b.players.has(a)) { b.players.add(a); b.lb += m; b.n++; }
+      return b;
+    }
+    /** the Trial 4 weight scorecard */
+    weightSummary() {
+      const S = this.S, W = S.wt, pf = (n, d) => +(n / Math.max(1, d) * 100).toFixed(1);
+      const top = (o) => Object.entries(o).sort((p, q) => q[1] - p[1]).slice(0, 8);
+      const ev = (b) => ({ events: b.n, footPlantedPct: pf(b.plant, b.n), hipDropPct: pf(b.drop, b.n), hipDropIn: summ(b.dropIn, 2), peakFtps2: summ(b.peak, 1), missing: top(b.miss) });
+      const byMass = {};
+      for (const c of ['light', 'mid', 'heavy']) {
+        const b = W.byMass[c]; if (!b) continue;
+        byMass[c] = { players: b.n, avgLb: Math.round(b.lb / Math.max(1, b.n)), pushFtps2: summ(b.push, 1), turnRadps2: summ(b.turn, 1) };
+      }
+      const pm = S.playerFrames * S.stepDt / 60;
+      return { cuts: ev(W.cut), brakes: ev(W.brake), turnSnapsPerPlayerMin: +(W.turnSnaps / Math.max(1e-9, pm)).toFixed(2), byMass,
+        hipJumpsPerPlayerMin: +(W.hipJumps / Math.max(1e-9, pm)).toFixed(3), hipJumps: W.hipJumps, hipJumpsBy: top(W.hipJumpBy), hipJumpWorstIn: +W.hipJumpWorst.toFixed(2), hipJumpWorstAt: W.hipJumpWorstAt };
+    }
     /** the Trial 3 floor scorecard */
     floorSummary() {
       const S = this.S, pf = (n, d) => +(n / Math.max(1, d) * 100).toFixed(2), r2 = (v) => +(+v).toFixed(2);
@@ -564,6 +682,7 @@
         contact: { torsoOverlapPairFrames: S.torsoOverlap, handInOtherBodyFrames: S.handInBody, closePairFrames: S.closePairs },
         body: this.bodySummary(),
         floor: this.floorSummary(),
+        weight: this.weightSummary(),
       };
     }
     /** the Trial 2 body scorecard */
@@ -1118,6 +1237,8 @@
         const k = t.kin || {};
         lines.push('speed ' + a.speed.toFixed(1) + ' ft/s  accel ' + Math.hypot(k.ax || 0, k.ay || 0).toFixed(0) + ' ft/s² (' + (Math.hypot(k.ax || 0, k.ay || 0) / 32.17).toFixed(2) + ' g)');
         lines.push('turn ' + ((k.w || 0) / U.DEG).toFixed(0) + ' deg/s   centre of mass ' + (t.air ? 'in the air' : t.bal > 0.1 ? (a.speed < 1.5 && !a.clip ? 'OFF BALANCE ' : 'outside the base ') + (t.bal * 12).toFixed(1) + ' in' : 'over the base'));
+        // (the weight, Trial 4: how hard he is braking and cutting, and how far that has his hips down)
+        lines.push('weight ' + Math.round(a.mass || 0) + ' lb   brake ' + (a.brakeK || 0).toFixed(2) + ' cut ' + (a.cutK || 0).toFixed(2) + '   hips down ' + ((a._hipDrop || 0) * 12).toFixed(1) + ' in');
         lines.push('feet L ' + a.feet[0].state + ' R ' + a.feet[1].state + '   slide ' + t.pts.map(p => p.on ? (p.cur * 12).toFixed(2) : '-').join(' '));
         lines.push('look ' + t.look.state + (t.gap != null ? '   hand-ball ' + t.gap.toFixed(2) + ' in (' + t.gapKind + ')' : ''));
         if (t.lim.bad.length) lines.push('LIMIT ' + t.lim.bad.map(q => CHNAME[q[0]] + ' ' + (q[1] / U.DEG).toFixed(0) + '°').join(', '));
@@ -1135,6 +1256,8 @@
       lines.push('foot contacts ' + all.length + ', slide > ' + Tn.slideOkIn + ' in: ' + over(all, Tn.slideOkIn) + '%, > ' + Tn.slideBadIn + ' in: ' + over(all, Tn.slideBadIn) + '%');
       lines.push('through floor ' + S.sinkFrames + ' pt-frames, limits past range ' + S.limBadFrames + ' frames');
       lines.push('instant turns ' + S.turnInstant + '/' + S.turnOnsets + ', accel snaps ' + S.accelSnaps + ', look none ' + (S.lookNone / Math.max(1, S.playerFrames) * 100).toFixed(1) + '%');
+      { const W = S.wt, pc = (n, d) => d ? Math.round(n / d * 100) + '%' : '-';
+        lines.push('hard cuts ' + W.cut.n + ' (plant ' + pc(W.cut.plant, W.cut.n) + ', hips ' + pc(W.cut.drop, W.cut.n) + '), hard stops ' + W.brake.n + ' (plant ' + pc(W.brake.plant, W.brake.n) + ', hips ' + pc(W.brake.drop, W.brake.n) + '), turn snaps ' + W.turnSnaps + ', hip jumps ' + W.hipJumps); }
       if (this.lastMs.overlay != null) lines.push('overlay ' + this.lastMs.overlay.toFixed(2) + ' ms');
       this.info.textContent = lines.join('\n');
     }

@@ -1266,7 +1266,9 @@
               a.play('backdown', { facing: this.rimAngleFrom(a.x, a.y) + Math.PI, onEvent: (name) => {
                 if (name !== 'bump' || !pd) return;
                 const dx = this.rim.x - pd.x, dy = this.rim.y - pd.y, dl = Math.hypot(dx, dy) || 1;
-                pd.vx += dx / dl * 4.5; pd.vy += dy / dl * 4.5;
+                // (as a knock he takes and gives ground to, ~0.4 ft over a third of a second: his speed kicked by 4.5 ft/s
+                // in one step was an instant change of speed, Trial 4)
+                pd.impact(dx / dl, dy / dl, 7.5);
               } });
             }, 'backdown');
           }
