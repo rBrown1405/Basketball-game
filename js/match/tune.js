@@ -79,6 +79,10 @@
       cutTurnDeg: 35, cutMaxS: 0.7, brakeShed: 0.3, // ...a cut turns his way this far within cutMaxS, a brake sheds this share of his speed
       pushGapS: 0.15,               // ...and one push goes on through a gap this long (a running stride's flight)
       hipJumpIn: 3,                 // the pelvis going up or down more than this in one step on the floor is a hip jump (in)
+      // gait meters (Trial 5): the gaits by speed (ft/s: walk below the first, jog, run, sprint from the last), and a pop
+      // within this long after a change of gait counts as the transition's
+      gaitWalkFtps: 6.2, gaitJogFtps: 13, gaitRunFtps: 20, gaitTransWindowS: 0.3,
+      gaitAfterMoveS: 0.35,         // ...and the first this long out of a move or with the ball just gone is counted apart
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -186,7 +190,8 @@
       iterations: 12,
       marginDeg: 1.5,               // aim this far inside the limit
       gain: 1.15,                   // shift per radian of excess, per foot of hip height over the ankle (over-relaxed)
-      maxShiftH: 0.3,               // most the pelvis moves this way (heights)
+      maxShiftH: 0.3,               // most the pelvis moves this way (heights)...
+      shiftFtps: 10,                // ...and no faster than this (ft/s; past it the foot steps)
       releaseS: 0.12,               // half-life of the shift easing away once it is not needed (s)
       reachHeelDeg: 30,             // a planted leg short of its foot raises the heel up to this, then lowers the pelvis
       stepAtH: 0.06,                // held back further than this (heights, ~4.7 in), the foot steps now instead...
@@ -277,13 +282,50 @@
                                     // Tune.debug.slideOkIn, 0.25 in, is a slide)
     },
 
+    // ---------------------------------------------------------------- the gaits (Trial 5)
+    gait: {
+      // the arm keys are taken this much further round the cycle than the leg keys (cycles), so each arm swings with the
+      // opposite leg as the feet really place it: walking, jogging, sprinting...
+      armLeadWalk: 0.04, armLeadJog: 0.24, armLeadSprint: 0.31,
+      armBackSlow: 0.54, armBackFast: 0.44, // ...and going backwards, this far round the reversed cycle at 6 ft/s and 12
+      dirBlendS: 0.12,              // the slide's and the backpedal's stepping and pose follow the way he goes over this (s)
+      aimFreezeS: 0.55,             // a quick step stops re-aiming at the moving body from this share of it on, fully at the
+                                    // end, so it comes down with no speed left...
+      strideAimFreezeSw: 0.75,      // ...and a stride's swing from this share of it on
+      openUpRate: 5,                // a defender opening up out of a slide or backpedal turns no faster than this (rad/s)...
+      slideMaxFtps: 12,             // ...and slides or backpedals no faster than this until his hips have come round (ft/s;
+                                    // elite players peak ~11-12 ft/s over a 5 m shuffle)
+      sprintLiftH: 0.28,            // a sprinting swing lifts the ankle this high (heights; at 0.32 the thigh went ~25 deg past
+                                    // horizontal and, turned over at a sprint's ~4 steps/s, the knee popped mid-swing)
+      warpMaxBeta: 0.44,            // a running gait's key poses are fitted to the real stance share only up to this much of
+                                    // the cycle (its flight then keeps at least 0.06 of it)
+      poseMixS: 0.07,               // the gait pose's mix of walk, jog and sprint follows the pace on a critically damped
+                                    // spring with this half-life (s): a full change over ~0.25 s
+      landPitchS: 0.025,            // a foot comes down at the pitch it had in the air (tipped toes-down by the ankle's range
+                                    // under a deep knee bend, a slide's) and eases to the stride's landing pitch on a
+                                    // critically damped spring with this time constant (s): ~90% in 0.1 s as the weight
+                                    // comes on
+      backLandDeg: 12,              // a backpedal's step comes down toes first with the heel this far up (deg)
+      predictCycleS: 0.04,          // the stride time a landing spot is predicted with follows the cadence on a critically
+                                    // damped spring with this time constant (s)
+      foldMaxH: 0.06,               // a runner's heel kick brings the ankle in toward the hip's line by at most this (heights)
+      clearS: 0.03,                 // how far a swinging foot goes round the planted one eases to what is needed on a
+                                    // critically damped spring with this time constant (s)
+      liftReachSw: 0.4,             // early in a swing the leg is no longer than it was at the lift, back to its full length
+                                    // by this share of the swing
+      landSwivelS: 0.03,            // a leg that has just landed keeps its knee turned about the hip-ankle line where it
+                                    // was in the air and eases onto the planted leg's plane with this time constant (s)
+
+    },
+
     // ---------------------------------------------------------------- the floor (Trial 3)
     floor: {
       // a planted foot turns only as a pivot: on the ball of the foot with the heel up (coaching: pivot on the ball;
       // a heel turned on the floor slides). The heel comes up over upS, the foot turns once the heel is at turnAtDeg
       // (clear of the floor), and the heel comes down over downS when the turn is done
       // (a moving body turning over a planted foot pivots it past gaitFreeDeg off its heading, standing past standFreeDeg)
-      pivot: { pitchDeg: 14, turnAtDeg: 6, startDeg: 1.5, doneDeg: 0.4, upS: 0.07, downS: 0.1, gaitFreeDeg: 18, standFreeDeg: 14 },
+      pivot: { pitchDeg: 14, turnAtDeg: 6, startDeg: 1.5, doneDeg: 0.4, upS: 0.07, downS: 0.1, gaitFreeDeg: 18, standFreeDeg: 14,
+        accel: 300 },               // (the turn's angular acceleration, rad/s^2: a pivot reaches its top rate in ~0.05 s)
       // going forward, a landing foot points this much toward the way he is going rather than the way his hips face
       toesFollowTravel: 0.8,
       // how high a small step in a stance lifts the ankle (heights; ~4.3 in): in a deep stance the foot hangs toes down
@@ -298,10 +340,17 @@
       pelvisUpHz: 8,                // a pelvis let go by the leg that held it down comes back up on this spring (Hz)...
       pelvisUpFtps: 2.5,            // ...never faster than this (a running body's centre of mass rises at ~1.5-3 ft/s)
       toeBendMaxDeg: 60,            // toes brushing the floor bend up at the ball this far at most (MTP extension ~70, AAOS)
-      airGuardSw: 0.25,             // a leg in the air is held with its knee over its own line from this far into a swing
+      liftAnkleMarginDeg: 2,        // a stride's foot leaves the floor with its ankle this far inside its unloaded range
+      heelRiseDegps: 300,           // a planted heel comes up for the leg's reach no faster than this (deg/s)...
+      heelDropDegps: 200,           // ...and back down no faster than this
+      airGuardSw: 0.25,             // a leg in the air is held with its knee over its own line from this far into a swing...
+      airGuideK: 0,                 // ...this much (0 to 1). Off since Trial 5: the pole solve keeps a sprinter's knee within
+                                    // 2.7 in of the hip-ankle line without it, and it held a slide's wide leg ~38 deg in over
+                                    // 3 frames after lift-off and let go of it at contact, the knee popping both times
       toeTipDegps: 600,             // a foot that left the floor flat tips toes-down no faster than this (deg/s; an ankle
                                     // plantarflexes ~300-400 deg/s at a walking toe-off, faster running)
       swingFixReleaseS: 0.06,       // a swinging foot lifted clear of the floor eases back onto its own path (half-life, s)
+      swingPullFtps: 6,             // a swinging foot out of reach is pulled in toward the hip no faster than this (ft/s)
       swingFixIters: 8,             // tries at lifting a swinging foot clear of the floor in one step...
       swingFixGain: 1.5,            // ...each lifting it this many times its depth
     },

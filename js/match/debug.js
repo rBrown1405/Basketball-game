@@ -131,6 +131,7 @@
         cad: new Map(), guardFrames: 0, guardShift: [], guardAnk: 0, guardSlip: 0,
         step: {}, headTravel: [], headTravelOff: 0, speedBins: {},
         wt: { cut: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, brake: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, turnSnaps: 0, byMass: {}, hipJumps: 0, hipJumpBy: {}, hipJumpWorst: 0, hipJumpWorstAt: '' },
+        gt: { cls: {}, trans: 0, transBy: {}, transPops: 0, transPopBy: {}, transPopAt: [], popBy: {}, after: { frames: 0, pops: 0 } },
       };
     }
     tracker(a) {
@@ -170,6 +171,7 @@
         this._body(a, t, count, dt);
         this._steps(a, t, count, s.time || 0);
         this._weight(a, t, count, dt, s.time || 0);
+        this._gait(a, t, count, s.time || 0, ball);
         t.label = stateLabel(a, s.view);
       }
       this._pairs(list);
@@ -297,12 +299,12 @@
         const j = POP_J[i] * 3, rx = P[j] - a.x, ry = P[j + 1] - a.y;
         cur[i * 3] = rx * s - ry * c; cur[i * 3 + 1] = rx * c + ry * s; cur[i * 3 + 2] = P[j + 2];
       }
-      t.pops = 0;
+      t.pops = 0; t.popJ = 0;
       if (k.n >= 3) {
         for (let i = 0; i < POP_J.length; i++) {
           const ax = cur[i * 3] - 2 * p1[i * 3] + p2[i * 3], ay = cur[i * 3 + 1] - 2 * p1[i * 3 + 1] + p2[i * 3 + 1], az = cur[i * 3 + 2] - 2 * p1[i * 3 + 2] + p2[i * 3 + 2];
           const am = Math.hypot(ax, ay, az) / (dt * dt);
-          if (am > Tn.jointSnapFtps2) { t.pops++; if (count) { S.jointSnaps++; S.jointSnapBy[POP_NAME[i]] = (S.jointSnapBy[POP_NAME[i]] || 0) + 1; } }
+          if (am > Tn.jointSnapFtps2) { t.pops++; t.popJ |= 1 << i; if (count) { S.jointSnaps++; S.jointSnapBy[POP_NAME[i]] = (S.jointSnapBy[POP_NAME[i]] || 0) + 1; } }
         }
       }
     }
@@ -586,6 +588,69 @@
       if (!b.players.has(a)) { b.players.add(a); b.lb += m; b.n++; }
       return b;
     }
+    /** the gait a body is in (Trial 5): walk, jog, run, sprint, slide, back or stand; null in a move, with an arm move
+     *  over the legs, or with the ball (those are the later trials') */
+    gaitClass(a, ball) {
+      if (a.clip && a.clip.clip) return null;
+      if (a.upper && a.upper.clip) return null;
+      if (ball && (ball.holder === a || (ball.state === 'dribble' && ball.dr && ball.dr.actor === a))) return null;
+      if (!a.gaitOn) return 'stand';
+      if ((a.latK || 0) > 0.5) return 'slide';
+      if (a.fwdDot != null && a.fwdDot < -0.3) return 'back';
+      const v = a.speed, TG = TU();
+      return v < TG.gaitWalkFtps ? 'walk' : v < TG.gaitJogFtps ? 'jog' : v < TG.gaitRunFtps ? 'run' : 'sprint';
+    }
+    /** the gaits (Trial 5): pops by gait and around a change of gait, and each arm against the opposite leg (the
+     *  hands' fore-aft split against the feet's, which a contralateral swing keeps in step) */
+    _gait(a, t, count, time, ball) {
+      if (!count) return;
+      const S = this.S, G = S.gt, Tn = TU(), cls = this.gaitClass(a, ball);
+      const g = t.gt || (t.gt = { c: null, tc: -9, from: '', nt: -9 });
+      if (cls == null) { g.c = null; g.nt = time; return; }
+      // (the first moments out of a move or with the ball just gone are the arms and legs coming off it: counted apart,
+      // they are the later trials')
+      if (time - g.nt < Tn.gaitAfterMoveS) { G.after.frames++; G.after.pops += t.pops; g.c = cls; return; }
+      if (g.c != null && g.c !== cls) { G.trans++; g.from = g.c + '>' + cls; G.transBy[g.from] = (G.transBy[g.from] || 0) + 1; g.tc = time; }
+      g.c = cls;
+      const b = G.cls[cls] || (G.cls[cls] = { frames: 0, pops: 0, n: 0, sh: 0, sf: 0, shh: 0, sff: 0, shf: 0, elb: 0 });
+      b.frames++;
+      if (t.pops) {
+        b.pops += t.pops;
+        for (let i = 0; i < POP_NAME.length; i++) if (t.popJ & (1 << i)) { const k = cls + ':' + POP_NAME[i]; G.popBy[k] = (G.popBy[k] || 0) + 1; }
+        if (time - g.tc < Tn.gaitTransWindowS) {
+          G.transPops += t.pops;
+          G.transPopBy[g.from] = (G.transPopBy[g.from] || 0) + t.pops;
+          if (G.transPopAt.length < 12) G.transPopAt.push(g.from + ' ' + (a.id || '') + ' t=' + time.toFixed(2));
+        }
+      }
+      if (cls === 'stand' || cls === 'slide' || a.speed < 3) return;
+      // fore-aft (body frame) of the hands and the ankles: L hand minus R hand against R foot minus L foot
+      const P = a.sk.P, c = Math.cos(a.facing), s = Math.sin(a.facing), fw = (j) => (P[j * 3] - a.x) * c + (P[j * 3 + 1] - a.y) * s;
+      const dh = fw(J.L_HD) - fw(J.R_HD), df = fw(J.R_AN) - fw(J.L_AN);
+      b.n++; b.sh += dh; b.sf += df; b.shh += dh * dh; b.sff += df * df; b.shf += dh * df;
+      b.elb += (a.sk.pose[CH.lElF] + a.sk.pose[CH.rElF]) * 0.5;
+    }
+    /** the Trial 5 gait scorecard */
+    gaitSummary() {
+      const S = this.S, G = S.gt, top = (o, n) => Object.entries(o).sort((p, q) => q[1] - p[1]).slice(0, n || 8);
+      const cls = {};
+      let lf = 0, lp = 0;
+      for (const k of ['stand', 'walk', 'jog', 'run', 'sprint', 'back', 'slide']) {
+        const b = G.cls[k]; if (!b) continue;
+        lf += b.frames; lp += b.pops;
+        const o = { frames: b.frames, pops: b.pops, popsPerMin: +(b.pops / Math.max(1e-9, b.frames * S.stepDt / 60)).toFixed(2) };
+        if (b.n >= 30) {
+          const mh = b.sh / b.n, mf = b.sf / b.n, vh = b.shh / b.n - mh * mh, vf = b.sff / b.n - mf * mf, cv = b.shf / b.n - mh * mf;
+          o.armLegSync = +(cv / Math.sqrt(Math.max(1e-12, vh * vf))).toFixed(3);
+          o.handSwingIn = +(Math.sqrt(Math.max(0, vh)) * 2 * 1.4142 * 12).toFixed(1);
+          o.elbowDeg = +(b.elb / b.n / U.DEG).toFixed(1);
+        }
+        cls[k] = o;
+      }
+      return { byGait: cls, locoFrames: lf, locoPops: lp, locoPopsPerMin: +(lp / Math.max(1e-9, lf * S.stepDt / 60)).toFixed(2), popsBy: top(G.popBy, 12),
+        afterMove: { frames: G.after.frames, pops: G.after.pops, popsPerMin: +(G.after.pops / Math.max(1e-9, G.after.frames * S.stepDt / 60)).toFixed(2) },
+        transitions: G.trans, transitionsBy: top(G.transBy, 12), transitionPops: G.transPops, transitionPopsBy: top(G.transPopBy), transitionPopAt: G.transPopAt };
+    }
     /** the Trial 4 weight scorecard */
     weightSummary() {
       const S = this.S, W = S.wt, pf = (n, d) => +(n / Math.max(1, d) * 100).toFixed(1);
@@ -683,6 +748,7 @@
         body: this.bodySummary(),
         floor: this.floorSummary(),
         weight: this.weightSummary(),
+        gait: this.gaitSummary(),
       };
     }
     /** the Trial 2 body scorecard */

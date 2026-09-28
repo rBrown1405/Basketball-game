@@ -140,11 +140,16 @@ console.log('joint ranges: soft spine and neck limits, the spine chain, the plan
   near((q[CH.spTwist] + q[CH.chTwist]) / U.DEG, 30, 1e-4, 'spine chain: total twist kept (deg)');
   ok(q[CH.spTwist] <= RG.LIM.spTwist[1] + 1e-6 && q[CH.chTwist] > q[CH.spTwist], `spine chain: lumbar ${(q[CH.spTwist] / U.DEG).toFixed(1)}, thoracic ${(q[CH.chTwist] / U.DEG).toFixed(1)} deg`);
   // the planted hip guard: plant the left foot crossed far over to the right; the hip stays in range, the foot stays put
+  // (moved across over 20 steps, ~3.6 ft/s: the pelvis follows no faster than Tune.hipGuard.shiftFtps, and a foot
+  // put there in one step is past it, so it steps instead, Trial 5)
   world.time += 1 / 60; a.solve(); meters.frame();
   const fL = a.feet[0], c0 = Math.cos(a.facing), s0 = Math.sin(a.facing);
   const fx = fL.x, fy = fL.y;
-  fL.x = a.x + s0 * 1.2; fL.y = a.y - c0 * 1.2;
-  world.time += 1 / 60; a.solve(); meters.frame();
+  for (let i = 1; i <= 20; i++) {
+    fL.x = fx + (a.x + s0 * 1.2 - fx) * i / 20; fL.y = fy + (a.y - c0 * 1.2 - fy) * i / 20;
+    world.time += 1 / 60; a.solve(); meters.frame();
+  }
+  ok(fL.state === 'plant', `left foot moved 1.2 ft across over 20 steps stays planted (${fL.state})`);
   const hipA = a.sk.pose[CH.lHipA] / U.DEG, r0 = RG.LIM.lHipA[0] / U.DEG;
   ok(hipA >= r0 - 0.01, `left foot planted 1.2 ft across: hip adduction ${hipA.toFixed(1)} deg (range ${r0.toFixed(0)}..), pelvis moved ${(Math.hypot(a._hg.x, a._hg.y) * 12).toFixed(1)} in toward it`);
   const ik = a.sk.legIK[0], jA = J.L_AN * 3;

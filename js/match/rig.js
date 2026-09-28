@@ -434,6 +434,11 @@
           // fully; blending the two solutions' joint angles swung the arm through odd, even flipping, paths
           const ax = P[o + 6] - sx, ay = P[o + 7] - sy, az = P[o + 8] - sz;
           const fx = R[18] * ax + R[21] * ay + R[24] * az, fy = R[19] * ax + R[22] * ay + R[25] * az, fz = R[20] * ax + R[23] * ay + R[26] * az;
+          // (toward the nearest point the hand can reach, not the target itself: a hand reaching for a ball still ~20 ft
+          // off went ~13% of the way there at 13% of the weight, the arm straightening and swinging ~70 deg in one
+          // frame, Trial 5; at full weight it is the same reach)
+          const tl = Math.sqrt(Dx * Dx + Dy * Dy + Dz * Dz), rm = (d.ua + d.fa) * 0.9995;
+          if (tl > rm) { const k = rm / tl; Dx *= k; Dy *= k; Dz *= k; }
           Dx = fx + (Dx - fx) * w; Dy = fy + (Dy - fy) * w; Dz = fz + (Dz - fz) * w;
         }
         const ex = P[o + 3] - sx, ey = P[o + 4] - sy, ez = P[o + 5] - sz;
@@ -511,7 +516,14 @@
         // a foot in the air (steered by its heading and pitch) still hangs from its ankle: past the ankle's range
         // against the shank (the foot held flat under a shank swinging back bent it ~35-40 deg up) it turns with the
         // shank, toes down, to the end of the range
-        if (ik.soft) this._footRange(side, LIM[pre + 'Ank']);
+        // (a foot just off the floor keeps the bend its ankle had under the weight and unloads to the unloaded range
+        // over a few frames, ik.ankHi: held to it at once, a deep stance's lift-off tipped the toes ~15 deg down into
+        // the floor and the foot was thrown up out of it, Trial 5)
+        if (ik.soft) {
+          const r = LIM[pre + 'Ank'];
+          if (ik.ankHi != null && ik.ankHi > r[1]) { const t = this._ankR || (this._ankR = [0, 0]); t[0] = r[0]; t[1] = ik.ankHi; this._footRange(side, t); }
+          else this._footRange(side, r);
+        }
       } else {
         mulRot(R, sh, 0, p[CH[pre + 'Ank']], R, ft);
         if (ik.on > 0.001) {
@@ -608,7 +620,16 @@
         // plane carries straight on at lift-off and landing (Trial 3: switching solvers popped the knee each step)
         const cy = Math.cos(ik.yaw), sy = Math.sin(ik.yaw);
         const qx = R[0] * cy + R[3] * sy, qy = R[1] * cy + R[4] * sy, qz = R[2] * cy + R[5] * sy;
-        const ps = legPole(Dx * sc, Dy * sc, Dz * sc, dd, L1, L2, qx, qy, qz, sg, p[CH[pre + 'HipF']], -sg * p[CH[pre + 'HipA']]);
+        // (a leg that has just landed keeps its knee where it was in the air, turned about the hip-ankle line, and eases
+        // onto this plane, ik.swv: the leg held in the air by its guide or its ranges went onto it in one frame and the
+        // knee popped, Trial 5)
+        let ref = null;
+        if (ik.swRef && !ik.soft) {
+          const q0 = ik.swRef[0], q1 = ik.swRef[1], q2 = ik.swRef[2];
+          ref = this._v; ref[0] = R[0] * q0 + R[3] * q1 + R[6] * q2; ref[1] = R[1] * q0 + R[4] * q1 + R[7] * q2; ref[2] = R[2] * q0 + R[5] * q1 + R[8] * q2;
+        }
+        const ps = legPole(Dx * sc, Dy * sc, Dz * sc, dd, L1, L2, qx, qy, qz, sg, p[CH[pre + 'HipF']], -sg * p[CH[pre + 'HipA']], ik.soft ? 0 : ik.swv || 0, ref);
+        if (ref) { ik.swv = ps.sw; ik.swRef = null; ik.swNew = true; }
         const T = sg * ps.t, rT = LIM[pre + 'HipT'];
         if (T >= rT[0] && T <= rT[1]) {
           if (!ik.soft) {
@@ -843,12 +864,14 @@
   // (how far a foot in the air can be turned against its shank: tibial rotation with the knee bent plus the foot's own
   // turn at the ankle, ~35 deg either way)
   const FOOT_YAW_MAX = 35 * U.DEG;
-  const LSOL = { f: 0, b: 0, t: 0 };
+  const LSOL = { f: 0, b: 0, t: 0, sw: 0 };
   /** Two-bone leg solve with a knee pole (pelvis frame, hip joint at the origin): (nx,ny,nz) the ankle target at
    *  distance dd, (qx,qy,qz) the way the knee should bulge. The same as armPole but for a hinge that bends backward
    *  (the shank folds behind the thigh). Returns the thigh frame's Euler angles Rx(f) Ry(b) Rz(t) (HipF = f,
-   *  HipA = -sg b, HipT = sg t), of the two equivalent sets the one inside the hip's range, else nearest the last */
-  function legPole(nx, ny, nz, dd, L1, L2, qx, qy, qz, sg, f0, b0) {
+   *  HipA = -sg b, HipT = sg t), of the two equivalent sets the one inside the hip's range, else nearest the last.
+   *  sw: the knee turned this far (radians) about the hip-ankle line from the pole's plane; ref (a vector from the hip,
+   *  pelvis frame): instead, the knee turned to that side of the line, the angle that took left in LSOL.sw */
+  function legPole(nx, ny, nz, dd, L1, L2, qx, qy, qz, sg, f0, b0, sw, ref) {
     const il = 1 / (dd || 1e-6);
     const ux0 = nx * il, uy0 = ny * il, uz0 = nz * il;
     const a = (L1 * L1 - L2 * L2 + dd * dd) / (2 * dd);
@@ -858,6 +881,21 @@
     let pl = Math.sqrt(px * px + py * py + pz * pz);
     if (pl < 1e-4) { k = uy0; px = -k * ux0; py = 1 - k * uy0; pz = -k * uz0; pl = Math.sqrt(px * px + py * py + pz * pz) || 1; }
     px /= pl; py /= pl; pz /= pl;
+    LSOL.sw = sw || 0;
+    if (ref) {
+      const kr = ref[0] * ux0 + ref[1] * uy0 + ref[2] * uz0;
+      const rx = ref[0] - kr * ux0, ry = ref[1] - kr * uy0, rz = ref[2] - kr * uz0, rl = Math.sqrt(rx * rx + ry * ry + rz * rz);
+      if (rl > 1e-4) {
+        const cx = py * rz - pz * ry, cy = pz * rx - px * rz, cz = px * ry - py * rx;
+        LSOL.sw = Math.atan2((cx * ux0 + cy * uy0 + cz * uz0) / rl, (px * rx + py * ry + pz * rz) / rl);
+      }
+    }
+    if (LSOL.sw) {
+      // (p turned about the unit hip-ankle line u: p cos + (u x p) sin, p being square to u)
+      const cs = Math.cos(LSOL.sw), sn = Math.sin(LSOL.sw);
+      const wx = uy0 * pz - uz0 * py, wy = uz0 * px - ux0 * pz, wz = ux0 * py - uy0 * px;
+      px = px * cs + wx * sn; py = py * cs + wy * sn; pz = pz * cs + wz * sn;
+    }
     // knee, thigh and shank directions
     const ex = a * ux0 + r * px, ey = a * uy0 + r * py, ez = a * uz0 + r * pz;
     const ux = ex / L1, uy = ey / L1, uz = ez / L1;

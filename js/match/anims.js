@@ -131,15 +131,17 @@
     // stature (~0.0039 x height per step/min), so cadence = sqrt(60 v / WR): ~103 steps/min for a 6'6" player
     // at 1.37 m/s (step ~0.40 x height), ~84 at a stroll, ~120 walking briskly
     const walk = Math.sqrt(60 * Math.max(0.6, s) / (0.0039 * H)) / 60;
-    // running: stride first, then cadence. Speeding up from a jog, a runner mostly lengthens the stride and only at
-    // high speed turns the legs over faster: ~147-156 steps/min jogging, ~170 running, topping out ~190 (3.2 steps/s)
-    // at a sprint, where the steps keep growing instead (no tiny, quick steps); longer legs turn over a little slower
-    // (~4 steps/min less per 5 cm of leg)
+    // running: stride first, then cadence. Speeding up from a jog, a runner mostly lengthens the stride, ~147-156
+    // steps/min jogging, ~170 running, ~186 at 20 ft/s; past ~7 m/s the step stops growing (~2.0-2.1 m) and the legs
+    // turn over faster instead, ~3.3 steps/s at 7 m/s to ~4.3 at 9 m/s (Trial 5: capped at 3.2, a sprint took 8 ft
+    // steps 3.5 times a second, a long floating bound); longer legs turn over a little slower (~4 steps/min less per
+    // 5 cm of leg)
     let c;
     if (s < 10) c = U.lerp(2.45, 2.6, U.clamp((s - RUN_MIN) / (10 - RUN_MIN), 0, 1));
     else if (s < 14) c = U.lerp(2.6, 2.85, (s - 10) / 4);
     else if (s < 20) c = U.lerp(2.85, 3.1, (s - 14) / 6);
-    else c = U.lerp(3.1, 3.2, Math.min(1, (s - 20) / 6));
+    else if (s < 23) c = U.lerp(3.1, 3.3, (s - 20) / 3);
+    else c = U.lerp(3.3, 4.3, Math.min(1, (s - 23) / 6.5));
     const run = c * Math.sqrt(6.6 / H);
     if (s <= WALK_MAX) return walk;
     if (s >= RUN_MIN) return run;
@@ -162,7 +164,7 @@
     // (swing foot height: a captured 10-13 ft/s run tucks the knee to ~106-117 deg with the thigh ~45-50 deg up)
     // (higher than the capture's averages on purpose, the user's jogging references: the rear heel kicks up toward
     // the buttock, ~knee height on a jog, and the knee drives through high; see the swing arc in the actor)
-    out.lift = gw.walk * 0.05 + gw.jog * 0.21 + gw.sprint * 0.32;
+    out.lift = gw.walk * 0.05 + gw.jog * 0.21 + gw.sprint * M.Tune.gait.sprintLiftH;
     // share of a runner's swing shape (heel up behind first) vs a walker's low arc
     out.run = gw.jog + gw.sprint;
     // how far ahead of the body the ankle lands, as a share of the contact length: a walker's heel strikes about
@@ -187,20 +189,26 @@
 
   const TMPW = {};
   /** write gait upper-body/pelvis channels into pose `out` blended by weight k (0..1) */
-  const ARMCH = new Uint8Array(RG.NCH);
+  const ARMCH = new Uint8Array(RG.NCH), LEGCH = new Uint8Array(RG.NCH);
   for (const i of RG.GROUP.arms) ARMCH[i] = 1;
+  for (const i of RG.GROUP.legs) LEGCH[i] = 1;
   /** a running set's phase moved so its key poses fall where this stride's are: its stance drawn for a share b0 of
    *  the cycle, the real one b (touchdown stays at 0 and 0.5, mid-stance and toe-off move with the real stance, the
    *  flight's middle with the real flight) */
   function warpPhase(ph, b0, b) {
-    if (!(b > 0.05 && b < 0.49) || Math.abs(b - b0) < 1e-3) return ph;
+    // (the real share held under Tune.gait.warpMaxBeta: toward half the cycle, no flight left, the set's flight keys were
+    // drawn in a sliver of it, and past 0.49 the warp let go at once; a walk turning into a jog crosses there, and the
+    // arms and hips jumped, Trial 5)
+    b = Math.min(b, M.Tune.gait.warpMaxBeta);
+    if (!(b > 0.05) || Math.abs(b - b0) < 1e-3) return ph;
     const h = ph >= 0.5 ? 0.5 : 0, q = ph - h;
     return h + (q < b ? q * b0 / b : b0 + (q - b) * (0.5 - b0) / (0.5 - b));
   }
-  function applyGait(out, phase, speed, k, backwards, kArms, beta) {
+  function applyGait(out, phase, speed, k, backwards, kArms, beta, gwIn) {
     if (kArms == null) kArms = k;
     if (k <= 0.001 && kArms <= 0.001) return;
-    const gw = gaitWeights(speed, TMPW);
+    // (the walk, jog and sprint mix may come eased from the body, see Actor.buildPose)
+    const gw = gwIn || gaitWeights(speed, TMPW);
     const sets = [[WALK, gw.walk, KEYS.walk.beta], [JOG, gw.jog, KEYS.jog.beta], [SPRINT, gw.sprint, KEYS.sprint.beta]];
     // backwards: 0..1 (or boolean); in between, the forward and the reversed cycles are mixed
     const bw = backwards === true ? 1 : +backwards || 0;
@@ -208,15 +216,29 @@
     const acc = applyGait._acc || (applyGait._acc = new Float32Array(RG.NCH));
     const has = applyGait._has || (applyGait._has = new Uint8Array(RG.NCH));
     acc.fill(0); has.fill(0);
+    // (the arms swing with the opposite leg: the legs are placed by the feet, which run a little behind these curves'
+    // own leg keys, so the arm keys are taken that much further on (Tune.gait.armLead*, cycles), and going backwards
+    // about half a cycle round (Tune.gait.armBack*); at the curves' own phase the arms trailed the opposite leg by a
+    // quarter to a third of a cycle running and swung with the same-side leg backpedalling, Trial 5)
+    const TG = M.Tune.gait, lead = gw.walk * TG.armLeadWalk + gw.jog * TG.armLeadJog + gw.sprint * TG.armLeadSprint;
+    const fr = (x) => x - Math.floor(x);
     for (const [set, w, b0] of sets) {
       if (w <= 0.001) continue;
       const pf = b0 < 0.5 && beta != null ? warpPhase(phase, b0, beta) : phase;
       const pr = 1 - pf;
       const ph = bw >= 1 ? pr : pf;
+      const pfA = fr(pf + lead), prA = fr(pr + U.lerp(TG.armBackSlow, TG.armBackFast, U.smooth((Math.abs(speed) - 6) / 6))), phA = bw >= 1 ? prA : pfA;
       for (const key in set) {
         const i = CH[key];
         const v = set[key];
-        const val = typeof v === 'number' ? v : mixB ? U.loopSample(v, pf) * (1 - bw) + U.loopSample(v, pr) * bw : U.loopSample(v, ph);
+        const arm = ARMCH[i];
+        // (the pelvis and trunk keys too, going forward: sampled on the curves' own clock while the arms were moved on
+        // to the feet's, the shoulders' line stopped mirroring the hips' in a run, the counter-rotation falling from
+        // r -0.73 to -0.43 in games, Trial 5; the leg keys stay, the legs are placed by the feet)
+        const trunk = !arm && !LEGCH[i];
+        const val = typeof v === 'number' ? v : arm ? (mixB ? U.loopSample(v, pfA) * (1 - bw) + U.loopSample(v, prA) * bw : U.loopSample(v, phA))
+          : trunk ? (mixB ? U.loopSample(v, pfA) * (1 - bw) + U.loopSample(v, pr) * bw : U.loopSample(v, bw >= 1 ? pr : pfA))
+          : mixB ? U.loopSample(v, pf) * (1 - bw) + U.loopSample(v, pr) * bw : U.loopSample(v, ph);
         acc[i] += (RG.LINEAR[key] ? val : val * D) * w;
         has[i] = 1;
       }
