@@ -780,6 +780,52 @@ plays exactly as before (the same league simulated with the Phase 4 code and thi
 - **The audit** (`tools/audit`) gained section 10: the tallies checked against the game (possessions, points, calls,
   one log entry per possession) and the numbers the screens show over all the games.
 
+### What the Phase 5 audit shows (52 games, the same 52 seeds as Phases 1 to 4)
+
+Full tables: `audit/phase5/report.md` (Phase 5 against Phase 4, no calls from the coach, section 10 for the play
+tracking) and `audit/phase5/calls/report.md` (the same seeds with the coach calling plays, against Phase 4's run with
+the calls).
+
+Nothing broken: all 52 games reached the final buzzer, no script errors, no stuck possessions, the court score
+matched the engine in every game. The games are the ones Phase 4 played: 211 of the 212 gameplay metrics are
+identical (228.5 points and 201.7 possessions a game, the same shots, defense, movement, rebounds, play calls and
+coverages); only the wall time differs. The machine was slower than when the Phase 4 audit ran: the Phase 4 code
+measured again on 8 of the games at the same time as this code took 62.6 s a game, this code 62.1 s (the Phase 4
+audit had 56.1 s on those 8). The engine alone plays 90 games in the same time with both (1.99 and 1.98 s).
+
+The play tracking, over the 52 games (section 10):
+- The tallies add up in all 52 games: each team's possessions and points equal the game's, the calls equal the
+  audit's own count (153.9 a game), and each game's possession log has one entry per possession.
+- Possessions: 65.1 % with a called play (1.13 points per possession), 19.4 % in flow (1.14), 13.6 % in transition
+  (1.26), 1.9 % other (0.31); 1.13 points per possession in all (the NBA is about 1.14). Synergy has NBA teams
+  in transition on about 13.8 % of their possessions at about 1.10 points, the best around 1.2
+  ([CBS Sports](https://www.cbssports.com/nba/news/push-it-real-good-the-nbas-best-transition-offenses)): the
+  share matches, the points per transition possession (1.26) are high. That is the engine's fast-break model
+  from before this phase, which Phase 5 only measures; it is a candidate for a later tuning pass.
+- Calls: 75.5 % completed (6.0 % on an early read), 19.2 % broke down, 5.3 % cut short by a foul before the read.
+  Section 8's "reached a read" (81.0 %) is the completed calls plus the 5.5 % whose read the shot clock forced,
+  which the tracking counts as shot-clock breakdowns.
+- Why calls broke down: a turnover 49.0 %, the shot clock 24.0 %, a denied pass 14.2 %, the help 4.3 %, well
+  defended 4.8 %, a blown screen 3.4 %, a switch 0.3 %; 22.8 % at the entry, before the first step. A switch
+  rarely stops a play in the engine: the reads it hurts leave others open, so the offense goes to a counter (34.7 %
+  of calls end on another read than the play's main option).
+- The calls' looks: shot quality 1.15 expected points a shot, 34.6 % open, 20.0 % tightly contested, 46.0 % from the
+  field.
+- The defense (table 10b): points allowed per half-court possession from 1.10 (switch everything, blitz) and 1.11
+  (drop, the zones) to 1.13 (man-to-man), 1.16 (ball pressure), 1.19 (pack the paint), 1.20 (run shooters off the
+  line) and 1.31 (hedge the pick and roll, 4.9 possessions a game); 1.26 in transition.
+- Size: 3.0 KB of play tallies with each box score (both teams), 26 KB for a game's possession log (kept for the
+  coach's last four games, like the play-by-play).
+
+With the coach calling plays (the same seeds; the calls change the games), against Phase 4's run with the calls:
+everything healthy (52 of 52 games to the buzzer, no errors, no stuck possessions, court and engine scores equal),
+230 of the 231 metrics identical (227.4 points and 198.8 possessions a game, the coach's 49.4 calls a game, 80.3 %
+of them reaching a read; only the wall time differs), and the tallies add up in all 52 games (76.2 % of the calls
+completed, 18.7 % broke down, 1.13 points per possession with a call).
+
+The animation checks are identical to Phase 4 over 380,398 player-frames: body contact 213.3 per 10,000, feet stuck
+behind 26.9 per 10,000 running frames, no errors.
+
 ### Research behind Phase 5
 
 - The standard for play analytics is Synergy's play types (the NBA's own play type pages use them): each possession
