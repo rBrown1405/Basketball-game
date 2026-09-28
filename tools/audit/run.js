@@ -3,7 +3,8 @@
 // actually do, then writes a report of bad behaviour with counts.
 //
 //   node tools/audit/run.js [--games 52] [--procs 4] [--seed 101] [--out audit/latest] [--label now] [--repo .]
-//                           [--baseline audit/phase1/metrics.json] [--baseLabel "Phase 1"]
+//                           [--baseline audit/phase1/metrics.json] [--baseLabel "Phase 1"] [--calls 1]
+// (--calls 1: the head coach calls plays, drawn plays, inbound plays and defensive schemes during the games)
 //
 // Needs Node and Playwright with Chromium (PLAYWRIGHT_BROWSERS_PATH or --chrome path). Each game is a fresh league
 // made from its own seed, played from the opening tip to the final buzzer exactly as the Live view plays it; the
@@ -34,7 +35,7 @@ async function playGame(browser, seed) {
   await page.waitForTimeout(600);
   await page.addScriptTag({ content: sampler });
   const t0 = Date.now();
-  const res = await page.evaluate((seed) => window.PBCAudit.playGame(seed), seed);
+  const res = await page.evaluate(([seed, calls]) => window.PBCAudit.playGame(seed, { calls }), [seed, !!+(args.calls || 0)]);
   res.wallMs = Date.now() - t0; res.errors = errs.slice(0, 5);
   await page.close();
   return res;

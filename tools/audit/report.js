@@ -193,6 +193,34 @@ function metrics(games) {
       for (const k in g.pb.cov) cov[k] = (cov[k] || 0) + g.pb.cov[k];
     }
     m._pbFam = fam; m._pbPlay = play; m._pbBase = base; m._pbReads = reads; m._pbCov = cov; m._pbGames = pn;
+    // the head coach's calls and the drawn plays (Phase 4; games without them show n/a)
+    const U = (k) => pt((g) => (g.pb.user ? g.pb.user[k] : 0)), Mn = (k) => pt((g) => (g.pb.mine ? g.pb.mine[k] : 0));
+    const CG = PB.filter((g) => g.calls);
+    if (CG.length) {
+      const c = (k) => sum(CG, (g) => g.calls[k]);
+      m.cCallsPerGame = c('made') / CG.length;
+      m.cUsed = pct(c('used'), c('made'));
+      m.cInbUsed = pct(c('inbUsed'), c('inbMade'));
+      m.cDefHonored = pct(c('defHonored'), c('defPoss'));
+      m.cCovHonored = c('covPoss') ? pct(c('covHonored'), c('covPoss')) : null;
+      m.cDefReverted = c('defEnded') ? pct(c('defReverted'), c('defEnded')) : null;
+    }
+    if (U('n')) {
+      m.cUserPerGame = U('n') / pn;
+      m.cUserDone = pct(U('done'), U('n'));
+      m.cUserEarly = pct(U('early'), U('n'));
+      m.cUserTo = pct(U('to'), U('n'));
+      m.cUserPts = U('pts') / U('n');
+      m.cStaffPts = calls - U('n') ? (pt((g) => sum(Object.values(g.pb.byPlay), (x) => x.pts)) - U('pts')) / (calls - U('n')) : null;
+    }
+    if (Mn('n')) {
+      m.cMinePerGame = Mn('n') / pn;
+      m.cMineDone = pct(Mn('done'), Mn('n'));
+      m.cMineTo = pct(Mn('to'), Mn('n'));
+      m.cMinePts = Mn('pts') / Mn('n');
+      const sm = (k) => pt((g) => (g.pb.spotMine ? g.pb.spotMine[k] || 0 : 0)), smN = sm('n');
+      m.cMineSpot2 = smN ? pct(sm('lt2'), smN) : null; m.cMineSpot5 = smN ? pct(sm('lt2') + sm('lt5'), smN) : null; m.cMineSpotFar = smN ? pct(sm('far'), smN) : null;
+    }
   }
   return m;
 }
@@ -335,6 +363,27 @@ const SECTIONS = [
     ['pbInbPerGame', 'Inbound plays per game (under the basket, sideline)', '', '', ''],
     ['pbInbSafety', '  ball in to the safety, then the half-court call', '%', '', ''],
     ['pbCovMatch', 'Ball screens where the screener\'s man plays the called coverage (drop, level, hedge, blitz, switch, ice)', '%', 'up', ''],
+  ]],
+  ['9. The head coach\'s calls and the drawn plays (Phase 4: runs with --calls 1)', [
+    ['cCallsPerGame', 'Plays the coach called per game (each for the next half-court possession)', '', '', ''],
+    ['cUsed', '  run by the engine on that possession', '%', 'up', '~100 (a transition or putback possession waits for the next half-court one)'],
+    ['cUserPerGame', 'Coach-called plays run per game', '', '', ''],
+    ['cUserDone', '  reached a read', '%', 'up', ''],
+    ['cUserEarly', '  taken early', '%', '', ''],
+    ['cUserTo', '  stopped by a turnover', '%', 'down', ''],
+    ['cUserPts', '  points per call', '', '', ''],
+    ['cStaffPts', 'Points per call on the staff\'s calls (both teams)', '', '', ''],
+    ['cMinePerGame', 'Drawn plays run per game (called by the coach or the staff)', '', '', ''],
+    ['cMineDone', '  reached a read', '%', 'up', ''],
+    ['cMineTo', '  stopped by a turnover', '%', 'down', ''],
+    ['cMinePts', '  points per call', '', '', ''],
+    ['cMineSpot2', '  players within 2 ft of the drawn spot 1.2 s into a step', '%', 'up', ''],
+    ['cMineSpot5', '  within 5 ft', '%', 'up', ''],
+    ['cMineSpotFar', '  more than 10 ft away', '%', 'down', ''],
+    ['cInbUsed', 'Inbound calls run on the next throw-in under the basket', '%', 'up', ''],
+    ['cDefHonored', 'Defensive possessions under the coach\'s call played in the called scheme', '%', 'up', '100'],
+    ['cCovHonored', '  with the called pick-and-roll coverage', '%', 'up', '100'],
+    ['cDefReverted', 'Defensive calls that went back to the team\'s own scheme when they ran out', '%', 'up', '100'],
   ]],
 ];
 

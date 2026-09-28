@@ -722,6 +722,9 @@
         if (pix) for (const pp of people) this.drawPixelShadow(g, cam, pp.sk);
         else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, 1);
         b.drawShadow(g, cam);
+        // the called play's paths on the floor, under the players (playdraw.js)
+        const pp0 = this.opts.playPaths;
+        if (pp0 && pp0 !== 'off' && !rp && M.PlayDraw) U.safe(() => M.PlayDraw.floor(g, cam, this, pp0), this, 'play paths');
         // depth-sorted drawables
         const items = this.items; items.length = 0;
         const heldBy = !rp && (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : null;
@@ -770,6 +773,12 @@
         // whole-pixel upscale (uniform square pixels); the buffer is sized to cover the canvas
         mg.drawImage(this._pix, 0, 0, this._pix.width * k, this._pix.height * k);
         mg.imageSmoothingEnabled = true;
+      }
+      // the play overlay's numbers and card (playdraw.js), at full resolution
+      if (this.opts.playPaths && this.opts.playPaths !== 'off' && !rp && M.PlayDraw) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => M.PlayDraw.top(mg, this.cam, this, this.opts.playPaths), this, 'play paths');
       }
       // the coach's debug overlay (debugdraw.js): on top of everything, at full resolution
       if (this.opts.debug && !rp && M.DebugDraw) {

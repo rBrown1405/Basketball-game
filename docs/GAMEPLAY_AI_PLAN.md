@@ -579,6 +579,71 @@ feet and seconds):
   possessions or change the defensive scheme. `sim.js` gets the calls (`Sim.callPlay`, scheme for N possessions).
 - `view.js` / `plays.js`: an optional overlay of the play's intended paths on the court.
 
+### Phase 4: what was built
+
+Built on the Phase 3 playbook: a play the coach calls or draws runs through the same engine path (roles filled by
+ratings, the defense's reactions, the reads ending in the calibrated shot branches) and the same court code
+(alignment, steps, coverages) as the library's plays. With no call from the coach, the engine plays exactly the
+games it played before (the same league simulated with the Phase 3 code and this code gives the same score in every
+game).
+
+- **The coach's calls in the engine** (`js/core/sim.js`, `playcall.js`):
+  - `Sim.callPlay(g, team, play, n)`: a play from the playbook for the next 1 to 5 half-court possessions. The engine
+    runs it on the team's next half-court possession (a transition or putback possession waits), fills the roles from
+    the five on the floor, and records it as the coach's call ("called by the coach"); a look passed up resets into
+    the staff's next call, as with any play. The staff calls everything else, and can call the coach's drawn plays
+    too once they are in the book.
+  - `Sim.callInbound(g, team, 'blob' | 'slob', play)`: the play for the team's next throw-in under its basket or from
+    the sideline in the front court.
+  - `Sim.callDefense(g, team, scheme, coverage, n)`: a defensive scheme and, within man-to-man, the pick-and-roll
+    coverage (drop, at the level, hedge, blitz, switch, ice) for the next 3, 5 or 10 defensive possessions or the
+    rest of the game; then the team goes back to what it played before (unless the coach changed it again). Schemes
+    that decide ball screens themselves (switch everything, drop, hedge, blitz, the zones) take no coverage.
+  - `Sim.timeoutComing` tells the live game when the coach's timeout is about to be granted (a dead ball, not after a
+    defensive rebound or a steal), and `Sim.calls` what is in force.
+- **The timeout huddle** (`js/ui/huddle.js`, `live.js`): when the coach's timeout is granted, the huddle opens before
+  the next possession: the score, the clock, the timeouts left; Offense: every half-court play in the book drawn as
+  X's and O's with who it is run for, how well the five on the floor fit it and what it has scored tonight, filters by
+  family (and My plays, late game, vs zone), the staff's choice, how many possessions to run it for, and the next
+  inbound play under the basket and from the sideline; Defense: the scheme, the coverage and for how long; Lineup:
+  substitutions that check in at this dead ball. Nothing reaches the engine until "Back to the game". The Coach tab
+  shows the calls in force (each with a ✕) and a "Call a play" button to make calls from the bench without a timeout;
+  the broadcast tags a called play "📋 NAME, your call".
+- **The play designer** (`js/ui/playdesigner.js`; Team: Playbook, "✏️ Design a play"): a whiteboard half court.
+  The five start in a set (five out, four out one in, horns, 1-4 high, box; box, stack or line for inbounds) or from
+  any library play ("✏️ Make it mine"), then each step is drawn by dragging players, in the order things happen:
+  - to open floor: a cut (a dribble for the player with the ball); onto a teammate: a screen, or a pass from the
+    player with the ball; tools for cut, dribble, screen, pass, hand-off, drive and post-up, and an eraser; drag the
+    end of a line to change it; up to five steps; undo and redo; the X's (a defender for each player) on or off;
+  - the drawing uses the standard notation: solid arrows for cuts, zig-zags for dribbles and drives, a T for a
+    screen (the screener's line ends at the screen, the man coming off it curls past the screener), dashed arrows for
+    passes, two hash marks for a hand-off, a color per step; players are numbered 1 to 5;
+  - each spot gets a role (ball handler, pick-and-roll handler, screener who rolls or pops, shooter, spacer, cutter,
+    post, hub, scorer, dunker spot), with what the role looks for in a player and who among the starters fills it
+    and how well; the ★ marks who the play is run for;
+  - the reads come from what the play does: a ball screen gives the handler, the roll or pop and the kick-out; an
+    off-ball screen the catch, the curl and the slip; a pass into the post the post-up and the kick-out; a pass to a
+    shooter the catch-and-shoot and the closeout attack; a hand-off the turn of the corner, the big's roll and the
+    kick; a cut to the rim the layup; a drive the drive and the kick; at the end the ball handler's own shot and the
+    swing. Each read is one of the engine's calibrated branches with the defensive reactions that open it, and can be
+    turned off or made a low priority or the first look; inbound plays read the cutters at the rim, the shooters
+    behind the line and a safety;
+  - "▶ Run it" plays the drawing in motion (the players, the screens, the ball); the checks say what is missing
+    (a name, a role, an action that gets someone a shot). Saved plays go to the league save and, with "In my
+    playbook", into the team's book, the huddle and the staff's calls. The Playbook page has a My plays tab (Edit and
+    Delete; Duplicate in the designer) and a "Make it mine" button on every library play; a rebuilt book keeps the
+    coach's plays.
+- **The play on the court with its paths** (`js/match/playdraw.js`): while a play runs, its drawing is laid on the
+  floor like a telestrator, under the players, mirrored to the side the play is run on: the step under way bright,
+  the next one dimmer, the steps done fading; dashed rings where the players of the step are heading and, while
+  the five set up, the spots of the alignment; the play's numbers over the players; a card with the play, whose call
+  it is and the step. Modes: My calls (the default), All our plays, Both teams, Off; the 📋 button, the O key, or
+  Broadcast settings.
+- **The audit** gained the coach's calls (`--calls 1`): the coach calls a play for the next half-court possession
+  every few possessions (four drawn plays, a library play made the coach's own and the book's plays), an inbound
+  play under the basket and two defensive calls a game (man-to-man with a blitz, then a 2-3 zone), and the report
+  measures how they run (section 9).
+
 ## Phase 5: play tracking and analytics
 
 - `sim.js`: every possession records the play, how far into it the offense got, where it broke down and why

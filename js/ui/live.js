@@ -85,6 +85,7 @@
       camera: ['fixed', 'wide', 'close'].includes(st.camera) ? st.camera : 'auto',
       showNames: !!st.showNames,
       debug: ['all', 'defense', 'offense'].includes(st.debugOverlay) ? st.debugOverlay : null, // the coach's debug overlay
+      playPaths: ['off', 'mine', 'ours', 'all'].includes(st.playPaths) ? st.playPaths : 'mine', // the called play's paths on the court
     };
   }
 
@@ -94,7 +95,7 @@
     const ctx = UI.matchContext(S, g);
     const vs = viewSettings(S);
     if (vs.style !== 'retro' && PBC.Match && PBC.Match.View) {
-      try { return new PBC.Match.View(canvas, ctx, { quality: S.settings.lowQuality ? 'low' : 'high', pixelMode: vs.pixel, pixelSize: vs.pixelSize, camera: vs.camera === 'fixed' ? 'broadcast' : vs.camera, showNames: vs.showNames, debug: vs.debug, ai: PBC.Sliders && PBC.Sliders.aiMods ? PBC.Sliders.aiMods(S) : null }); } catch (e) { console.error('Match view failed', e); }
+      try { return new PBC.Match.View(canvas, ctx, { quality: S.settings.lowQuality ? 'low' : 'high', pixelMode: vs.pixel, pixelSize: vs.pixelSize, camera: vs.camera === 'fixed' ? 'broadcast' : vs.camera, showNames: vs.showNames, debug: vs.debug, playPaths: vs.playPaths, userTeam: g && g.userIdx >= 0 ? g.userIdx : null, ai: PBC.Sliders && PBC.Sliders.aiMods ? PBC.Sliders.aiMods(S) : null }); } catch (e) { console.error('Match view failed', e); }
     }
     if (PBC.Match && PBC.Match.RetroView) {
       try { return new PBC.Match.RetroView(canvas, ctx, { quality: 'high', showNames: false }); } catch (e) { console.error('RetroView failed', e); }
@@ -229,6 +230,7 @@
           <button class="btn sm" data-act="clutch" title="Skip ahead to crunch time">⏭ Crunch time</button>
           <button class="btn sm" data-act="end" title="Simulate to the final buzzer">⏩ End</button>
           <button class="btn sm ${S.settings.commentary !== false ? 'on' : ''}" data-act="booth" id="btn-booth" title="Commentary (C)">🎙️</button>
+          <button class="btn sm ${viewSettings(S).playPaths !== 'off' ? 'on' : ''}" data-act="paths" id="btn-paths" title="Play paths on the court: the called play's cuts, screens and passes (O)">📋</button>
           <button class="btn sm ${viewSettings(S).debug ? 'on' : ''}" data-act="debug" id="btn-debug" title="Coach's debug view: jobs, play steps, reads (D)">🧠</button>
           <button class="btn sm" data-act="bmenu" title="Broadcast settings">📺</button>
           <button class="btn sm" data-act="side" title="Show / hide the side panel (P)">▤</button>
@@ -290,6 +292,7 @@
       if (e.key === 'p' || e.key === 'P') toggleSide();
       if (e.key === 'm' || e.key === 'M') { if (LG.au) { LG.au.toggleMute(); UI.toast(LG.au.muted ? '🔇 Arena sound off' : '🔊 Arena sound on', 'info'); } }
       if (e.key === 'd' || e.key === 'D') cycleDebug();
+      if (e.key === 'o' || e.key === 'O') cyclePaths();
       if (['1', '2', '3', '4', '5'].includes(e.key)) setSpeed([1, 2, 4, 8, 16][+e.key - 1]);
     };
     document.addEventListener('keydown', LG.onKey);
@@ -308,6 +311,7 @@
       if (a === 'side') toggleSide();
       if (a === 'bmenu') broadcastMenu();
       if (a === 'debug') cycleDebug();
+      if (a === 'paths') cyclePaths();
     });
     UI.on(root, 'click', '.bc-skip', () => skipHold());
     setSpeed(LG.speed);
@@ -349,6 +353,18 @@
     LG.root.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === s));
     if (LG.cm && LG.cm.setSpeed) LG.cm.setSpeed(s);
     if (LG.view && LG.view.opts) LG.view.opts.record = s <= 4 && LG.S.settings.replays !== false;
+  }
+  /** the play overlay: the paths of the plays you call, of every play your team runs, of both teams', or off */
+  const PATHS = { off: 'off', mine: 'the plays you call', ours: 'every play your team runs', all: "both teams' plays" };
+  function cyclePaths() {
+    const S = LG.S, order = ['mine', 'ours', 'all', 'off'];
+    const cur = viewSettings(S).playPaths;
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    S.settings.playPaths = next;
+    if (LG.view && LG.view.setOption) LG.view.setOption('playPaths', next);
+    const btn = LG.root.querySelector('#btn-paths'); if (btn) btn.classList.toggle('on', next !== 'off');
+    UI.toast(next === 'off' ? '📋 Play paths off (O to turn them on)' : `📋 Play paths on the court: ${PATHS[next]} (O to change)`, 'info');
+    UI.save();
   }
   /** the coach's debug overlay: off, then all layers, defense only, offense only */
   function cycleDebug() {
@@ -398,6 +414,8 @@
         <label class="chk"><input type="checkbox" data-b="showNames" ${st.showNames ? 'checked' : ''}> Player names on court</label>
         <label class="chk"><input type="checkbox" data-b="replays" ${st.replays !== false ? 'checked' : ''}> 🎬 Instant replays of big plays</label>
         <label class="chk"><input type="checkbox" data-b="tvGraphics" ${st.tvGraphics !== false ? 'checked' : ''}> 📺 TV graphics (player stats, runs, quarter recaps)</label>
+        <div class="row"><span class="small muted" style="min-width:90px">📋 Play paths</span><div class="seg" data-bseg="playPaths">${[['off', 'Off'], ['mine', 'My calls'], ['ours', 'All our plays'], ['all', 'Both teams']].map(([k, l]) => `<button data-v="${k}" class="${vs.playPaths === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <p class="tiny muted">Play paths draw the called play on the floor as it runs: the cuts, screens, passes and drives of each step, where each player is going, and the play's numbers over the players. Press O in the game to switch them.</p>
         <div class="row"><span class="small muted" style="min-width:90px">🧠 Debug view</span><div class="seg" data-bseg="debugOverlay">${[['off', 'Off'], ['all', 'All'], ['defense', 'Defense'], ['offense', 'Offense']].map(([k, l]) => `<button data-v="${k}" class="${(vs.debug || 'off') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
         <p class="tiny muted">The coach's debug view draws each defender's man, spot and job, each player's job on offense, the play's steps and the players' reads. Press D in the game to switch it.</p>
       </div>
@@ -417,8 +435,9 @@
     const apply = () => {
       if (!LG) return;
       const v = LG.view, vs2 = viewSettings(S);
-      if (v && v.setOption) { v.setOption('pixelMode', vs2.pixel); v.setOption('pixelSize', vs2.pixelSize); v.setOption('camera', vs2.camera === 'fixed' ? 'broadcast' : vs2.camera); v.setOption('showNames', !!S.settings.showNames); v.setOption('debug', vs2.debug); }
+      if (v && v.setOption) { v.setOption('pixelMode', vs2.pixel); v.setOption('pixelSize', vs2.pixelSize); v.setOption('camera', vs2.camera === 'fixed' ? 'broadcast' : vs2.camera); v.setOption('showNames', !!S.settings.showNames); v.setOption('debug', vs2.debug); v.setOption('playPaths', vs2.playPaths); }
       { const bd = LG.root.querySelector('#btn-debug'); if (bd) bd.classList.toggle('on', !!vs2.debug); }
+      { const bp = LG.root.querySelector('#btn-paths'); if (bp) bp.classList.toggle('on', vs2.playPaths !== 'off'); }
       if (LG.styleShown !== vs2.style) { LG.styleShown = vs2.style; resetViewAfterJump(); }
       if (LG.au) { LG.au.setEnabled(S.settings.arenaSound !== false); LG.au.setVolume(S.settings.volume == null ? 0.7 : S.settings.volume); }
       if (LG.cm) { LG.cm.setEnabled(S.settings.commentary !== false); LG.cm.setVoiceEnabled(S.settings.voice !== false); LG.cm.refreshVoices(); }

@@ -866,7 +866,8 @@
       // (the coach's own plays stay in a book the assistants rebuild)
       if (pb && Array.isArray(pb.off) && team.playbook !== pb) for (const id of pb.off) if (PLAYS[id] && PLAYS[id].custom && !team.playbook.off.includes(id)) team.playbook.off.push(id);
     }
-    team.playbook.off = team.playbook.off.filter((id) => PLAYS[id]);
+    // (a drawn play that does not compile right now stays in the book: it runs again once the coach fixes it)
+    team.playbook.off = team.playbook.off.filter((id) => PLAYS[id] || (S.customPlays && S.customPlays[id]));
     return team.playbook;
   };
   /** the plays of a playbook, resolved */

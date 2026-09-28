@@ -1,4 +1,4 @@
-/* Pro BBALL Coach — the timeout huddle: the head coach's calls for the next possessions.
+/* Pro BBALL Coach: the timeout huddle, the head coach's calls for the next possessions.
  * The live game opens it when the coach's timeout is granted at a dead ball, before the next possession is played
  * (and from the Coach tab at any time: a call from the sideline, no timeout needed). Three columns:
  *  - Offense: a play from the playbook for the next 1, 2, 3 or 5 half-court possessions (the staff calls the rest), each

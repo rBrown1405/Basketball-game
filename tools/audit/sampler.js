@@ -20,6 +20,40 @@
   const inc = (o, k, n) => { o[k] = (o[k] || 0) + (n == null ? 1 : n); };
   const r1 = (x) => Math.round(x * 10) / 10;
 
+  /** plays drawn in the play designer's format (js/ui/playdesigner.js), as a coach would draw them */
+  function addDrawnPlays(PBC, S) {
+    const PB = PBC.Playbook;
+    const TOP = [30.5, 25], WING_L = [23, 7], WING_R = [23, 43], CORNER_L = [2.5, 2], CORNER_R = [2.5, 48], ELBOW_L = [19, 17], ELBOW_R = [19, 33], BLOCK_L = [7.5, 17], BLOCK_R = [7.5, 33];
+    const P = (p1, p2, p3, p4, p5) => ({ p1: { role: p1[0], at: p1[1] }, p2: { role: p2[0], at: p2[1] }, p3: { role: p3[0], at: p3[1] }, p4: { role: p4[0], at: p4[1] }, p5: { role: p5[0], at: p5[1] } });
+    let n = 0;
+    const A = (a) => Object.assign({ id: 'a' + (++n) }, a);
+    const defs = {
+      my_1: { name: 'Audit Elbow Roll', kind: 'half', family: 'auto', tags: ['ato'], ball: 'p1',
+        players: P(['pnr', TOP], ['shooter', WING_R], ['spacer', WING_L], ['screener', CORNER_L], ['spacer', CORNER_R]),
+        steps: [{ acts: [A({ t: 'move', p: 'p4', to: ELBOW_L }), A({ t: 'move', p: 'p2', to: [8, 47] })] },
+          { acts: [A({ t: 'screen', p: 'p4', on: 'p1' }), A({ t: 'dribble', p: 'p1', to: [26, 35] }), A({ t: 'move', p: 'p4', to: [6, 23] })] }] },
+      my_2: { name: 'Audit Floppy', kind: 'half', family: 'auto', tags: [], ball: 'p1',
+        players: P(['handler', TOP], ['shooter', [4, 25]], ['spacer', WING_L], ['screen2', BLOCK_R], ['screener', BLOCK_L]),
+        steps: [{ acts: [A({ t: 'screen', p: 'p4', on: 'p2' }), A({ t: 'move', p: 'p2', to: WING_R })] },
+          { acts: [A({ t: 'pass', p: 'p1', to: 'p2' })] }] },
+      my_3: { name: 'Audit Give and Go', kind: 'half', family: 'auto', tags: [], ball: 'p1',
+        players: P(['handler', [30, 18]], ['scorer', WING_L], ['spacer', WING_R], ['spacer', CORNER_R], ['dunker', [3, 36]]),
+        steps: [{ acts: [A({ t: 'pass', p: 'p1', to: 'p2' }), A({ t: 'move', p: 'p1', to: [6, 22] })] },
+          { acts: [A({ t: 'pass', p: 'p2', to: 'p1' })] }] },
+      my_4: { name: 'Audit Box Lob', kind: 'blob', family: 'blob', tags: [], ball: 'p3',
+        players: P(['handler', ELBOW_L], ['shooter', BLOCK_R], ['inbounder', [-1.5, 17]], ['dunker', BLOCK_L], ['screen2', ELBOW_R]),
+        steps: [{ acts: [A({ t: 'screen', p: 'p5', on: 'p2' }), A({ t: 'move', p: 'p2', to: [2.5, 47] }), A({ t: 'move', p: 'p4', to: [4, 23] }), A({ t: 'move', p: 'p1', to: [30, 25] })] }] },
+    };
+    S.customPlays = {};
+    for (const id in defs) S.customPlays[id] = Object.assign({ id, desc: '', reads: {}, seq: n }, defs[id]);
+    // and a library play the coach made their own
+    S.customPlays.my_5 = Object.assign(PB.defFromPlay(PB.get('hornsTwist'), 'my_5'), { name: 'Audit Horns Twist' });
+    PB.syncCustom(S);
+    const book = PB.ensure(S, S.userTid);
+    for (const id in S.customPlays) if (PB.get(id) && !book.off.includes(id)) book.off.push(id);
+    book.auto = false;
+  }
+
   function playGame(seed, opt) {
     opt = opt || {};
     if (window.__reseed) window.__reseed((seed * 2654435761) >>> 0 || 1);
@@ -29,6 +63,10 @@
     S.teams[0].rot.auto = true; PBC.UI.setState(S); PBC.Season.startRegularSeason(S); PBC.Season.prepareToday(S);
     const ug = PBC.Season.userGameToday(S) || PBC.Season.advanceToUserGame(S);
     Object.assign(S.settings, { gameIntro: false, replays: false, commentary: false, tvGraphics: false, gimEnabled: false });
+    // the coach's calls (Phase 4, --calls 1): plays drawn on the whiteboard go into the user's playbook, and the
+    // coach calls plays, inbound plays and defensive schemes during the game (below)
+    const CALLS = !!opt.calls;
+    if (CALLS) addDrawnPlays(PBC, S);
     PBC.UI.go('live', { gid: ug.gid });
     const LG = PBC.UI._liveDebug.state();
     LG.alive = false; cancelAnimationFrame(LG.raf);
@@ -82,8 +120,12 @@
       examples: [], players: {}, causes: {},
       // called plays (js/core/playbook.js): the engine's records, how close the players get to the play's spots, and
       // the pick-and-roll coverage the court's defenders actually play
-      pb: { poss: 0, withCall: 0, calls: 0, ends: {}, early: 0, done: 0, steps: 0, stepsOf: 0, byPlay: {}, byFam: {}, byBase: {}, flow: { n: 0, pts: 0 }, all: { n: 0, pts: 0 }, cov: {}, reads: {}, inb: { n: 0, safety: 0 }, spot: { n: 0, lt2: 0, lt5: 0, lt10: 0, far: 0 }, covSeen: {} },
+      pb: { poss: 0, withCall: 0, calls: 0, ends: {}, early: 0, done: 0, steps: 0, stepsOf: 0, byPlay: {}, byFam: {}, byBase: {}, flow: { n: 0, pts: 0 }, all: { n: 0, pts: 0 }, cov: {}, reads: {}, inb: { n: 0, safety: 0 }, spot: { n: 0, lt2: 0, lt5: 0, lt10: 0, far: 0 }, covSeen: {},
+        // the head coach's calls (Phase 4): the coach's own calls, the drawn plays (the coach's or the staff's calls)
+        user: { n: 0, pts: 0, done: 0, early: 0, to: 0 }, mine: { n: 0, pts: 0, done: 0, early: 0, to: 0 }, spotMine: { n: 0, lt2: 0, lt5: 0, lt10: 0, far: 0 } },
+      calls: null,
     };
+    if (CALLS) R.calls = { made: 0, used: 0, inbMade: 0, inbUsed: 0, defMade: 0, defPoss: 0, defHonored: 0, covPoss: 0, covHonored: 0, defEnded: 0, defReverted: 0 };
     const ex = {}; const EX_MAX = 2;
     const example = (kind, text, flags) => { if ((ex[kind] = (ex[kind] || 0) + 1) > EX_MAX) return; R.examples.push({ kind, seed, poss: cur && cur.n, when: clockStr(), text, snap: snap(flags) }); };
 
@@ -435,6 +477,9 @@
       for (const r of P.pbs) {
         pb.calls++;
         inc(pb.ends, r.end || '?');
+        const got = (o) => { o.n++; o.pts += r.pts || 0; if (r.early) o.early++; if (r.end === 'shot' || r.end === 'safety') o.done++; if (r.end === 'turnover') o.to++; };
+        if (r.user) got(pb.user);
+        if (/^my_/.test(r.id)) got(pb.mine);
         const fam = r.family || '?';
         const bp = pb.byPlay[r.id] || (pb.byPlay[r.id] = { n: 0, pts: 0, early: 0, done: 0, name: r.name, fam });
         const bf = pb.byFam[fam] || (pb.byFam[fam] = { n: 0, pts: 0, early: 0, done: 0 });
@@ -465,8 +510,10 @@
           const r = d.role[id], a = v.actor(id);
           if (!r || !a || !r.pb || !r.spot || b.holder === a || a.isBusy() || r.until > d.T + 0.5) continue;
           const dd = Math.hypot(r.spot.x - a.x, r.spot.y - a.y);
-          const sp = R.pb.spot; sp.n++;
-          if (dd < 2) sp.lt2++; else if (dd < 5) sp.lt5++; else if (dd < 10) sp.lt10++; else sp.far++;
+          for (const sp of /^my_/.test(run.id) ? [R.pb.spot, R.pb.spotMine] : [R.pb.spot]) {
+            sp.n++;
+            if (dd < 2) sp.lt2++; else if (dd < 5) sp.lt5++; else if (dd < 10) sp.lt10++; else sp.far++;
+          }
         }
       }
       // 0.6 s after a ball screen in a play: where the screener's man is (dropped, level, hedged above, trapping)
@@ -531,10 +578,41 @@
 
     // ------------------------------------------------------------ play the game
     const t0 = performance.now();
+    const u = g.userIdx >= 0 ? g.userIdx : 0, UT = g.t[u];
+    const CALL_LIST = ['my_1', 'my_2', 'my_3', 'my_5'];
+    let callK = 0;
     for (let guard = 0; guard < (opt.maxPoss || 600); guard++) {
       const s0 = g.score.slice();
+      let dc = null;
+      if (CALLS) {
+        // a play for the next half-court possession every few possessions (drawn plays and the book's), an inbound
+        // play for the next throw-in under the basket now and then, and two defensive calls a game
+        if (!UT.userCall && guard % 4 === 1) {
+          const bookIds = UT.pb ? UT.pb.plays.filter((p) => !p.inbound && !p.custom).map((p) => p.id) : [];
+          const id = callK % 5 === 4 && bookIds.length ? bookIds[callK % bookIds.length] : CALL_LIST[callK % CALL_LIST.length];
+          callK++;
+          if (PBC.Sim.callPlay(g, u, id, 1) !== false) R.calls.made++;
+        }
+        if (guard % 30 === 5 && UT.pb && UT.pb.inb.blob.some((p) => p.id === 'my_4') && !(UT.userInb && UT.userInb.blob)) { PBC.Sim.callInbound(g, u, 'blob', 'my_4'); R.calls.inbMade++; }
+        if (guard === 20 || guard === 90) {
+          // man-to-man with a blitz on ball screens, then a 2-3 zone (a switch for a zone team)
+          if (guard === 20) PBC.Sim.callDefense(g, u, 'man', 'blitz', 6);
+          else PBC.Sim.callDefense(g, u, /zone|boxone/.test(UT.strat.def) ? 'switch' : 'zone23', null, 6);
+          R.calls.defMade++;
+        }
+        dc = UT.defCall ? { def: UT.defCall.def, cov: UT.defCall.cov, left: UT.defCall.left, prev: UT.defCall.prev } : null;
+      }
       const P = PBC.Sim.nextPossession(g);
       if (!P) break;
+      if (CALLS) {
+        if (P.userCall && P.off === u) { if (/^my_4$/.test(P.userCall) || (UT.pb && UT.pb.inb.blob.some((p) => p.id === P.userCall))) R.calls.inbUsed++; else R.calls.used++; }
+        // (a defensive call counts down at the start of each defensive possession; at 0 the team goes back to its own)
+        if (dc && P.off !== u && dc.left > 0) {
+          R.calls.defPoss++;
+          if (P.defScheme === dc.def) R.calls.defHonored++;
+          if (dc.cov) { R.calls.covPoss++; if (P.defCov === dc.cov) R.calls.covHonored++; }
+        } else if (dc && P.off !== u && dc.left === 0 && !UT.defCall) { R.calls.defEnded++; if (P.defScheme === dc.prev.def) R.calls.defReverted++; }
+      }
       if (g.pending) PBC.Sim.resolvePending(g, P, { quality: 'good' });
       R.poss++;
       cur = { n: (P.n || 0) + 1, play: P.play || 'none', sys: P.offSystem, scheme: P.defScheme };

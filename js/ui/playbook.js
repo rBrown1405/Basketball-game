@@ -154,11 +154,15 @@
       const sys = C.OFFENSES[team.strat.off] || C.OFFENSES.balanced;
       let body = '';
       if (tab === 'mine') {
-        // the coach's own plays (the play designer)
+        // the coach's own plays (the play designer), and any that need fixing before they can run
         const mine = all.filter((p) => p.custom);
-        body = mine.length
+        const broken = Object.values(S.customPlays || {}).filter((d) => !PBC.Playbook.PLAYS[d.id]);
+        const fix = broken.map((d) => `<div class="pb-card"><div class="pb-name">${U.esc(d.name || 'Untitled play')}</div>
+          <div class="small bad-t" style="margin:6px 0">Needs fixing before it can run: ${U.esc(PBC.Playbook.validateCustom(d)[0] || 'open it in the designer')}</div>
+          <div class="row" style="gap:6px"><button class="btn sm" data-edit="${d.id}">✏️ Fix it</button><button class="btn ghost sm" data-delplay="${d.id}" title="Delete this play">🗑</button></div></div>`).join('');
+        body = mine.length || broken.length
           ? `<div class="card"><div class="card-h"><h3>My plays</h3><div class="actions"><span class="small muted">${mine.length} play${mine.length > 1 ? 's' : ''} · ${mine.filter((p) => inBook.has(p.id)).length} in the playbook</span></div></div>
-            <div class="card-b"><div class="pb-grid">${mine.map((p) => playCard(S, p, inBook.has(p.id), five)).join('')}</div></div></div>`
+            <div class="card-b"><div class="pb-grid">${mine.map((p) => playCard(S, p, inBook.has(p.id), five)).join('')}${fix}</div></div></div>`
           : `<div class="card"><div class="card-b pb-empty"><div style="font-size:34px">📋</div><div class="pb-name">Draw your own plays</div>
               <div class="small muted" style="max-width:560px">On the whiteboard: line the five up, draw each step (cuts, screens, passes, hand-offs, drives), give every spot a role and pick the reads. Save it to your playbook and call it in a timeout; your staff can call it too. Or start from any play in the library and make it yours.</div>
               <button class="btn primary" data-act="design">✏️ Design a play</button></div></div>`;
@@ -192,7 +196,7 @@
         <div class="page-h"><div><h1>Playbook</h1><div class="sub">${nOff} half-court and late-game plays, ${nInb} inbound plays · ${U.esc(sys.label)} offense · ${book.auto ? 'built by your assistants for this roster' : 'your own selection'}</div></div>
           <div class="actions"><div class="tabs">${[['offense', 'Offense'], ['inbounds', 'Inbounds'], ['defense', 'Defense'], ['library', 'Library'], ['mine', 'My plays']].map(([k, l]) => `<button class="tab ${tab === k ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
           <button class="btn primary" data-act="design">✏️ Design a play</button><button class="btn" data-act="rebuild">🤖 Rebuild for my roster</button></div></div>
-        <div class="card pb-howto" style="margin-bottom:14px"><div class="card-b small muted">In games your coach calls plays from this book for each half-court possession: plays that fit the five on the floor, that the other team's defense opens up, that have been working tonight, and the right set for the moment (after a timeout, the last shot, a quick three, an inbound under the basket or from the sideline). Each play has reads: when the defense gives an opening before the last step, the players take it, and that counts as the play working. Some possessions are played in flow with no call. Diagrams: players numbered by role, the yellow circle has the ball; solid arrows are cuts, dashed ones passes, zig-zags dribbles, bars screens; the colors follow the steps.</div></div>
+        <div class="card pb-howto" style="margin-bottom:14px"><div class="card-b small muted">In games your coach calls plays from this book for each half-court possession: plays that fit the five on the floor, that the other team's defense opens up, that have been working tonight, and the right set for the moment (after a timeout, the last shot, a quick three, an inbound under the basket or from the sideline). Each play has reads: when the defense gives an opening before the last step, the players take it, and that counts as the play working. Some possessions are played in flow with no call. Diagrams: players numbered by role, the yellow circle has the ball; solid arrows are cuts, dashed ones passes, zig-zags dribbles, bars screens, two hash marks a hand-off; the colors follow the steps. Draw your own plays with ✏️ Design a play, or open any play here with ✏️ Make it mine and change it; call them in a timeout.</div></div>
         ${body}</div>`;
       UI.on(root, 'click', '[data-tab]', (e, el) => { tab = el.dataset.tab; UI.refresh(); });
       UI.on(root, 'click', '[data-go]', (e, el) => UI.go(el.dataset.go));
@@ -220,8 +224,8 @@
       UI.on(root, 'click', '[data-edit]', (e, el) => UI.designPlay({ id: el.dataset.edit }));
       UI.on(root, 'click', '[data-from]', (e, el) => UI.designPlay({ from: el.dataset.from }));
       UI.on(root, 'click', '[data-delplay]', async (e, el) => {
-        const id = el.dataset.delplay, p = PBC.Playbook.PLAYS[id];
-        if (!p || !(await UI.confirm(`Delete <b>${U.esc(p.name)}</b>? It comes out of your playbook too.`, { ok: 'Delete', danger: true }))) return;
+        const id = el.dataset.delplay, p = PBC.Playbook.PLAYS[id] || (S.customPlays || {})[id];
+        if (!p || !(await UI.confirm(`Delete <b>${U.esc(p.name || 'this play')}</b>? It comes out of your playbook too.`, { ok: 'Delete', danger: true }))) return;
         UI.deleteCustomPlay(S, id);
         UI.refresh(); UI.toast(`${p.name} is deleted`, 'good');
       });

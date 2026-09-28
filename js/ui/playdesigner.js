@@ -1,4 +1,4 @@
-/* Pro BBALL Coach — the play designer: a whiteboard where the head coach draws a play in X's and O's.
+/* Pro BBALL Coach: the play designer, a whiteboard where the head coach draws a play in X's and O's.
  * The five start in a set (a formation, or a play from the library to change), then each step is drawn on the board:
  * drag a player to open floor for a cut (a dribble when that player has the ball), onto a teammate for a screen (or a
  * pass, with the ball); the tools draw hand-offs, drives and post-ups too. Each player gets a role (what the play
@@ -295,7 +295,7 @@
     const h = Math.round(w * vb[3] / vb[2]);
     return `<svg class="pb-dia" viewBox="${vb.join(' ')}" width="${w}" height="${h}"><rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" rx="1.6" fill="#161b24"/>${drawSvg(def, { theme: 'dark', geo: G })}</svg>`;
   };
-  UI.playDrawing = { geometry, clampSpot, along, INK, DARK };
+  UI.playDrawing = { geometry, clampSpot, along, zigzag, trim, INK, DARK };
 
   // ------------------------------------------------------------ the preview (the play in motion on the whiteboard)
   const EV_F = { drive: 0.3, post: 0.3, pass: 0.45, handoff: 0.6, screen: 0.6 };
@@ -683,6 +683,7 @@
   function kindChange(kind) {
     const def = ed.def;
     if (def.kind === kind) return;
+    const n0 = def.steps.reduce((x, st) => x + (st.acts || []).length, 0);
     commit((d) => {
       const wasInb = isInb(d);
       const empty = !d.steps.some((st) => st.acts && st.acts.length);
@@ -706,7 +707,9 @@
       }
     });
     if (isInb(ed.def) && !INB_TOOLS[ed.tool]) { ed.tool = 'draw'; repaint('tools'); }
-    UI.toast(kind === 'half' ? 'A half-court play: the inbounder is now the ball handler at the top' : 'An inbound play: the player with the ball takes it out of bounds', 'info');
+    const gone = n0 - ed.def.steps.reduce((x, st) => x + (st.acts || []).length, 0);
+    UI.toast(kind === 'half' ? 'A half-court play: the inbounder is now the ball handler at the top'
+      : 'An inbound play: the player with the ball takes it out of bounds' + (gone > 0 ? `. ${gone} line${gone > 1 ? 's' : ''} came off the board (the reads send the ball in an inbound play: draw its cuts and screens); undo brings them back` : ''), 'info', gone > 0 ? 6000 : 3200);
   }
   function applySet(key) {
     const set = (SETS[ed.def.kind] || SETS.half).find((s) => s[0] === key);
@@ -1009,6 +1012,9 @@
   function save() {
     const S = UI.S, def = ed.def;
     def.name = String(def.name || '').trim();
+    // (the empty steps left at the end are dropped; an empty step in the middle is a hold)
+    while (def.steps.length > 1 && !(def.steps[def.steps.length - 1].acts || []).length) def.steps.pop();
+    if (ed.step >= def.steps.length) ed.step = def.steps.length - 1;
     const errs = PB().validateCustom(def);
     if (errs.length) { UI.toast(errs[0], 'bad'); repaint('save'); return; }
     const taken = Object.values(S.customPlays || {}).find((p) => p.id !== def.id && String(p.name || '').toLowerCase() === def.name.toLowerCase());

@@ -1396,7 +1396,7 @@
     if (tSet < pb.t0) return holder;
     evAt(ctx, tSet, 'set', {
       play: info.play, setName: info.setName, handler: first ? first.id : holder.id, screener: info.screener ? info.screener.id : undefined, target: sh ? sh.id : undefined, team: idx,
-      pb: { id: play.id, name: play.name, side: pb.side, roles: ids, align, cov: rx ? rx.cov : PBC.PlayCall.coverage(ctx.D), opt: o ? { label: o.label, at: o.at, i: play.opts.indexOf(o), read: pb.rec.read } : null, last: play.last, why: pb.rec.why },
+      pb: { id: play.id, name: play.name, side: pb.side, roles: ids, align, cov: rx ? rx.cov : PBC.PlayCall.coverage(ctx.D), opt: o ? { label: o.label, at: o.at, i: play.opts.indexOf(o), read: pb.rec.read } : null, last: play.last, why: pb.rec.why, user: pb.rec.user ? true : undefined },
     });
     // the entry: the ball to the player the play starts with
     const tEntry = U.round((tSet + tl.T[0]) / 2, 2);
@@ -1513,7 +1513,7 @@
         return { d: st.d, pos, scr };
       });
       ib.ev.by = R.inb.id; ib.ev.to = to.id;
-      ib.ev.pb = { id: play.id, name: play.name, side, roles: ids, align, seq, opt: { label: o.label, at: o.at, safety: !!o.safety, read: rec.read }, why: rec.why };
+      ib.ev.pb = { id: play.id, name: play.name, side, roles: ids, align, seq, opt: { label: o.label, at: o.at, safety: !!o.safety, read: rec.read }, why: rec.why, user: rec.user ? true : undefined };
     }
     if (o.safety) {
       // the ball is in to the safety: the offense runs its half-court call

@@ -72,6 +72,19 @@ outside free throws, timeouts and dead balls):
    doing 0.6 s after a ball screen (back in the lane, at the screen, on the ball, switched) against the coverage the
    engine called. Tables by play family, the most-called plays and the reads taken.
 
+9. **The head coach's calls and the drawn plays** (Phase 4, runs with `--calls 1`; other runs show n/a): in each
+   game the user's playbook gets four plays drawn in the play designer's format and a library play made the coach's
+   own, and the coach calls a play for the next half-court possession every few possessions (the drawn ones and the
+   book's), an inbound play for the next throw-in under the basket, and two defensive calls (man-to-man with a blitz
+   on ball screens, then a 2-3 zone, six defensive possessions each). The report shows how many calls the engine ran,
+   how the coach's calls and the drawn plays ended (a read, a turnover), their points, how close the players get to
+   a drawn play's spots, and whether the defense played the called scheme and coverage and went back to its own
+   when the call ran out.
+
+```
+node tools/audit/run.js --games 52 --out audit/phase4/calls --label "Phase 4, the coach calling plays" --calls 1 --baseline audit/phase4/metrics.json --baseLabel "Phase 4, no calls"
+```
+
 **Animation checks** (`anim.js`): the procedural animation work's regression checks, run on real possessions:
 body contact (the ball, hands or forearms inside the player's own body; knees, shins or feet of the two legs through
 each other) and feet stuck far behind the hip while running, per 10,000 player-frames:
