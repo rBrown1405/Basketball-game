@@ -516,14 +516,7 @@
         // a foot in the air (steered by its heading and pitch) still hangs from its ankle: past the ankle's range
         // against the shank (the foot held flat under a shank swinging back bent it ~35-40 deg up) it turns with the
         // shank, toes down, to the end of the range
-        // (a foot just off the floor keeps the bend its ankle had under the weight and unloads to the unloaded range
-        // over a few frames, ik.ankHi: held to it at once, a deep stance's lift-off tipped the toes ~15 deg down into
-        // the floor and the foot was thrown up out of it, Trial 5)
-        if (ik.soft) {
-          const r = LIM[pre + 'Ank'];
-          if (ik.ankHi != null && ik.ankHi > r[1]) { const t = this._ankR || (this._ankR = [0, 0]); t[0] = r[0]; t[1] = ik.ankHi; this._footRange(side, t); }
-          else this._footRange(side, r);
-        }
+        if (ik.soft) this._footRange(side, LIM[pre + 'Ank']);
       } else {
         mulRot(R, sh, 0, p[CH[pre + 'Ank']], R, ft);
         if (ik.on > 0.001) {

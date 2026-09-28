@@ -83,6 +83,12 @@
       // within this long after a change of gait counts as the transition's
       gaitWalkFtps: 6.2, gaitJogFtps: 13, gaitRunFtps: 20, gaitTransWindowS: 0.3,
       gaitAfterMoveS: 0.35,         // ...and the first this long out of a move or with the ball just gone is counted apart
+      gaitSyncArmDeg: 4, gaitSyncLegDeg: 5, // the arms are in or out of step with the legs only where the shoulders' flexion
+                                    // split swings more than this either way over a stride and the hips' more than this
+                                    // (deg): the arm forward should be the one opposite the thigh forward...
+      gaitSyncArmK: 0.5,            // ...only where the gait swings the arms at least this much (a stance's arms held up
+                                    // or out, a defender's, take 0.1 to 0.3 of the swing)...
+      gaitSyncBand: 0.25,           // ...and with both past this share of their swing's half-range from its middle
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -191,7 +197,10 @@
       marginDeg: 1.5,               // aim this far inside the limit
       gain: 1.15,                   // shift per radian of excess, per foot of hip height over the ankle (over-relaxed)
       maxShiftH: 0.3,               // most the pelvis moves this way (heights)...
-      shiftFtps: 10,                // ...and no faster than this (ft/s; past it the foot steps)
+      shiftFtps: 10,                // ...and no faster than this (ft/s; past it the foot steps: 2.4 to 3.1 times a
+                                    // player-minute in games. At 14 half as often with no more pops in games, but a
+                                    // defender turning to run out of a backpedal jolted his pelvis 840 ft/s^2 in a frame and
+                                    // his toes popped, and at 12 his knees; 12 seeds and the gait suites, Trial 5)
       releaseS: 0.12,               // half-life of the shift easing away once it is not needed (s)
       reachHeelDeg: 30,             // a planted leg short of its foot raises the heel up to this, then lowers the pelvis
       stepAtH: 0.06,                // held back further than this (heights, ~4.7 in), the foot steps now instead...
@@ -315,6 +324,9 @@
                                     // by this share of the swing
       landSwivelS: 0.03,            // a leg that has just landed keeps its knee turned about the hip-ankle line where it
                                     // was in the air and eases onto the planted leg's plane with this time constant (s)
+      lateSwingS: 0.2,              // a foot lifted late in the stride (left behind by a turn or a burst) still gets this long
+                                    // for its swing, landing a little after the stride's contact (a stride's swing takes
+                                    // ~0.4-0.5 s)
 
     },
 
@@ -341,7 +353,8 @@
       pelvisUpFtps: 2.5,            // ...never faster than this (a running body's centre of mass rises at ~1.5-3 ft/s)
       toeBendMaxDeg: 60,            // toes brushing the floor bend up at the ball this far at most (MTP extension ~70, AAOS)
       liftAnkleMarginDeg: 2,        // a stride's foot leaves the floor with its ankle this far inside its unloaded range
-      heelRiseDegps: 300,           // a planted heel comes up for the leg's reach no faster than this (deg/s)...
+      heelRiseDegps: 300,           // a planted heel comes up for the leg's reach no faster than this walking (deg/s)...
+      heelRiseSprintDegps: 900,     // ...and this sprinting (from 6 to 20 ft/s)...
       heelDropDegps: 200,           // ...and back down no faster than this
       airGuardSw: 0.25,             // a leg in the air is held with its knee over its own line from this far into a swing...
       airGuideK: 0,                 // ...this much (0 to 1). Off since Trial 5: the pole solve keeps a sprinter's knee within

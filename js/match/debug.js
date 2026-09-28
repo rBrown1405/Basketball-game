@@ -156,7 +156,9 @@
         if (!a.sk.limHits) a.sk.limHits = new Uint8Array(RG.NCH);
         const onCourt = a.x > -1 && a.x < 95 && a.y > -1 && a.y < 51;
         const t = this.tracker(a);
-        const count = a.kind === 'player' && onCourt;
+        // (the Lab and the scripted audits count a body anywhere, s.countAll: their runs and slides go off the court
+        // lines; a game counts the players on the floor, not the bench)
+        const count = a.kind === 'player' && (onCourt || !!s.countAll);
         if (count) S.playerFrames++;
         // (a body placed somewhere new, a substitute put on the floor, is a new start: its feet were not dragged there;
         // over 3 ft in one step, as in _kin)
@@ -601,7 +603,7 @@
       return v < TG.gaitWalkFtps ? 'walk' : v < TG.gaitJogFtps ? 'jog' : v < TG.gaitRunFtps ? 'run' : 'sprint';
     }
     /** the gaits (Trial 5): pops by gait and around a change of gait, and each arm against the opposite leg (the
-     *  hands' fore-aft split against the feet's, which a contralateral swing keeps in step) */
+     *  shoulders' flexion split against the hips', which a contralateral swing keeps in step) */
     _gait(a, t, count, time, ball) {
       if (!count) return;
       const S = this.S, G = S.gt, Tn = TU(), cls = this.gaitClass(a, ball);
@@ -612,7 +614,7 @@
       if (time - g.nt < Tn.gaitAfterMoveS) { G.after.frames++; G.after.pops += t.pops; g.c = cls; return; }
       if (g.c != null && g.c !== cls) { G.trans++; g.from = g.c + '>' + cls; G.transBy[g.from] = (G.transBy[g.from] || 0) + 1; g.tc = time; }
       g.c = cls;
-      const b = G.cls[cls] || (G.cls[cls] = { frames: 0, pops: 0, n: 0, sh: 0, sf: 0, shh: 0, sff: 0, shf: 0, elb: 0 });
+      const b = G.cls[cls] || (G.cls[cls] = { frames: 0, pops: 0, n: 0, sh: 0, sf: 0, shh: 0, sff: 0, shf: 0, elb: 0, ag: 0, agOk: 0, agA: 0, agAOk: 0, sw: 0, hs: 0, hss: 0 });
       b.frames++;
       if (t.pops) {
         b.pops += t.pops;
@@ -624,11 +626,35 @@
         }
       }
       if (cls === 'stand' || cls === 'slide' || a.speed < 3) return;
-      // fore-aft (body frame) of the hands and the ankles: L hand minus R hand against R foot minus L foot
-      const P = a.sk.P, c = Math.cos(a.facing), s = Math.sin(a.facing), fw = (j) => (P[j * 3] - a.x) * c + (P[j * 3 + 1] - a.y) * s;
-      const dh = fw(J.L_HD) - fw(J.R_HD), df = fw(J.R_AN) - fw(J.L_AN);
+      // each arm against the opposite leg, as a gait lab measures it: the shoulders' flexion split (left minus right)
+      // against the hips' (right minus left), which a contralateral swing keeps in step (the split takes out what both
+      // sides share, a stance's arms held up or a crouch)
+      const q = a.sk.pose, dh = q[CH.lShF] - q[CH.rShF], df = q[CH.rHipF] - q[CH.lHipF];
       b.n++; b.sh += dh; b.sf += df; b.shh += dh * dh; b.sff += df * df; b.shf += dh * df;
-      b.elb += (a.sk.pose[CH.lElF] + a.sk.pose[CH.rElF]) * 0.5;
+      // (and, where the gait swings the arms, whether the arm forward is the one opposite the thigh forward, each taken
+      // about the middle of its swing over the last stride and counted with both past Tune.debug.gaitSyncBand of that
+      // swing's half-range, as a gait lab counts it: a stance may hold one hand out ahead of the other, and a stance's
+      // arms held up or out take only a little of the swing)
+      const swingK = (a.gaitArmK || 0) >= Tn.gaitSyncArmK;
+      if (swingK) b.sw++;
+      const dtS = this.S.stepDt || 1 / 60, NB = 120;
+      if (!g.bh || g.pT == null || Math.abs(time - g.pT - dtS) > 1e-6) { g.bh = new Float32Array(NB); g.bf = new Float32Array(NB); g.bi = 0; g.bn = 0; }
+      g.pT = time;
+      g.bh[g.bi] = dh; g.bf[g.bi] = df; g.bi = (g.bi + 1) % NB; g.bn = Math.min(NB, g.bn + 1);
+      const cyc = a.gaitDbg && a.gaitDbg.cycle > 0 ? a.gaitDbg.cycle : 1, nW = Math.min(NB, Math.round(U.clamp(cyc, 0.4, 1.9) / dtS));
+      if (g.bn >= nW) {
+        let h0 = Infinity, h1 = -Infinity, f0 = Infinity, f1 = -Infinity;
+        for (let k = 1; k <= nW; k++) { const j = (g.bi - k + NB) % NB; const x = g.bh[j], y = g.bf[j]; if (x < h0) h0 = x; if (x > h1) h1 = x; if (y < f0) f0 = y; if (y > f1) f1 = y; }
+        const xh = dh - (h0 + h1) / 2, xf = df - (f0 + f1) / 2, rh = (h1 - h0) / 2, rf = (f1 - f0) / 2;
+        const apart = rh > Tn.gaitSyncArmDeg * U.DEG && rf > Tn.gaitSyncLegDeg * U.DEG && Math.abs(xh) > Tn.gaitSyncBand * rh && Math.abs(xf) > Tn.gaitSyncBand * rf;
+        if (swingK && apart) { b.ag++; if (xh * xf > 0) b.agOk++; }
+        if (apart) { b.agA++; if (xh * xf > 0) b.agAOk++; }
+      }
+      // (how far the hands swing: their fore-aft split in the body frame)
+      const P = a.sk.P, c = Math.cos(a.facing), s = Math.sin(a.facing), fw = (j) => (P[j * 3] - a.x) * c + (P[j * 3 + 1] - a.y) * s;
+      const hs = fw(J.L_HD) - fw(J.R_HD);
+      b.hs += hs; b.hss += hs * hs;
+      b.elb += (q[CH.lElF] + q[CH.rElF]) * 0.5;
     }
     /** the Trial 5 gait scorecard */
     gaitSummary() {
@@ -642,14 +668,18 @@
         if (b.n >= 30) {
           const mh = b.sh / b.n, mf = b.sf / b.n, vh = b.shh / b.n - mh * mh, vf = b.sff / b.n - mf * mf, cv = b.shf / b.n - mh * mf;
           o.armLegSync = +(cv / Math.sqrt(Math.max(1e-12, vh * vf))).toFixed(3);
-          o.handSwingIn = +(Math.sqrt(Math.max(0, vh)) * 2 * 1.4142 * 12).toFixed(1);
+          const mhs = b.hs / b.n;
+          o.handSwingIn = +(Math.sqrt(Math.max(0, b.hss / b.n - mhs * mhs)) * 2 * 1.4142 * 12).toFixed(1);
           o.elbowDeg = +(b.elb / b.n / U.DEG).toFixed(1);
+          o.armsSwingingPct = +(b.sw / b.n * 100).toFixed(1);
+          if (b.ag) { o.armOppositePct = +(b.agOk / b.ag * 100).toFixed(2); o.armOppositeFrames = b.ag; }
+          if (b.agA) o.armOppositeAllPct = +(b.agAOk / b.agA * 100).toFixed(2);
         }
         cls[k] = o;
       }
       return { byGait: cls, locoFrames: lf, locoPops: lp, locoPopsPerMin: +(lp / Math.max(1e-9, lf * S.stepDt / 60)).toFixed(2), popsBy: top(G.popBy, 12),
         afterMove: { frames: G.after.frames, pops: G.after.pops, popsPerMin: +(G.after.pops / Math.max(1e-9, G.after.frames * S.stepDt / 60)).toFixed(2) },
-        transitions: G.trans, transitionsBy: top(G.transBy, 12), transitionPops: G.transPops, transitionPopsBy: top(G.transPopBy), transitionPopAt: G.transPopAt };
+        transitions: G.trans, transitionsBy: top(G.transBy, 12), transitionPops: G.transPops, transitionPopsBy: top(G.transPopBy, 60), transitionPopAt: G.transPopAt };
     }
     /** the Trial 4 weight scorecard */
     weightSummary() {
@@ -1306,6 +1336,9 @@
         // (the weight, Trial 4: how hard he is braking and cutting, and how far that has his hips down)
         lines.push('weight ' + Math.round(a.mass || 0) + ' lb   brake ' + (a.brakeK || 0).toFixed(2) + ' cut ' + (a.cutK || 0).toFixed(2) + '   hips down ' + ((a._hipDrop || 0) * 12).toFixed(1) + ' in');
         lines.push('feet L ' + a.feet[0].state + ' R ' + a.feet[1].state + '   slide ' + t.pts.map(p => p.on ? (p.cur * 12).toFixed(2) : '-').join(' '));
+        // (the gait, Trial 5: which one, its cadence, and how much of its arm swing the stance lets through)
+        { const gd = a.gaitDbg || {}, cls = a.gaitOn ? this.meters.gaitClass(a, null) : null;
+          lines.push('gait ' + (cls || '-') + (a.gaitOn && gd.sps ? '   ' + gd.sps.toFixed(2) + ' steps/s, stance ' + Math.round((gd.beta || 0) * 100) + '% of the stride' : '') + '   arm swing ' + Math.round((a.gaitArmK || 0) * 100) + '%'); }
         lines.push('look ' + t.look.state + (t.gap != null ? '   hand-ball ' + t.gap.toFixed(2) + ' in (' + t.gapKind + ')' : ''));
         if (t.lim.bad.length) lines.push('LIMIT ' + t.lim.bad.map(q => CHNAME[q[0]] + ' ' + (q[1] / U.DEG).toFixed(0) + '°').join(', '));
         if (t.lim.clamp.length) lines.push('clamped ' + t.lim.clamp.map(i => CHNAME[i]).join(', '));
@@ -1324,6 +1357,11 @@
       lines.push('instant turns ' + S.turnInstant + '/' + S.turnOnsets + ', accel snaps ' + S.accelSnaps + ', look none ' + (S.lookNone / Math.max(1, S.playerFrames) * 100).toFixed(1) + '%');
       { const W = S.wt, pc = (n, d) => d ? Math.round(n / d * 100) + '%' : '-';
         lines.push('hard cuts ' + W.cut.n + ' (plant ' + pc(W.cut.plant, W.cut.n) + ', hips ' + pc(W.cut.drop, W.cut.n) + '), hard stops ' + W.brake.n + ' (plant ' + pc(W.brake.plant, W.brake.n) + ', hips ' + pc(W.brake.drop, W.brake.n) + '), turn snaps ' + W.turnSnaps + ', hip jumps ' + W.hipJumps); }
+      // (the gaits, Trial 5: pops per minute in each, pops just after a change of gait, and the arms against the legs)
+      { const G = S.gt; let lf = 0, lp = 0, ag = 0, ok = 0; const per = [];
+        for (const k of ['walk', 'jog', 'run', 'sprint', 'back', 'slide']) { const b = G.cls[k]; if (!b) continue; lf += b.frames; lp += b.pops; ag += b.ag || 0; ok += b.agOk || 0; per.push(k + ' ' + (b.pops / Math.max(1e-9, b.frames * S.stepDt / 60)).toFixed(1)); }
+        lines.push('gait pops/min ' + (lf ? (lp / (lf * S.stepDt / 60)).toFixed(1) : '-') + (per.length ? ' (' + per.join(', ') + ')' : ''));
+        lines.push('gait changes ' + G.trans + ', pops after one ' + G.transPops + ', arm opposite the leg ' + (ag ? (ok / ag * 100).toFixed(1) + '%' : '-')); }
       if (this.lastMs.overlay != null) lines.push('overlay ' + this.lastMs.overlay.toFixed(2) + ' ms');
       this.info.textContent = lines.join('\n');
     }

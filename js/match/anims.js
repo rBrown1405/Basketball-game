@@ -189,9 +189,10 @@
 
   const TMPW = {};
   /** write gait upper-body/pelvis channels into pose `out` blended by weight k (0..1) */
-  const ARMCH = new Uint8Array(RG.NCH), LEGCH = new Uint8Array(RG.NCH);
+  const ARMCH = new Uint8Array(RG.NCH), LEGCH = new Uint8Array(RG.NCH), STANCECH = new Uint8Array(RG.NCH);
   for (const i of RG.GROUP.arms) ARMCH[i] = 1;
   for (const i of RG.GROUP.legs) LEGCH[i] = 1;
+  for (const k of ['rootX', 'rootY', 'rootZ', 'pelPitch', 'pelRoll']) STANCECH[CH[k]] = 1;
   /** a running set's phase moved so its key poses fall where this stride's are: its stance drawn for a share b0 of
    *  the cycle, the real one b (touchdown stays at 0 and 0.5, mid-stance and toe-off move with the real stance, the
    *  flight's middle with the real flight) */
@@ -232,10 +233,12 @@
         const i = CH[key];
         const v = set[key];
         const arm = ARMCH[i];
-        // (the pelvis and trunk keys too, going forward: sampled on the curves' own clock while the arms were moved on
-        // to the feet's, the shoulders' line stopped mirroring the hips' in a run, the counter-rotation falling from
-        // r -0.73 to -0.43 in games, Trial 5; the leg keys stay, the legs are placed by the feet)
-        const trunk = !arm && !LEGCH[i];
+        // (the trunk keys and the pelvis's turn too, going forward: sampled on the curves' own clock while the arms were
+        // moved on to the feet's, the shoulders' line stopped mirroring the hips' in a run, the counter-rotation falling
+        // from r -0.73 to -0.43 in games, Trial 5. The legs are placed by the feet, and the pelvis's height, sway, tilt
+        // and drop ride the stance on the stride's own clock: moved on with the rest, a run's hips were lowest at
+        // toe-off instead of mid-stance)
+        const trunk = !arm && !LEGCH[i] && !STANCECH[i];
         const val = typeof v === 'number' ? v : arm ? (mixB ? U.loopSample(v, pfA) * (1 - bw) + U.loopSample(v, prA) * bw : U.loopSample(v, phA))
           : trunk ? (mixB ? U.loopSample(v, pfA) * (1 - bw) + U.loopSample(v, pr) * bw : U.loopSample(v, bw >= 1 ? pr : pfA))
           : mixB ? U.loopSample(v, pf) * (1 - bw) + U.loopSample(v, pr) * bw : U.loopSample(v, ph);

@@ -181,6 +181,32 @@
     c.a.setStance('defense'); c.a.setFace(c.f0);
     for (let k = 0; k < 4; k++) c.at(0.4 + k * 1.6, () => { go(c, 0, 10, k % 2 ? -12 : 12); c.a.setFace(c.f0); });
   });
+  // (Trial 5: the gaits changing into each other, the scripted transitions the audits count pops over; the defender
+  // ones follow a man, c.m, who moves the way the name says)
+  const man = (c, fwd, right) => { c.m = { x: c.x0 + c.fx * (fwd || 0) + c.rx * (right || 0), y: c.y0 + c.fy * (fwd || 0) + c.ry * (right || 0), vx: 0, vy: 0 }; c.a.track(() => c.m); };
+  const manMove = (c, vf, vr) => { c.m.vx = c.fx * vf + c.rx * vr; c.m.vy = c.fy * vf + c.ry * vr; c.m.x += c.m.vx / 60; c.m.y += c.m.vy / 60; };
+  const tick60 = (fn) => (c, t) => { const k = Math.round(t * 60); if (c._k === k) return; c._k = k; fn(c, t); };
+  add('Gaits', 'walksprint', 'Walk into an all-out sprint, then stop', 7, (c) => {
+    c.a.setStance('stand');
+    c.at(0.2, () => go(c, 400, 4.5)); c.at(2.0, () => go(c, 400, 30)); c.at(4.5, () => c.a.stop());
+  });
+  add('Gaits', 'stopgo', 'Stop and go (walk, jog, run, stop, run, stop)', 9, (c) => {
+    c.a.setStance('stand');
+    c.at(0.2, () => go(c, 200, 6)); c.at(1.5, () => go(c, 200, 14)); c.at(3.0, () => c.a.stop());
+    c.at(4.5, () => go(c, 200, 22)); c.at(6.5, () => c.a.stop());
+  });
+  add('Gaits', 'runback', 'Run with his man, then backpedal as he turns back', 6, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, 3, 0);
+  }, { tick: tick60((c, t) => manMove(c, t < 0.3 ? 0 : t < 2.5 ? 10 : -9, 0)) });
+  add('Gaits', 'backturn', 'Backpedal, then turn and run as he blows by', 6, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, -3, 0);
+  }, { tick: tick60((c, t) => manMove(c, t < 0.3 ? 0 : t < 2.5 ? -8 : -22, 0)) });
+  add('Gaits', 'slidecross', 'Slide with his man, then open up (crossover) and sprint', 6, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, 0, 0);
+  }, { tick: tick60((c, t) => manMove(c, 0, t < 0.3 ? 0 : t < 2.5 ? -7 : -22)) });
+  add('Gaits', 'jogslide', 'Jog, slide across, jog on', 6.5, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, 2, 0);
+  }, { tick: tick60((c, t) => (t < 0.3 ? manMove(c, 0, 0) : t < 2.2 ? manMove(c, 9, 0) : t < 4.2 ? manMove(c, 0, -7) : manMove(c, 9, 0))) });
   add('Dribbling', 'dwalk', 'Dribble walking', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 200, 5)); });
   add('Dribbling', 'djog', 'Dribble jogging', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 200, 11)); });
   add('Dribbling', 'dsprint', 'Speed dribble', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 300, 19)); });
@@ -370,7 +396,7 @@
       this.snapFocus = true; this.snapUp = true;
       this.track = new Map();
       // the same meters as the in-game debug tools and the headless audit (js/match/debug.js)
-      this.meters = M.Debug ? new M.Debug.Meters(() => ({ people: this.world.list, ball: this.world.ball, time: this.simT, view: null, dt: SUB })) : null;
+      this.meters = M.Debug ? new M.Debug.Meters(() => ({ people: this.world.list, ball: this.world.ball, time: this.simT, view: null, dt: SUB, countAll: true })) : null;
       reseed(set.seed * 104729 + 7);
       b.hidden = true; // (shown when the scenario hands it out, dribbles or passes it)
       U.safe ? U.safe(() => sc.setup(ctx), this, 'scenario') : sc.setup(ctx);

@@ -5,6 +5,7 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 
 - Tools: Shift+D in `match_test.html` or the live game.
 - Headless scorecard: `node tools/audit/quarter.js --seed 7`.
+- Gait lab (every gait on four bodies, blind naming, the scripted changes of gait): `node tools/audit/gaits.js`.
 - Tests: `node tools/audit/check.js`.
 - Tuning: every value lives in `js/match/tune.js` (`PBC.Match.Tune`).
 
@@ -15,3 +16,4 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 | 2 The Body | PASS | [TRIAL_02_BODY.md](TRIAL_02_BODY.md) |
 | 3 The Floor | PASS | [TRIAL_03_FLOOR.md](TRIAL_03_FLOOR.md) |
 | 4 The Weight | PASS | [TRIAL_04_WEIGHT.md](TRIAL_04_WEIGHT.md) |
+| 5 The Gaits | PASS (live-game slide transitions and forced steps carried to Trial 6) | [TRIAL_05_GAITS.md](TRIAL_05_GAITS.md) |

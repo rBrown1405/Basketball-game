@@ -429,6 +429,42 @@ console.log('the weight (Trial 4)');
     'running into each other: ' + runs.map(([q, r]) => `${q[0]} vs ${q[1]} ft/s ${r.minD.toFixed(2)} ft apart at the closest (touching at ${r.touch.toFixed(2)}), ${r.maxA.toFixed(1)} ft/s^2 at the most`).join('; '));
 }
 
+console.log('the gaits (Trial 5)');
+{
+  // every gait at three paces on four bodies (tools/audit/gaits.js), and the scripted gait changes
+  const G5 = require('./gaits');
+  const rows = G5.signatures(PBC), by = (g) => rows.filter(r => r.gait === g);
+  const avg = (rs, k) => rs.reduce((p, r) => p + r[k], 0) / rs.length, rng = (rs, k) => `${Math.min(...rs.map(r => r[k]))}-${Math.max(...rs.map(r => r[k]))}`;
+  const walk = by('walk'), jog = by('jog'), run = by('run'), sprint = by('sprint'), back = by('backpedal'), slide = by('slide');
+  // (only a neighbouring pace may be taken for another: a run for a jog or a sprint; they blend into each other by speed)
+  const bl = G5.blind(rows), NEXT = { 'jog>run': 1, 'run>jog': 1, 'run>sprint': 1, 'sprint>run': 1 };
+  ok(bl.ok >= bl.n * 0.95 && bl.wrong.every(m => { const q = /(\w+) at [0-9.]+ ft\/s named (\w+)$/.exec(m); return q && NEXT[q[1] + '>' + q[2]]; }),
+    `named blind, each run by the gait nearest it on the other bodies: ${bl.ok}/${bl.n}` + (bl.wrong.length ? ` (missed only between neighbouring paces: ${bl.wrong.join('; ')})` : ''));
+  ok(walk.every(r => r.flightPct === 0 && r.duty >= 0.55 && r.landPitchDeg < 0 && r.elbowDeg <= 30),
+    `walking: never both feet off the floor, each foot down ${rng(walk, 'duty')} of the stride, heel first (${rng(walk, 'landPitchDeg')} deg), the arms hanging (elbows ${rng(walk, 'elbowDeg')} deg)`);
+  ok([...jog, ...run, ...sprint].every(r => r.flightPct >= 20 && r.duty <= 0.4) && avg(sprint, 'hipFlexMax') >= avg(jog, 'hipFlexMax') + 15 && avg(sprint, 'leanDeg') >= avg(jog, 'leanDeg') + 3,
+    `running: a flight every step (${rng([...jog, ...run, ...sprint], 'flightPct')}%); sprinting drives the knees higher (hip flexion ${avg(sprint, 'hipFlexMax').toFixed(0)} against a jog's ${avg(jog, 'hipFlexMax').toFixed(0)} deg) and leans further forward (${avg(sprint, 'leanDeg').toFixed(1)} against ${avg(jog, 'leanDeg').toFixed(1)} deg)`);
+  ok(avg(walk, 'stepsPerS') < avg(jog, 'stepsPerS') && avg(jog, 'stepsPerS') < avg(run, 'stepsPerS') && avg(run, 'stepsPerS') < avg(sprint, 'stepsPerS') && avg(walk, 'stepH') < avg(jog, 'stepH') && avg(jog, 'stepH') < avg(run, 'stepH') && avg(run, 'stepH') < avg(sprint, 'stepH'),
+    `quicker and longer steps gait by gait: ${[walk, jog, run, sprint].map(g => avg(g, 'stepsPerS').toFixed(2)).join(', ')} steps/s, ${[walk, jog, run, sprint].map(g => avg(g, 'stepH').toFixed(2)).join(', ')} heights a step`);
+  ok(back.every(r => r.travelDeg >= 170 && r.landPitchDeg > 0),
+    `backpedalling: going straight back while facing the play (${rng(back, 'travelDeg')} deg off the facing), each step down toes first (heel ${rng(back, 'landPitchDeg')} deg up)`);
+  ok(slide.every(r => r.travelDeg >= 80 && r.travelDeg <= 100 && r.crossPct === 0),
+    `sliding: sideways (${rng(slide, 'travelDeg')} deg off the facing), the feet never crossing (${rng(slide, 'crossPct')}% of frames)`);
+  const swingers = [...walk, ...jog, ...run, ...sprint, ...back];
+  ok(swingers.every(r => r.armOppositePct >= 99 && r.armLegR >= 0.85 && Math.abs(r.armLegLagDeg) <= 30),
+    `each arm swings with the opposite leg in every walk, jog, run, sprint and backpedal: the arm forward is the one opposite the thigh forward in ${rng(swingers, 'armOppositePct')}% of frames, shoulder against opposite hip r ${rng(swingers, 'armLegR')}, within ${Math.max(...swingers.map(r => Math.abs(r.armLegLagDeg)))} deg of the cycle`);
+  ok(avg(walk, 'armSwingDeg') < avg(jog, 'armSwingDeg') && avg(jog, 'armSwingDeg') < avg(sprint, 'armSwingDeg') && sprint.every(r => r.elbowDeg >= 85),
+    `the arm swing grows with the pace (${[walk, jog, run, sprint].map(g => avg(g, 'armSwingDeg').toFixed(0)).join(', ')} deg at the shoulder), a sprinter's arms driving compact, elbows at ${rng(sprint, 'elbowDeg')} deg`);
+  ok(rows.every(r => r.pops === 0), `no joint pops in ${rows.length} steady runs (${rows.reduce((p, r) => p + r.pops, 0)})`);
+  const tr = G5.transitions(U).map(sc => G5.runTransition(PBC, sc));
+  for (const r of tr) {
+    ok(r.popN === 0 && r.spinePops === 0 && r.hipJumps === 0 && r.accelSnaps + r.turnSnaps === 0 && r.limitFrames === 0 && r.sinkPct === 0 && r.hoverPct === 0,
+      `${r.name}: no pop (${r.popN}), no spine pop, hip jump or snap, nothing past a joint's range, through the floor or floating`);
+  }
+  const x = tr.find(r => r.name.startsWith('slide, then open up'));
+  ok(x && x.crossAt.some(t => t >= 2.5 && t <= 3.2), `beaten on a slide, he opens up with a crossover step: the trail foot crosses over in front of the lead one at ${x ? x.crossAt.filter(t => t >= 2.5 && t <= 3.2).join(', ') : '-'} s (the man goes by at 2.5 s), then he runs`);
+}
+
 console.log('the floor and the weight in a real game (the first minute of seed 7)');
 {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'quarter.js'), '--seed', '7', '--frames', '3600'], { encoding: 'utf8', maxBuffer: 1 << 26 });
