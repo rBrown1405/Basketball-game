@@ -20,6 +20,13 @@
   const FLOW = { pnr: 'Pick and roll', iso: 'Isolation', post: 'Post up', spot: 'Spot-up, drive and kick', offscreen: 'Off screens', handoff: 'Hand-offs', cut: 'Cutting' };
   const COV = { drop: 'Drop', show: 'At the level', hedge: 'Hedge', blitz: 'Blitz', switch: 'Switch', ice: 'Ice', zone: 'Zone' };
   const schemeName = (k) => (C.DEFENSES[k] ? C.DEFENSES[k].label : k);
+  // (what each way of playing a possession means: the tooltips)
+  const KIND_TIP = {
+    call: 'A play called by the coach or the staff (an inbound play and the call after it are two calls)',
+    flow: 'No call: the offense flowed into an action (pick and roll, isolation, post-up, spot-up, off screens, hand-offs, cuts)',
+    trans: 'A fast break or early offense before the defense set up',
+    other: 'No action run: a turnover or a foul before the offense set up, or the period ended',
+  };
   function playOf(id) { return PB() ? PB().get(id) : null; }
   function playName(id) { const p = playOf(id); return p ? (p.custom ? '✏️ ' : '') + p.name : id.replace(/^my_/, 'My play '); }
   function stepText(id, k) {
@@ -53,7 +60,7 @@
     if (!agg) return '';
     const sm = PS().summary(agg);
     const rows = PS().rows(agg);
-    const kind = (k, label) => { const a = sm[k]; return a[0] ? `<span class="tag">${label} ${a[0]} · ${f2(a[1] / a[0])}</span>` : ''; };
+    const kind = (k, label) => { const a = sm[k]; return a[0] ? `<span class="tag" title="${KIND_TIP[k]}">${label} ${a[0]} · ${f2(a[1] / a[0])}</span>` : ''; };
     const outs = (id) => {
       const a = agg.p[id], F = PS().F, sh = a[F.sh];
       const parts = [];
@@ -150,7 +157,7 @@
     const lgFam = L ? L.lg.fam : {};
     const lgPpp = (id) => { const p = playOf(id), a = p ? lgFam[p.family] : null; return a && a[0] ? a[1] / a[0] : null; };
     const kinds = [['call', 'Called plays'], ['flow', 'Flow (no call)'], ['trans', 'Transition'], ['other', 'Other']];
-    const kindBars = kinds.filter(([k]) => sm[k][0]).map(([k, l]) => bar(l, sm[k][0], sm.poss, `${Math.round((100 * sm[k][0]) / sm.poss)}% · <b>${f2(sm[k][1] / sm[k][0])}</b>`)).join('');
+    const kindBars = kinds.filter(([k]) => sm[k][0]).map(([k, l]) => bar(`<span title="${KIND_TIP[k]}">${l}</span>`, sm[k][0], sm.poss, `${Math.round((100 * sm[k][0]) / sm.poss)}% · <b>${f2(sm[k][1] / sm[k][0])}</b>`)).join('');
     const whyN = Object.values(sm.why).reduce((a, b) => a + b, 0);
     const whyBars = Object.keys(sm.why).sort((a, b) => sm.why[b] - sm.why[a]).map((k) => bar(U.esc((PS().BRK[k] || [k])[0]), sm.why[k], whyN, `${sm.why[k]} · ${Math.round((100 * sm.why[k]) / whyN)}%`, '#ff8a5c')).join('');
     const vc = agg.vc || {};
