@@ -48,6 +48,14 @@ angles.
 - **Playoffs feel bigger**: towels, giveaway shirts and floor decals, a louder building, a series strip on the
   score bug, and teams that tighten rotations, play harder defense and ride their stars, more so each round
   up to a Finals Game 7. A huge favorite still wins almost every game, but a hot underdog can steal one.
+- **Playbook and play calling**: every team runs a playbook of real sets (pick and roll, horns, floppy, Spain,
+  Chicago, flex, post and inbound plays) with roles, steps and reads, called by the coaches during games.
+- **Timeout huddle**: call a play for the next possessions, the next inbound play, and a defensive scheme and
+  pick-and-roll coverage for the next 3, 5 or 10 possessions, and make substitutions.
+- **Play designer**: draw your own plays on a whiteboard in X's and O's (cuts, screens, passes, hand-offs,
+  dribbles and drives, step by step), give each spot a role, pick the reads, run it on the board, and add it to
+  your playbook; or start from any library play and make it yours.
+- **Play paths on the court**: the called play drawn on the floor as it runs (the O key).
 - **Game Impact Moments**: in clutch moments you draw up the play and hit the shot yourself with a shot meter.
 - **Gameplay sliders** (League Settings): pace, fast breaks, three-point rate and accuracy, shooting by zone,
   dunks, fouls, turnovers, steals, blocks, defense, rebounding, fatigue, injuries, star usage, clutch, home

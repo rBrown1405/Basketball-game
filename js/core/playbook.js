@@ -1103,7 +1103,11 @@
       const o = def.reads && def.reads[r.key];
       if (o && o.on === false) continue;
       const K = READ_KIND[r.kind];
-      const x = { at: r.at, w: U.round(K.w * PRI_K[o && o.pri != null ? o.pri : 1], 2), label: r.label, key: r.key };
+      // (a read before the last step starts at half weight, so the drawn play usually runs through unless the defense
+      // gives it early; one the coach made the first look keeps its full weight)
+      const pri = o && o.pri != null ? o.pri : 1;
+      const early = !K.safety && r.at < tr.steps.length - 1 && pri < 2 ? 0.5 : 1;
+      const x = { at: r.at, w: U.round(K.w * PRI_K[pri] * early, 2), label: r.label, key: r.key };
       if (K.safety) x.safety = true; else { x.base = K.base; x.br = K.br; if (K.pop) x.pop = true; x.trig = K.trig; }
       const zk = r.zk || K.zk; if (zk) x.zk = zk;
       x.who = Array.isArray(r.who) ? r.who.map((k) => RK[k]) : RK[r.who];
@@ -1198,7 +1202,9 @@
     for (const r of roles) cur[K[r]] = play.align[r];
     const steps = [];
     for (const st of play.steps) {
+      // (drawn in the order a coach would: the screens, the runs (off them), then the passes, hand-offs and drives)
       const acts = [];
+      for (const e of st.ev || []) if (e[0] === 'screen' && K[e[1]] && K[e[2]]) acts.push({ id: 'a' + (++seq), t: 'screen', p: K[e[1]], on: K[e[2]] });
       for (const r in st.pos || {}) {
         const k = K[r], to = st.pos[r];
         if (!k || (inb && k === K[start]) || Math.hypot(to[0] - cur[k][0], to[1] - cur[k][1]) < 0.5) continue;
@@ -1206,8 +1212,8 @@
         cur[k] = to;
       }
       for (const e of st.ev || []) {
-        if (e[0] === 'screen' && K[e[1]] && K[e[2]]) acts.push({ id: 'a' + (++seq), t: 'screen', p: K[e[1]], on: K[e[2]] });
-        else if ((e[0] === 'pass' || e[0] === 'handoff') && K[e[1]] && K[e[2]] && !inb) { acts.push({ id: 'a' + (++seq), t: e[0], p: K[e[1]], to: K[e[2]] }); holder = K[e[2]]; }
+        if (e[0] === 'screen') continue;
+        if ((e[0] === 'pass' || e[0] === 'handoff') && K[e[1]] && K[e[2]] && !inb) { acts.push({ id: 'a' + (++seq), t: e[0], p: K[e[1]], to: K[e[2]] }); holder = K[e[2]]; }
         else if (e[0] === 'move' && K[e[1]] && K[e[1]] === holder && !inb && e[2] !== 'size_up' && e[2] !== 'jab') acts.push({ id: 'a' + (++seq), t: e[2] === 'backdown' ? 'post' : 'drive', p: K[e[1]] });
       }
       if (acts.length) steps.push({ acts, text: st.text || '' });

@@ -124,15 +124,28 @@
       const where = Object.assign({}, st.from), lines = [], scr = {};
       const moveOf = {};
       for (const a of st.acts) if (a.t === 'move' || a.t === 'dribble') moveOf[a.p] = a;
+      // the screens first: set where the man coming off each one starts the step (whichever was drawn first, the
+      // screen or the run off it), from where the screener is when it is set
+      const spotOf = new Map();
+      {
+        const at = Object.assign({}, st.from);
+        for (const a of st.acts) {
+          if (a.t === 'screen') {
+            const um = moveOf[a.on];
+            const sp = PB().screenSpot(at[a.p], st.from[a.on], um ? st.to[a.on] : null, a.ball);
+            spotOf.set(a, sp);
+            scr[a.on] = { sp, s0: at[a.p], ball: a.ball };
+            at[a.p] = sp;
+          } else if ((a.t === 'move' || a.t === 'dribble') && !scr[a.p]) at[a.p] = st.to[a.p];
+        }
+      }
       for (const a of st.acts) {
         if (a.t === 'screen') {
-          const um = moveOf[a.on];
-          const sp = PB().screenSpot(where[a.p], where[a.on], um ? st.to[a.on] : null, a.ball);
+          const sp = spotOf.get(a);
           const s0 = where[a.p];
           const dx = sp[0] - s0[0], dy = sp[1] - s0[1], L = Math.hypot(dx, dy);
           const ux = L > 0.5 ? dx / L : (where[a.on][0] - sp[0]) / (dist(where[a.on], sp) || 1), uy = L > 0.5 ? dy / L : (where[a.on][1] - sp[1]) / (dist(where[a.on], sp) || 1);
           lines.push({ k: st.k, i: a.i, t: 'screen', p: a.p, pts: [s0, sp], bar: [[sp[0] - uy * 1.3, sp[1] + ux * 1.3], [sp[0] + uy * 1.3, sp[1] - ux * 1.3]] });
-          scr[a.on] = { sp, s0, ball: a.ball };
           where[a.p] = sp;
         } else if (a.t === 'move' || a.t === 'dribble') {
           const from = where[a.p], to = st.to[a.p];
@@ -636,7 +649,7 @@
       return `<div class="pd-read ${on ? '' : 'off'}"><label class="chk"><input type="checkbox" data-read="${U.esc(r.key)}" ${on ? 'checked' : ''}><span class="pd-ri">${READ_ICON[r.kind] || '•'}</span><span class="small">${U.esc(r.label)}</span></label>
         <span class="tiny" style="color:${col}">step ${r.at + 1}</span>
         <div class="seg pd-pri" data-pri="${U.esc(r.key)}">${PRI.map(([v, l]) => `<button data-v="${v}" class="${String(pri) === v ? 'on' : ''}" ${on ? '' : 'disabled'}>${l}</button>`).join('')}</div></div>`;
-    }).join('') + '<div class="tiny muted" style="margin-top:6px">The players take a read when the defense gives it. A read before the last step counts as the play working. First look: they look for it before anything else.</div>';
+    }).join('') + '<div class="tiny muted" style="margin-top:6px">The players take a read when the defense gives it. A read before the last step counts as the play working; those start at half weight, so the play usually runs through. First look: they look for it before anything else.</div>';
   }
   function saveHtml() {
     const errs = PB().validateCustom(ed.def);
@@ -810,6 +823,8 @@
     return null;
   }
   let drag = null;
+  /** the drag keeps the pointer even when it leaves the board (a pointer the browser no longer tracks is ignored) */
+  function capture(svg, e) { try { svg.setPointerCapture(e.pointerId); } catch (x) { /* not an active pointer */ } }
   function wire(root) {
     rootEl = root;
     const svg = root.querySelector('[data-board]');
@@ -818,7 +833,7 @@
       const G = geometry(ed.def), p = boardPt(svg, e);
       if (ed.step < 0) {
         const k = hitPlayer(G, p);
-        if (k) { drag = { kind: 'place', k, before: JSON.stringify(ed.def), moved: false }; ed.hi = k; svg.setPointerCapture(e.pointerId); e.preventDefault(); repaint('board roles'); }
+        if (k) { drag = { kind: 'place', k, before: JSON.stringify(ed.def), moved: false }; ed.hi = k; capture(svg, e); e.preventDefault(); repaint('board roles'); }
         return;
       }
       if (ed.tool === 'erase') { const l = hitLine(G, p); if (l) delAct(l.i); return; }
@@ -826,7 +841,7 @@
       const gh = hitGhost(G, p);
       if (gh && (!k || dist(G.steps[ed.step].st.to[gh.p], p) < dist(shownAt(G)[k], p))) {
         drag = { kind: 'dest', id: gh.id, before: JSON.stringify(ed.def), moved: false };
-        svg.setPointerCapture(e.pointerId); e.preventDefault();
+        capture(svg, e); e.preventDefault();
         return;
       }
       if (!k) return;
@@ -839,7 +854,7 @@
       }
       drag = { kind: 'draw', k, cur: p };
       ed.hi = k;
-      svg.setPointerCapture(e.pointerId); e.preventDefault();
+      capture(svg, e); e.preventDefault();
     });
     svg.addEventListener('pointermove', (e) => {
       if (!drag) return;

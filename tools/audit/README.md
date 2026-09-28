@@ -9,6 +9,9 @@ node tools/audit/run.js --games 52 --procs 4 --seed 101 --out audit/phase1 --lab
 node tools/audit/run.js --games 52 --out audit/phase2 --label "Phase 2" --baseline audit/phase1/metrics.json --baseLabel "Phase 1"
 node tools/audit/run.js --repo /tmp/phase2 --games 52 --out audit/phase3/phase2-code --label "Phase 2 code"
 node tools/audit/run.js --games 52 --out audit/phase3 --label "Phase 3" --baseline audit/phase3/phase2-code/metrics.json --baseLabel "Phase 2"
+node tools/audit/run.js --repo /tmp/phase3 --games 52 --out audit/phase4/phase3-code --label "Phase 3 code"
+node tools/audit/run.js --games 52 --out audit/phase4 --label "Phase 4" --baseline audit/phase4/phase3-code/metrics.json --baseLabel "Phase 3"
+node tools/audit/run.js --games 52 --out audit/phase4/calls --label "Phase 4, the coach calling plays" --calls 1 --baseline audit/phase4/metrics.json --baseLabel "Phase 4, no calls"
 ```
 
 When the audit itself gained metrics since the last phase, measure the last phase's code again with this audit

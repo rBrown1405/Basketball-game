@@ -644,6 +644,71 @@ game).
   play under the basket and two defensive calls a game (man-to-man with a blitz, then a 2-3 zone), and the report
   measures how they run (section 9).
 
+### What the Phase 4 audit shows (52 games, the same 52 seeds as Phases 1 to 3)
+
+Full tables: `audit/phase4/report.md` (Phase 4 against the Phase 3 code, no calls from the coach) and
+`audit/phase4/calls/report.md` (the same seeds with the coach calling plays, drawn plays, an inbound play and
+defensive schemes, section 9). The Phase 3 code was measured again with this audit (`audit/phase4/phase3-code/`):
+it reproduces the committed Phase 3 numbers exactly (211 of 212 metrics identical; only the wall time differs).
+
+Nothing broken, with no calls from the coach: all 52 games reached the final buzzer, no script errors, no stuck
+possessions, the court score matched the engine in every game. The engine plays exactly the games it played in
+Phase 3: 228.5 points and 201.7 possessions a game, the same shots, threes, shot clock, rebounds and play calls
+(77.1 % of half-court possessions with a call, 153.9 calls a game, 81.0 % reaching a read, 12.7 % stopped by a
+turnover, 1.13 points per half-court possession). The same league simulated with the Phase 3 code and this code
+gives the same score in all 18 test games (men and women, full and quick sim). The animation checks are identical
+to Phase 3 over 380,398 player-frames: body contact 213.3 per 10,000, feet stuck behind 26.9 per 10,000 running
+frames, no errors.
+
+One change on the court is on purpose: a ball screen outside a called play is now defended with the team's
+pick-and-roll coverage (or the coach's called coverage) instead of the generic "at the level", so a coverage called
+in the huddle applies to every ball screen. It moves a few court numbers a little: two on the ball for a coverage
+7.1 to 7.6 s a game (more hedges and blitzes), crowding 15.0 to 15.2 s, help at the rim 67.1 to 66.3 s, "open"
+threes with a defender within 4 ft 2.9 to 3.2 %, open catches shot 57.4 to 56.1 %; every other on-ball, off-ball,
+movement and spacing number within 0.1. One rebound in 52 games bent 3.3 ft toward the rebounder (the rim-carom
+timing case left from Phase 3, which had one at 2.9 ft).
+
+With the coach calling (the same seeds; the calls change the games), everything still healthy: 52 of 52 games to
+the buzzer, no errors, no stuck possessions, court and engine scores equal, 227.4 points and 198.8 possessions a
+game.
+- The coach called a play about 49 times a game (every fourth possession: four drawn plays, a library play made the
+  coach's own, the book's); the engine ran 97.4 % of them on that possession (the rest on the next half-court one,
+  after a transition or putback possession or the end of a period).
+- Coach-called plays: 80.3 % reached a read (81.4 % for all calls in these games), 22.0 % early, 13.0 % stopped by
+  a turnover (12.6 % for all), 0.98 points per call (the staff's calls 0.97): a call picks the look, it does not
+  change the shot model.
+- Drawn plays (called by the coach or by the staff once in the book): 45.5 a game, 80.3 % reached a read, 13.2 %
+  turnovers, 1.00 points per call; players within 2 ft of the drawn spot 1.2 s into a step 49.5 % (54.2 % for the
+  library's plays), within 5 ft 85.5 % (88.2 %), more than 10 ft away 6.5 % (4.3 %): drawn cuts are often longer
+  than the library's (a give and go from the top to the rim is 24 ft) and still on the way 1.2 s in. Per play:
+  Elbow Roll 0.97 points per call, Floppy 1.05, Give and Go 1.00, Horns Twist made the coach's own 1.00, Box Lob
+  (inbound) 0.61, like the library's inbound plays.
+- Reads of a drawn play before its last step start at half weight (a first look keeps its full weight): in a first
+  run at full weight the drawn plays with early reads ended on one 36 % (Floppy), 45 % (Give and Go) and 60 % (Horns
+  Twist) of the time, so the coach's play rarely ran to its last step; at half weight 26 %, 34 % and 44 %, and the
+  steps run over all calls went from 89.6 to 90.8 %.
+- Defensive calls: every defensive possession under a call was played in the called scheme (100 %) and with the
+  called pick-and-roll coverage (100 %), and every call went back to the team's own scheme when it ran out (100 %).
+- Inbound calls under the basket ran on the next such throw-in 54.9 % of the time; the rest were still waiting for
+  one when the game ended (a throw-in under the basket comes up a few times a game).
+
+### Research behind Phase 4
+
+- Play diagramming tools: coaches sketch an action on the court frame by frame, the tool moves the players to the
+  end of the frame for the next one, straightens the lines into clean diagrams, lets any line be edited without
+  starting over, and animates the play; plays are saved into a playbook. The designer follows the same flow (steps,
+  end positions carried into the next step, editable line ends, "Run it").
+  ([FastModel FastDraw](http://www.fastmodelsports.com/coaching-software/fastdraw-playbooks/),
+  [FastModel](https://fastmodelsports.com/))
+- The notation coaches read: a solid arrow for a cut, a dotted or dashed arrow for a pass, a wavy or zig-zag arrow
+  for a dribble, a T at the end of a line for a screen, two short parallel lines across the line for a hand-off,
+  numbers for the order of the actions. ([Silver Screen and Roll](https://www.silverscreenandroll.com/2018/8/6/17636232/laker-film-room-how-to-read-basketball-plays-diagrams),
+  [HoopSong](https://hoopsong.com/a-quick-note-on-how-to-read-basketball-play-diagrams/),
+  [The Hoops Geek](https://www.thehoopsgeek.com/draw-basketball-plays/), [Hoop Student: down screen](https://hoopstudent.com/basketball-down-screen/))
+- After-timeout plays score about the same as other half-court sets (Phase 3's research): a call is a way to get
+  the look the coach wants against a set defense, not a bonus, so the engine runs the coach's call with the same
+  shot model as the staff's.
+
 ## Phase 5: play tracking and analytics
 
 - `sim.js`: every possession records the play, how far into it the offense got, where it broke down and why
