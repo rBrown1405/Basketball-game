@@ -1,12 +1,12 @@
 /* Pro BBALL Coach: play tracking screens (Phase 5).
  * After a game, the box score's Plays tab: for each team how its possessions were played (called plays, flow,
  * transition) and what they scored, each play it ran (calls, points, points per possession, how the calls ended,
- * where and why they broke down, the shots they got), its defense by scheme, and for a live game every possession
- * in order. Across the season (Playbook: Play stats, and any team's page): each play's usage, points per possession
- * against the league's for that kind of play, completion rate, shot quality and most common breakdown point, the
- * breakdowns by reason, points per possession against each ball-screen coverage, and the defense's points allowed
- * per possession by scheme and coverage; past seasons from each team's history. The numbers come from
- * js/core/playstats.js. */
+ * where and why they broke down, the shots they got), its defense by scheme, and for the coach's recent games (the
+ * ones that keep their full play-by-play) every possession in order. Across the season (Playbook: Play stats, and
+ * any team's page): each play's usage, points per possession against the league's for that kind of play, completion
+ * rate, shot quality and most common breakdown point, the breakdowns by reason, points per call against each
+ * ball-screen coverage, and the defense's points allowed per possession by scheme and coverage; past seasons from
+ * each team's history. The numbers come from js/core/playstats.js. */
 (function () {
   'use strict';
   const PBC = window.PBC;

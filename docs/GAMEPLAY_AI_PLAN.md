@@ -748,8 +748,9 @@ plays exactly as before (the same league simulated with the Phase 4 code and thi
     - the period ending on it: the shot clock;
   - the **outcome**: the points (while the call was on; an inbound play that only got the ball in is credited with
     the whole possession, the way out-of-bounds possessions are counted), the shot (open, contested or tight; made
-    or missed; fouled on it) and its **shot quality** (the engine's make chance for that shooter and that look,
-    times the shot's points: expected points), a turnover and its kind, a foul;
+    or missed; fouled on it: a missed shot on a shooting foul is a look but not a field goal attempt, as in the box
+    score) and its **shot quality** (the engine's make chance for that shooter and that look, times the shot's
+    points: expected points), a turnover and its kind, a foul;
   - the defense: its scheme and, in man-to-man, its pick-and-roll coverage; and clutch calls (the last 5 minutes of
     the fourth quarter or overtime, within 5 points).
 - **Tallies**: per game in the box score (both teams; a live game also keeps the list of every possession), per team
@@ -760,8 +761,9 @@ plays exactly as before (the same league simulated with the Phase 4 code and thi
 - **The box score's Plays tab** (`js/ui/playstats.js`, `cards.js`): for each team its possessions by how they were
   played with points per possession, the completion rate, each play it ran (calls, points, points per possession,
   completed, how the calls ended, the most common breakdown with its step, shot quality), its defense by scheme and in
-  transition; for a game played live, every possession in order (the clock, the team, the calls with how far each
-  got and its outcome, where and why it broke down, the shot, the points, the defense and its coverage).
+  transition; and for the coach's last four games (the ones that keep their full play-by-play), every possession in
+  order (the clock, the team, the calls with how far each got and its outcome, where and why it broke down, the shot,
+  the points, the defense and its coverage).
 - **The season** (Playbook: 📊 Play stats for any team and season, regular season or playoffs; a "Plays this season"
   card on every team's page with "Full play stats"): points per possession against the league's and by how the
   possessions were played; the calls completed, the shot quality and why plays broke down; points per call against
