@@ -182,7 +182,7 @@
           <div class="small muted" style="margin-bottom:3px">Why plays broke down (${whyN})</div>${whyBars || '<div class="small dim">None yet.</div>'}
         </div></div>
         <div class="card"><div class="card-h"><h3>Against ball-screen coverages</h3></div><div class="card-b">
-          <div class="small muted" style="margin-bottom:3px">Called plays by the coverage the defense played, and points per possession</div>${vcBars || '<div class="small dim">No ball screens faced yet.</div>'}
+          <div class="small muted" style="margin-bottom:3px">Called plays by the coverage the defense played on them, and points per call</div>${vcBars || '<div class="small dim">No ball screens faced yet.</div>'}
         </div></div>
       </div>
       <div class="card" style="margin-top:12px"><div class="card-h"><h3>Plays</h3><div class="actions"><span class="small muted">vs league: the league's points per call for that kind of play this season</span></div></div><div class="card-b flush" data-ps-plays></div></div>

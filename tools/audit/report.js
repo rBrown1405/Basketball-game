@@ -236,7 +236,7 @@ function metrics(games) {
     m.trkPpp = poss ? pts / poss : null;
     const kind = (k, i) => T((t) => (t.k[k] ? t.k[k][i] : 0));
     for (const k of ['call', 'flow', 'trans', 'other']) { m['trkShare_' + k] = pct(kind(k, 0), poss); m['trkPpp_' + k] = kind(k, 0) ? kind(k, 1) / kind(k, 0) : null; }
-    const F = { n: 0, pts: 1, done: 2, early: 3, to: 4, foul: 5, reset: 6, sh: 7, made: 8, xp: 9, open: 10, cont: 11, tight: 12, user: 13, cl: 14, brk: 15, ctr: 16, safe: 17 };
+    const F = { n: 0, pts: 1, done: 2, early: 3, to: 4, foul: 5, reset: 6, sh: 7, made: 8, xp: 9, open: 10, cont: 11, tight: 12, user: 13, cl: 14, brk: 15, ctr: 16, safe: 17, looks: 18 };
     const c = (k) => T((t) => t.tot[F[k]] || 0), calls = c('n');
     m.trkCallsPerGame = calls / tn;
     m.trkDone = pct(c('done'), calls); m.trkEarly = pct(c('early'), calls);
@@ -244,10 +244,14 @@ function metrics(games) {
     const pbDone = sum(TR, (g) => (g.pb ? g.pb.done : 0));
     m.trkLate = pct(pbDone - c('done'), calls);
     m.trkBroke = pct(c('brk'), calls);
+    // (neither completed nor broken down: a foul before the read, the side-out or free throws)
+    m.trkCut = pct(calls - c('done') - c('brk'), calls);
     m.trkFoul = pct(c('foul'), calls);
     m.trkCounter = pct(c('ctr'), calls);
-    m.trkXps = c('sh') ? c('xp') / 100 / c('sh') : null;
-    m.trkOpen = pct(c('open'), c('sh')); m.trkTight = pct(c('tight'), c('sh'));
+    const looks = c('looks');
+    m.trkXps = looks ? c('xp') / 100 / looks : null;
+    m.trkOpen = pct(c('open'), looks); m.trkTight = pct(c('tight'), looks);
+    m.trkFg = pct(c('made'), c('sh'));
     const brk = c('brk'), why = (w) => T((t) => t.why[w] || 0);
     for (const w of ['to', 'clock', 'deny', 'screen', 'switch', 'help', 'contest']) m['trkWhy_' + w] = pct(why(w), brk);
     m.trkEntry = pct(T((t) => t.at.entry), brk);
@@ -452,11 +456,13 @@ const SECTIONS = [
     ['trkWhy_help', '  help defense (help, double team, zone)', '%', '', ''],
     ['trkWhy_contest', '  well defended (look passed up)', '%', '', ''],
     ['trkEntry', '  at the entry, before the first step', '%', '', ''],
-    ['trkFoul', 'Calls cut short by a foul', '%', '', ''],
+    ['trkCut', 'Calls cut short before the read (a foul: the side-out or free throws)', '%', '', 'section 8'],
+    ['trkFoul', 'Calls that drew a foul (on the shot or before it)', '%', '', ''],
     ['trkCounter', 'Calls ending on another read than the play\'s main option (a counter)', '%', '', ''],
-    ['trkXps', 'Shot quality of the calls\' shots (expected points per shot)', 'pp', '', ''],
-    ['trkOpen', '  open shots', '%', '', ''],
-    ['trkTight', '  tightly contested shots', '%', '', ''],
+    ['trkXps', 'Shot quality of the calls\' looks (expected points per shot, fouled shots included)', 'pp', '', ''],
+    ['trkOpen', '  open looks', '%', '', ''],
+    ['trkTight', '  tightly contested looks', '%', '', ''],
+    ['trkFg', 'Field goal percentage on the calls\' shots (a missed shot on a shooting foul is not an attempt)', '%', '', ''],
     ['trkClutch', 'Clutch calls per game (last 5 minutes of the 4th or overtime, within 5)', '', '', ''],
     ['trkDefHalf', 'Points allowed per half-court possession (by scheme: table 10b)', 'pp', '', ''],
     ['trkDefTrans', 'Points allowed per transition possession', 'pp', '', ''],

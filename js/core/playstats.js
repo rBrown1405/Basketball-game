@@ -15,12 +15,13 @@
   const PS = {};
 
   // a play's tally, an array (compact in the save): calls, points while it was on, completed (got to its read in
-  // time), early reads among those, turnovers, fouls drawn, resets (look passed up), shots, made, expected points of
-  // the shots x100, open / contested / tight shots, the head coach's calls, clutch calls, breakdowns, counters (the
-  // offense went to another read than the play's main option), inbounds that only got the ball in (the possession's
-  // points go to the play: out-of-bounds possessions are counted whole)
-  const F = { n: 0, pts: 1, done: 2, early: 3, to: 4, foul: 5, reset: 6, sh: 7, made: 8, xp: 9, open: 10, cont: 11, tight: 12, user: 13, cl: 14, brk: 15, ctr: 16, safe: 17 };
-  const NF = 18;
+  // time), early reads among those, turnovers, fouls drawn (on the shot or before it), resets (look passed up), field
+  // goal attempts and makes (a missed shot on a shooting foul is not an attempt), expected points of the looks x100,
+  // open / contested / tight looks, the head coach's calls, clutch calls, breakdowns, counters (the offense went to
+  // another read than the play's main option), inbounds that only got the ball in (the possession's points go to the
+  // play: out-of-bounds possessions are counted whole), looks (every shot the play got, fouled or not)
+  const F = { n: 0, pts: 1, done: 2, early: 3, to: 4, foul: 5, reset: 6, sh: 7, made: 8, xp: 9, open: 10, cont: 11, tight: 12, user: 13, cl: 14, brk: 15, ctr: 16, safe: 17, looks: 18 };
+  const NF = 19;
   PS.F = F;
   /** why a called play broke down: [label, what it means] */
   PS.BRK = {
@@ -65,14 +66,17 @@
     else if (r.out === 'reset') a[F.reset]++;
     else if (r.out === 'safety') a[F.safe]++;
     if (r.q) {
-      a[F.sh]++; if (r.made) a[F.made]++;
+      a[F.looks]++;
+      if (!r.fouledShot) { a[F.sh]++; if (r.made) a[F.made]++; }
       a[F.xp] += Math.round((r.xp || 0) * 100);
       a[r.q === 'open' ? F.open : r.q === 'tight' ? F.tight : F.cont]++;
     }
     if (r.user) a[F.user]++;
     if (r.cl) a[F.cl]++;
     if (r.ctr) a[F.ctr]++;
-    if (r.cov) add2(agg.vc, r.cov, pts);
+    // (the coverage the defense played on the call; an inbound that only got the ball in is left out: the coverage
+    // was played on the call after it)
+    if (r.cov && r.out !== 'safety') add2(agg.vc, r.cov, pts);
     if (r.brk) {
       a[F.brk]++;
       const b = agg.b[r.id] || (agg.b[r.id] = {}), k = r.brk[0] + '|' + r.brk[1];
@@ -191,11 +195,11 @@
   PS.row = function (agg, id) {
     const a = agg.p[id];
     if (!a) return null;
-    const n = a[F.n], sh = a[F.sh];
+    const n = a[F.n], sh = a[F.sh], looks = a[F.looks] || sh;
     return {
       id, n, pts: a[F.pts], ppp: n ? a[F.pts] / n : null, done: pct(a[F.done], n), early: pct(a[F.early], n), to: pct(a[F.to], n),
-      foul: pct(a[F.foul], n), reset: pct(a[F.reset], n), sh, fg: pct(a[F.made], sh), xps: sh ? a[F.xp] / 100 / sh : null,
-      open: pct(a[F.open], sh), tight: pct(a[F.tight], sh), user: a[F.user], cl: a[F.cl], brk: a[F.brk], ctr: pct(a[F.ctr] || 0, n), safe: a[F.safe] || 0, top: PS.topBreak(agg.b[id]),
+      foul: pct(a[F.foul], n), reset: pct(a[F.reset], n), sh, looks, fg: pct(a[F.made], sh), xps: looks ? a[F.xp] / 100 / looks : null,
+      open: pct(a[F.open], looks), tight: pct(a[F.tight], looks), user: a[F.user], cl: a[F.cl], brk: a[F.brk], ctr: pct(a[F.ctr] || 0, n), safe: a[F.safe] || 0, top: PS.topBreak(agg.b[id]),
     };
   };
   /** every play of a tally, most called first */
@@ -207,16 +211,16 @@
   PS.summary = function (agg) {
     if (!agg) return null;
     const k = (x) => agg.k[x] || [0, 0];
-    let calls = 0, done = 0, brk = 0, sh = 0, xp = 0;
+    let calls = 0, done = 0, brk = 0, looks = 0, xp = 0;
     const why = {};
-    for (const id in agg.p) { const a = agg.p[id]; calls += a[F.n]; done += a[F.done]; brk += a[F.brk]; sh += a[F.sh]; xp += a[F.xp]; }
+    for (const id in agg.p) { const a = agg.p[id]; calls += a[F.n]; done += a[F.done]; brk += a[F.brk]; looks += a[F.looks] || a[F.sh]; xp += a[F.xp]; }
     for (const id in agg.b) for (const key in agg.b[id]) { const w = key.split('|')[1]; why[w] = (why[w] || 0) + agg.b[id][key]; }
     let dn = 0, dp = 0;
     for (const s in agg.d) { dn += agg.d[s][0]; dp += agg.d[s][1]; }
     return {
       gp: agg.gp, poss: agg.poss, ppp: agg.poss ? agg.pts / agg.poss : null,
       call: k('call'), flow: k('flow'), trans: k('trans'), other: k('other'),
-      calls, done: pct(done, calls), brk, xps: sh ? xp / 100 / sh : null, why,
+      calls, done: pct(done, calls), brk, xps: looks ? xp / 100 / looks : null, why,
       dHalf: [dn, dp], dTrans: agg.dt,
     };
   };
