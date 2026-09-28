@@ -105,7 +105,9 @@
         for (let i = 0; i < this.jobs.length; i++) if (this.jobs[i].t <= this.T && (best < 0 || this.jobs[i].t < this.jobs[best].t)) best = i;
         if (best < 0) return;
         const j = this.jobs.splice(best, 1)[0];
+        this._why = j.tag || 'scripted';
         U.safe(j.fn, this, 'job ' + (j.tag || ''));
+        this._why = null;
       }
     }
     update(dt) {
@@ -137,7 +139,9 @@
       if (this.frozen) return;
       if (this.wrap && this.T >= this.wrap.t0 + this.wrap.dur && (!this.wrap.waitFor || this.wrap.waitFor() || this.T > this.wrap.t0 + this.wrap.dur + 4)) this.finish();
       U.safe(() => this.ambient(dt), this, 'ambient');
+      this._why = 'handle';
       if (this.handleBall) U.safe(() => this.handleBall(), this, 'handle ball');
+      this._why = null;
       if (this.T > this.watch && this.active) { U.warn('possession watchdog', this.poss && this.poss.n); this.forceFinish(); }
     }
 
@@ -149,6 +153,7 @@
       const gap = Math.max(0, beat.g1 - beat.g0);
       let need = 0.05;
       const fn = this['p_' + ev.type];
+      this._why = ev.type;
       if (fn) {
         try { const r = fn.call(this, ev, beat, gap); if (typeof r === 'number' && isFinite(r)) need = r; }
         catch (e) { U.warn('planner ' + ev.type, e); need = 0.05; beat.onStart = null; beat.onFire = null; beat.broken = true; }
@@ -158,11 +163,14 @@
       beat.fireAt = this.T + Math.min(dur, beat.maxDur || 30);
       this.beat = beat;
       if (beat.onStart) U.safe(() => beat.onStart(beat.fireAt), this, 'onStart ' + ev.type);
+      this._why = null;
     }
     fire(beat) {
       beat.fired = true;
       this.g = Math.max(this.g, beat.g1);
+      this._why = beat.type;
       if (beat.onFire) U.safe(() => beat.onFire(), this, 'onFire ' + beat.type);
+      this._why = null;
       if (!beat.noEmit) this.emit(beat.ev);
       if (this.beat === beat) this.beat = null;
     }
@@ -426,11 +434,13 @@
       const T = this.T;
       // offense
       const flow = this.flowOK ? this.flowOK() : false;
+      this._why = 'flow';
       if (flow) { this.flowBall(); this.flowDriveReact(); }
       for (const a of this.offActors()) {
         const r = this.role[a.id];
         if (!r || a.isBusy()) continue;
         if (r.mode === 'locked' || r.until > T) { r.path = null; continue; }
+        this._why = 'handler';
         if (b.holder === a) { r.path = null; if (flow && this.flowHandler(a, r)) continue; r.probe = null; this.handlerAmbient(a, r, dt); continue; }
         if (!r.spot) r.spot = this.spotPt('top');
         // offensive three seconds: nobody plants himself in the lane; past ~2 seconds (a scripted cut or screen that
@@ -440,9 +450,12 @@
         r.laneT = this.inPaint(a, 0) ? (r.laneT || 0) + dtl : 0;
         if (r.laneT > 2.1 * this.sliderK('offIQ', 1.2, 0.85)) { r.laneOut = T + 1.0; r.laneT = 0; r.path = null; r.next = Math.max(r.next || 0, T + 1.0); }
         // half-court flow: scripted actions (screens, cuts, relocations) take over the player while they run
+        this._why = r.path ? 'flow ' + (r.pathKind || 'path') : 'off-ball';
         if (r.path) { if (flow && this.flowPath(a, r)) continue; r.path = null; }
         if (T > r.next) {
+          this._why = 'off-ball';
           if (flow) this.flowOffBall(a, r); else this.offBallAction(a, r);
+          this._why = r.path ? 'flow ' + (r.pathKind || 'path') : 'off-ball';
           if (r.path && this.flowPath(a, r)) continue;
         }
         // targets always stay in bounds (corners included)
@@ -501,9 +514,11 @@
         const d = Math.hypot(tx - a.x, ty - a.y);
         const eff = 1 + this.intensity() * 0.14;
         const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, 0.95 * eff) : lane === 'run' ? Math.min(a.maxSpeed * 0.8, 19) * eff : lane ? 14 * eff : (d > 14 ? 12 : d > 4 ? 8 : 5) * eff;
+        this._why = lane ? 'fill lane' : 'spacing';
         a.moveTo(tx, ty, { speed: sp, face: d > 3 ? 'move' : { x: b.x, y: b.y }, stance: d > 5 ? 'stand' : 'ready' });
         a.lookAt({ x: b.x, y: b.y });
       }
+      this._why = 'defend';
       // defense: set tracking once, per-defender overrides
       for (const a of this.defActors()) {
         const t = this.dtask[a.id];

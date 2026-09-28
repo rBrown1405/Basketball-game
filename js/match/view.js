@@ -5,7 +5,6 @@
 (function () {
   'use strict';
   const M = window.PBC.Match, U = M.U;
-  const STEP = 1 / 60;
 
   const REF_LOOKS = [
     { id: 'ref1', num: 14, height: 74, weight: 200, gender: 'm', look: { skin: 1, hair: 'bald', hairColor: '#2a1d14', beard: 'none', build: 0.4 } },
@@ -38,6 +37,8 @@
       this.arriving = [];
       this.refs = REF_LOOKS.map((l) => { const a = new M.Actor(this, l, -1, 'ref'); a.setStance('refStand'); return a; });
       this.time = 0;
+      this._acc = 0; // game time not yet stepped (fixed steps, see update)
+      this.debug = null; // the debug tools (js/match/debug.js), when open
       this.period = 1;
       this.score = [0, 0];
       this.focus = { x: 47, vx: 0 };
@@ -89,15 +90,23 @@
       if (this.replay) {
         U.safe(() => this.updateReplay(dt), this, 'replay');
       } else {
-        let left = dt;
-        let guard = 0;
-        while (left > 1e-7 && guard++ < 200) {
-          const h = Math.min(STEP, left);
-          left -= h;
-          U.safe(() => this.step(h), this, 'step');
-          if (h > 0 && this.opts.record !== false) U.safe(() => this.recordFrame(), this, 'record');
+        // fixed steps: the simulation always advances in whole steps of Tune.clock.step (1/60 s), whatever the
+        // playback speed or the screen's refresh rate, so 0.25x shows exactly the frames 1x shows; the leftover time
+        // carries to the next call and the renderer blends the last two steps by it (see _render)
+        const TC = M.Tune.clock, h = TC.step, dbg = this.debug;
+        let n, camDt;
+        const req = dbg ? dbg.takeSteps() : 0;
+        if (req > 0) { n = req; camDt = n * h; this._acc = 0; }
+        else {
+          const sdt = dbg ? dbg.simDt(dt) : dt;
+          this._acc = (this._acc || 0) + sdt;
+          n = Math.floor(this._acc / h + 1e-6);
+          this._acc = Math.max(0, this._acc - n * h);
+          camDt = sdt;
         }
-        U.safe(() => this.updateCamera(dt), this, 'camera');
+        if (n > TC.maxStepsPerUpdate) { n = TC.maxStepsPerUpdate; this._acc = 0; }
+        for (let i = 0; i < n; i++) this.tick(h);
+        U.safe(() => this.updateCamera(camDt), this, 'camera');
       }
       // crowd, LED and jumbotron run on wall-clock time: they keep moving during a GIM freeze
       // (the host calls update(0) while the shot meter is up) and stay calm at 16x
@@ -150,6 +159,7 @@
       this.arena.cheer(team, 1, 6);
     }
     destroy() {
+      if (this.debug && this.debug.destroy) this.debug.destroy();
       this.destroyed = true;
       this.actors = {}; this.refs = []; this.items = [];
       this.director.active = false;
@@ -279,6 +289,46 @@
       this.refs[1].place(30, -2.5, Math.PI / 2);
       this.refs[2].place(64, 52.5, -Math.PI / 2);
       this.ball.give(this.refs[0], 'chest');
+    }
+    /** one fixed simulation step: move everyone, then solve every body once (the pose smoothing inside solve()
+     *  integrates over exactly one step, so the motion does not depend on how often the screen is drawn), then
+     *  measure (debug tools) and record (replays) */
+    tick(h) {
+      for (const a of this.bodies()) this.keepPrev(a);
+      const b = this.ball;
+      this._bPrev = this._bPrev || new Float64Array(3);
+      this._bPrev[0] = b.x; this._bPrev[1] = b.y; this._bPrev[2] = b.z;
+      U.safe(() => this.step(h), this, 'step');
+      if (this.director.frozen) return;
+      for (const a of this.bodies()) U.safe(() => a.solve(), a, 'solve');
+      if (this.debug) U.safe(() => this.debug.afterStep(), this, 'debug');
+      if (this.opts.record !== false) U.safe(() => this.recordFrame(), this, 'record');
+    }
+    /** everyone who is drawn: players on the floor or walking on/off it, and the officials */
+    bodies() {
+      const out = this._bodies || (this._bodies = []);
+      out.length = 0;
+      for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) out.push(a); }
+      for (const r of this.refs) out.push(r);
+      return out;
+    }
+    /** keep a body's last solved skeleton (the renderer blends from it to the new one between steps) */
+    keepPrev(a) {
+      if (a._inT == null) return;
+      if (!a._P0) { a._P0 = new Float64Array(a.sk.P.length); a._R0 = new Float64Array(a.sk.R.length); }
+      a._P0.set(a.sk.P); a._R0.set(a.sk.R); a._hasPrev = true;
+    }
+    /** the skeleton to draw: between the last two steps by k (0..1), or the solved one */
+    displaySk(a, k) {
+      if (!(k > 0.001 && k < 0.999) || !a._hasPrev) return a.sk;
+      const ds = a._dsk || (a._dsk = { P: new Float64Array(a.sk.P.length), R: new Float64Array(a.sk.R.length), dims: a.sk.dims, pose: a.sk.pose });
+      const P = a.sk.P, R = a.sk.R, P0 = a._P0, R0 = a._R0;
+      // (a body that jumped a long way in one step, a placement, is drawn where it is)
+      if (Math.abs(P[0] - P0[0]) + Math.abs(P[1] - P0[1]) > 3) return a.sk;
+      for (let i = 0; i < P.length; i++) ds.P[i] = P0[i] + (P[i] - P0[i]) * k;
+      for (let i = 0; i < R.length; i++) ds.R[i] = R0[i] + (R[i] - R0[i]) * k;
+      ds.dims = a.sk.dims; ds.pose = a.sk.pose;
+      return ds;
     }
     step(h) {
       const d = this.director;
@@ -551,7 +601,7 @@
     // ============================================================ instant replay
     makeRec(cap, maxP) {
       const frames = [];
-      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), ball: new Float32Array(16), net: new Float32Array(M.Hoop.SNAP * 2), pan: 47 });
+      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), pose: new Float32Array(maxP * M.Rig.NCH), ball: new Float32Array(16), net: new Float32Array(M.Hoop.SNAP * 2), pan: 47 });
       return { cap, maxP, frames, head: 0, count: 0, lastT: -1e9, tmp: [] };
     }
     /** snapshot everything a frame needs (30 Hz of presentation time, ring buffer of the last ~7 s) */
@@ -568,10 +618,10 @@
       f.t = this.time; f.n = n;
       for (let i = 0; i < n; i++) {
         const a = people[i];
-        a.solve();
         f.who[i] = a;
         f.P.set(a.sk.P, i * 81);
         f.R.set(a.sk.R, i * 153);
+        f.pose.set(a.sk.pose, i * M.Rig.NCH);
       }
       const b = this.ball;
       f.ball[0] = b.x; f.ball[1] = b.y; f.ball[2] = b.z; f.ball[3] = b.squash; f.ball[4] = b.hidden ? 1 : 0;
@@ -643,8 +693,11 @@
         const who = a.who[i];
         let j = -1;
         for (let k = 0; k < b.n; k++) if (b.who[k] === who) { j = k; break; }
-        const gh = ghosts[gi] || (ghosts[gi] = { P: new Float64Array(81), R: new Float64Array(153), dims: null, style: null, who: null });
+        const gh = ghosts[gi] || (ghosts[gi] = { P: new Float64Array(81), R: new Float64Array(153), pose: new Float32Array(M.Rig.NCH), dims: null, style: null, who: null });
         gh.dims = who.sk.dims; gh.style = who.style; gh.who = who;
+        // (the pose carries the forearm twist and the finger curl the 3D body needs; without it replays corkscrewed)
+        const pf = u < 0.5 || j < 0 ? a : b, pi = u < 0.5 || j < 0 ? i : j;
+        for (let k = 0; k < M.Rig.NCH; k++) gh.pose[k] = pf.pose[pi * M.Rig.NCH + k];
         for (let k = 0; k < 81; k++) { const va = a.P[i * 81 + k]; gh.P[k] = j >= 0 ? va + (b.P[j * 81 + k] - va) * u : va; }
         for (let k = 0; k < 153; k++) { const va = a.R[i * 153 + k]; gh.R[k] = j >= 0 ? va + (b.R[j * 153 + k] - va) * u : va; }
         gi++;
@@ -660,6 +713,8 @@
 
     // ============================================================ frame
     _render() {
+      const dbg = this.debug;
+      if (dbg && dbg.orbit) { const sf = dbg.scrubbing() ? dbg.scrubFrame() : null; U.safe(() => dbg.orbitRender(this.g, this.cssW, this.cssH, this.dpr, sf), this, 'orbit'); return; }
       let g = this.g, cam = this.cam;
       const pix = !!this.opts.pixelMode;
       let W = this.cssW, H = this.cssH, dpr = this.dpr;
@@ -685,15 +740,36 @@
       arena.drawJumbotron(g, cam);
       for (const ho of this.hoops) ho.drawStanchion(g, cam);
       const b = this.ball;
-      const rp = this.replay ? this.replayFrame() : null;
-      // people to draw: live actors (solved now) or interpolated replay ghosts
+      // a replay, or a rewound frame of the debug recorder (drawn the same way), or the live frame
+      const rp = this.replay ? this.replayFrame() : (dbg && dbg.scrubbing() ? dbg.scrubFrame() : null);
+      // between two fixed steps the live frame is drawn blended between them by the time left over (the debug tools
+      // show the exact steps instead)
+      const kI = !rp && !dbg ? U.clamp((this._acc || 0) / M.Tune.clock.step, 0, 1) : 0;
+      // people to draw: live bodies (solved in the last step) or ghosts
       const people = this._people || (this._people = []);
       people.length = 0;
+      const skOf = this._skOf || (this._skOf = new Map());
+      skOf.clear();
       if (rp) {
-        for (const gh of rp.ghosts) people.push({ sk: gh, style: gh.style, y: gh.P[1], a: gh.who });
+        for (const gh of rp.ghosts) { const al = dbg ? dbg.alphaFor(gh.who) : 1; if (al > 0) people.push({ sk: gh, style: gh.style, y: gh.P[1], a: gh.who, alpha: al }); }
       } else {
-        for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) { a.solve(); people.push({ sk: a.sk, style: a.style, y: a.y, a }); } }
-        for (const r of this.refs) { r.solve(); people.push({ sk: r.sk, style: r.style, y: r.y, a: r }); }
+        for (const a of this.bodies()) {
+          if (a._inT == null) a.solve();
+          const al = dbg ? dbg.alphaFor(a) : 1;
+          if (al <= 0) continue;
+          const sk = this.displaySk(a, kI);
+          skOf.set(a, sk);
+          people.push({ sk, style: a.style, y: sk === a.sk ? a.y : a.y, a, alpha: al });
+        }
+      }
+      // the ball between the last two steps too
+      let bSave = null;
+      if (kI > 0 && this._bPrev && !b.hidden) {
+        const p0 = this._bPrev;
+        if (Math.abs(b.x - p0[0]) + Math.abs(b.y - p0[1]) + Math.abs(b.z - p0[2]) < 4) {
+          bSave = [b.x, b.y, b.z];
+          b.x = p0[0] + (b.x - p0[0]) * kI; b.y = p0[1] + (b.y - p0[1]) * kI; b.z = p0[2] + (b.z - p0[2]) * kI;
+        }
       }
       // replay: apply the recorded ball and net state for this frame (restored after drawing)
       let saved = null;
@@ -711,16 +787,16 @@
         if (R3) {
           // the ball in someone's hands (held, or dribbled) is rendered inside that person's 3D cell
           const hb = rp || b.hidden ? null : (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : b.state === 'dribble' && b.dr && b.dr.actor ? b.dr.actor : null;
-          const ball = hb ? { sk: hb.sk, x: b.x, y: b.y, z: b.z, R: M.Ball.R, rot: b.rot, squash: b.squash } : null;
+          const ball = hb ? { sk: skOf.get(hb) || hb.sk, x: b.x, y: b.y, z: b.z, R: M.Ball.R, rot: b.rot, squash: b.squash } : null;
           const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr, ball }), this, '3d players');
           if (!n3) R3 = R3 && R3.cells.size ? R3 : null;
         }
       }
       this._r3 = R3;
       try {
-        if (q !== 'low') for (const pp of people) { if (!(R3 && R3.reflect(g, cam, pp.sk, pix ? 0.07 : 0.1))) this.fr.drawReflection(g, cam, pp.sk, pp.style, pix ? 0.08 : 0.11); }
+        if (q !== 'low') for (const pp of people) { if (pp.alpha < 1) continue; if (!(R3 && R3.reflect(g, cam, pp.sk, pix ? 0.07 : 0.1))) this.fr.drawReflection(g, cam, pp.sk, pp.style, pix ? 0.08 : 0.11); }
         if (pix) for (const pp of people) this.drawPixelShadow(g, cam, pp.sk);
-        else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, 1);
+        else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, pp.alpha < 1 ? pp.alpha : 1);
         b.drawShadow(g, cam);
         // depth-sorted drawables
         const items = this.items; items.length = 0;
@@ -741,8 +817,12 @@
             const pp = it.o;
             const o = { dpr };
             if (heldBy && heldBy === pp.a) o.extra = { d: cam.depth(b.y, b.z) + 0.05, fn: ballFn };
+            // (isolating a player in the debug tools dims everyone else)
+            const dim = pp.alpha != null && pp.alpha < 1;
+            if (dim) { g.save(); g.globalAlpha = pp.alpha; o.alpha = pp.alpha; }
             if (pix) this.drawPixelPerson(g, cam, pp.sk, pp.style, o);
             else if (!(R3 && this.blit3d(g, cam, R3, pp, o))) this.fr.draw(g, cam, pp.sk, pp.style, o);
+            if (dim) g.restore();
           } else if (it.k === 1) {
             const ho = it.o;
             ho.drawBoard(g, cam);
@@ -759,9 +839,10 @@
           b.x = saved.x; b.y = saved.y; b.z = saved.z; b.squash = saved.sq; b.hidden = saved.hidden; b.rot.set(saved.rot); b.state = saved.state; b.holder = saved.holder;
           this.hoops.forEach((ho, i) => ho.restore(saved.nets, i * M.Hoop.SNAP));
         }
+        if (bSave) { b.x = bSave[0]; b.y = bSave[1]; b.z = bSave[2]; }
       }
       arena.drawOverlay(g, cam);
-      if (rp) this.drawReplayFrame(g, cam);
+      if (this.replay && rp) this.drawReplayFrame(g, cam);
       if (pix) {
         cam.setSize(this.cssW, this.cssH); this.camRig.apply();
         const mg = this.g, k = this._pixK || 3;
@@ -770,6 +851,12 @@
         // whole-pixel upscale (uniform square pixels); the buffer is sized to cover the canvas
         mg.drawImage(this._pix, 0, 0, this._pix.width * k, this._pix.height * k);
         mg.imageSmoothingEnabled = true;
+      }
+      // debug overlays on the final picture (full resolution, also in pixel mode)
+      if (dbg) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => dbg.drawOverlay(mg, this.cam, rp && !this.replay ? rp : null), this, 'debug overlay');
       }
       void W; void H;
     }

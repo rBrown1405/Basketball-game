@@ -34,7 +34,7 @@
 <div id="bar">
   <button id="bPause">Pause</button>
   <span>Speed</span>
-  <button class="spd on" data-s="1">1x</button><button class="spd" data-s="2">2x</button><button class="spd" data-s="4">4x</button><button class="spd" data-s="8">8x</button><button class="spd" data-s="16">16x</button>
+  <button class="spd" data-s="0.25">0.25x</button><button class="spd" data-s="0.5">0.5x</button><button class="spd on" data-s="1">1x</button><button class="spd" data-s="2">2x</button><button class="spd" data-s="4">4x</button><button class="spd" data-s="8">8x</button><button class="spd" data-s="16">16x</button>
   <div class="sep"></div>
   <label>Play <select id="sPlay"><option value="">auto</option><option>transition</option><option>pnr</option><option>iso</option><option>post</option><option>spot</option><option>offscreen</option><option>handoff</option><option>cut</option><option>none</option></select></label>
   <label>Camera <select id="sCam"><option>broadcast</option><option>wide</option><option>close</option></select></label>
@@ -43,6 +43,7 @@
   <label><input type="checkbox" id="cLow"> Low quality</label>
   <label><input type="checkbox" id="cWomen"> Women's league</label>
   <label><input type="checkbox" id="cGim" checked> GIM auto-resume</label>
+  <button id="bDebug" title="Shift+D">Debug tools</button>
   <div class="sep"></div>
   <label>Mode <select id="sMode"><option value="game">Game (mock)</option><option value="viewer">Animation viewer</option><option value="engine">Game (engine)</option></select></label>
   <span id="viewerBar">
@@ -76,6 +77,7 @@
 <script src="js/core/ai.js"></script>
 <script src="js/core/sim.js"></script>
 <script src="js/match/util.js"></script>
+<script src="js/match/tune.js"></script>
 <script src="js/match/camera.js"></script>
 <script src="js/match/court.js"></script>
 <script src="js/match/arena.js"></script>
@@ -96,6 +98,7 @@
 <script src="js/match/choreo.js"></script>
 <script src="js/match/flow.js"></script>
 <script src="js/match/view.js"></script>
+<script src="js/match/debug.js"></script>
 <script src="js/match/viewer.js"></script>
 <script src="js/match/mock.js"></script>
 <script>
@@ -181,7 +184,10 @@
   // engine mode: a real league + game, context built exactly like js/ui/live.js (UI.matchContext)
   window.makeEngineGame = function () {
     const EU = PBC.U;
-    const S0 = PBC.League.create({ leagueKey: S.women ? 'women' : 'men', seed: (Date.now() & 0xffff) });
+    // (?seed=N repeats the same game exactly, for the debug tools and bug reports)
+    const seed = +(params.get('seed') || 0) || (Date.now() & 0xffff);
+    S.seed = seed;
+    const S0 = PBC.League.create({ leagueKey: S.women ? 'women' : 'men', seed });
     S0.userTid = 0;
     const g = PBC.Sim.createGame(S0, 0, 1, {});
     const uniformFor = (t, home) => { const p = t.colors.primary, s = t.colors.secondary; return home ? { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' } : { jersey: p, number: EU.textOn && EU.textOn(p) === '#ffffff' ? '#ffffff' : s, trim: s, shorts: p }; };
@@ -401,6 +407,9 @@
     if (m === 'viewer') setupViewer(); else { viewer = null; newGame(); }
   }
   $('sMode').onchange = (e) => setMode(e.target.value);
+  // animation debug tools (js/match/debug.js): the button or Shift+D
+  const dbgHost = () => ({ seed: S.seed || null, parent: wrap });
+  if (PM.Debug) { PM.Debug.install(() => view, dbgHost); $('bDebug').onclick = () => PM.Debug.toggle(view, dbgHost()); }
   $('rFace').oninput = (e) => { vState.face = (+e.target.value) * Math.PI / 180; if (vState.act) { vState.act.facing = vState.face; vState.act.setFace(vState.face); } };
   const eng = $('sMode').querySelector('option[value=engine]');
   if (!engineAvailable()) eng.textContent = 'Game (engine: not loaded)';

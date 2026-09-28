@@ -18,6 +18,16 @@ joints held at their limits. **Copy report** gives the exact scenario, frame and
 replayed exactly. Keys: Space pause, arrows step, `P` next gait key pose, `[` `]` speed, `R` restart, `1`-`7` camera
 angles.
 
+## Animation debug tools
+
+In the live game or `match_test.html` press **Shift+D**. You get per-player overlays: foot contacts with a slide
+meter, centre of mass and balance, velocity and acceleration, facing, look target, state label, joint limits and a
+hand-to-ball meter. Playback runs at 0.1x to 4x with pause, frame stepping and a 12-second rewind. You can isolate one
+player (dim or hide the rest), orbit a free camera around him, and copy a report. The same meters run headless:
+`node tools/audit/quarter.js --seed 7` plays a full quarter and prints the scorecard, and `node tools/audit/check.js`
+runs the tests. The gauntlet reports are in `docs/gauntlet/`, and every animation tuning value is in
+`js/match/tune.js`.
+
 ## Saving
 
 - **Autosave** after every change by default. In **Settings → Save data** you can switch it to after each game,
@@ -89,6 +99,7 @@ js/lib/procanim.js    standalone procedural animation module (dribble, crossover
 js/ui/                screens, portraits, TV graphics, arena audio and the commentary booth
 docs/                 engine ⇄ view contract, data model, UI guide
 test/                 Node test scripts (node test/calibrate.js men, node test/procanim.js …)
+tools/audit/          headless animation audit: full-quarter scorecard, meter and determinism tests
 ```
 
 ## Credits

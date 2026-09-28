@@ -10,6 +10,7 @@ Required (in this order, after the engine/UI scripts or before — the view has 
 
 ```html
 <script src="js/match/util.js"></script>
+<script src="js/match/tune.js"></script>     <!-- every animation tuning value (PBC.Match.Tune) -->
 <script src="js/match/camera.js"></script>
 <script src="js/match/court.js"></script>
 <script src="js/match/arena.js"></script>
@@ -30,6 +31,7 @@ Required (in this order, after the engine/UI scripts or before — the view has 
 <script src="js/match/choreo.js"></script>
 <script src="js/match/flow.js"></script>
 <script src="js/match/view.js"></script>
+<script src="js/match/debug.js"></script>    <!-- animation debug tools and meters (Shift+D) -->
 ```
 
 Optional (test harness only, not needed by `index.html`):

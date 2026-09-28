@@ -9,7 +9,9 @@
   'use strict';
   const M = window.PBC.Match, U = M.U, RG = M.Rig, A = M.Anims, CH = RG.CH, J = RG.J;
   const D = Math.PI / 180;
-  const FRAME = 1 / 60, SUB = 1 / 120;
+  // the game's own fixed step (Tune.clock.step): every step is solved and measured, exactly as in a live game, so the
+  // lab and the game show the same frames and the same numbers
+  const FRAME = (M.Tune && M.Tune.clock.step) || 1 / 60, SUB = FRAME;
 
   // ------------------------------------------------------------ seeded random: a scenario replays exactly
   let rs = 1;
@@ -345,6 +347,8 @@
       this.simT = 0; this.sub = 0; this.frame = 0;
       this.snapFocus = true; this.snapUp = true;
       this.track = new Map();
+      // the same meters as the in-game debug tools and the headless audit (js/match/debug.js)
+      this.meters = M.Debug ? new M.Debug.Meters(() => ({ people: this.world.list, ball: this.world.ball, time: this.simT, view: null, dt: SUB })) : null;
       reseed(set.seed * 104729 + 7);
       b.hidden = true; // (shown when the scenario hands it out, dribbles or passes it)
       U.safe ? U.safe(() => sc.setup(ctx), this, 'scenario') : sc.setup(ctx);
@@ -363,11 +367,12 @@
       if (sc.tick) sc.tick(ctx, this.simT);
       for (const a of this.world.list) a.update(SUB, this.simT);
       if (this.world.ball) this.world.ball.update(SUB, this.simT);
-      if (this.sub % 2 === 0) { this.frame++; this.solveAll(); this.measure(); }
+      this.frame++; this.solveAll(); this.measure();
     }
     solveAll() { for (const a of this.world.list) a.solve(); }
     /** per frame bookkeeping for the overlays: planted-foot slide, footprints, support state, onion skin */
     measure() {
+      if (this.meters) this.meters.frame();
       for (const a of this.world.list) {
         let tr = this.track.get(a);
         if (!tr) { tr = { feet: [{ lock: null, slide: 0 }, { lock: null, slide: 0 }], maxSlide: 0, prints: [], support: [], ghost: [] }; this.track.set(a, tr); }
@@ -626,16 +631,24 @@
       tr.ghost.forEach((P, i) => { if (i < tr.ghost.length - 1) this.drawSkeleton(g, P, `rgba(255,255,255,${0.08 + 0.05 * i})`, 1.2); });
     }
     drawLocks(g, a) {
-      const tr = this.track.get(a);
+      // heel, ball and toe contacts from the shared meter: green locked, yellow sliding, red past what viewers notice
+      const T = M.Tune.debug, mt = this.meters && this.meters.tracker(a);
+      const P = a.sk.P;
       a.feet.forEach((f, i) => {
         if (f.state === 'plant') {
-          const t = tr && tr.feet[i], sl = t ? t.slide * 12 : 0;
-          const col = sl < 0.12 ? '#3ecf8e' : sl < 0.5 ? '#f2c14e' : '#ff5a5f';
+          let worst = 0;
+          if (mt) for (let q = i * 3; q < i * 3 + 3; q++) { const pt = mt.pts[q]; if (pt.on) worst = Math.max(worst, pt.cur * 12); }
+          const col = worst < T.slideOkIn ? '#3ecf8e' : worst < T.slideBadIn ? '#f2c14e' : '#ff5a5f';
           const p = this.proj(f.x, f.y, 0), x = p.x, y = p.y, top = this.proj(f.x, f.y, 1.1);
           g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(top.x, top.y); g.stroke();
           g.fillStyle = col; g.beginPath(); g.arc(top.x, top.y, 4.5, 0, Math.PI * 2); g.fill();
-          g.beginPath(); g.ellipse(x, y, 9, 3.5, 0, 0, Math.PI * 2); g.stroke();
-          if (sl >= 0.05) { g.font = '11px ui-monospace, monospace'; g.fillText(sl.toFixed(2) + '"', top.x + 7, top.y + 4); }
+          if (worst >= 0.05) { g.font = '11px ui-monospace, monospace'; g.fillText(worst.toFixed(2) + '"', top.x + 7, top.y + 4); }
+          if (mt) for (let q = i * 3; q < i * 3 + 3; q++) {
+            const pt = mt.pts[q]; if (!pt.on) continue;
+            const j = M.Debug.POINTS[q].j * 3, c = pt.cur * 12, pp = this.proj(P[j], P[j + 1], 0);
+            g.fillStyle = c < T.slideOkIn ? '#3ecf8e' : c < T.slideBadIn ? '#f2c14e' : '#ff5a5f';
+            g.beginPath(); g.arc(pp.x, pp.y, 3, 0, Math.PI * 2); g.fill();
+          }
         } else if (f.state === 'swing' && f.tx != null) {
           const p = this.proj(f.tx, f.ty, 0);
           g.strokeStyle = 'rgba(160,200,255,0.8)'; g.setLineDash([4, 3]); g.lineWidth = 1.5;
@@ -881,16 +894,18 @@
         lines.push('step    ' + step.toFixed(2) + ' ft = ' + (step / leg).toFixed(2) + ' x leg (' + leg.toFixed(2) + ' ft)');
         lines.push('support flight ' + Math.round(fl * 100) + '%  double ' + Math.round(db * 100) + '%  (last 2 s)');
       } else lines.push('gait    <span class="dim">off (standing)</span>');
+      const T = M.Tune.debug, mt = this.lab.meters && this.lab.meters.tracker(a);
+      const cls = (v) => (v < T.slideOkIn ? 'ok' : v < T.slideBadIn ? 'warn' : 'bad');
       const fs = a.feet.map((f, i) => {
-        const t = tr && tr.feet[i];
         if (f.state === 'plant') {
-          const sl = t ? t.slide * 12 : 0;
-          return (i ? 'R' : 'L') + ' <span class="' + (sl < 0.12 ? 'ok' : sl < 0.5 ? 'warn' : 'bad') + '">planted ' + sl.toFixed(2) + '"</span>';
+          let sl = 0;
+          if (mt) for (let q = i * 3; q < i * 3 + 3; q++) if (mt.pts[q].on) sl = Math.max(sl, mt.pts[q].cur * 12);
+          return (i ? 'R' : 'L') + ' <span class="' + cls(sl) + '">planted ' + sl.toFixed(2) + '"</span>';
         }
         return (i ? 'R' : 'L') + ' ' + f.state + (f.mode ? '/' + f.mode : '') + (f.sw != null && f.state === 'swing' ? ' ' + Math.round(f.sw * 100) + '%' : '');
       });
       lines.push('feet    ' + fs.join('   '));
-      if (tr) lines.push('slide   worst so far ' + '<span class="' + (tr.maxSlide * 12 < 0.12 ? 'ok' : tr.maxSlide * 12 < 0.5 ? 'warn' : 'bad') + '">' + (tr.maxSlide * 12).toFixed(2) + ' in</span>');
+      if (this.lab.meters) { const w = this.lab.meters.S.slideWorst; lines.push('slide   worst so far (heel, ball or toe) ' + '<span class="' + cls(w) + '">' + w.toFixed(2) + ' in</span>'); }
       const cl = a.clip ? a.clip.clip.name + ' ' + Math.min(a.clip.t, a.clip.clip.dur).toFixed(2) + ' / ' + a.clip.clip.dur.toFixed(2) : '-';
       const up = a.upper ? a.upper.clip.name + ' ' + a.upper.t.toFixed(2) : '-';
       lines.push('clip    ' + cl + '   upper ' + up);

@@ -847,5 +847,5 @@
     m[o] = xx; m[o + 3] = xy; m[o + 6] = xz; m[o + 1] = yx; m[o + 4] = yy; m[o + 7] = yz; m[o + 2] = zx; m[o + 5] = zy; m[o + 8] = zz;
   }
 
-  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, pose, mirrorPose, mmul, mulRot, xf, orthoCols, limitPose, armPole, LIM, Inert };
+  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, pose, mirrorPose, mmul, mulRot, xf, orthoCols, limitPose, armPole, LIM, TORSO_PAIRS, FING_CH, Inert };
 })();

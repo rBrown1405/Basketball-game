@@ -158,6 +158,7 @@
     /** move to (x,y). o: {by (abs time), speed (cap), face ('move'|angle|{x,y}), stance, arrive(bool)} */
     moveTo(x, y, o) {
       o = o || {};
+      this._note('move');
       const g = this.goal;
       // (a standing turn gives way to a move: it fades out and the run starts from where the turn got to)
       if (this.clip && this.clip.autoTurn && !this.clip.ending && Math.hypot(x - this.x, y - this.y) > 0.8) this.stopClip();
@@ -175,6 +176,7 @@
     /** follow a target function returning {x,y,vx,vy} each update */
     track(fn, o) {
       o = o || {};
+      this._note('track');
       const g = this.goal;
       g.mode = 'track'; g.track = fn; g.speed = o.speed ? o.speed * this.goalK : this.maxSpeed; g.arrive = true; g.by = null; g.pace = 0;
       if (o.face !== undefined) this.setFace(o.face);
@@ -207,6 +209,11 @@
       this._stanceParams();
     }
     lookAt(p) { this.look_ = p; }
+    /** remember why the director last told him to do something (the debug state label shows it) */
+    _note(what) {
+      const d = this.view && this.view.director, w = d && d._why;
+      if (w) this.intent = { why: w, what, t: this.time };
+    }
 
     /**
      * play a clip. o: {x,y,facing (origin; default current), mirror, speed, onEvent(name, actor), hold, fadeIn, fadeOut, jumpH, data}
@@ -214,6 +221,7 @@
     play(name, o) {
       const clip = typeof name === 'string' ? A.get(name) : name;
       if (!clip) return null;
+      this._note(clip.name || 'move');
       // reaching for the ball commits the body: a lunge onto the front foot toward it, the off arm back for balance,
       // and back out; the man with the ball protects it
       if (clip.name === 'swipe' && this.kind === 'player') {

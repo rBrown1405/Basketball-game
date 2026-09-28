@@ -288,6 +288,12 @@
       if (['1', '2', '3', '4', '5'].includes(e.key)) setSpeed([1, 2, 4, 8, 16][+e.key - 1]);
     };
     document.addEventListener('keydown', LG.onKey);
+    // animation debug tools (js/match/debug.js): Shift+D opens them over the live game (overlays, 0.1x to 4x, pause and
+    // frame steps, rewind, isolate a player, orbit camera); hidden unless asked for
+    if (PBC.Match && PBC.Match.Debug && !UI._matchDebugKey) {
+      UI._matchDebugKey = true;
+      PBC.Match.Debug.install(() => (LG && PBC.Match.View && LG.view instanceof PBC.Match.View ? LG.view : null), () => ({ parent: LG && LG.root ? LG.root.querySelector('#stage') : null }));
+    }
     // first user gesture unlocks audio (browser autoplay rules)
     root.addEventListener('pointerdown', () => { if (LG) { if (LG.au) LG.au.unlock(); if (LG.cm) LG.cm.unlock(); } }, { once: false });
     UI.on(root, 'click', '[data-speed]', (e, el) => setSpeed(+el.dataset.speed));
