@@ -129,6 +129,7 @@
         cr: { pp: 0, ss: 0, ps: 0, n: 0, opp: 0, hip: [], sh: [] },
         spShare: [[], [], []], spKink: [0, 0, 0], spinePops: 0, spinePopBy: {}, spineAcc: [],
         cad: new Map(), guardFrames: 0, guardShift: [], guardAnk: 0, guardSlip: 0,
+        step: {}, headTravel: [], headTravelOff: 0, speedBins: {},
       };
     }
     tracker(a) {
@@ -162,6 +163,7 @@
         this._look(a, t, count, ball, s.time);
         this._hands(a, t, count, ball);
         this._body(a, t, count, dt);
+        this._steps(a, t, count, s.time || 0);
         t.label = stateLabel(a, s.view);
       }
       this._pairs(list);
@@ -189,11 +191,13 @@
           if (!st.on) { st.on = true; st.lx = P[j]; st.ly = P[j + 1]; st.max = 0; st.frames = 0; st.ctx = c; st.yaw0 = f.yaw; st.dyaw = 0; }
           let d = Math.hypot(P[j] - st.lx, P[j + 1] - st.ly);
           if (pt.kind === 'TOE') {
-            // a legal pivot: the ball of the foot on its spot and the heel up; the forefoot turns about the ball
+            // a legal pivot: the ball of the foot on its spot and the heel up; the forefoot turns about the ball, and
+            // where the toes end up is their new spot (they must stay there once the heel is down again)
             const bi = pt.side * 3 + 1, hi = pt.side * 3, bst = t.pts[bi], hj = POINTS[hi].j * 3, bj = POINTS[bi].j * 3;
             if (bst.on && P[hj + 2] > Tn.pivotHeelUpFt) {
               const r0 = Math.hypot(st.lx - bst.lx, st.ly - bst.ly), r1 = Math.hypot(P[j] - P[bj], P[j + 1] - P[bj + 1]);
               d = Math.max(bst.cur, Math.abs(r1 - r0));
+              st.lx = bst.lx + (P[j] - P[bj]) * (r0 / (r1 || 1)); st.ly = bst.ly + (P[j + 1] - P[bj + 1]) * (r0 / (r1 || 1));
             }
           }
           st.cur = d; st.frames++;
@@ -411,6 +415,96 @@
         c.n++; c.sps += a.gaitDbg.sps; c.v += a.speed;
       }
     }
+    /** the floor (Trial 3): every step's lift, swing, landing and stance (how long each lasts, how high the foot
+     *  clears the floor, heel or forefoot first, the ankle at contact, at its deepest and at toe-off, how far the
+     *  landing moved from where it was aimed at lift-off), the toes against the way he is going, and cadence and step
+     *  length by speed */
+    _steps(a, t, count, time) {
+      const S = this.S, Tn = TU(), P = a.sk.P, p = a.sk.pose, D = U.DEG;
+      if (!a.feet) return;
+      const st = t.steps || (t.steps = [0, 1].map(() => ({ state: null, t0: 0, clear: 0, dorsi: -9, stanceT: null, tx: null, ty: null, mode: '', n: 0 })));
+      const mode = count ? this.ctx(a).split(':').slice(0, 2).join(':') : '';
+      const bin = (m) => S.step[m] || (S.step[m] = { steps: 0, clear: 0, why: { stance: 0, swing: 0, lift: 0 }, stance: [], swing: [], clearIn: [], heelFirst: 0, foreFirst: 0, flat: 0, ankContact: [], ankDeep: [], ankToeOff: [], landErrIn: [] });
+      for (let side = 0; side < 2; side++) {
+        const f = a.feet[side], s = st[side];
+        const ank = p[CH[side ? 'rAnk' : 'lAnk']];
+        const zH = P[(side ? J.R_HEEL : J.L_HEEL) * 3 + 2], zB = P[(side ? J.R_BALL : J.L_BALL) * 3 + 2], zT = P[(side ? J.R_TOE : J.L_TOE) * 3 + 2];
+        const zmin = Math.min(zH, zB, zT);
+        // (the first stance seen is only part of one: it started before the meter did)
+        if (s.state == null) { s.state = f.state; s.t0 = time; s.part = true; continue; }
+        if (f.state !== s.state) {
+          const dur = time - s.t0;
+          if (s.state === 'plant' && f.state === 'swing') {
+            // lift-off: the stance that ends, its deepest ankle bend and the ankle at toe-off
+            // (the spot it is aimed at is read on the swing's next step: at lift-off it still holds the last landing)
+            s.stanceT = s.part ? null : dur; s.part = false; s.clear = 0; s.tx = null; s.ty = null; s.aim = true; s.mode = mode;
+            if (count && s.n > 0) { const b = bin(mode); b.ankDeep.push(s.dorsi / D); b.ankToeOff.push(ank / D); }
+          } else if (s.state === 'swing' && f.state === 'plant') {
+            // a landing ends a step: lift, swing, landing; it is clear with a real stance before it, a real swing and
+            // the foot visibly off the floor
+            if (count && s.stanceT != null) {
+              const b = bin(s.mode || mode), clearIn = s.clear * IN;
+              b.steps++; b.stance.push(s.stanceT); b.swing.push(dur); b.clearIn.push(clearIn);
+              // (times are whole steps of the clock: 3 steps of 1/60 s add up to a hair under 0.05)
+              const okSt = s.stanceT + 1e-6 >= Tn.stepMinStanceS, okSw = dur + 1e-6 >= Tn.stepMinSwingS;
+              if (okSt && okSw && clearIn >= Tn.stepMinClearIn) b.clear++;
+              else { if (!okSt) b.why.stance++; if (!okSw) b.why.swing++; if (clearIn < Tn.stepMinClearIn) b.why.lift++; }
+              const dz = (zH - zB) * IN;
+              if (dz < -Tn.landFirstIn) b.heelFirst++; else if (dz > Tn.landFirstIn) b.foreFirst++; else b.flat++;
+              b.ankContact.push(ank / D);
+              if (s.tx != null && f.tx != null) b.landErrIn.push(Math.hypot(f.x - s.tx, f.y - s.ty) * IN);
+            }
+            s.dorsi = -9; s.n++; s.part = false;
+          }
+          s.state = f.state; s.t0 = time;
+        }
+        if (f.state === 'swing') {
+          s.clear = Math.max(s.clear, zmin);
+          if (s.aim && time > s.t0) { s.tx = f.tx; s.ty = f.ty; s.aim = false; }
+        } else if (f.state === 'plant') s.dorsi = Math.max(s.dorsi, ank);
+      }
+      if (!count) return;
+      // the toes point the way he is going (running or walking forward, a planted foot past its heel strike)
+      if (a.gaitOn && !a.clip && a.speed > 3 && a.fwdDot != null && a.fwdDot > 0.9 && (a.latK || 0) < 0.2) {
+        const mv = Math.atan2(a.vy, a.vx);
+        for (let side = 0; side < 2; side++) {
+          const f = a.feet[side];
+          // (not while it pivots: a pivot is the foot turning to its new heading)
+          if (f.state !== 'plant' || f.hs || (f.pvK || 0) > 0.05) continue;
+          const e = Math.abs(wrap(f.yaw - mv - (side ? -1 : 1) * Tn.toeOutDeg * D)) / D;
+          S.headTravel.push(e);
+          if (e > Tn.toeTravelOffDeg) S.headTravelOff++;
+        }
+      }
+      // cadence and step length by speed (walking or running forward, no move playing)
+      if (a.gaitOn && !a.clip && a.gaitDbg && a.gaitDbg.sps && (a.latK || 0) < 0.5 && a.fwdDot != null && a.fwdDot > 0.5) {
+        const v = a.speed, k = v < 3 ? null : v < 6 ? 'walk 3-6' : v < 9 ? 'jog 6-9' : v < 13 ? 'run 9-13' : v < 18 ? 'run 13-18' : 'sprint 18+';
+        if (k) { const b = S.speedBins[k] || (S.speedBins[k] = { n: 0, v: 0, sps: 0 }); b.n++; b.v += v; b.sps += a.gaitDbg.sps; }
+      }
+    }
+    /** the Trial 3 floor scorecard */
+    floorSummary() {
+      const S = this.S, pf = (n, d) => +(n / Math.max(1, d) * 100).toFixed(2), r2 = (v) => +(+v).toFixed(2);
+      const steps = {};
+      for (const m in S.step) {
+        const b = S.step[m];
+        if (b.steps < 10) continue;
+        steps[m] = {
+          steps: b.steps, clearPct: pf(b.clear, b.steps), unclearWhy: b.why, stanceS: summ(b.stance, 3), swingS: summ(b.swing, 3), clearanceIn: summ(b.clearIn, 2),
+          landing: { heelFirstPct: pf(b.heelFirst, b.steps), forefootFirstPct: pf(b.foreFirst, b.steps), flatPct: pf(b.flat, b.steps) },
+          ankleContactDeg: summ(b.ankContact, 1), ankleDeepestDeg: summ(b.ankDeep, 1), ankleToeOffDeg: summ(b.ankToeOff, 1), landingMovedIn: summ(b.landErrIn, 2),
+        };
+      }
+      let all = 0, clear = 0;
+      for (const m in S.step) { all += S.step[m].steps; clear += S.step[m].clear; }
+      const bins = {};
+      for (const k of ['walk 3-6', 'jog 6-9', 'run 9-13', 'run 13-18', 'sprint 18+']) {
+        const b = S.speedBins[k]; if (!b || b.n < 30) continue;
+        const v = b.v / b.n, sps = b.sps / b.n;
+        bins[k] = { frames: b.n, speed: r2(v), stepsPerSec: r2(sps), stepLengthFt: r2(v / sps) };
+      }
+      return { steps: all, clearStepPct: pf(clear, all), byMode: steps, toesVsTravelDeg: Object.assign(summ(S.headTravel, 1), { offPct: pf(S.headTravelOff, S.headTravel.length) }), cadenceBySpeed: bins };
+    }
     _pairs(list) {
       const S = this.S, Tn = TU();
       for (const a of list) { const t = this.tr.get(a); if (t) { t.overlap = false; t.handIn = false; } }
@@ -469,6 +563,7 @@
         },
         contact: { torsoOverlapPairFrames: S.torsoOverlap, handInOtherBodyFrames: S.handInBody, closePairFrames: S.closePairs },
         body: this.bodySummary(),
+        floor: this.floorSummary(),
       };
     }
     /** the Trial 2 body scorecard */

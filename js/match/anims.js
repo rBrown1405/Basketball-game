@@ -172,8 +172,10 @@
     out.halfW = gw.walk * 0.024 + gw.jog * 0.02 + gw.sprint * 0.016;
     out.liftPow = gw.walk * 0.85 + gw.jog * 0.62 + gw.sprint * 0.58;
     out.drop = gw.walk * 0.006 + gw.jog * 0.02 + gw.sprint * 0.03;
-    // foot angle at toe-off: ~55-60 deg walking (knee ~40 deg, ankle plantarflexed ~15-20 deg), steeper running
-    out.toePitch = (gw.walk * 56 + gw.jog * 52 + gw.sprint * 60) * D;
+    // foot angle at toe-off: ~55-60 deg walking (knee ~40 deg, ankle plantarflexed ~15-20 deg), steeper running:
+    // a runner's ankle leaves the floor plantarflexed ~20-25 deg with the shank ~45 deg forward, the foot ~65-70 deg
+    // (Trial 3: at 52 / 60 the measured toe-off ankle was only -5 deg)
+    out.toePitch = (gw.walk * 56 + gw.jog * 64 + gw.sprint * 68) * D;
     // heel off at ~30-35% of the walking cycle (terminal stance); runners roll up much sooner
     out.heelOff = gw.walk * 0.5 + gw.jog * 0.35 + gw.sprint * 0.2;
     // initial contact: heel strike with the toes ~20 deg up when walking, a flatter rearfoot/midfoot jogging

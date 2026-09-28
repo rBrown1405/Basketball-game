@@ -52,6 +52,8 @@
 
   // the spine's two joints per axis (lumbar sp, thoracic ch): forward bend, side bend, twist
   const SPINE_AX = [['spFlex', 'chFlex'], ['spLat', 'chLat'], ['spTwist', 'chTwist']];
+  /** when a foot last came down (a stride, a step or a landing) */
+  const landedAt = (f) => Math.max(f.tPlant == null ? -9 : f.tPlant, f.tStep == null ? -9 : f.tStep);
   // spine and neck joints (a second, finer inertialization: see the constructor)
   const SPINE_INERT = ['spFlex', 'spLat', 'spTwist', 'chFlex', 'chLat', 'chTwist', 'nkFlex', 'nkLat', 'nkTwist', 'hdFlex', 'hdLat', 'hdTwist'].map(k => RG.CH[k]);
   // planted-leg hip channels the hip guard keeps in range
@@ -585,6 +587,11 @@
       }
       this._stanceParams();
       for (const f of this.feet) if (f.land) this._settleLanding(f, dt);
+      // a pivot's heel comes back down when nothing turns the foot any more (a move took over, the foot left the floor)
+      for (const f of this.feet) {
+        if (f.state !== 'plant') { f.pvK = 0; f.pvPitch = 0; f.pvOn = false; }
+        else if (f.pvT !== this.time && f.pvK > 0) { f.pvOn = false; f.pvK = Math.max(0, f.pvK - dt / M.Tune.floor.pivot.downS); f.pvPitch = M.Tune.floor.pivot.pitchDeg * D * U.smooth(f.pvK); }
+      }
       if (this.fall > 0 && !this.clip) this.fall = Math.max(0, this.fall - dt * 0.5);
       this.stillT = (!this.clip && this.speed < 0.6) ? (this.stillT || 0) + dt : 0;
     }
@@ -987,8 +994,8 @@
             const d = Math.hypot(f.x - hx, f.y - hy);
             tooFar = inWindow ? d > 0.5 * H : d > 0.3 * H;
           }
-          if (f.state === 'plant' && tooFar && !crossed(ph0, ph1, lph) && this.feet[1 - f.side].state === 'plant' && canLift(f)) {
-            // recovery step: foot left too far behind (sharp speed change / turn)
+          // recovery step: a quick step on its own clock that joins the stride where it lands
+          const recover = (f, why) => {
             const side = f.side ? 1 : -1, rx = s, ry = -c;
             const lead = 0.18;
             // targets place the ankle; the ball of the foot (f.x, f.y) is one foot-length-to-ball further along the foot
@@ -998,7 +1005,11 @@
             this._beginStep(f, TD[0], TD[1], this.facing + (f.side ? -1 : 1) * 7 * D, 0.17, Math.max(0.03, gp.lift * 0.5));
             // (the spot keeps up with the body while the foot is in the air: a player speeding up left a step aimed
             // at where he was going to be behind him)
-            f.trk = { reach: gp.reach * gp.beta * strideLen, lat: side * gp.halfW * H }; f.liftKind = 'gait';
+            f.trk = { reach: gp.reach * gp.beta * strideLen, lat: side * gp.halfW * H }; f.liftKind = 'gait'; f.liftWhy = why;
+          };
+          if (f.state === 'plant' && tooFar && !crossed(ph0, ph1, lph) && this.feet[1 - f.side].state === 'plant' && canLift(f) && this.time - landedAt(f) >= M.Tune.floor.minStanceS) {
+            // (a foot left too far behind: a sharp speed change or turn)
+            recover(f, 'recover');
           }
           // a stance foot left behind the hip and out of the leg's reach even up on its toes lifts now, a little
           // before its scheduled toe-off (dragging it on the toes read as skating)
@@ -1028,18 +1039,22 @@
           // a planted foot the body has run away from while the other was in the air: its hip at the end of its range
           // even with the pelvis held back over it (the hip guard's shift past Tune.hipGuard.stepAtH) steps now
           const strained = f.state === 'plant' && (f.strain || 0) > M.Tune.hipGuard.stepAtH;
-          if (f.state === 'plant' && (early || late || due || f.liftPending || strained)) {
+          // (and a foot that just landed stays down a moment first, unless the body has run away from it)
+          // (never under Tune.floor.hardMinStanceS, though: lifted a frame or two after landing, a step never showed a stance)
+          const onFloor = this.time - landedAt(f);
+          const settled = onFloor >= M.Tune.floor.minStanceS || ((strained || sp > 18) && onFloor >= M.Tune.floor.hardMinStanceS - 1e-6);
+          if (f.state === 'plant' && settled && (early || late || due || f.liftPending || strained)) {
             // the stride's turn says this foot, but the other one is planted further behind: that one goes (the
             // stride flips half a cycle), else it would be dragged through this whole swing
             const o = this.feet[1 - f.side];
             if (due && !late && o.state === 'plant' && sp > 1) {
               // (also when this one just made a small step and the other is no further ahead: the other goes)
               const bF = behindOf(f), bO = behindOf(o);
-              if ((bO > bF + 0.1 * H || (repeat(f) && bO > bF - 0.05 * H)) && canLift(o)) {
+              if ((bO > bF + 0.1 * H || (repeat(f) && bO > bF - 0.05 * H)) && canLift(o) && this.time - landedAt(o) >= M.Tune.floor.minStanceS) {
                 this.phase = frac(this.phase + 0.5);
                 ph0 = frac(ph0 + 0.5); ph1 = ph0 + dphi;
                 const a = this._ankleFromBall(o.x, o.y, o.yaw, o.pitch, TA);
-                o.state = 'swing'; o.mode = 'gait';
+                o.state = 'swing'; o.mode = 'gait'; o.pax = null;
                 o.x0 = a[0]; o.y0 = a[1]; o.z0 = a[2]; o.yaw0 = o.yaw; o.p0 = o.pitch;
                 o.nSwing = (o.nSwing || 0) + 1;
                 o.liftRel = frac(this.phase - (o.side ? 0 : 0.5));
@@ -1052,9 +1067,14 @@
             // (held back far past that, it goes even with the other foot still in the air: a quick skip, the way a
             // body run past its foot really springs off it)
             if (canLift(f, (late && sp > 9) || strained) || (f.strain || 0) > M.Tune.hipGuard.forceStepAtH) {
+              // (a foot going this close to its own contact point in the stride would have to land almost at once: it
+              // takes a quick step instead; Trial 3: lifted late in the same frame the stride landed it, it jumped to
+              // the spot of an old step, 19 in)
+              // (the same for a foot still down as the stride passes its contact point: its swing would start and end now)
+              if ((1 - relNow) * cycleT < M.Tune.floor.minSwingS || crossed(ph0, ph1, cph)) { recover(f, early ? 'early' : late ? 'late' : strained ? 'strain' : 'short'); continue; }
               // lift off
               const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
-              f.state = 'swing'; f.mode = 'gait';
+              f.state = 'swing'; f.mode = 'gait'; f.pax = null;
               f.x0 = a[0]; f.y0 = a[1]; f.z0 = a[2]; f.yaw0 = f.yaw; f.p0 = f.pitch;
               f.nSwing = (f.nSwing || 0) + 1;
               // the swing runs from here to the contact (its share of the stride fixed now, so later changes of
@@ -1065,17 +1085,25 @@
               f.liftPending = false; f.liftT = this.time; this._lastSwing = f.side; f.liftCyc = cyc; f.liftKind = 'gait';
             } else if (due) f.liftPending = true;
           }
-          if (crossed(ph0, ph1, cph) && f.state === 'swing' && f.mode === 'gait') {
-            // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down
-            f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = Math.min(0, gp.landPitch); f.hs = f.pitch < 0;
+          if (crossed(ph0, ph1, cph) && f.state === 'swing' && f.mode === 'gait' && f.liftT !== this.time) {
+            // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down; a sprinter lands
+            // on the ball of the foot with the heel up, which then settles (Trial 3: held at flat, no landing was ever
+            // forefoot first)
+            f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = gp.landPitch; f.hs = f.pitch < 0; f.fs = f.pitch > 0;
             f.sw = 0; f.tPlant = this.time; f.liftRel = null;
+            this._plantHere(f);
           }
           const rel = frac(this.phase - cph);
-          if (f.state === 'plant' && f.mode !== 'step') {
+          // (a foot put down by a quick step in the stride too: Trial 3, left pointing where the body faced when the step
+          // began, it stayed up to ~100 deg off a body still turning, the knee far off its toes)
+          if (f.state === 'plant') {
             // turning hard over a planted foot (a cut, a reversal): it pivots on its ball past ~30 deg instead of
-            // staying pointed the old way while the hips and knee go round (the leg twisted, the knee far off line)
-            const ye = U.wrapPi(this.facing + (f.side ? -1 : 1) * 7 * D - f.yaw);
-            if (Math.abs(ye) > 30 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 30 * D, 14 * dt));
+            // staying pointed the old way while the hips and knee go round (the leg twisted, the knee far off line);
+            // the heel comes up for it (Trial 3: turned flat on the floor, the heel and toes swept the floor)
+            // (Trial 3: with the heel up for it the pivot starts at ~18 deg; at 30 a foot on a curve stayed ~30 deg off
+            // the way he was going for most of its time on the floor)
+            const ye = U.wrapPi(this.facing + (f.side ? -1 : 1) * 7 * D - f.yaw), pz = M.Tune.floor.pivot.gaitFreeDeg * D;
+            this._pivotFoot(f, Math.abs(ye) > pz ? f.yaw + Math.sign(ye) * (Math.abs(ye) - pz) : f.yaw, dt, 14);
           }
           if (f.state === 'swing' && f.mode === 'gait') {
             const b0 = f.liftRel != null ? f.liftRel : gp.beta;
@@ -1091,6 +1119,10 @@
               const ux = vx / sp, uy = vy / sp, tS = Math.min(tLeft, sp / -aPar);
               const dPar = sp * tS + 0.5 * aPar * tS * tS, apx = axc - aPar * ux, apy = ayc - aPar * uy;
               px = this.x + ux * dPar + 0.5 * apx * tLeft * tLeft; py = this.y + uy * dPar + 0.5 * apy * tLeft * tLeft;
+            } else if (sp <= 0.05 && axc * this.moveDirX + ayc * this.moveDirY <= 0) {
+              // (just stopped: what is left of the braking is not a start the other way; Trial 3: the spot the hip would
+              // be at contact was put ~4 ft behind him, and the pelvis dropped a foot to reach the landing from there)
+              px = this.x; py = this.y;
             }
             const reach = gp.reach * gp.beta * strideLen;
             const side = f.side ? 1 : -1;
@@ -1099,12 +1131,28 @@
             // shuffle, the step landed behind him)
             const turnAhead = U.clamp((this.faceRate || 0) * (tLeft + 0.5 * gp.beta * cycleT), -0.5, 0.5);
             const rx = Math.sin(this.facing + turnAhead), ry = -Math.cos(this.facing + turnAhead);
-            f.tyaw = this.facing + turnAhead + (f.side ? -1 : 1) * 7 * D;
+            // (going forward, the toes point where he is going, not only where his hips face: a body turned a little
+            // off its path, watching the ball, still runs on feet pointed down the path; Trial 3: 20% of forward
+            // stance frames had the toes over 20 deg off the path)
+            const kTr = M.Tune.floor.toesFollowTravel * U.smooth((fwdDot - 0.7) / 0.2) * U.smooth((sp - 3) / 3) * (1 - latK);
+            const trA = kTr > 0 ? U.wrapPi(Math.atan2(this.moveDirY, this.moveDirX) - this.facing - turnAhead) * kTr : 0;
+            f.tyaw = this.facing + turnAhead + trA + (f.side ? -1 : 1) * 7 * D;
             // `reach` places the ankle ahead of the body at contact; the ball of the foot lies d.ball further along the foot
             let ntx = px + this.moveDirX * reach + rx * side * gp.halfW * H + Math.cos(f.tyaw) * this.dims.ball;
             let nty = py + this.moveDirY * reach + ry * side * gp.halfW * H + Math.sin(f.tyaw) * this.dims.ball;
             // (on its own side of the other foot: moving sideways or on a diagonal the stride used to land it across)
             this._sepTarget(f, ntx, nty, TD); ntx = TD[0]; nty = TD[1];
+            // (never further from where the hip will be at contact than the leg reaches with the pelvis settled a little,
+            // Tune.floor.landSettleH: turning hard, the aim swung out wide and the pelvis dropped up to a foot to reach
+            // it, Trial 3)
+            if (this._hipZPose != null) {
+              const hx = px + rx * side * this.dims.hipX, hy = py + ry * side * this.dims.hipX;
+              const a0 = this._ankleFromBall(ntx, nty, f.tyaw, gp.landPitch, TB);
+              const vz = this._hipZPose - 0.012 * H - M.Tune.floor.landSettleH * H - a0[2];
+              const Lr = (this.dims.th + this.dims.sh) * U.lerp(0.9986, 0.975, U.smooth((sp - 6) / 2.5));
+              const dhMax = Math.sqrt(Math.max(0.01, Lr * Lr - vz * vz)), ex = a0[0] - hx, ey = a0[1] - hy, dh = Math.hypot(ex, ey);
+              if (dh > dhMax) { ntx -= ex * (1 - dhMax / dh); nty -= ey * (1 - dhMax / dh); f.aimCut = (f.aimCut || 0) + 1; }
+            }
             // a foot in the air can re-aim, but only so fast (no teleporting landing spot on a cut or a stop)
             if (f.swT === this._swingId(f) && f.swLastT != null) {
               const mv = (14 + sp) * Math.max(dt, 1 / 240), ddx = ntx - f.tx, ddy = nty - f.ty, dl = Math.hypot(ddx, ddy);
@@ -1112,7 +1160,9 @@
             }
             f.swT = this._swingId(f); f.swLastT = this.time;
             f.tx = ntx; f.ty = nty;
-            const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, Math.min(0, gp.landPitch), TB);
+            // (aimed with the pitch it lands at: a forefoot landing's heel is up, and aimed flat its ankle jumped up on
+            // contact)
+            const a1 = this._ankleFromBall(f.tx, f.ty, f.tyaw, gp.landPitch, TB);
             f.sw = sw; f.lax = a1[0]; f.lay = a1[1]; f.laz = a1[2]; f.lpx = px; f.lpy = py;
             // (a runner's ankle is already moving forward as the foot rolls off the toes, at about a third of the
             // body's speed; eased out of a standstill, the foot hung back behind the body at speed and pulled the hip
@@ -1151,9 +1201,13 @@
               if (f.hs && rel < gp.roll) {
                 // heel rocker: the forefoot comes down to the floor after a heel strike
                 f.pitch = Math.min(0, gp.landPitch) * (1 - U.smooth(rel / gp.roll));
+              } else if (f.fs && rel < gp.roll * 2) {
+                // a forefoot landing: the heel settles toward the floor on the ball of the foot
+                f.pitch = Math.max(0, gp.landPitch) * (1 - U.smooth(rel / (gp.roll * 2)));
               } else {
                 // heel rise toward toe-off (ankle rocker -> forefoot rocker)
                 if (f.hs) { f.hs = false; f.pitch = 0; }
+                if (f.fs) { f.fs = false; f.pitch = 0; }
                 const k = U.clamp((rel - gp.beta * gp.heelOff) / (gp.beta * (1 - gp.heelOff)), 0, 1);
                 f.pitch = Math.max(f.pitch, gp.toePitch * k * k);
               }
@@ -1243,14 +1297,15 @@
       const L = this.dims.heel + this.dims.ball;
       f.pitch = U.clamp(Math.asin(U.clamp((P[jh + 2] - P[jb + 2]) / L, -1, 1)), 0, 40 * D);
       f.lz = U.clamp(P[jb + 2], 0, 0.8);
-      f.land = true; f.state = 'plant'; f.tPlant = this.time; f.sw = 0;
+      f.land = true; f.landKeep = false; f.state = 'plant'; f.tPlant = this.time; f.sw = 0; f.pax = null;
     }
     _settleLanding(f, dt) {
       if (!f.land) return;
       if (f.state !== 'plant') { f.land = false; f.lz = 0; return; }
       f.lz = f.lz > 0.004 ? f.lz * Math.exp(-dt / 0.035) : 0;
-      f.pitch = f.pitch > 0 ? Math.max(0, f.pitch - dt * 5.5) : f.pitch;
-      if (!f.lz && f.pitch <= 0) f.land = false;
+      // (a step's landing keeps the pitch its stride gave it: the heel rocker or a forefoot landing's heel settle)
+      if (!f.landKeep) f.pitch = f.pitch > 0 ? Math.max(0, f.pitch - dt * 5.5) : f.pitch;
+      if (!f.lz && (f.pitch <= 0 || f.landKeep)) f.land = false;
     }
     _feetSettled() {
       return this.feet[0].state === 'plant' && this.feet[1].state === 'plant';
@@ -1281,6 +1336,24 @@
       this.phase = rFirst ? gp.beta - 0.001 : frac(0.5 + gp.beta - 0.001);
     }
 
+    /**
+     * A planted foot turns only as a pivot: on the ball of the foot with the heel up, never flat on the floor (a heel
+     * turned on the floor slides; coaching: pivot on the ball). The heel comes up first, the foot turns about its ball
+     * (which stays on its spot) at up to `rate` (rad/s) while the heel is clear of the floor, and the heel comes back
+     * down once the turn is done (Tune.floor.pivot). Called every frame a foot is planted, with the heading it should
+     * have (its own heading: no turn, and a raised heel comes down).
+     */
+    _pivotFoot(f, want, dt, rate) {
+      const T = M.Tune.floor.pivot;
+      f.pvT = this.time;
+      const e = U.wrapPi(want - f.yaw);
+      if (Math.abs(e) > T.startDeg * D) f.pvOn = true;
+      else if (Math.abs(e) < T.doneDeg * D) f.pvOn = false;
+      f.pvK = U.clamp((f.pvK || 0) + (f.pvOn ? dt / T.upS : -dt / T.downS), 0, 1);
+      f.pvPitch = T.pitchDeg * D * U.smooth(f.pvK);
+      if (f.pvOn && Math.max(f.pitch, f.pvPitch, f.heelFloor || 0) >= T.turnAtDeg * D) f.yaw = U.wrapPi(f.yaw + U.clamp(e, -rate * dt, rate * dt));
+    }
+
     _stanceFeet(dt) {
       const st = stanceOf(this, this.stance);
       const H = this.H;
@@ -1308,7 +1381,8 @@
         if (f.state !== 'plant') continue;
         const iyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
         const ye = U.wrapPi(iyaw - f.yaw);
-        if (Math.abs(ye) > 14 * D) f.yaw = U.wrapPi(f.yaw + Math.sign(ye) * Math.min(Math.abs(ye) - 14 * D, 13 * dt));
+        const pz = M.Tune.floor.pivot.standFreeDeg * D;
+        this._pivotFoot(f, Math.abs(ye) > pz ? f.yaw + Math.sign(ye) * (Math.abs(ye) - pz) : f.yaw, dt, 13);
       }
       if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       // error-driven stepping
@@ -1320,14 +1394,24 @@
         const iyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
         const de = Math.hypot(f.x - ix, f.y - iy) / H;
         const ye = Math.abs(U.wrapPi(f.yaw - iyaw));
-        const err = de / 0.075 + ye / (32 * D);
+        // (a foot whose hip the guard is holding at the end of its range over it steps first)
+        const err = de / 0.075 + ye / (32 * D) + ((f.strain || 0) > M.Tune.hipGuard.stepAtH ? 2 : 0);
         f._ix = ix; f._iy = iy; f._iyaw = iyaw;
         if (err > 1 && err > worstE) { worst = f; worstE = err; }
+      }
+      // (a foot that just landed stays down a moment before it steps again: a clear plant, stance and lift for each
+      // step, Tune.floor.minStanceS; before, a foot could land and lift again within two frames)
+      // (held back by the hip guard it may go sooner, but never under Tune.floor.hardMinStanceS)
+      const onFloor = worst ? this.time - landedAt(worst) : 9;
+      if (worst && onFloor < M.Tune.floor.minStanceS && (!((worst.strain || 0) > M.Tune.hipGuard.stepAtH) || onFloor < M.Tune.floor.hardMinStanceS - 1e-6)) {
+        const other = this.feet[1 - worst.side];
+        worst = other.state === 'plant' && this.time - landedAt(other) >= M.Tune.floor.minStanceS && other._ix != null &&
+          Math.hypot(other.x - other._ix, other.y - other._iy) / H / 0.075 + Math.abs(U.wrapPi(other.yaw - other._iyaw)) / (32 * D) > 0.6 ? other : null;
       }
       if (worst && this.time - (this._lastStepT || 0) > 0.05) {
         // prefer alternating feet when both are off
         const other = this.feet[1 - worst.side];
-        if (this._lastFoot === worst.side && other._ix != null) {
+        if (this._lastFoot === worst.side && other._ix != null && this.time - landedAt(other) >= M.Tune.floor.minStanceS) {
           const de = Math.hypot(other.x - other._ix, other.y - other._iy) / H;
           if (de > 0.05) worst = other;
         }
@@ -1336,7 +1420,7 @@
         const fe = this.faceIn(0.24), ce = Math.cos(fe), se = Math.sin(fe), oo = worst.side ? st.R : st.L;
         const ex = this.x + se * oo[0] * H + ce * oo[1] * H, ey = this.y - ce * oo[0] * H + se * oo[1] * H;
         this._sepTarget(worst, ex + this.vx * 0.12, ey + this.vy * 0.12, TD);
-        this._beginStep(worst, TD[0], TD[1], fe + (worst.side ? -1 : 1) * st.yaw * D, 0.24, 0.035);
+        this._beginStep(worst, TD[0], TD[1], fe + (worst.side ? -1 : 1) * st.yaw * D, 0.24, M.Tune.floor.stanceStepLiftH);
         worst.stanceStep = true;
       }
     }
@@ -1358,8 +1442,10 @@
       const tk = f.trk;
       if (tk && this.gaitOn && !this.clip) {
         const tLeft = (1 - f.s) * f.dur, c = Math.cos(this.facing), s = Math.sin(this.facing);
-        let tx = this.x + this.vx * tLeft + this.moveDirX * tk.reach + s * tk.lat + c * this.dims.ball;
-        let ty = this.y + this.vy * tLeft + this.moveDirY * tk.reach - c * tk.lat + s * this.dims.ball;
+        // (turned the way the body will face as it lands, like a stride's landing)
+        f.tyaw = this.facing + U.clamp((this.faceRate || 0) * (tLeft + 0.1), -0.5, 0.5) + (f.side ? -1 : 1) * 7 * D;
+        let tx = this.x + this.vx * tLeft + this.moveDirX * tk.reach + s * tk.lat + Math.cos(f.tyaw) * this.dims.ball;
+        let ty = this.y + this.vy * tLeft + this.moveDirY * tk.reach - c * tk.lat + Math.sin(f.tyaw) * this.dims.ball;
         this._sepTarget(f, tx, ty, TD); tx = TD[0]; ty = TD[1];
         const mv = (14 + this.speed) * Math.max(dt, 1 / 240), ddx = tx - f.tx, ddy = ty - f.ty, dl = Math.hypot(ddx, ddy);
         if (dl > mv) { tx = f.tx + ddx * mv / dl; ty = f.ty + ddy * mv / dl; }
@@ -1395,8 +1481,22 @@
         const r0 = U.wrapPi(f.yaw0 - this.facing), r1 = U.clamp(U.wrapPi(f.tyaw - this.facing), -0.56, 0.56);
         f.yawNow = this.facing + U.clamp(U.lerp(r0, r1, U.smooth(f.s / 0.5)), -0.7, 0.7);
       } else f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
-      f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * 0.18;
-      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; }
+      // (the toes dip in the air in proportion to the step: a small stance step keeps the foot nearly level, or its
+      // toes scraped along ~1 in off the floor)
+      f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * Math.min(0.18, 1.5 * f.h / this.H);
+      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; this._plantHere(f); }
+    }
+    /** a foot in the air comes down where the leg really put it: the spot moves by how far the ankle was from its path at
+     *  the last solve (a leg out of reach, a soft leg trailing, the floor lifting the foot), and whatever height is left
+     *  is let down over a few frames, instead of the planted leg's target jumping there at contact (Trial 3: at a hard
+     *  turn at a run the landing spot jumped up to 18 in, out of reach, the pelvis dropped a foot to reach it and the
+     *  foot went through the floor) */
+    _plantHere(f) {
+      if (f.pax == null || !(this.time - f.paT < 0.05)) return;
+      const P = this.sk.P, an = (f.side ? RG.J.R_AN : RG.J.L_AN) * 3;
+      f.x += P[an] - f.pax; f.y += P[an + 1] - f.pay; f.pax = null;
+      const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA), gap = P[an + 2] - a[2];
+      if (gap > 0.01) { f.land = true; f.landKeep = true; f.lz = Math.min(gap, 0.8); }
     }
 
     // ============================================================ clips
@@ -1480,7 +1580,9 @@
             // a scripted step for this foot starting very soon takes care of it
             let soon = false;
             if (clip.steps) for (const stp of clip.steps) { const sd = (stp.foot === 'r') !== cs.mirror ? 1 : 0; if (sd === f.side && stp.t0 >= cs.t - 0.02 && stp.t0 - cs.t < 0.1) soon = true; }
-            if (!soon && (dist > 0.33 * this.H || (!clip.steps && dist > 0.28 * this.H && (this.feet[1 - f.side].state === 'plant' || dist > 0.4 * this.H)))) {
+            // (or its hip held at the end of its range over it by the hip guard, Trial 3: dragged, it slipped)
+            const strained = (f.strain || 0) > M.Tune.hipGuard.stepAtH && this.jumpZ < 0.05;
+            if (!soon && this.time - landedAt(f) >= M.Tune.floor.hardMinStanceS - 1e-6 && (strained || dist > 0.33 * this.H || (!clip.steps && dist > 0.28 * this.H && (this.feet[1 - f.side].state === 'plant' || dist > 0.4 * this.H)))) {
               const w = 0.1 * this.H;
               this._beginStep(f, this.x + s * side * w + c * 0.02 * this.H, this.y - c * side * w + s * 0.02 * this.H, this.facing + (f.side ? -1 : 1) * 10 * D, 0.16, 0.04);
             }
@@ -1518,7 +1620,7 @@
         if (pv && cs.t >= pv.t0 && cs.t <= pv.t1) {
           if (!cs.pivotYaw0) { cs.pivotYaw0 = [this.feet[0].yaw, this.feet[1].yaw]; cs.pivotFace0 = this.facing; }
           const turn = U.wrapPi(this.facing - cs.pivotFace0);
-          for (const f of this.feet) if ((pv.side === 2 || f.side === pv.side) && f.state === 'plant') f.yaw = cs.pivotYaw0[f.side] + turn;
+          for (const f of this.feet) if ((pv.side === 2 || f.side === pv.side) && f.state === 'plant') this._pivotFoot(f, cs.pivotYaw0[f.side] + turn, dt, 30);
         }
         // a list of pivots in the clip's own (right-handed) terms, one foot after the other (a spin); the turn is
         // summed frame by frame, so one past 180 degrees keeps going the same way
@@ -1533,7 +1635,7 @@
             const e = st[i];
             e.acc += U.wrapPi(this.facing - e.prev); e.prev = this.facing;
             // (spinning on the ball of the foot: the heel comes up off the floor as it turns)
-            if (f.state === 'plant') { f.yaw = e.yaw + e.acc; f.pitch = Math.max(f.pitch, 22 * D * U.smooth((cs.t - q.t0) / 0.06)); }
+            if (f.state === 'plant') { f.pitch = Math.max(f.pitch, 22 * D * U.smooth((cs.t - q.t0) / 0.06)); this._pivotFoot(f, e.yaw + e.acc, dt, 40); }
           }
         }
       }
@@ -1866,7 +1968,10 @@
       // 3b. squared up to a pass target: the trunk takes the turn the feet have not made yet
       if (this.aim_ && this.aim_.w > 0.001 && !this.clip) {
         const a = this.aim_;
-        const rel = U.clamp(U.wrapPi(Math.atan2(a.y - this.y, a.x - this.x) - this.facing), -1.25, 1.25) * U.smooth(a.w);
+        // (a target nearly behind him gets less of it and none at all straight behind: past 180 the turn's way flips, and
+        // the trunk swung ~60 deg from one side to the other in a frame, Trial 3)
+        const r0 = U.wrapPi(Math.atan2(a.y - this.y, a.x - this.x) - this.facing);
+        const rel = U.clamp(r0, -1.25, 1.25) * U.smooth(a.w) * U.smooth((Math.PI - Math.abs(r0)) / 0.9);
         p[CH.pelTwist] += rel * 0.22; p[CH.spTwist] += rel * 0.34; p[CH.chTwist] += rel * 0.3; p[CH.nkTwist] += rel * 0.08;
       }
       // 4. full-body clip
@@ -2093,19 +2198,28 @@
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
       for (const f of this.feet) {
         const ik = sk.legIK[f.side];
+        f.reachZ = null;
         if (f.state === 'air' || fall > 0.5) { ik.on = 0; continue; }
         ik.on = 1;
         if (f.state === 'plant') {
           // (the heel comes up off the floor when the shin leans further over the foot than an ankle bends)
-          const pu = Math.max(f.pitch, f.heelFloor || 0);
+          // (the heel up for a pivot or a deep ankle; a heel strike's toes-up pitch is kept as it is, the heel rocker:
+          // held at flat, every walking step landed flat-footed)
+          const up = Math.max(f.heelFloor || 0, f.pvPitch || 0);
+          const pu = f.pitch < 0 && up < 1e-3 ? f.pitch : Math.max(f.pitch, up);
           const a = this._ankleFromBall(f.x, f.y, f.yaw, pu, TA);
           ik.x = a[0]; ik.y = a[1]; ik.z = a[2] + (f.land ? f.lz || 0 : 0); ik.yaw = f.yaw; ik.pitch = pu; ik.soft = false; f.pitchUsed = pu;
         } else {
           ik.x = f.ax; ik.y = f.ay; ik.z = f.az; ik.yaw = f.yawNow != null ? f.yawNow : f.yaw; ik.pitch = f.pitchNow || 0;
+          f.pax = f.ax; f.pay = f.ay; f.paT = this.time;
           // (fully soft in mid-swing; a walker's leg reaches its heel strike exactly so the plant does not jump,
           // a runner's landing is kept reachable by the pelvis settling instead)
           ik.soft = true; ik.softW = U.lerp(0.02, 0.06, U.smooth((this.speed - 6) / 2.5));
           ik.softK = f.mode === 'gait' && f.sw != null ? U.lerp(1 - U.smooth((f.sw - 0.72) / 0.26), 1, U.smooth((this.speed - 6) / 2.5)) : 1;
+          // (and it comes in over the first fifth of the swing: at toe-off the leg is at full stretch, and a soft leg
+          // there left the ankle ~1 in short of where the planted leg had it, a pop at every lift-off, Trial 3)
+          if (f.mode === 'gait' && f.sw != null) ik.softK *= U.smooth(f.sw / 0.2);
+          else if (f.mode === 'step' && f.s != null) ik.softK *= U.smooth(f.s / 0.2);
           // late in a gait swing the pelvis already settles so the leg meets the floor with the knee a little bent
           // (runners land at ~15-20 deg of knee flexion) instead of locking straight and dropping at contact
           if (f.mode === 'gait' && f.sw > 0.55 && f.lax != null && this.gaitOn && !this.clip) {
@@ -2115,7 +2229,11 @@
             const runK = U.smooth((this.speed - 6) / 2.5);
             const Lr = (this.dims.th + this.dims.sh) * U.lerp(0.9986, 0.975, runK), dh = Math.hypot(f.lax - hx, f.lay - hy);
             const zl = f.laz + Math.sqrt(Math.max(0.01, Lr * Lr - dh * dh));
-            minRootZ = Math.min(minRootZ, zl + (1 - U.smooth((f.sw - 0.55) / 0.45)) * 0.6);
+            // (never lower than Tune.floor.landSettleH under the pose for it: a landing spot still out of reach (aimed
+            // before a stop or a turn, re-aimed only so fast) is met where the foot gets to, see _plantHere; reaching
+            // for it the pelvis dropped up to a foot in two frames, Trial 3)
+            const zFloor = this.dims.hipH + p[CH.rootZ] * H - (0.012 + M.Tune.floor.landSettleH) * H;
+            minRootZ = Math.min(minRootZ, Math.max(zl, zFloor) + (1 - U.smooth((f.sw - 0.55) / 0.45)) * 0.6);
           }
         }
         // hip reach constraint -> maximum pelvis height (only planted feet support the body)
@@ -2151,10 +2269,30 @@
           f.pitch = pitch; ik.pitch = pitch;
         }
         minRootZ = Math.min(minRootZ, zmax);
+        f.reachZ = zmax;
       }
       // pelvis height: pose + jump; clamp for reach when on the ground
       let rootZ = this.dims.hipH + p[CH.rootZ] * H + this.jumpZ;
+      this._hipZPose = this.dims.hipH + p[CH.rootZ] * H;
+      // (how far each planted foot pulls the pelvis down to reach it, in heights: a foot the body has run away from
+      // steps, see _hipGuard's strain)
+      for (const f of this.feet) f.reachDrop = f.state === 'plant' && f.reachZ != null && this.jumpZ < 0.05 ? Math.max(0, rootZ - 0.012 * H - f.reachZ) / H : 0;
+      const rootZ0 = rootZ;
       if (minRootZ < Infinity && this.jumpZ < 0.05) rootZ = Math.max(Math.min(rootZ, minRootZ + 0.012 * H), rootZ - 0.12 * H);
+      // the pelvis goes down at once as far as a planted leg needs, but comes back up on a spring (Tune.floor.pelvisUpHz):
+      // let go in one frame when the foot that held it down left the floor, it popped up to 10 in (Trial 3)
+      const rz = this._rz || (this._rz = { d: 0, v: 0 });
+      const want = rootZ - rootZ0;
+      if (!(dtI >= 0) || dtI > 0.12) { rz.d = want; rz.v = 0; }
+      else if (dtI > 0) {
+        if (want < rz.d) { rz.v = (want - rz.d) / dtI; rz.d = want; }
+        else {
+          const w = 2 * Math.PI * M.Tune.floor.pelvisUpHz, a = w * w * (want - rz.d) - 2 * w * rz.v;
+          rz.v = Math.min(rz.v + a * dtI, M.Tune.floor.pelvisUpFtps); rz.d += rz.v * dtI;
+          if (rz.d > want) { rz.d = want; rz.v = Math.min(rz.v, 0); }
+        }
+      }
+      rootZ = rootZ0 + Math.min(rz.d, want);
       p[CH.rootZ] = (rootZ - this.dims.hipH) / H;
       // arms: ball / explicit targets
       this._armTargets();
@@ -2199,7 +2337,7 @@
         }
       }
       // a foot in the air never goes through the floor
-      this._swingFloor(p);
+      this._swingFloor(p, dtI);
       // planted legs never pass the hip's range: the pelvis goes over the foot instead
       this._hipGuard(p, hg);
       // (a foot set by the floor or by its steering is not placed by its ankle channel: the pose is told the real bend)
@@ -2207,6 +2345,7 @@
       // legs leaving the floor (take-off): the IK pose eases into the clip's air pose instead of switching in one frame
       sk.limitSwivel(dtI);
       sk.inertLegs(dtI, this.feet[0].state === 'air' || this.fall > 0.5, this.feet[1].state === 'air' || this.fall > 0.5);
+      this._airFloor();
       this._ankleRange(dtI);
       this._cacheBody();
     }
@@ -2248,7 +2387,7 @@
       // (the leg's full reach, as the IK allows it; not while a jump lifts the body off planted feet at take-off)
       const c = Math.cos(this.facing), s = Math.sin(this.facing), Lmax = (this.dims.th + this.dims.sh) * 0.9995, reach = this.jumpZ < 0.05;
       hg.n = 0;
-      const need = [false, false];
+      const need = [false, false], drop = [false, false];
       for (let it = 0; it < G.iterations; it++) {
         let wx = 0, wy = 0, dz = 0, any = false, ank = 0;
         for (let side = 0; side < 2; side++) {
@@ -2260,7 +2399,8 @@
           const f = this.feet[side], an = this._ankleBend(side);
           if (f && f.state === 'plant' && (an > aHi || an < aLo)) {
             // (a heel down with the shank leaning far back over it lifts the toes: the foot rocks on its heel)
-            const pit = U.clamp(ik.pitch + (an > aHi ? an - aHi : an - aLo), -30 * D, 75 * D);
+            // (a little over the excess: the leg's answer to a higher heel gives some of it back)
+            const pit = U.clamp(ik.pitch + 1.3 * (an > aHi ? an - aHi : an - aLo), -30 * D, 75 * D);
             if (Math.abs(pit - ik.pitch) > 1e-4) {
               const t = this._ankleFromBall(f.x, f.y, f.yaw, pit, TA);
               ik.x = t[0]; ik.y = t[1]; ik.z = t[2] + (f.land ? f.lz || 0 : 0); ik.pitch = pit; f.pitchUsed = pit;
@@ -2276,15 +2416,30 @@
           const hx = ik.x - P[o], hy = ik.y - P[o + 1], hz = P[o + 2] - ik.z, dh = Math.hypot(hx, hy);
           // (it holds the hip the margin inside its limit: acting every frame it is needed, the pelvis moves smoothly)
           if (ex > 1e-3 && dh > 1e-4) { const mag = ex * Math.max(0.5, hz) * G.gain; wx += hx / dh * mag; wy += hy / dh * mag; any = true; need[side] = true; }
-          // a planted leg out of reach once the pelvis has moved off it: the pelvis comes down until it reaches
-          if (reach && (hg.n > 0 || Math.abs(hg.x) + Math.abs(hg.y) > 1e-4) && Math.hypot(dh, hz) > Lmax && dh < Lmax) { dz = Math.max(dz, hz - Math.sqrt(Lmax * Lmax - dh * dh)); any = true; }
+          // a planted leg that cannot reach its foot (the pelvis's sway, roll and twist, or a shift above, carried the
+          // hip off it; Trial 3: planted feet floated ~0.5 in in 0.13% of frames): the heel comes up over the ball of
+          // the foot to lengthen the leg, then the pelvis comes down for the rest
+          const dist = Math.hypot(dh, hz);
+          if (reach && dist > Lmax && dh < Lmax) {
+            // (the heel only rises for a foot under or behind the hip, and never past the ankle's range: for a foot out
+            // in front the ankle would only move further away, and the ankle would bend past its range)
+            const fwdF = (ik.x - P[o]) * c + (ik.y - P[o + 1]) * s;
+            if (f && f.state === 'plant' && ik.pitch >= 0 && ik.pitch < G.reachHeelDeg * D && fwdF < 0.05 * H && an - (G.reachHeelDeg * D - ik.pitch) > aLo) {
+              const pit = Math.min(G.reachHeelDeg * D, ik.pitch + 1.2 * (dist - Lmax) / (this.dims.ball * Math.cos(ik.pitch)));
+              const t = this._ankleFromBall(f.x, f.y, f.yaw, pit, TA);
+              ik.x = t[0]; ik.y = t[1]; ik.z = t[2] + (f.land ? f.lz || 0 : 0); ik.pitch = pit; f.pitchUsed = pit;
+              f.heelFloor = Math.max(f.heelFloor || 0, pit);
+              any = true; ank |= 1 << side;
+            } else { dz = Math.max(dz, hz - Math.sqrt(Lmax * Lmax - dh * dh)); any = true; drop[side] = true; }
+          }
         }
         if (!any) break;
         // (world to body frame)
         let bx = wx * s - wy * c, by = wx * c + wy * s;
         const lim = G.maxShiftH * H, nx = hg.x + bx, ny = hg.y + by, nl = Math.hypot(nx, ny);
         if (nl > lim) { bx = nx * lim / nl - hg.x; by = ny * lim / nl - hg.y; }
-        const bz = -dz / H;
+        // (the pelvis goes down only so far for a foot out of reach: past that the foot steps, see the strain below)
+        const bz = Math.max(-dz / H, Math.min(0, -G.maxDropH - hg.z));
         const moved = Math.abs(bx) + Math.abs(by) + Math.abs(bz) >= 1e-5;
         if (!moved && !ank) break;
         // (the pelvis moved: the whole body is solved again; only a heel moved: just that leg)
@@ -2292,40 +2447,88 @@
         else for (let side = 0; side < 2; side++) if (ank & (1 << side)) sk._leg(side);
       }
       // (how far the pelvis is held back over each planted foot: a foot the body has run away from steps, see _locomote)
+      // (and how far a planted foot pulls the pelvis down to reach it: the body has run away from it, and it steps too)
       const sh = Math.hypot(hg.x, hg.y) / H;
-      for (let side = 0; side < 2; side++) this.feet[side].strain = need[side] ? sh : 0;
-      // last resort (the pelvis held back as far as it goes, and the hip still past its range): the hip stops at its
-      // limit and drags the foot with it, which is re-planted where it ends up (a slip the foot meter counts; the joint
-      // never goes past what a hip can do)
-      hg.slip = 0;
       for (let side = 0; side < 2; side++) {
-        const ik = sk.legIK[side];
-        if (ik.on < 0.999 || ik.soft) continue;
-        const pre = side ? 'r' : 'l';
-        let cl = false;
-        for (const kk of HG_KEYS) { const i = CH[pre + kk], r = L[pre + kk], v = q[i]; if (v > r[1] || v < r[0]) { q[i] = U.clamp(v, r[0], r[1]); cl = true; } }
-        if (!cl) continue;
-        sk._legFK(side);
-        const f = this.feet[side], jb = (side ? RG.J.R_BALL : RG.J.L_BALL) * 3;
-        f.x = P[jb]; f.y = P[jb + 1];
+        const f = this.feet[side];
+        f.strain = Math.max(need[side] ? sh : 0, ((f.reachDrop || 0) + (drop[side] ? Math.max(0, -hg.z) : 0)) * G.dropStrain);
+      }
+      // last resort (the pelvis held back as far as it goes, and the hip still past its range): the foot steps now,
+      // leaving the floor from where it is, even with the other foot in the air (a quick skip), and the leg, off the
+      // floor this frame, is held to the hip's range (Trial 3: dragged along the floor instead, it slid up to 2-3 ft)
+      hg.slip = 0;
+      const past = (pre) => HG_KEYS.some(kk => { const r = L[pre + kk], v = q[CH[pre + kk]]; return v > r[1] || v < r[0]; });
+      for (let side = 0; side < 2; side++) {
+        const ik = sk.legIK[side], f = this.feet[side];
+        if (ik.on < 0.999 || ik.soft || f.state !== 'plant') continue;
+        const pre = side ? 'r' : 'l', an = (side ? RG.J.R_AN : RG.J.L_AN) * 3;
+        // (or the leg cannot hold its ankle where the foot is: out of reach with the pelvis down as far as it goes, or the
+        // hip's twist at its end; Trial 3: the foot hung off its spot or went through the floor)
+        if (!past(pre) && !(reach && Math.hypot(P[an] - ik.x, P[an + 1] - ik.y, P[an + 2] - ik.z) > G.missFt)) continue;
+        const sgn = side ? 1 : -1, w = 0.1 * H;
+        this._sepTarget(f, this.x + this.vx * 0.15 + s * sgn * w + c * this.dims.ball, this.y + this.vy * 0.15 - c * sgn * w + s * this.dims.ball, TD);
+        this._beginStep(f, TD[0], TD[1], this.facing - sgn * 7 * D, 0.16, 0.04);
+        ik.soft = true; ik.softK = 0; ik.softW = 0.02;
+        sk._leg(side);
+        // (the step goes on from where the held leg put the foot)
+        f.x0 = P[an]; f.y0 = P[an + 1]; f.z0 = P[an + 2];
         hg.slip++;
       }
+      // (a foot that has just left the floor this way is kept out of it too, and so is a swinging foot the pelvis moved:
+      // lowered over a planted leg, it took the other foot, just clear of the floor, into it; Trial 3)
+      if (hg.slip || hg.n) this._swingFloor(p, 0);
     }
     /** a foot in the air never goes through the floor: hanging from its ankle (toes down as the swing starts, or held
      *  in the ankle's range against the shank), its lowest point (heel, ball or toe) below the floor lifts the ankle
-     *  target by that much, and the body is solved again */
-    _swingFloor(p) {
-      const sk = this.sk, P = sk.P, J = RG.J;
-      // (only that leg is solved again: nothing else hangs from it)
+     *  target by that much, and the leg is solved again */
+    _swingFloor(p, dt) {
+      // (a correction kept from frame to frame and eased away when not needed, so the foot's path stays smooth: worked
+      // out afresh each frame, the lift and pull jumped about and popped the toes and knees, Trial 3)
+      const sk = this.sk, P = sk.P, J = RG.J, Lr = (this.dims.th + this.dims.sh) * 0.97;
       for (let side = 0; side < 2; side++) {
-        const ik = sk.legIK[side];
-        if (ik.on < 0.999 || !ik.soft) continue;
-        for (let it = 0; it < 4; it++) {
+        const ik = sk.legIK[side], f = this.feet[side];
+        const fc = f.fc || (f.fc = { x: 0, y: 0, z: 0 });
+        if (ik.on < 0.999 || !ik.soft) { fc.x = fc.y = fc.z = 0; continue; }
+        if (!(dt >= 0) || dt > 0.12) { fc.x = fc.y = fc.z = 0; }
+        else if (dt > 0) { const k = Math.exp(-Math.LN2 * dt / M.Tune.floor.swingFixReleaseS); fc.x *= k; fc.y *= k; fc.z *= k; }
+        const tx = ik.x, ty = ik.y, tz = ik.z;
+        if (fc.x || fc.y || fc.z) { ik.x = tx + fc.x; ik.y = ty + fc.y; ik.z = tz + fc.z; sk._leg(side); }
+        const an = (side ? J.R_AN : J.L_AN) * 3, h = (side ? J.R_HIP : J.L_HIP) * 3;
+        for (let it = 0; it < M.Tune.floor.swingFixIters; it++) {
           const z = Math.min(P[(side ? J.R_HEEL : J.L_HEEL) * 3 + 2], P[(side ? J.R_BALL : J.L_BALL) * 3 + 2], P[(side ? J.R_TOE : J.L_TOE) * 3 + 2]);
           if (z >= -0.002) break;
-          ik.z += 0.004 - z;
+          // lift by the depth (a little over: an ankle at the end of its range tips the toes down as the knee folds to
+          // lift it, and gives some of the lift back); and where the leg could not put the ankle where it was asked (out
+          // of reach, or the hip at the end of its range with the foot far behind at toe-off), bring the spot in toward
+          // the hip by the miss, the way a knee folding lifts the foot
+          const miss = Math.hypot(P[an] - ik.x, P[an + 1] - ik.y, P[an + 2] - ik.z);
+          fc.z += (0.004 - z) * M.Tune.floor.swingFixGain;
+          const dx = ik.x - P[h], dy = ik.y - P[h + 1], dh = Math.hypot(dx, dy);
+          if (miss > 0.02 && dh > 1e-4) { const k = Math.min(0.5, miss / dh); fc.x -= dx * k; fc.y -= dy * k; }
+          else {
+            const dz = tz + fc.z - P[h + 2];
+            if (Math.hypot(dh, dz) > Lr && dh > 1e-4) { const nh = Math.sqrt(Math.max(0, Lr * Lr - dz * dz)); fc.x -= dx * (1 - nh / dh); fc.y -= dy * (1 - nh / dh); }
+          }
+          ik.x = tx + fc.x; ik.y = ty + fc.y; ik.z = tz + fc.z;
           sk._leg(side);
         }
+      }
+    }
+    /** a foot in the air in a jump or a fall (posed by the move, not steered) never goes through the floor either: the
+     *  leg bends it up by the depth, the foot kept at the angle it had */
+    _airFloor() {
+      const sk = this.sk, P = sk.P, R = sk.R, J = RG.J;
+      for (let side = 0; side < 2; side++) {
+        const ik = sk.legIK[side];
+        if (ik.on > 0.001) continue;
+        const z = Math.min(P[(side ? J.R_HEEL : J.L_HEEL) * 3 + 2], P[(side ? J.R_BALL : J.L_BALL) * 3 + 2], P[(side ? J.R_TOE : J.L_TOE) * 3 + 2]);
+        if (z >= -0.002) continue;
+        const an = (side ? J.R_AN : J.L_AN) * 3, ft = (side ? RG.F.R_FT : RG.F.L_FT) * 9;
+        ik.yaw = Math.atan2(R[ft + 4], R[ft + 1]); ik.pitch = Math.asin(U.clamp(-R[ft + 7], -1, 1));
+        ik.x = P[an]; ik.y = P[an + 1]; ik.z = P[an + 2] + 0.004 - z;
+        ik.on = 1; ik.soft = true; ik.softW = 0.02; ik.softK = 1;
+        sk._leg(side);
+        ik.on = 0;
       }
     }
     /** the real bend of an ankle whose foot is set by the floor or its steering (+ = dorsiflexion), last solve: the

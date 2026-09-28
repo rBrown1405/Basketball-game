@@ -13,3 +13,4 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 | 0 The Audit | done | [TRIAL_00_AUDIT.md](TRIAL_00_AUDIT.md) |
 | 1 The Tools | PASS | [TRIAL_01_TOOLS.md](TRIAL_01_TOOLS.md) |
 | 2 The Body | PASS | [TRIAL_02_BODY.md](TRIAL_02_BODY.md) |
+| 3 The Floor | PASS | [TRIAL_03_FLOOR.md](TRIAL_03_FLOOR.md) |

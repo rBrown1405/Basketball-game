@@ -530,6 +530,22 @@
       const toeAng = ik.on >= 0.999 ? Math.max(0, ik.pitch) : p[CH[pre + 'Toe']];
       mulRot(R, ft, 0, toeAng, T2, 0);
       xf(T2, 0, P[an + 6], P[an + 7], P[an + 8], 0, d.toe, 0, P, an + 9);
+      this._toesUp(ft, an, toeAng);
+    }
+    /** toes through the floor with the ball of the foot above it bend up against the floor at the ball (the MTP joint,
+     *  up to Tune.floor.toeBendMaxDeg), as real toes do when a foot brushes the floor (Trial 3: a swinging foot's toes
+     *  dipped up to ~1.4 in through the floor for a frame, pitched down by the ankle's range) */
+    _toesUp(ft, an, toeAng) {
+      const P = this.P, R = this.R, d = this.dims;
+      if (!(P[an + 11] < 0) || P[an + 8] < 0) return;
+      // (the toe's forward axis turned up by t about the foot's x axis: its height slope is a cos t + b sin t)
+      const a = R[ft + 7], b = R[ft + 8], A = Math.hypot(a, b);
+      if (A < 1e-6) return;
+      const t = Math.asin(U.clamp(-P[an + 8] / (d.toe * A), -1, 1)) - Math.atan2(a, b) + 0.2 * U.DEG;
+      const t2 = Math.min(t, M.Tune.floor.toeBendMaxDeg * U.DEG);
+      if (!(t2 > toeAng)) return;
+      mulRot(R, ft, 0, t2, T2, 0);
+      xf(T2, 0, P[an + 6], P[an + 7], P[an + 8], 0, d.toe, 0, P, an + 9);
     }
 
     /** the foot frame held inside the ankle's range [lo, hi] against the shank (pitch, + = dorsiflexion) and turned no
@@ -582,30 +598,38 @@
       const Vy = -L2 * Math.sin(k), Vz = -L1 - L2 * Math.cos(k);
       // knee direction follows the foot yaw: set hip twist from foot yaw relative to pelvis facing
       const sc = dist > 1e-6 ? dd / dist : 1;
-      if (ik.on >= 0.999 && !ik.soft) {
-        // a planted leg: the knee goes over the toes. The leg's plane is turned so the knee bulges the way the foot
-        // points (a pole-vector solve: the foot's heading on the floor, in the pelvis frame), with the hip's twist
-        // whatever that takes; if the hip cannot twist that far, it twists as far as it can and the knee points as
-        // near the toes as that allows (before, the twist was the foot's heading against the pelvis's, which is only
-        // right for an upright thigh: in a deep stance the knees splayed ~13 deg outside the feet)
+      let sf = 0, sb = 0, pole = false;
+      if (ik.on >= 0.999) {
+        // the knee goes over the toes. The leg's plane is turned so the knee bulges the way the foot points (a
+        // pole-vector solve: the foot's heading, in the pelvis frame), with the hip's twist whatever that takes; if the
+        // hip cannot twist that far, it twists as far as it can and the knee points as near the toes as that allows
+        // (before, the twist was the foot's heading against the pelvis's, only right for an upright thigh: in a deep
+        // stance the knees splayed ~13 deg outside the feet). A stepping leg is solved the same way, so the knee's
+        // plane carries straight on at lift-off and landing (Trial 3: switching solvers popped the knee each step)
         const cy = Math.cos(ik.yaw), sy = Math.sin(ik.yaw);
         const qx = R[0] * cy + R[3] * sy, qy = R[1] * cy + R[4] * sy, qz = R[2] * cy + R[5] * sy;
         const ps = legPole(Dx * sc, Dy * sc, Dz * sc, dd, L1, L2, qx, qy, qz, sg, p[CH[pre + 'HipF']], -sg * p[CH[pre + 'HipA']]);
         const T = sg * ps.t, rT = LIM[pre + 'HipT'];
         if (T >= rT[0] && T <= rT[1]) {
-          p[CH[pre + 'HipF']] = ps.f; p[CH[pre + 'HipA']] = -sg * ps.b; p[CH[pre + 'HipT']] = T; p[CH[pre + 'Knee']] = k;
-          if (this.limHits) { for (const kk of LEG_KEYS[pre]) { const r = LIM[kk], v = p[CH[kk]]; if (v < r[0] - 0.02 || v > r[1] + 0.02) this.limHits[CH[kk]] = 1; } }
-          return;
-        }
-        p[CH[pre + 'HipT']] = U.clamp(T, rT[0], rT[1]);
+          if (!ik.soft) {
+            p[CH[pre + 'HipF']] = ps.f; p[CH[pre + 'HipA']] = -sg * ps.b; p[CH[pre + 'HipT']] = T; p[CH[pre + 'Knee']] = k;
+            if (this.limHits) { for (const kk of LEG_KEYS[pre]) { const r = LIM[kk], v = p[CH[kk]]; if (v < r[0] - 0.02 || v > r[1] + 0.02) this.limHits[CH[kk]] = 1; } }
+            return;
+          }
+          sf = ps.f; sb = ps.b; pole = true; p[CH[pre + 'HipT']] = T;
+        } else p[CH[pre + 'HipT']] = U.clamp(T, rT[0], rT[1]);
       } else if (ik.on >= 0.5) {
         const pelYaw = Math.atan2(R[4], R[1]); // forward axis (col 1) heading
         const rel = U.wrapPi(ik.yaw - pelYaw);
         p[CH[pre + 'HipT']] = U.clamp(sg * rel, -0.75, 0.6);
       }
-      const tw = sg * p[CH[pre + 'HipT']];
-      const Wx = -Vy * Math.sin(tw), Wy = Vy * Math.cos(tw), Wz = Vz;
-      const sol = solve2(Wx, Wy, Wz, Dx * sc, Dy * sc, Dz * sc, -sg * p[CH[pre + 'HipA']]);
+      if (!pole) {
+        const tw = sg * p[CH[pre + 'HipT']];
+        const Wx = -Vy * Math.sin(tw), Wy = Vy * Math.cos(tw), Wz = Vz;
+        const sol = solve2(Wx, Wy, Wz, Dx * sc, Dy * sc, Dz * sc, -sg * p[CH[pre + 'HipA']]);
+        sf = sol.f; sb = sol.b;
+      }
+      const sol = SOL; sol.f = sf; sol.b = sb;
       const w = Math.min(1, ik.on);
       const F0 = p[CH[pre + 'HipF']], A0 = p[CH[pre + 'HipA']], K0 = p[CH[pre + 'Knee']];
       let hipA = -sg * sol.b;

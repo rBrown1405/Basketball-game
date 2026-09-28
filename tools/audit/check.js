@@ -180,6 +180,95 @@ console.log('knees over toes meter');
   ok(Math.abs(t0[0]) < 12 * U.DEG && Math.abs(t0[1]) < 12 * U.DEG, `defensive stance: knees over the toes (L ${(t0[0] / U.DEG).toFixed(1)}, R ${(t0[1] / U.DEG).toFixed(1)} deg)`);
 }
 
+// ---------------------------------------------------------------- Trial 3: the floor
+console.log('the floor: pivots, strides, landings');
+{
+  // a pivot: the right foot turns 60 deg on the ball of the foot; the heel comes up first, the ball stays on its spot,
+  // and once the heel is back down the toes stay where the turn left them
+  world.time += 1 / 60; a.setStance('stand');
+  for (let i = 0; i < 40; i++) { world.time += 1 / 60; a.update(1 / 60, world.time); a.solve(); meters.frame(); }
+  const f = a.feet[1], y0 = f.yaw, target = y0 + 60 * U.DEG, jh = J.R_HEEL * 3;
+  let heelDownTurn = 0, ballMax = 0;
+  for (let i = 0; i < 45; i++) {
+    world.time += 1 / 60; a.time = world.time;
+    const yb = f.yaw;
+    a._pivotFoot(f, i < 30 ? target : f.yaw, 1 / 60, 13);
+    a.solve(); meters.frame();
+    if (Math.abs(U.wrapPi(f.yaw - yb)) > 1e-6 && a.sk.P[jh + 2] < M.Tune.debug.pivotHeelUpFt) heelDownTurn++;
+    ballMax = Math.max(ballMax, tr.pts[4].cur * 12);
+  }
+  near(U.wrapPi(f.yaw - y0) / U.DEG, 60, 0.5, 'pivot: the foot turned (deg)');
+  ok(heelDownTurn === 0, 'pivot: the foot turned only with its heel off the floor');
+  near(ballMax, 0, 0.05, 'pivot: the ball of the foot stayed on its spot (in)');
+  ok(tr.pts[3].on && tr.pts[5].on && tr.pts[3].cur * 12 < 0.05 && tr.pts[5].cur * 12 < 0.1, 'pivot: heel back down, heel and toes held on their new spots');
+}
+{
+  // steady strides in a one-player world, walking to sprinting: a clear plant, stance and lift every step, heel strikes
+  // walking and jogging, the forefoot sprinting, no slide, nothing through the floor, cadence and step length with speed
+  const stride = (v) => {
+    const w = { actors: {}, refs: [], onCourt: [[], []], opts: { ai: { moveSpeed: 50 } }, teamLook: () => ({}), sound() {}, time: 0 };
+    const b = new M.Actor(w, { id: 'g1', teamIdx: 0, height: 78, weight: 215, hand: 'R', gender: 'm', look: { build: 0.5 }, speed: 80, agility: 80 }, 0, 'player');
+    w.actors.g1 = b; w.ball = { x: 0, y: 0, z: -50, state: 'dead', holder: null, rot: new Float64Array(9), hidden: true };
+    const mt = new M.Debug.Meters(() => ({ people: [b], ball: w.ball, time: w.time, view: null, dt: 1 / 60 }));
+    b.place(5, 25, 0); b.setStance('stand');
+    for (let i = 0; i < 60 * 14; i++) {
+      w.time += 1 / 60;
+      if (i === 20) b.moveTo(400, 25, { speed: v });
+      b.update(1 / 60, w.time); b.solve();
+      // (the court is 94 ft: past x 85 he, his feet and his goal are carried back 80 ft, and his record starts again)
+      if (b.x > 85) {
+        b.x -= 80; for (const q of b.feet) for (const k of ['x', 'ax', 'tx', 'x0', 'lax', 'lpx', 'pax']) if (q[k] != null) q[k] -= 80;
+        if (b.goal && b.goal.x != null) b.goal.x -= 80;
+        b.solve(); mt.tr.delete(b);
+      }
+      if (i < 150) { mt.reset(); continue; }
+      mt.frame();
+    }
+    const sc = mt.summary(), m = Object.entries(sc.floor.byMode).sort((p, q) => q[1].steps - p[1].steps)[0];
+    return { sc, m: m[1], bin: Object.values(sc.floor.cadenceBySpeed)[0] };
+  };
+  const runs = [4.5, 10, 16, 24].map(v => [v, stride(v)]);
+  for (const [v, r] of runs) {
+    ok(r.m.clearPct === 100 && r.sc.feet.slideIn_all.overOk === 0 && r.sc.feet.sinkPctPlayerFrames === 0 && r.sc.feet.hoverPctPlantFrames === 0,
+      `${v} ft/s: ${r.m.steps} steps, ${r.m.clearPct}% clear, no contact sliding over 0.25 in, nothing through the floor or floating`);
+  }
+  const walk = runs[0][1].m, sprint = runs[3][1].m;
+  ok(walk.landing.heelFirstPct === 100 && runs[1][1].m.landing.heelFirstPct >= 90, `heel first walking (${walk.landing.heelFirstPct}%) and jogging (${runs[1][1].m.landing.heelFirstPct}%)`);
+  ok(sprint.landing.forefootFirstPct >= 80, `forefoot first sprinting (${sprint.landing.forefootFirstPct}%)`);
+  ok(walk.ankleContactDeg.p50 > -5 && walk.ankleContactDeg.p50 < 10 && walk.ankleDeepestDeg.p50 > 8 && walk.ankleDeepestDeg.p50 < 20 && walk.ankleToeOffDeg.p50 < -8 && walk.ankleToeOffDeg.p50 > -25,
+    `walking ankle: ${walk.ankleContactDeg.p50} at heel strike, ${walk.ankleDeepestDeg.p50} deepest, ${walk.ankleToeOffDeg.p50} at toe-off (gait studies: ~0, ~10-15, ~-15 to -20)`);
+  const cad = runs.map(([, r]) => r.bin);
+  ok(cad.every((c, i) => i === 0 || (c.stepsPerSec > cad[i - 1].stepsPerSec && c.stepLengthFt > cad[i - 1].stepLengthFt)),
+    'cadence and step length both grow with speed: ' + cad.map(c => c.speed + ' ft/s ' + c.stepsPerSec + '/s x ' + c.stepLengthFt + ' ft').join(', '));
+  ok(runs.every(([, r]) => r.sc.floor.toesVsTravelDeg.n === 0 || r.sc.floor.toesVsTravelDeg.p90 < 5), 'running straight, the toes point the way he goes');
+}
+{
+  // toes brushing the floor bend up at the ball of the foot (the MTP joint) instead of going through it: a foot 40 deg
+  // toes-down (its ankle at the end of its range) with the ball of the foot 0.1 in above the floor and the toes straight
+  const sk = a.sk, P = sk.P, R = sk.R, d = a.dims, ft = RG.F.R_FT * 9, an = J.R_AN * 3, pit = 40 * U.DEG;
+  a.solve();
+  const cy = Math.cos(a.facing), sy = Math.sin(a.facing);
+  const F0 = new Float64Array([sy, cy, 0, -cy, sy, 0, 0, 0, 1]);
+  RG.mulRot(F0, 0, 0, -pit, R, ft);
+  P[an + 8] = 0.1 / 12;
+  for (let k = 0; k < 3; k++) P[an + 9 + k] = P[an + 6 + k] + d.toe * R[ft + k * 3 + 1];
+  const before = P[an + 11] * 12;
+  sk._toesUp(ft, an, 0);
+  const after = P[an + 11] * 12;
+  ok(before < -1 && after > -0.01 && after < 0.05, `toes at the floor: foot 40 deg toes-down, ball 0.10 in up: toe tip ${before.toFixed(2)} in straight, ${after.toFixed(2)} in bent up at the ball`);
+  a.solve();
+}
+
+console.log('the floor in a real game (the first minute of seed 7)');
+{
+  const r = spawnSync(process.execPath, [path.join(__dirname, 'quarter.js'), '--seed', '7', '--frames', '3600'], { encoding: 'utf8', maxBuffer: 1 << 26 });
+  const sc = JSON.parse(r.stdout).scorecard, ft = sc.feet, fl = sc.floor;
+  ok(ft.slideIn_all.overOk === 0 && ft.sinkPctPlayerFrames === 0 && ft.hoverPctPlantFrames === 0,
+    `no contact sliding over 0.25 in (worst ${ft.slideWorst} in), nothing through the floor, no planted foot floating`);
+  ok(fl.clearStepPct >= 99.5, `${fl.steps} steps, ${fl.clearStepPct}% with a clear plant, stance and lift`);
+  ok(sc.body.kneeOverToeDeg.cavePct < 0.1, `planted knees over the toes (caving in ${sc.body.kneeOverToeDeg.cavePct}%)`);
+}
+
 console.log('determinism: identical frames at every playback speed and frame rate');
 const run = (mode) => { const r = spawnSync(process.execPath, [path.join(__dirname, 'determinism.js'), '--mode', mode, '--steps', '1500', '--seed', '11'], { encoding: 'utf8', maxBuffer: 1 << 26 }); return JSON.parse(r.stdout); };
 const base = run('1x');

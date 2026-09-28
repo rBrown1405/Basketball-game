@@ -60,6 +60,14 @@
       spineShareMinDeg: 12,         // spine sharing: bends and twists larger than this (deg, lumbar + thoracic)...
       spineKinkShare: 0.9,          // ...with one joint carrying more than this share are a kink, not a curve
       spinePopDegps2: 12000,        // a spine or neck angle whose rate jumps by more than this (deg/s^2) in a step pops
+      // floor meters (Trial 3): a step is clear with a stance of at least this long before it (s), a swing at least
+      // this long (s) and its lowest point at least this high off the floor at some point of the swing (in)
+      stepMinStanceS: 0.05,
+      stepMinSwingS: 0.07,
+      stepMinClearIn: 0.75,
+      landFirstIn: 0.3,             // heel or forefoot first: that end this much lower than the other at contact (in)
+      toeOutDeg: 7,                 // a foot's natural turn out from the way the body goes
+      toeTravelOffDeg: 20,          // toes further than this from the way he is going (past the turn out) are off
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -164,13 +172,42 @@
     // toward that foot instead (the weight shifts over it) until it is back in range; the shift eases away after
     // (and a planted ankle inside its weight-bearing range: the heel comes up or down about the ball of the foot)
     hipGuard: {
-      iterations: 8,
+      iterations: 12,
       marginDeg: 1.5,               // aim this far inside the limit
       gain: 1.15,                   // shift per radian of excess, per foot of hip height over the ankle (over-relaxed)
       maxShiftH: 0.3,               // most the pelvis moves this way (heights)
       releaseS: 0.12,               // half-life of the shift easing away once it is not needed (s)
+      reachHeelDeg: 30,             // a planted leg short of its foot raises the heel up to this, then lowers the pelvis
       stepAtH: 0.06,                // held back further than this (heights, ~4.7 in), the foot steps now instead...
       forceStepAtH: 0.1,            // ...and past this even with the other foot still in the air (a quick skip)
+      dropStrain: 2,                // a planted foot pulling the pelvis down this many times over counts as held back
+                                    // (so it steps once the pelvis is ~0.03 H, ~2.3 in, lower than its pose to reach it)
+      maxDropH: 0.05,               // most the guard lowers the pelvis for a foot out of reach (heights)
+      missFt: 0.035,                // a planted ankle this far off its spot (~0.4 in) after all that steps now
+    },
+
+    // ---------------------------------------------------------------- the floor (Trial 3)
+    floor: {
+      // a planted foot turns only as a pivot: on the ball of the foot with the heel up (coaching: pivot on the ball;
+      // a heel turned on the floor slides). The heel comes up over upS, the foot turns once the heel is at turnAtDeg
+      // (clear of the floor), and the heel comes down over downS when the turn is done
+      // (a moving body turning over a planted foot pivots it past gaitFreeDeg off its heading, standing past standFreeDeg)
+      pivot: { pitchDeg: 14, turnAtDeg: 6, startDeg: 1.5, doneDeg: 0.4, upS: 0.07, downS: 0.1, gaitFreeDeg: 18, standFreeDeg: 14 },
+      // going forward, a landing foot points this much toward the way he is going rather than the way his hips face
+      toesFollowTravel: 0.8,
+      // how high a small step in a stance lifts the ankle (heights; ~4.3 in): in a deep stance the foot hangs toes down
+      // from its ankle, and at 0.035 its toes cleared the floor by ~1 in
+      stanceStepLiftH: 0.055,
+      minStanceS: 0.08,             // a foot that has just landed stays down at least this long before it steps again...
+      hardMinStanceS: 0.05,         // ...and, even run away from, this long (3 steps of the clock)
+      minSwingS: 0.15,              // a stride swing shorter than this (a lift late in the stride) is a quick step instead
+      landSettleH: 0.04,            // a stride's landing is aimed within the leg's reach with the pelvis this much lower
+      pelvisUpHz: 8,                // a pelvis let go by the leg that held it down comes back up on this spring (Hz)...
+      pelvisUpFtps: 2.5,            // ...never faster than this (a running body's centre of mass rises at ~1.5-3 ft/s)
+      toeBendMaxDeg: 60,            // toes brushing the floor bend up at the ball this far at most (MTP extension ~70, AAOS)
+      swingFixReleaseS: 0.06,       // a swinging foot lifted clear of the floor eases back onto its own path (half-life, s)
+      swingFixIters: 8,             // tries at lifting a swinging foot clear of the floor in one step...
+      swingFixGain: 1.5,            // ...each lifting it this many times its depth
     },
 
     // ---------------------------------------------------------------- body segment masses (center of mass)
