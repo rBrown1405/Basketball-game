@@ -76,7 +76,7 @@
     // ---------------------------------------------------------- pick and roll
     highPnr: {
       name: 'High Pick and Roll', family: 'pnr', tags: ['half'],
-      desc: 'The big comes up to screen at the top, four around him: roll, pull up, or kick to a corner when the help comes.',
+      desc: 'The big comes up to screen at the top with four around: roll, pull up, or kick to a corner when the help comes.',
       roles: { ball: 'pnr', screen: 'screener', dunker: 'dunker', left: 'spacer', right: 'spacer' },
       primary: 'ball', pick: 'pnr', map: { handler: 'ball', screener: 'screen' },
       align: { ball: TOP, screen: ELBOW_R, dunker: DUNK_R, left: CORNER_L, right: WING_R },
@@ -120,7 +120,7 @@
       align: { ball: TOP, screen: ELBOW_R, back: NAIL, left: CORNER_L, right: CORNER_R },
       steps: [
         { d: 1.5, text: 'The big sets the ball screen, a shooter waits at the nail', ev: [['screen', 'screen', 'ball', 'ball']] },
-        { d: 1.0, text: 'The big rolls and the shooter back-screens his defender', ev: [['screen', 'back', 'screen', 'off_ball'], ['move', 'ball', 'drive']], pos: { screen: [5.5, 23] } },
+        { d: 1.0, text: 'The big rolls and the shooter back-screens the roller\'s defender', ev: [['screen', 'back', 'screen', 'off_ball'], ['move', 'ball', 'drive']], pos: { screen: [5.5, 23] } },
         { d: 1.0, text: 'The back-screener pops to the top', ev: [['step']], pos: { back: TOP, left: CORNER_L, right: CORNER_R } },
       ],
       opts: [
@@ -138,7 +138,7 @@
       align: { ball: TOP, screen: ELBOW_L, dunker: DUNK_R, left: CORNER_L, right: WING_R },
       steps: [
         { d: 1.5, text: 'The big sets the ball screen', ev: [['screen', 'screen', 'ball', 'ball']] },
-        { d: 1.2, text: 'He pops to the slot, the handler attacks the space', ev: [['move', 'ball', 'drive']], pos: { screen: SLOT_L } },
+        { d: 1.2, text: 'The screener pops to the slot, the handler attacks the space', ev: [['move', 'ball', 'drive']], pos: { screen: SLOT_L } },
       ],
       opts: [
         { at: 1, base: 'pnr', br: 'roller', pop: true, who: 'screen', from: 'ball', w: 30, trig: { drop: 1.8, blitz: 1.4, hedge: 0.9, switch: 0.8 }, label: 'Pop three for the big' },
@@ -172,7 +172,7 @@
       steps: [
         { d: 1.3, text: 'Horns set: bigs at the elbows, shooters in the corners', ev: [['step']], pos: { big1: ELBOW_L, big2: ELBOW_R, left: CORNER_L, right: CORNER_R } },
         { d: 1.2, text: 'The left elbow big sets the ball screen', ev: [['screen', 'big1', 'ball', 'ball']] },
-        { d: 1.2, text: 'He rolls, the other big pops to the top', ev: [['move', 'ball', 'drive']], pos: { big2: SLOT_R } },
+        { d: 1.2, text: 'The screener rolls, the other big pops to the top', ev: [['move', 'ball', 'drive']], pos: { big2: SLOT_R } },
       ],
       opts: [
         { at: 2, base: 'pnr', br: 'handler', who: 'ball', w: 38, trig: { drop: 1.4, switch: 1.3, blitz: 0.4 }, label: 'Handler reads the screen' },
@@ -242,7 +242,7 @@
       align: { ball: TOP, shooter: RIM, single: BLOCK_L, dbl1: BLOCK_R, dbl2: [10, 38] },
       steps: [
         { d: 1.4, text: 'Floppy set: the shooter under the rim, a single on one side and a double on the other', ev: [['step']], pos: { single: BLOCK_L, dbl1: BLOCK_R, dbl2: [10, 38] } },
-        { d: 1.4, text: 'The shooter reads his man and comes off the double', ev: [['screen', 'dbl1', 'shooter', 'off_ball']], pos: { shooter: WING_R } },
+        { d: 1.4, text: 'The shooter reads the defender and comes off the double', ev: [['screen', 'dbl1', 'shooter', 'off_ball']], pos: { shooter: WING_R } },
         { d: 1.0, text: 'The catch on the wing', ev: [['step']] },
       ],
       opts: [
@@ -256,7 +256,7 @@
     },
     pindown: {
       name: 'Pin-Down', family: 'offscreen', tags: ['half'],
-      desc: 'A big screens down on the shooter at the block; he pops to the wing for the catch.',
+      desc: 'A big screens down on the shooter at the block, who pops to the wing for the catch.',
       roles: { ball: 'handler', shooter: 'shooter', screen: 'screen2', corner: 'spacer', dunker: 'dunker' },
       primary: 'shooter', pick: 'shooter', map: { handler: 'ball', shooter: 'shooter', screener: 'screen' },
       align: { ball: SLOT_R, shooter: BLOCK_L, screen: ELBOW_L, corner: CORNER_R, dunker: DUNK_R },
@@ -330,7 +330,7 @@
     },
     dho: {
       name: 'Dribble Hand-off', family: 'handoff', tags: ['half'],
-      desc: 'The big dribbles at a guard and hands it off, screening his man.',
+      desc: 'The big dribbles at a guard and hands it off, screening the guard\'s defender.',
       roles: { ball: 'pnr', big: 'passer', left: 'spacer', right: 'spacer', dunker: 'dunker' },
       primary: 'ball', pick: 'dho', map: { handler: 'ball', big: 'big' },
       align: { ball: WING_L, big: SLOT_L, left: CORNER_L, right: WING_R, dunker: DUNK_R },
@@ -374,7 +374,7 @@
       steps: [
         { d: 1.3, text: 'The post man seals on the block', ev: [['step']], pos: { post: BLOCK_L } },
         { d: 1.0, text: 'The entry pass', ev: [['pass', 'feeder', 'post', 'entry']] },
-        { d: 1.4, text: 'He goes to work', ev: [['move', 'post', 'backdown']] },
+        { d: 1.4, text: 'The post goes to work', ev: [['move', 'post', 'backdown']] },
       ],
       opts: [
         { at: 2, base: 'post', br: 'self', who: 'post', w: 66, trig: { double: 0.5, obswitch: 1.2 }, label: 'Post move' },
@@ -389,7 +389,7 @@
       align: { ball: SLOT_L, high: NAIL, low: BLOCK_R, left: CORNER_L, right: WING_R },
       steps: [
         { d: 1.2, text: 'The ball goes to the high post', ev: [['pass', 'ball', 'high', 'chest']] },
-        { d: 1.0, text: 'The low big seals his man', ev: [['step']], pos: { low: [6, 28] } },
+        { d: 1.0, text: 'The low big seals the defender', ev: [['step']], pos: { low: [6, 28] } },
         { d: 1.0, text: 'The high-low pass', ev: [['pass', 'high', 'low', 'lob']] },
       ],
       opts: [
@@ -439,7 +439,7 @@
       align: { ball: TOP, wl: WING_L, wr: WING_R, cl: CORNER_L, cr: CORNER_R },
       steps: [
         { d: 1.4, text: 'Clear out: four spot up', ev: [['move', 'ball', 'size_up']], pos: { wl: WING_L, wr: WING_R, cl: CORNER_L, cr: CORNER_R } },
-        { d: 1.4, text: 'Break him down', ev: [['move', 'ball', 'crossover']] },
+        { d: 1.4, text: 'Break the defender down', ev: [['move', 'ball', 'crossover']] },
       ],
       opts: [
         { at: 1, base: 'iso', br: 'self', who: 'ball', w: 80, trig: { switch: 1.4, help: 0.7 }, label: 'One on one' },
@@ -454,7 +454,7 @@
       align: { ball: WING_L, slot: SLOT_R, wing: WING_R, corner: CORNER_R, dunker: DUNK_R },
       steps: [
         { d: 1.3, text: 'Clear the strong side', ev: [['move', 'ball', 'size_up']] },
-        { d: 1.4, text: 'Attack his man', ev: [['move', 'ball', 'hesi']] },
+        { d: 1.4, text: 'Attack the defender', ev: [['move', 'ball', 'hesi']] },
       ],
       opts: [
         { at: 1, base: 'iso', br: 'self', who: 'ball', w: 80, zk: { rim: 1.1, mid: 1.1 }, trig: { switch: 1.4, help: 0.7 }, label: 'One on one on the wing' },
@@ -499,7 +499,7 @@
     },
     backdoor: {
       name: 'Chin Backdoor', family: 'cut', tags: ['half'],
-      desc: 'A high-post entry; the denied wing cuts backdoor behind his defender.',
+      desc: 'A high-post entry; the denied wing cuts backdoor behind the defender.',
       roles: { ball: 'handler', high: 'passer', wing: 'cutter', corner: 'spacer', wing2: 'spacer' },
       primary: 'wing', pick: 'cutter', map: { handler: 'ball', cutter: 'wing', big: 'high' },
       align: { ball: SLOT_L, high: NAIL, wing: WING_L, corner: CORNER_R, wing2: WING_R },
@@ -687,13 +687,13 @@
     },
     elevator: {
       name: 'Elevator Doors', family: 'offscreen', tags: ['need3', 'ato', 'three'],
-      desc: 'The shooter runs up through two bigs, who close the doors behind him, for a three at the top.',
+      desc: 'The shooter runs up through two bigs, who close the doors behind, for a three at the top.',
       roles: { ball: 'handler', shooter: 'shooter', door1: 'screen2', door2: 'screen2', corner: 'spacer' },
       primary: 'shooter', pick: 'shooter', map: { handler: 'ball', shooter: 'shooter', screener: 'door1' },
       align: { ball: WING_R, shooter: RIM, door1: [21, 22], door2: [21, 28], corner: CORNER_L },
       steps: [
         { d: 1.2, text: 'The shooter runs up the lane toward the doors', ev: [['step']], pos: { shooter: [15, 25] } },
-        { d: 1.0, text: 'The doors close behind him', ev: [['screen', 'door1', 'shooter', 'off_ball']], pos: { shooter: TOP } },
+        { d: 1.0, text: 'The doors close behind the shooter', ev: [['screen', 'door1', 'shooter', 'off_ball']], pos: { shooter: TOP } },
         { d: 0.8, text: 'The pass to the top', ev: [['step']] },
       ],
       opts: [
@@ -830,7 +830,7 @@
     const score = {};
     for (const id in PLAYS) {
       const p = PLAYS[id];
-      if (p.custom) continue; // (the coach's own plays go in only when he puts them in)
+      if (p.custom) continue; // (the coach's own plays go in only when the coach puts them in)
       const bf = five.length >= 5 ? Playbook.bestFit(p, five) : null;
       const fit = bf ? bf.fit : 60;
       score[id] = (sys[p.family] || 1) * Math.pow(Math.max(30, fit) / 65, 3) * U.range(0.85, 1.15);
@@ -863,6 +863,8 @@
     if (!pb || pb.v !== Playbook.VERSION || !Array.isArray(pb.off) || !pb.off.length || (pb.auto && (pb.season !== S.season || pb.sys !== sys))) {
       const keep = pb && !pb.auto ? pb : null;
       team.playbook = keep && keep.v === Playbook.VERSION ? keep : Playbook.build(S, tid);
+      // (the coach's own plays stay in a book the assistants rebuild)
+      if (pb && Array.isArray(pb.off) && team.playbook !== pb) for (const id of pb.off) if (PLAYS[id] && PLAYS[id].custom && !team.playbook.off.includes(id)) team.playbook.off.push(id);
     }
     team.playbook.off = team.playbook.off.filter((id) => PLAYS[id]);
     return team.playbook;
@@ -889,7 +891,9 @@
    * them like any other play; they are the coach's, never in the AI teams' books.
    */
   const RIM_UV = [5.25, 25];
-  const nearRim = (p) => Math.hypot(p[0] - RIM_UV[0], p[1] - RIM_UV[1]) < 9;
+  // (at the rim: in the lane in front of it; the blocks on the lane lines are the post)
+  const nearRim = (p) => Math.hypot(p[0] - RIM_UV[0], p[1] - RIM_UV[1]) < 9 && Math.abs(p[1] - 25) < 6.5;
+  const nearRimInb = (p) => Math.hypot(p[0] - RIM_UV[0], p[1] - RIM_UV[1]) < 9;
   const beyondArc = (p) => (p[0] < 14 ? Math.abs(p[1] - 25) >= 21.8 : Math.hypot(p[0] - RIM_UV[0], p[1] - RIM_UV[1]) >= 23.6);
   const postArea = (p) => p[0] < 13 && Math.abs(p[1] - 25) < 11 && !nearRim(p);
   const clampUV = (p, inb) => [U.clamp(+p[0] || 0, inb ? -2 : 1.5, 44), U.clamp(+p[1] || 0, inb ? -2 : 2, inb ? 52 : 48)];
@@ -936,20 +940,21 @@
     let holder = def.ball && pos[def.ball] ? def.ball : keys[0];
     const steps = [];
     (def.steps || []).forEach((st, k) => {
-      const next = Object.assign({}, pos), acts = [];
+      const next = Object.assign({}, pos), acts = [], skip = [];
       let h = holder;
-      // (the moves of the step first: where each man goes, the reads look at where he ends up)
-      for (const a of st.acts || []) if ((a.t === 'move' || a.t === 'dribble') && next[a.p] && a.to) next[a.p] = clampUV(a.to, false);
-      for (const a of st.acts || []) {
-        if (!pos[a.p]) continue;
-        const x = Object.assign({ hBefore: h }, a);
-        if (a.t === 'pass' || a.t === 'handoff') { if (a.p !== h || !pos[a.to] || a.to === a.p) continue; h = a.to; }
-        if (a.t === 'screen') { if (!pos[a.on] || a.on === a.p) continue; x.ball = a.on === h; }
-        if ((a.t === 'drive' || a.t === 'post' || a.t === 'dribble') && a.p !== h) continue;
+      // (the moves of the step first: the reads look at where each player ends up; the inbounder stays out of bounds)
+      for (const a of st.acts || []) if ((a.t === 'move' || a.t === 'dribble') && next[a.p] && a.to && a.p !== inbK) next[a.p] = clampUV(a.to, false);
+      // (an action that cannot happen, a pass by a player without the ball, is left out: skip)
+      (st.acts || []).forEach((a, j) => {
+        if (!pos[a.p] || ((a.t === 'move' || a.t === 'dribble') && a.p === inbK)) return skip.push(j);
+        const x = Object.assign({ hBefore: h, i: j }, a);
+        if (a.t === 'pass' || a.t === 'handoff') { if (a.p !== h || !pos[a.to] || a.to === a.p) return skip.push(j); h = a.to; }
+        if (a.t === 'screen') { if (!pos[a.on] || a.on === a.p) return skip.push(j); x.ball = a.on === h; }
+        if ((a.t === 'drive' || a.t === 'post' || a.t === 'dribble') && a.p !== h) return skip.push(j);
         x.hAfter = h;
         acts.push(x);
-      }
-      steps.push({ k, from: pos, to: next, hStart: holder, hEnd: h, acts });
+      });
+      steps.push({ k, from: pos, to: next, hStart: holder, hEnd: h, acts, skip });
       pos = next; holder = h;
     });
     return { keys, inbK, steps, end: pos, holder };
@@ -963,20 +968,20 @@
     if (inb) {
       // an inbound play: the throw-in goes to a cutter, a shooter, or the safety who starts the half-court offense
       const end = tr.end;
-      for (const k of keys) {
-        if (k === tr.inbK) continue;
-        if (nearRim(end[k])) add('inb.cut.' + k, 'inbCut', last, k, tr.inbK, n(k) + ' cuts to the rim');
-        else if (beyondArc(end[k])) add('inb.shot.' + k, 'inbShot', last, k, tr.inbK, n(k) + ' shoots off the inbound', end[k][0] < 12 ? { zk: { c3: 2 } } : null);
-      }
       const others = keys.filter((k) => k !== tr.inbK);
       const safe = def.safety && others.includes(def.safety) ? def.safety : others.reduce((b, k) => (!b || end[k][0] > end[b][0] ? k : b), null);
+      for (const k of others) {
+        if (nearRimInb(end[k])) add('inb.cut.' + k, 'inbCut', last, k, tr.inbK, n(k) + ' cuts to the rim');
+        else if (beyondArc(end[k]) && k !== safe) add('inb.shot.' + k, 'inbShot', last, k, tr.inbK, n(k) + ' shoots off the inbound', end[k][0] < 12 ? { zk: { c3: 2 } } : null);
+      }
       if (safe) add('inb.safety', 'safety', last, safe, tr.inbK, 'Safety: ' + n(safe) + ' gets it and runs offense');
       return out;
     }
     for (const st of tr.steps) {
       const k = st.k, spacers = (not) => keys.filter((x) => !not.includes(x));
       st.acts.forEach((a, i) => {
-        const id = k + '.' + i + '.';
+        // (keyed by the action's own id: the coach's choices stay with it when other actions are added or erased)
+        const id = (a.id ? a.id : k + '.' + i) + '.';
         if (a.t === 'screen' && a.ball) {
           const u = a.on, s = a.p, pop = beyondArc(st.to[s]) || (def.players[s] && def.players[s].role === 'popper');
           add(id + 'handler', 'handler', k, u, null, n(u) + ' comes off the ball screen');
@@ -1016,7 +1021,7 @@
     }
     if (last >= 0) {
       const h = tr.steps[last].hEnd, out3 = keys.filter((x) => x !== h && beyondArc(tr.end[x]));
-      add('end.shot', 'endShot', last, h, null, n(h) + ' creates his own shot');
+      add('end.shot', 'endShot', last, h, null, n(h) + ' creates a shot');
       if (out3.length) add('end.swing', 'endSwing', last, out3, h, 'Swing it to the open man');
     }
     return out;
@@ -1036,7 +1041,9 @@
     if (keys.length === 5 && def.steps && def.steps.length && !reads.some((r) => r.kind !== 'safety')) errs.push('The play has no read to finish it: add an action that gets someone a shot (a screen, a cut, a pass to a shooter or the post, a drive).');
     return errs;
   };
-  /** step text written from its actions (the coach can type his own) */
+  /** what kind of spot a point is: 'rim' (in the lane at the rim), 'three' (behind the line), 'post' (the blocks), 'mid' */
+  Playbook.spotKind = (p) => (nearRim(p) ? 'rim' : beyondArc(p) ? 'three' : postArea(p) ? 'post' : 'mid');
+  /** step text written from its actions (the coach can type their own) */
   Playbook.customStepText = function (def, st, keys) {
     const n = (k) => '#' + (keys.indexOf(k) + 1);
     const parts = (st.acts || []).map((a) => {
@@ -1060,7 +1067,7 @@
     const tr = Playbook.traceCustom(def);
     const inb = !!tr.inbK;
     const keys = tr.keys;
-    // role keys: the inbounder is 'inb' (the engine's throw-in looks for him), the others keep p1..p5
+    // role keys: the inbounder is 'inb' (the engine's throw-in looks for that key), the others keep p1..p5
     const RK = {};
     for (const k of keys) RK[k] = k === tr.inbK ? INB_KEY : k;
     const roles = {}, align = {};
@@ -1102,7 +1109,7 @@
       if (r.from) x.from = RK[r.from];
       opts.push(x);
     }
-    // who the play is run for and how the engine picks him: by its first featured action
+    // who the play is run for and how the engine picks that player: by its first featured action
     let pick = 'handler', primary = RK[def.ball], map = { handler: RK[def.ball] };
     if (inb) {
       const safe = opts.find((o) => o.safety);
@@ -1149,5 +1156,67 @@
     let n = 1;
     while (have['my_' + n] || PLAYS['my_' + n]) n++;
     return 'my_' + n;
+  };
+  /**
+   * Where a screen is set ([u, v]), for the diagrams, the whiteboard and the court overlay: s the screener, u the man
+   * coming off it (where they start the step), uTo where that man goes in the step (or null). An off-ball screen is on
+   * the user's path, at its point nearest the screener (as the court sets it); a ball screen the handler dribbles off
+   * is on the side the handler goes, a step toward the rim; otherwise beside the user, on the screener's side.
+   */
+  Playbook.screenSpot = function (s, u, uTo, ball) {
+    const d = uTo ? Math.hypot(uTo[0] - u[0], uTo[1] - u[1]) : 0;
+    if (d > 3 && !ball) {
+      const dx = uTo[0] - u[0], dy = uTo[1] - u[1];
+      const t = U.clamp(((s[0] - u[0]) * dx + (s[1] - u[1]) * dy) / (dx * dx + dy * dy), 0.15, 0.7);
+      return [u[0] + dx * t, u[1] + dy * t];
+    }
+    if (d > 3) {
+      const rl = Math.hypot(RIM_UV[0] - u[0], RIM_UV[1] - u[1]) || 1;
+      const bx = (uTo[0] - u[0]) / d + 0.7 * (RIM_UV[0] - u[0]) / rl, by = (uTo[1] - u[1]) / d + 0.7 * (RIM_UV[1] - u[1]) / rl, bl = Math.hypot(bx, by) || 1;
+      return [u[0] + bx / bl * 3.4, u[1] + by / bl * 3.4];
+    }
+    const dx = s[0] - u[0], dy = s[1] - u[1], L = Math.hypot(dx, dy);
+    if (L < 0.3) return [u[0] + 3.4, u[1]];
+    const k = Math.min(3.4, L) / L;
+    return [u[0] + dx * k, u[1] + dy * k];
+  };
+  /**
+   * A library play as a drawing the coach can change (the designer's "start from a play"): the roles numbered 1 to 5
+   * in the play's order, the alignment, and each step's moves, screens, passes, hand-offs, drives and post-ups. The
+   * reads are the drawing's own (worked out again from what it does).
+   */
+  Playbook.defFromPlay = function (play, id) {
+    const roles = Object.keys(play.roles), inb = !!play.inbound;
+    const K = {};
+    roles.forEach((r, i) => { K[r] = 'p' + (i + 1); });
+    const players = {};
+    for (const r of roles) players[K[r]] = { role: play.roles[r], at: play.align[r].slice() };
+    const start = play.start || (play.roles.ball ? 'ball' : inb ? 'inb' : roles[0]);
+    let seq = 0, holder = K[start];
+    const cur = {};
+    for (const r of roles) cur[K[r]] = play.align[r];
+    const steps = [];
+    for (const st of play.steps) {
+      const acts = [];
+      for (const r in st.pos || {}) {
+        const k = K[r], to = st.pos[r];
+        if (!k || (inb && k === K[start]) || Math.hypot(to[0] - cur[k][0], to[1] - cur[k][1]) < 0.5) continue;
+        acts.push({ id: 'a' + (++seq), t: k === holder ? 'dribble' : 'move', p: k, to: to.slice() });
+        cur[k] = to;
+      }
+      for (const e of st.ev || []) {
+        if (e[0] === 'screen' && K[e[1]] && K[e[2]]) acts.push({ id: 'a' + (++seq), t: 'screen', p: K[e[1]], on: K[e[2]] });
+        else if ((e[0] === 'pass' || e[0] === 'handoff') && K[e[1]] && K[e[2]] && !inb) { acts.push({ id: 'a' + (++seq), t: e[0], p: K[e[1]], to: K[e[2]] }); holder = K[e[2]]; }
+        else if (e[0] === 'move' && K[e[1]] && K[e[1]] === holder && !inb && e[2] !== 'size_up' && e[2] !== 'jab') acts.push({ id: 'a' + (++seq), t: e[2] === 'backdown' ? 'post' : 'drive', p: K[e[1]] });
+      }
+      if (acts.length) steps.push({ acts, text: st.text || '' });
+    }
+    const def = {
+      id, name: (play.name + ' (mine)').slice(0, 40), desc: play.desc || '', kind: inb ? play.family : 'half',
+      family: play.family, tags: (play.tags || []).filter((t) => ['ato', 'eog', 'need3', 'early'].includes(t)),
+      players, ball: K[start], steps: steps.slice(0, 5), reads: {}, seq,
+    };
+    if (inb) { const sf = play.opts.find((o) => o.safety); if (sf && K[sf.who]) def.safety = K[sf.who]; }
+    return def;
   };
 })();

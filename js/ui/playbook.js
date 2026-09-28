@@ -18,6 +18,8 @@
   // ------------------------------------------------------------ the diagram
   /** a half court (baseline at the top), the alignment, then each step's moves, screens, passes and drives */
   function diagram(play, w) {
+    // (a play drawn on the whiteboard: its own drawing, js/ui/playdesigner.js)
+    if (play.custom && play._src && UI.customPlayDiagram) return UI.customPlayDiagram(play._src, w);
     const s = w / 50, h = Math.round(34 * s);
     const X = (v) => (v * s).toFixed(1), Y = (u) => (Math.max(-1.5, u) * s + 4).toFixed(1);
     const o = [];
@@ -126,6 +128,9 @@
           <div class="small muted">${U.esc(PBC.Playbook.FAMILY[play.family] || play.family)}${ft ? ` · <span class="tag ${ft[1]}">${ft[0]} ${Math.round(bf.fit)}</span>` : ''}</div>
           <div class="pb-tags">${tags}</div>
           <label class="chk small"><input type="checkbox" data-play="${play.id}" ${inBook ? 'checked' : ''}> In the playbook</label>
+          <div class="row" style="gap:6px">${play.custom
+            ? `<button class="btn sm" data-edit="${play.id}">✏️ Edit</button><button class="btn ghost sm" data-delplay="${play.id}" title="Delete this play">🗑</button>`
+            : `<button class="btn ghost sm" data-from="${play.id}" title="Open a copy of it on the whiteboard to change it">✏️ Make it mine</button>`}</div>
         </div></div>
       <div class="small pb-desc">${U.esc(play.desc)}</div>
       <details class="pb-more"><summary class="small">Steps, reads and roles</summary>
@@ -137,8 +142,9 @@
 
   UI.register('playbook', {
     title: 'Playbook',
-    render(root) {
+    render(root, params) {
       const S = UI.S;
+      if (params && params.tab) { tab = params.tab; delete params.tab; }
       const team = S.teams[S.userTid];
       const book = PBC.Playbook.ensure(S, S.userTid);
       const five = starters(S, S.userTid);
@@ -147,7 +153,16 @@
       const isInb = (p) => p.family === 'blob' || p.family === 'slob';
       const sys = C.OFFENSES[team.strat.off] || C.OFFENSES.balanced;
       let body = '';
-      if (tab === 'offense' || tab === 'inbounds' || tab === 'library') {
+      if (tab === 'mine') {
+        // the coach's own plays (the play designer)
+        const mine = all.filter((p) => p.custom);
+        body = mine.length
+          ? `<div class="card"><div class="card-h"><h3>My plays</h3><div class="actions"><span class="small muted">${mine.length} play${mine.length > 1 ? 's' : ''} · ${mine.filter((p) => inBook.has(p.id)).length} in the playbook</span></div></div>
+            <div class="card-b"><div class="pb-grid">${mine.map((p) => playCard(S, p, inBook.has(p.id), five)).join('')}</div></div></div>`
+          : `<div class="card"><div class="card-b pb-empty"><div style="font-size:34px">📋</div><div class="pb-name">Draw your own plays</div>
+              <div class="small muted" style="max-width:560px">On the whiteboard: line the five up, draw each step (cuts, screens, passes, hand-offs, drives), give every spot a role and pick the reads. Save it to your playbook and call it in a timeout; your staff can call it too. Or start from any play in the library and make it yours.</div>
+              <button class="btn primary" data-act="design">✏️ Design a play</button></div></div>`;
+      } else if (tab === 'offense' || tab === 'inbounds' || tab === 'library') {
         const list = all.filter((p) => (tab === 'inbounds' ? isInb(p) : !isInb(p)) && (tab === 'library' ? !inBook.has(p.id) : inBook.has(p.id)));
         const fams = {};
         for (const p of list) (fams[p.family] || (fams[p.family] = [])).push(p);
@@ -175,8 +190,8 @@
       const nOff = book.off.filter((id) => PBC.Playbook.PLAYS[id] && !isInb(PBC.Playbook.PLAYS[id])).length, nInb = book.off.length - nOff;
       root.innerHTML = `<div class="page">
         <div class="page-h"><div><h1>Playbook</h1><div class="sub">${nOff} half-court and late-game plays, ${nInb} inbound plays · ${U.esc(sys.label)} offense · ${book.auto ? 'built by your assistants for this roster' : 'your own selection'}</div></div>
-          <div class="actions"><div class="tabs">${[['offense', 'Offense'], ['inbounds', 'Inbounds'], ['defense', 'Defense'], ['library', 'Library']].map(([k, l]) => `<button class="tab ${tab === k ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
-          <button class="btn" data-act="rebuild">🤖 Rebuild for my roster</button></div></div>
+          <div class="actions"><div class="tabs">${[['offense', 'Offense'], ['inbounds', 'Inbounds'], ['defense', 'Defense'], ['library', 'Library'], ['mine', 'My plays']].map(([k, l]) => `<button class="tab ${tab === k ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+          <button class="btn primary" data-act="design">✏️ Design a play</button><button class="btn" data-act="rebuild">🤖 Rebuild for my roster</button></div></div>
         <div class="card pb-howto" style="margin-bottom:14px"><div class="card-b small muted">In games your coach calls plays from this book for each half-court possession: plays that fit the five on the floor, that the other team's defense opens up, that have been working tonight, and the right set for the moment (after a timeout, the last shot, a quick three, an inbound under the basket or from the sideline). Each play has reads: when the defense gives an opening before the last step, the players take it, and that counts as the play working. Some possessions are played in flow with no call. Diagrams: players numbered by role, the yellow circle has the ball; solid arrows are cuts, dashed ones passes, zig-zags dribbles, bars screens; the colors follow the steps.</div></div>
         ${body}</div>`;
       UI.on(root, 'click', '[data-tab]', (e, el) => { tab = el.dataset.tab; UI.refresh(); });
@@ -195,8 +210,20 @@
         UI.save(); UI.refresh();
       });
       UI.on(root, 'click', '[data-act="rebuild"]', () => {
+        // (the coach's own plays stay in the book)
+        const mine = book.off.filter((id) => PBC.Playbook.PLAYS[id] && PBC.Playbook.PLAYS[id].custom);
         team.playbook = PBC.Playbook.build(S, S.userTid);
-        UI.save(); UI.refresh(); UI.toast('Your assistants rebuilt the playbook for this roster and system', 'good');
+        for (const id of mine) if (!team.playbook.off.includes(id)) team.playbook.off.push(id);
+        UI.save(); UI.refresh(); UI.toast('Your assistants rebuilt the playbook for this roster and system' + (mine.length ? ' (your own plays stay in it)' : ''), 'good');
+      });
+      UI.on(root, 'click', '[data-act="design"]', () => UI.designPlay({ kind: tab === 'inbounds' ? 'blob' : 'half', fresh: false }));
+      UI.on(root, 'click', '[data-edit]', (e, el) => UI.designPlay({ id: el.dataset.edit }));
+      UI.on(root, 'click', '[data-from]', (e, el) => UI.designPlay({ from: el.dataset.from }));
+      UI.on(root, 'click', '[data-delplay]', async (e, el) => {
+        const id = el.dataset.delplay, p = PBC.Playbook.PLAYS[id];
+        if (!p || !(await UI.confirm(`Delete <b>${U.esc(p.name)}</b>? It comes out of your playbook too.`, { ok: 'Delete', danger: true }))) return;
+        UI.deleteCustomPlay(S, id);
+        UI.refresh(); UI.toast(`${p.name} is deleted`, 'good');
       });
     },
   });

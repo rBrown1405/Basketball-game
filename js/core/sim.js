@@ -526,7 +526,7 @@
 
   /**
    * The head coach's defense for a number of defensive possessions (Sim.callDefense in a timeout): counted down at
-   * the start of each one, then back to the scheme and coverage he had before (unless he changed it again meanwhile).
+   * the start of each one, then back to the scheme and coverage the team had before (unless the coach changed it again meanwhile).
    */
   function defenseCall(D) {
     const dc = D.defCall;
@@ -970,7 +970,7 @@
     // a throw-in in the frontcourt: the coach's inbound play (a quick hitter, or the ball in to the safety and then
     // the half-court call below)
     if (ctx.inbound) { const ib = !gim && O.pb ? pbInbound(ctx, mode) : null; ctx.inbound = null; if (ib) return ib; }
-    // the coach's own call (in a timeout or from the bench): his play for the team's next half-court possessions
+    // the coach's own call (in a timeout or from the bench): a play for the team's next half-court possessions
     if (O.userCall && O.pb && !gim && !ctx.userCalled) { const called = pbUserCall(ctx, mode); if (called) return called; }
     const off = C.OFFENSES[O.strat.off];
     const w = Object.assign({}, off.plays);
@@ -1161,7 +1161,7 @@
   }
   /**
    * The head coach's own call (Sim.callPlay): the play runs this possession whatever the staff would have called, for
-   * the number of half-court possessions he asked (a possession's first action; a second action after a reset is
+   * the number of half-court possessions asked for (a possession's first action; a second action after a reset is
    * the staff's again). The roles are filled the usual way: the player it is run for by the engine's usage weights,
    * the rest by fit.
    */
@@ -1478,7 +1478,7 @@
     if (!O.pb || O.on.length !== 5 || !ib) return null;
     const fam = ib.kind === 'baseline' ? 'blob' : 'slob';
     let list = O.pb.inb[fam] || [];
-    // (the coach's call for this throw-in, when it is the kind of inbound he drew it for)
+    // (the coach's call for this throw-in, when it is the kind of inbound it was drawn for)
     const uId = O.userInb && O.userInb[fam];
     const uIb = uId ? PBC.Playbook.get(uId) : null;
     const called = !!(uIb && uIb.family === fam);

@@ -1043,7 +1043,7 @@
   // ---------------------------------------------------------------------------
   // Coach actions
   // ---------------------------------------------------------------------------
-  /** the huddle: the coach's call for the next possessions (at his timeout, or from the bench: 'bench') */
+  /** the huddle: the coach's call for the next possessions (at the coach's timeout, or from the bench: 'bench') */
   async function openHuddle(mode) {
     if (!LG || !UI.huddle) return;
     const wasPaused = LG.paused;
