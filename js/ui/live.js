@@ -610,6 +610,13 @@
     const g = LG.g;
     if (g.final) { finishGame(); return; }
     LG.possDone = false;
+    // the coach's timeout is granted at this dead ball: the huddle (the call for the next possessions) comes first
+    if (PBC.Sim.timeoutComing(g, LG.uIdx) && UI.huddle) {
+      LG.busy = true;
+      await openHuddle('timeout');
+      if (!LG) return;
+      LG.busy = false;
+    }
     snapStats();
     // Game Impact Moment?
     const gimCtx = PBC.Sim.gimCheck(g);
@@ -919,7 +926,8 @@
     if (LG.bc) { if (el) el.classList.remove('on'); return; } // the TV graphics package shows the set name
     if (!el || !P.setName) { if (el) el.classList.remove('on'); return; }
     const t = LG.teams[P.off];
-    el.innerHTML = `<span style="background:${t.colors.primary};color:${U.textOn(t.colors.primary)}">${t.abbr}</span>${U.esc(P.setName)}`;
+    const called = P.userCall && PBC.Playbook.get(P.userCall);
+    el.innerHTML = `<span style="background:${t.colors.primary};color:${U.textOn(t.colors.primary)}">${t.abbr}</span>${called ? '📋 ' + U.esc(called.name.toUpperCase()) + ' <i class="tiny">your call</i>' : U.esc(P.setName)}`;
     el.classList.add('on');
     clearTimeout(LG.playLabelT);
     LG.playLabelT = setTimeout(() => el && el.classList.remove('on'), 3500 / Math.sqrt(LG.speed || 1));
@@ -965,7 +973,14 @@
       <span class="en"><i style="width:${Math.round(c.energy)}%;background:${c.energy > 70 ? 'var(--good)' : c.energy > 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span></div>`;
     const bench = T.players.filter(c => !c.on);
     const queued = T.manualSubs.map(m => `${T.players.find(c => c.id === m.in).last} for ${T.players.find(c => c.id === m.out).last}`);
+    const cl = PBC.Sim.calls ? PBC.Sim.calls(g, LG.uIdx) : null, PB = PBC.Playbook;
+    const callRows = [];
+    if (cl && cl.play && PB.get(cl.play.id)) callRows.push(`<div class="lv-call">📋 <b>${U.esc(PB.get(cl.play.id).name)}</b><span class="tiny muted">next ${cl.play.left > 1 ? cl.play.left + ' possessions' : 'possession'}</span><button class="btn ghost sm" data-clear="play">✕</button></div>`);
+    for (const fam of ['blob', 'slob']) if (cl && cl.inb[fam] && PB.get(cl.inb[fam])) callRows.push(`<div class="lv-call">↪️ <b>${U.esc(PB.get(cl.inb[fam]).name)}</b><span class="tiny muted">next ${fam === 'blob' ? 'inbound under the basket' : 'sideline inbound'}</span><button class="btn ghost sm" data-clear="${fam}">✕</button></div>`);
+    if (cl && cl.def) callRows.push(`<div class="lv-call">🛡️ <b>${U.esc(C.DEFENSES[cl.def.def].label)}${cl.cov && PB.COVERAGES[cl.cov] ? ' · ' + U.esc(PB.COVERAGES[cl.cov].label) : ''}</b><span class="tiny muted">${cl.def.left > 0 ? cl.def.left + ' more defensive possession' + (cl.def.left === 1 ? '' : 's') : 'back to ' + U.esc(C.DEFENSES[cl.def.prev.def].label) + ' next'}</span><button class="btn ghost sm" data-clear="def">✕</button></div>`);
     panel.innerHTML = `<div class="lv-coach">
+      <div class="lv-calls"><div class="row" style="justify-content:space-between"><span class="small up muted">Your calls</span><button class="btn sm" data-huddle>📋 Call a play</button></div>
+        ${callRows.join('') || '<div class="tiny muted">None: your staff calls each possession. Call a timeout (T) or use the button to call a play or set the defense.</div>'}</div>
       <div class="small up muted">On the floor ${LG.subPick ? '<span class="tag accent">pick who comes out</span>' : ''}</div>${T.on.map(row).join('')}
       <div class="small up muted" style="margin-top:10px">Bench <span class="tiny dim">(tap a bench player, then the player to replace)</span></div>${bench.map(row).join('')}
       ${queued.length ? `<div class="tag warn" style="margin-top:6px">Queued at next dead ball: ${U.esc(queued.join(', '))}</div>` : ''}
@@ -982,6 +997,16 @@
       };
     });
     panel.querySelector('#auto-subs').onchange = e => PBC.Sim.setAutoSubs(g, LG.uIdx, e.target.checked);
+    { const hb = panel.querySelector('[data-huddle]'); if (hb) hb.onclick = () => { if (!LG.busy) openHuddle('bench'); }; }
+    panel.querySelectorAll('[data-clear]').forEach(b => {
+      b.onclick = () => {
+        const k = b.dataset.clear;
+        if (k === 'play') PBC.Sim.callPlay(g, LG.uIdx, null);
+        else if (k === 'blob' || k === 'slob') PBC.Sim.callInbound(g, LG.uIdx, k, null);
+        else if (k === 'def' && cl && cl.def) PBC.Sim.callDefense(g, LG.uIdx, cl.def.prev.def, cl.def.prev.cov, Infinity);
+        renderCoach(panel);
+      };
+    });
     panel.querySelectorAll('[data-pc]').forEach(r => {
       r.onclick = () => {
         const id = +r.dataset.pc;
@@ -1018,12 +1043,30 @@
   // ---------------------------------------------------------------------------
   // Coach actions
   // ---------------------------------------------------------------------------
+  /** the huddle: the coach's call for the next possessions (at his timeout, or from the bench: 'bench') */
+  async function openHuddle(mode) {
+    if (!LG || !UI.huddle) return;
+    const wasPaused = LG.paused;
+    if (mode === 'bench') togglePause(true);
+    if (LG.au && LG.au.setPaused) LG.au.setPaused(true);
+    let out = null;
+    try {
+      out = await UI.huddle({ g: LG.g, idx: LG.uIdx, S: LG.S, teams: LG.teams, mode, score: LG.dispScore, clock: LG.view ? LG.clockShow : LG.g.clock, period: LG.P ? LG.P.period : LG.g.period });
+    } catch (e) { console.error('huddle', e); }
+    if (!LG) return;
+    if (LG.au && LG.au.setPaused) LG.au.setPaused(LG.paused);
+    if (mode === 'bench' && !wasPaused) togglePause(false);
+    if (out && out.length) UI.toast(out.map(U.esc).join('<br>'), 'good', 4200);
+    if (LG.tab === 'coach') renderPanel(true);
+    renderOnCourt();
+  }
+
   function callTimeout() {
     const g = LG.g;
     if (g.t[LG.uIdx].timeouts <= 0) { UI.toast('No timeouts left', 'bad'); return; }
     if (g.t[LG.uIdx].toRequest) { UI.toast('Timeout already requested', 'info'); return; }
     PBC.Sim.callTimeout(g, LG.uIdx);
-    UI.toast('⏱ Timeout requested. It will be called at the next dead ball. Adjust your lineup in the Coach tab.', 'info');
+    UI.toast('⏱ Timeout requested. At the next dead ball the huddle opens: call a play, set the defense, change the lineup.', 'info');
     LG.tab = 'coach';
     LG.root.querySelectorAll('.lv-tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'coach'));
     const live = LG.root.querySelector('.live'); if (live && live.classList.contains('no-side')) toggleSide();

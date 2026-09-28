@@ -142,7 +142,7 @@
     if (g.intensity > 0.01) tightenRotation(players, L, g.intensity);
     return {
       tid, idx, team, players, on: starters, strat: Object.assign({}, team.strat),
-      fouls: 0, fouls2: 0, timeouts: L.timeouts, qs: [0], toRequest: false, autoSubs: true, autoTO: true,
+      fouls: 0, fouls2: 0, timeouts: L.timeouts, qs: [0], toRequest: false, autoSubs: true, autoTO: true, userCall: null, userInb: null, defCall: null,
       manualSubs: [], poss: 0, lastTimeoutClock: 9999, pb: null, lineupV: 0,
     };
   }
@@ -451,7 +451,7 @@
   }
 
   function newCtx(g, P) {
-    return { g, P, O: g.t[P.off], D: g.t[1 - P.off], t: 0, scStart: 0, scLen: g.L.shotClock, done: false, segN: 0, transition: false, info: null, newPlay: true, advT: 0, frontcourt: false, periodOver: false, starId: null, inbound: null, pbCalls: 0, score0: g.score[P.off], tActPre: null };
+    return { g, P, O: g.t[P.off], D: g.t[1 - P.off], t: 0, scStart: 0, scLen: g.L.shotClock, done: false, segN: 0, transition: false, info: null, newPlay: true, advT: 0, frontcourt: false, periodOver: false, starId: null, inbound: null, pbCalls: 0, score0: g.score[P.off], tActPre: null, userCalled: false };
   }
 
   Sim.nextPossession = function (g, opts) {
@@ -464,7 +464,7 @@
     const P = {
       n: g.possN++, off: g.poss, period: g.period, clockStart: U.round(g.clock, 2), clockEnd: null,
       start: g.nextStart, startSpot: g.nextSpot, play: 'none', setName: '', defScheme: g.t[1 - g.poss].strat.def,
-      events: [], endScore: null, gim: opts.gim || null, pbs: [], pb: null,
+      events: [], endScore: null, gim: opts.gim || null, pbs: [], pb: null, userCall: null, defCov: null,
     };
     const ctx = newCtx(g, P);
     ctx.starId = starOf(ctx.O);
@@ -476,7 +476,9 @@
       ev(ctx, 'jump_ball', { jumpers: [jump.a.id, jump.b.id], winner: jump.winner, tipTo: jump.tipTo.id, team: jump.winner, text: `${jump.w.last} wins the tip over ${jump.l.last}` });
     }
     if (dead) { timeouts(ctx, P.start !== 'made_basket'); subs(ctx, 0, P.start); subs(ctx, 1, P.start); }
+    defenseCall(ctx.D);
     P.defScheme = ctx.D.strat.def;
+    if (PBC.PlayCall) P.defCov = PBC.PlayCall.coverage(ctx.D);
     P.offSystem = ctx.O.strat.off; // the live view shapes its off-ball movement and ball movement on it
     { const mm = matchupsOf(ctx); P.matchups = {}; for (const o of ctx.O.on) if (mm[o.id]) P.matchups[mm[o.id].id] = o.id; } // defender id -> his man's id
     initiate(ctx, opts);
@@ -520,6 +522,19 @@
         ctx.timeoutCalled = true;
       }
     }
+  }
+
+  /**
+   * The head coach's defense for a number of defensive possessions (Sim.callDefense in a timeout): counted down at
+   * the start of each one, then back to the scheme and coverage he had before (unless he changed it again meanwhile).
+   */
+  function defenseCall(D) {
+    const dc = D.defCall;
+    if (!dc) return;
+    if (dc.left > 0) { dc.left--; return; }
+    if (D.strat.def === dc.def) D.strat.def = dc.prev.def;
+    if (D.pb && D.pb.covCall === dc.cov) D.pb.covCall = dc.prev.cov;
+    D.defCall = null;
   }
 
   // ---- substitutions ----
@@ -955,6 +970,8 @@
     // a throw-in in the frontcourt: the coach's inbound play (a quick hitter, or the ball in to the safety and then
     // the half-court call below)
     if (ctx.inbound) { const ib = !gim && O.pb ? pbInbound(ctx, mode) : null; ctx.inbound = null; if (ib) return ib; }
+    // the coach's own call (in a timeout or from the bench): his play for the team's next half-court possessions
+    if (O.userCall && O.pb && !gim && !ctx.userCalled) { const called = pbUserCall(ctx, mode); if (called) return called; }
     const off = C.OFFENSES[O.strat.off];
     const w = Object.assign({}, off.plays);
     const on = O.on;
@@ -1140,6 +1157,32 @@
     if (!c) return null;
     const info = pbInfo(ctx, c, sit);
     info.pb.tAct = tAct; info.pb.tAct0 = tAct;
+    return info;
+  }
+  /**
+   * The head coach's own call (Sim.callPlay): the play runs this possession whatever the staff would have called, for
+   * the number of half-court possessions he asked (a possession's first action; a second action after a reset is
+   * the staff's again). The roles are filled the usual way: the player it is run for by the engine's usage weights,
+   * the rest by fit.
+   */
+  function pbUserCall(ctx, mode) {
+    const O = ctx.O, g = ctx.g, uc = O.userCall;
+    const play = PBC.Playbook.get(uc.id);
+    if (!play || play.inbound || O.on.length !== 5) { O.userCall = null; return null; }
+    const family = PBC.PlayCall.baseOf(play);
+    const clockLeft = g.clock - ctx.t, scLeft = ctx.scStart + ctx.scLen - ctx.t;
+    const tAct = ctx.tActPre = actionTime(ctx, { play: family }, mode, clockLeft, scLeft);
+    const sit = pbSituation(ctx, mode, tAct);
+    const c = pbChoose(ctx, [play], sit);
+    if (!c) return null;
+    c.why = ['called by the coach'];
+    ctx.userCalled = true;
+    uc.left--;
+    if (uc.left <= 0) O.userCall = null;
+    const info = pbInfo(ctx, c, sit);
+    info.pb.rec.user = true;
+    info.pb.tAct = tAct; info.pb.tAct0 = tAct;
+    ctx.P.userCall = play.id;
     return info;
   }
   /** the coach's pick among plays (scored on the lineup's best fit), then who it is run for and who fills the rest */
@@ -1368,7 +1411,10 @@
       // (who comes off an off-ball screen in this step: he runs off it to his spot instead of walking there)
       const scr = (st.ev || []).filter(e => e[0] === 'screen' && e[3] !== 'ball' && R[e[1]] && R[e[2]] && R[e[1]] !== R[e[2]]).map(e => [R[e[1]].id, R[e[2]].id]);
       evAt(ctx, U.round(Tk, 2), 'step', { pb: play.id, k, n: play.steps.length, pos, scr, team: idx });
-      const evs = (st.ev || []).filter(e => EV_FRAC[e[0]] != null).map(e => ({ e, t: Tk + dk * EV_FRAC[e[0]] })).sort((a, b) => a.t - b.t);
+      // (a drawn play's events keep the order they were drawn in: evF)
+      const evs = [];
+      (st.ev || []).forEach((e, i) => { if (EV_FRAC[e[0]] != null) evs.push({ e, t: Tk + dk * (st.evF && st.evF[i] != null ? st.evF[i] : EV_FRAC[e[0]]) }); });
+      evs.sort((a, b) => a.t - b.t);
       for (const x of evs) {
         if (x.t >= cut) break;
         const e = x.e, tt = U.round(x.t, 2);
@@ -1430,12 +1476,21 @@
     const O = ctx.O, ib = ctx.inbound, g = ctx.g;
     ctx.inbound = null;
     if (!O.pb || O.on.length !== 5 || !ib) return null;
-    const list = O.pb.inb[ib.kind === 'baseline' ? 'blob' : 'slob'] || [];
+    const fam = ib.kind === 'baseline' ? 'blob' : 'slob';
+    let list = O.pb.inb[fam] || [];
+    // (the coach's call for this throw-in, when it is the kind of inbound he drew it for)
+    const uId = O.userInb && O.userInb[fam];
+    const uIb = uId ? PBC.Playbook.get(uId) : null;
+    const called = !!(uIb && uIb.family === fam);
+    if (uId) O.userInb[fam] = null;
+    if (called) list = [uIb];
     if (!list.length) return null;
     const sit = pbSituation(ctx, mode, null);
     const c = pbChoose(ctx, list, sit);
     if (!c) return null;
+    if (called) c.why = ['called by the coach'];
     const info = pbInfo(ctx, c, sit);
+    if (called) { info.pb.rec.user = true; ctx.P.userCall = uIb.id; }
     const pb = info.pb, play = c.play, R = c.roles, rec = pb.rec;
     pb.inbound = true;
     const rx = pb.rx = pbReactions(ctx, info);
@@ -1684,7 +1739,7 @@
     switch (info.play) {
       case 'pnr': {
         setEv(0.05);
-        evAt(ctx, at(0.3), 'screen', { screener: info.screener.id, user: handler.id, kind: 'ball', team: idx });
+        evAt(ctx, at(0.3), 'screen', { screener: info.screener.id, user: handler.id, kind: 'ball', cov: PBC.PlayCall ? PBC.PlayCall.coverage(ctx.D) : undefined, team: idx });
         move(0.4, handler, U.pick(['hesi', 'crossover', 'drive']));
         if (plan.branch === 'roller') pass(0.82, handler, plan.shooter, plan.passKind);
         else if (plan.branch === 'kick') { move(0.65, handler, 'drive'); pass(0.85, handler, plan.shooter, 'kick'); }
@@ -2453,6 +2508,41 @@
   // Coach controls during a game
   // ---------------------------------------------------------------------------
   Sim.callTimeout = (g, idx) => { if (g.t[idx].timeouts > 0) g.t[idx].toRequest = true; };
+  /** will the team's timeout request be granted when the next possession starts? (at a dead ball) */
+  Sim.timeoutComing = (g, idx) => {
+    const T = g.t[idx];
+    return !!(T.toRequest && T.timeouts > 0 && !g.final && !g.pending && g.nextStart !== 'dreb' && g.nextStart !== 'steal');
+  };
+  /** the head coach's call: a play from the book for the team's next `n` half-court possessions (null: the staff calls
+   *  them again) */
+  Sim.callPlay = (g, idx, playId, n) => {
+    const T = g.t[idx], PB = PBC.Playbook;
+    const k = Math.max(1, Math.min(99, Math.round(n || 1)));
+    T.userCall = playId && PB && PB.get(playId) ? { id: playId, left: k, n: k } : null;
+  };
+  /** the head coach's inbound play for the team's next throw-in under the basket ('blob') or from the sideline ('slob') in
+   *  the front court (null: the staff's) */
+  Sim.callInbound = (g, idx, fam, playId) => {
+    const T = g.t[idx], PB = PBC.Playbook;
+    if (fam !== 'blob' && fam !== 'slob') return;
+    const p = playId && PB ? PB.get(playId) : null;
+    T.userInb = Object.assign({ blob: null, slob: null }, T.userInb);
+    T.userInb[fam] = p && p.family === fam ? playId : null;
+  };
+  /**
+   * The head coach's defense: a scheme and a pick-and-roll coverage within man-to-man (null: the team's own) for the
+   * next `n` defensive possessions, then back to what it played before (n = Infinity: from now on).
+   */
+  Sim.callDefense = (g, idx, def, cov, n) => {
+    const T = g.t[idx];
+    if (!C.DEFENSES[def]) return;
+    const prev = T.defCall ? T.defCall.prev : { def: T.strat.def, cov: T.pb ? T.pb.covCall || null : null };
+    T.strat.def = def;
+    if (T.pb) T.pb.covCall = cov || null;
+    T.defCall = n === Infinity || n == null ? null : { def, cov: cov || null, left: Math.max(1, Math.round(n)), n: Math.round(n), prev };
+  };
+  /** the coach's calls in force: { play: { id, left, n }, inb, def: { def, cov, left, n } } */
+  Sim.calls = (g, idx) => { const T = g.t[idx]; return { play: T.userCall || null, inb: Object.assign({ blob: null, slob: null }, T.userInb), def: T.defCall || null, cov: T.pb ? T.pb.covCall || null : null }; };
   Sim.queueSub = (g, idx, outId, inId) => { g.t[idx].manualSubs.push({ out: outId, in: inId }); };
   Sim.setAutoSubs = (g, idx, on) => { g.t[idx].autoSubs = !!on; };
   Sim.setStrategy = (g, idx, patch) => { Object.assign(g.t[idx].strat, patch); };

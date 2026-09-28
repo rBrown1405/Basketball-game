@@ -57,16 +57,21 @@
       }
       T.pb = {
         book, plays, byBase, inb, mem: {}, fam: {}, recent: [], calls: 0, fitCache: {},
-        cov: PB.coverageFor(T.strat.def, book.def),
+        cov: PB.coverageFor(T.strat.def, book.def), covCall: null,
       };
     }
   };
 
-  /** the pick-and-roll coverage a team plays on defense right now (its scheme can change during the game) */
+  // (schemes that decide how ball screens are played themselves)
+  const SCHEME_COV = { switch: 1, drop: 1, blitz: 1, hedge: 1 };
+  /** the pick-and-roll coverage a team plays on defense right now (its scheme can change during the game; the head
+   *  coach can call a coverage within man-to-man in a timeout: T.pb.covCall) */
   PlayCall.coverage = function (T) {
     const PB = PBC.Playbook;
     if (!PB || !T) return 'show';
-    return PB.coverageFor(T.strat.def, T.pb && T.pb.book && T.pb.book.def);
+    const c = PB.coverageFor(T.strat.def, T.pb && T.pb.book && T.pb.book.def);
+    if (T.pb && T.pb.covCall && c !== 'zone' && !SCHEME_COV[T.strat.def]) return T.pb.covCall;
+    return c;
   };
 
   /**

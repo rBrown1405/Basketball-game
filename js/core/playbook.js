@@ -830,12 +830,13 @@
     const score = {};
     for (const id in PLAYS) {
       const p = PLAYS[id];
+      if (p.custom) continue; // (the coach's own plays go in only when he puts them in)
       const bf = five.length >= 5 ? Playbook.bestFit(p, five) : null;
       const fit = bf ? bf.fit : 60;
       score[id] = (sys[p.family] || 1) * Math.pow(Math.max(30, fit) / 65, 3) * U.range(0.85, 1.15);
     }
     const pickTop = (ids, n) => U.sortBy(ids, (id) => score[id], true).slice(0, n);
-    const all = Object.keys(PLAYS);
+    const all = Object.keys(PLAYS).filter((id) => !PLAYS[id].custom);
     const half = all.filter((id) => PLAYS[id].tags.includes('half'));
     const chosen = new Set(pickTop(half, 12));
     // at least one of each core family the half court needs
@@ -856,6 +857,7 @@
   Playbook.ensure = function (S, tid) {
     const team = S.teams[tid];
     if (!team) return null;
+    Playbook.syncCustom(S);
     const pb = team.playbook;
     const sys = (team.strat && team.strat.off) || 'balanced';
     if (!pb || pb.v !== Playbook.VERSION || !Array.isArray(pb.off) || !pb.off.length || (pb.auto && (pb.season !== S.season || pb.sys !== sys))) {
@@ -867,4 +869,285 @@
   };
   /** the plays of a playbook, resolved */
   Playbook.plays = function (pb) { return pb && Array.isArray(pb.off) ? pb.off.map((id) => PLAYS[id]).filter(Boolean) : []; };
+
+  // ---------------------------------------------------------------- the coach's own plays (the play designer)
+  /*
+   * A play drawn on the whiteboard (js/ui/playdesigner.js) is kept in the league save as the coach drew it
+   * (S.customPlays[id]):
+   *   { id: 'my_1', name, desc, kind: 'half' | 'blob' | 'slob', family ('auto' or a family), tags: [...],
+   *     players: { p1: { role: profile, at: [u, v] }, ... p5 }, ball: the player with the ball at the start (the
+   *     inbounder in an inbound play), steps: [{ acts: [...] }], reads: { key: { on, pri } } }
+   * with the actions of a step: { t: 'move', p, to: [u, v] } (a cut or a relocation), { t: 'screen', p, on } (p screens
+   * for on: a ball screen when on has the ball), { t: 'pass', p, to }, { t: 'handoff', p, to }, { t: 'dribble', p,
+   * to: [u, v] }, { t: 'drive', p } and { t: 'post', p } (the man with the ball).
+   * compileCustom turns it into a play like the library's: the steps as events and spots, the roles filled by
+   * ratings, and the reads worked out from what the play does (a ball screen gives the handler, the roll or pop and
+   * the kick-out; an off-ball screen the catch and the curl; an entry to the post the post-up and the kick-out; a
+   * cut the layup; a hand-off the turn of the corner), each one of the engine's calibrated shot branches, with the
+   * defensive reactions that open it. The coach can turn reads off or make them the first look. The compiled plays
+   * are registered next to the library's (ids 'my_...'), so the engine, the AI coach's call and the live court run
+   * them like any other play; they are the coach's, never in the AI teams' books.
+   */
+  const RIM_UV = [5.25, 25];
+  const nearRim = (p) => Math.hypot(p[0] - RIM_UV[0], p[1] - RIM_UV[1]) < 9;
+  const beyondArc = (p) => (p[0] < 14 ? Math.abs(p[1] - 25) >= 21.8 : Math.hypot(p[0] - RIM_UV[0], p[1] - RIM_UV[1]) >= 23.6);
+  const postArea = (p) => p[0] < 13 && Math.abs(p[1] - 25) < 11 && !nearRim(p);
+  const clampUV = (p, inb) => [U.clamp(+p[0] || 0, inb ? -2 : 1.5, 44), U.clamp(+p[1] || 0, inb ? -2 : 2, inb ? 52 : 48)];
+  /** read kinds: engine branch, base weight, triggers (the defensive reactions that open it), shot-zone weights */
+  const READ_KIND = {
+    handler: { base: 'pnr', br: 'handler', w: 30, trig: { drop: 1.4, switch: 1.3, blitz: 0.4, ice: 1.1 } },
+    roller: { base: 'pnr', br: 'roller', w: 18, trig: { hedge: 1.5, blitz: 1.7, show: 1.3, drop: 0.6, switch: 0.7 } },
+    popper: { base: 'pnr', br: 'roller', pop: true, w: 18, trig: { drop: 1.8, blitz: 1.4, hedge: 0.9, switch: 0.8 } },
+    pnrKick: { base: 'pnr', br: 'kick', w: 22, trig: { help: 1.5, blitz: 1.5 } },
+    offCatch: { base: 'offscreen', br: 'shooter', w: 32, trig: { under: 1.4, trail: 0.9, top: 0.6, obswitch: 0.7 } },
+    offCurl: { base: 'offscreen', br: 'shooter', w: 10, zk: { mid: 1.6, rim: 6, ab3: 0.3, c3: 0.2 }, trig: { trail: 2.2, under: 0.4 } },
+    offSlip: { base: 'pnr', br: 'roller', w: 6, trig: { obswitch: 2.2 } },
+    post: { base: 'post', br: 'self', w: 28, zk: { paint: 1.2 }, trig: { help: 0.8 } },
+    faceUp: { base: 'post', br: 'self', w: 14, zk: { mid: 2, paint: 1.1, rim: 0.7 }, trig: { help: 0.8 } },
+    postKick: { base: 'post', br: 'kick', w: 16, trig: { double: 2.2, help: 1.3 } },
+    catchShoot: { base: 'spot', br: 'shooter', w: 22, trig: { zone: 1.3, help: 1.3 } },
+    closeout: { base: 'spot', br: 'drive', w: 12, trig: { zone: 0.8 } },
+    dho: { base: 'handoff', br: 'receiver', w: 36, trig: { drop: 1.3, switch: 1.2, hedge: 0.8 } },
+    dhoBig: { base: 'handoff', br: 'big', w: 12, trig: { hedge: 1.5, switch: 1.4 } },
+    dhoKick: { base: 'handoff', br: 'kick', w: 20, trig: { help: 1.5 } },
+    cut: { base: 'cut', br: 'cutter', w: 18, trig: { top: 1.5, deny: 1.5, zone: 0.6 } },
+    relocate: { base: 'spot', br: 'shooter', w: 12, trig: { help: 1.3, zone: 1.3 } },
+    drive: { base: 'iso', br: 'self', w: 20, zk: { rim: 1.3, paint: 1.2 }, trig: { switch: 1.2, help: 0.8 } },
+    driveKick: { base: 'iso', br: 'kick', w: 16, trig: { help: 1.6 } },
+    endShot: { base: 'iso', br: 'self', w: 10, trig: { switch: 1.2 } },
+    endSwing: { base: 'spot', br: 'shooter', w: 12, trig: { help: 1.3, zone: 1.3 } },
+    inbCut: { base: 'cut', br: 'cutter', w: 12, trig: { obswitch: 1.6, top: 1.3, zone: 0.6 } },
+    inbShot: { base: 'spot', br: 'shooter', w: 14, trig: { under: 1.3, zone: 1.3 } },
+    safety: { safety: true, w: 68 },
+  };
+  Playbook.READ_KIND = READ_KIND;
+  const PRI_K = [0.4, 1, 2.2];
+  const INB_KEY = 'inb';
+  /** the players in the order they are numbered (1 to 5) */
+  function customKeys(def) { return ['p1', 'p2', 'p3', 'p4', 'p5'].filter((k) => def.players && def.players[k]); }
+  /**
+   * What the drawn play does, step by step: who has the ball, where everyone is, and each action (the base the
+   * compiler and the designer's reads and diagrams share).
+   */
+  Playbook.traceCustom = function (def) {
+    const keys = customKeys(def), inbK = def.kind === 'blob' || def.kind === 'slob' ? def.ball : null;
+    let pos = {};
+    for (const k of keys) pos[k] = clampUV(def.players[k].at, k === inbK);
+    let holder = def.ball && pos[def.ball] ? def.ball : keys[0];
+    const steps = [];
+    (def.steps || []).forEach((st, k) => {
+      const next = Object.assign({}, pos), acts = [];
+      let h = holder;
+      // (the moves of the step first: where each man goes, the reads look at where he ends up)
+      for (const a of st.acts || []) if ((a.t === 'move' || a.t === 'dribble') && next[a.p] && a.to) next[a.p] = clampUV(a.to, false);
+      for (const a of st.acts || []) {
+        if (!pos[a.p]) continue;
+        const x = Object.assign({ hBefore: h }, a);
+        if (a.t === 'pass' || a.t === 'handoff') { if (a.p !== h || !pos[a.to] || a.to === a.p) continue; h = a.to; }
+        if (a.t === 'screen') { if (!pos[a.on] || a.on === a.p) continue; x.ball = a.on === h; }
+        if ((a.t === 'drive' || a.t === 'post' || a.t === 'dribble') && a.p !== h) continue;
+        x.hAfter = h;
+        acts.push(x);
+      }
+      steps.push({ k, from: pos, to: next, hStart: holder, hEnd: h, acts });
+      pos = next; holder = h;
+    });
+    return { keys, inbK, steps, end: pos, holder };
+  };
+  /** the reads the drawn play opens, each with a stable key (for the coach's on / off and first-look choices) */
+  Playbook.customReads = function (def) {
+    const tr = Playbook.traceCustom(def), keys = tr.keys, n = (k) => '#' + (keys.indexOf(k) + 1);
+    const inb = !!tr.inbK, out = [];
+    const add = (key, kind, at, who, from, label, extra) => out.push(Object.assign({ key, kind, at, who, from: from || null, label }, extra || {}));
+    const last = tr.steps.length - 1;
+    if (inb) {
+      // an inbound play: the throw-in goes to a cutter, a shooter, or the safety who starts the half-court offense
+      const end = tr.end;
+      for (const k of keys) {
+        if (k === tr.inbK) continue;
+        if (nearRim(end[k])) add('inb.cut.' + k, 'inbCut', last, k, tr.inbK, n(k) + ' cuts to the rim');
+        else if (beyondArc(end[k])) add('inb.shot.' + k, 'inbShot', last, k, tr.inbK, n(k) + ' shoots off the inbound', end[k][0] < 12 ? { zk: { c3: 2 } } : null);
+      }
+      const others = keys.filter((k) => k !== tr.inbK);
+      const safe = def.safety && others.includes(def.safety) ? def.safety : others.reduce((b, k) => (!b || end[k][0] > end[b][0] ? k : b), null);
+      if (safe) add('inb.safety', 'safety', last, safe, tr.inbK, 'Safety: ' + n(safe) + ' gets it and runs offense');
+      return out;
+    }
+    for (const st of tr.steps) {
+      const k = st.k, spacers = (not) => keys.filter((x) => !not.includes(x));
+      st.acts.forEach((a, i) => {
+        const id = k + '.' + i + '.';
+        if (a.t === 'screen' && a.ball) {
+          const u = a.on, s = a.p, pop = beyondArc(st.to[s]) || (def.players[s] && def.players[s].role === 'popper');
+          add(id + 'handler', 'handler', k, u, null, n(u) + ' comes off the ball screen');
+          add(id + 'roll', pop ? 'popper' : 'roller', k, s, u, pop ? n(s) + ' pops for the shot' : n(s) + ' rolls to the rim');
+          add(id + 'kick', 'pnrKick', k, spacers([u, s]), u, 'Kick to the open shooter');
+        } else if (a.t === 'screen') {
+          const u = a.on, s = a.p, three = beyondArc(st.to[u]);
+          add(id + 'catch', 'offCatch', k, u, a.hBefore, n(u) + ' catches off the screen', { zk: three ? { ab3: 1.4, mid: 0.8 } : { mid: 1.4, ab3: 0.7 } });
+          add(id + 'curl', 'offCurl', k, u, a.hBefore, n(u) + ' curls to the rim');
+          add(id + 'slip', 'offSlip', k, s, a.hBefore, n(s) + ' slips the screen');
+        } else if (a.t === 'pass') {
+          const t = a.to, at = st.to[t];
+          if (postArea(at)) {
+            add(id + 'post', 'post', k, t, null, n(t) + ' posts up');
+            add(id + 'postkick', 'postKick', k, spacers([t]), t, 'Kick out of the post');
+          } else if (beyondArc(at)) {
+            add(id + 'catch', 'catchShoot', k, t, a.p, n(t) + ' catches and shoots');
+            add(id + 'closeout', 'closeout', k, t, null, n(t) + ' attacks the closeout');
+          } else add(id + 'face', 'faceUp', k, t, null, n(t) + ' faces up');
+        } else if (a.t === 'handoff') {
+          const t = a.to, f = a.p;
+          add(id + 'dho', 'dho', k, t, null, n(t) + ' turns the corner off the hand-off');
+          add(id + 'dhobig', 'dhoBig', k, f, t, n(f) + ' rolls after the hand-off');
+          add(id + 'dhokick', 'dhoKick', k, spacers([t, f]), t, 'Kick to the open shooter');
+        } else if (a.t === 'move' && a.p !== a.hBefore && !st.acts.some((b) => b.t === 'screen' && (b.p === a.p || b.on === a.p))) {
+          // (a screener's roll or pop and the run of the man coming off a screen are that screen's reads)
+          if (nearRim(st.to[a.p])) add(id + 'cut', 'cut', k, a.p, a.hBefore, n(a.p) + ' cuts to the rim');
+          else if (beyondArc(st.to[a.p]) && !beyondArc(st.from[a.p])) add(id + 'reloc', 'relocate', k, a.p, a.hBefore, n(a.p) + ' spots up behind the line');
+        } else if (a.t === 'drive') {
+          add(id + 'drive', 'drive', k, a.p, null, n(a.p) + ' drives');
+          add(id + 'drivekick', 'driveKick', k, spacers([a.p]), a.p, 'Drive and kick');
+        } else if (a.t === 'post') {
+          add(id + 'post', 'post', k, a.p, null, n(a.p) + ' backs down');
+          add(id + 'postkick', 'postKick', k, spacers([a.p]), a.p, 'Kick out of the post');
+        }
+      });
+    }
+    if (last >= 0) {
+      const h = tr.steps[last].hEnd, out3 = keys.filter((x) => x !== h && beyondArc(tr.end[x]));
+      add('end.shot', 'endShot', last, h, null, n(h) + ' creates his own shot');
+      if (out3.length) add('end.swing', 'endSwing', last, out3, h, 'Swing it to the open man');
+    }
+    return out;
+  };
+  /** what is wrong with a drawn play (empty when it can be saved and run) */
+  Playbook.validateCustom = function (def) {
+    const errs = [];
+    const keys = customKeys(def);
+    if (!def.name || !String(def.name).trim()) errs.push('Give the play a name.');
+    if (keys.length !== 5) errs.push('A play needs all five players on the floor.');
+    for (const k of keys) if (!PROFILES[def.players[k].role]) errs.push('Pick a role for player ' + (keys.indexOf(k) + 1) + '.');
+    if (!def.ball || !def.players[def.ball]) errs.push('Pick who starts with the ball.');
+    if (!def.steps || !def.steps.length) errs.push('Draw at least one step.');
+    else if (!def.steps.some((st) => st.acts && st.acts.length)) errs.push('The steps have no actions yet: add a cut, a screen, a pass or a dribble.');
+    if (def.steps && def.steps.length > 5) errs.push('Five steps at most.');
+    const reads = Playbook.customReads(def).filter((r) => { const o = def.reads && def.reads[r.key]; return !o || o.on !== false; });
+    if (keys.length === 5 && def.steps && def.steps.length && !reads.some((r) => r.kind !== 'safety')) errs.push('The play has no read to finish it: add an action that gets someone a shot (a screen, a cut, a pass to a shooter or the post, a drive).');
+    return errs;
+  };
+  /** step text written from its actions (the coach can type his own) */
+  Playbook.customStepText = function (def, st, keys) {
+    const n = (k) => '#' + (keys.indexOf(k) + 1);
+    const parts = (st.acts || []).map((a) => {
+      switch (a.t) {
+        case 'move': return nearRim(a.to || [30, 25]) ? n(a.p) + ' cuts to the rim' : n(a.p) + ' moves ' + (beyondArc(a.to || [30, 25]) ? 'out behind the line' : 'into position');
+        case 'screen': return n(a.p) + ' screens for ' + n(a.on);
+        case 'pass': return n(a.p) + ' passes to ' + n(a.to);
+        case 'handoff': return n(a.p) + ' hands off to ' + n(a.to);
+        case 'dribble': return n(a.p) + ' dribbles over';
+        case 'drive': return n(a.p) + ' drives';
+        case 'post': return n(a.p) + ' backs down in the post';
+        default: return '';
+      }
+    }).filter(Boolean);
+    return parts.join(', ') || 'Hold the spots';
+  };
+  /** the drawn play as a play the engine and the court run, or { errors } */
+  Playbook.compileCustom = function (def) {
+    const errors = Playbook.validateCustom(def);
+    if (errors.length) return { errors };
+    const tr = Playbook.traceCustom(def);
+    const inb = !!tr.inbK;
+    const keys = tr.keys;
+    // role keys: the inbounder is 'inb' (the engine's throw-in looks for him), the others keep p1..p5
+    const RK = {};
+    for (const k of keys) RK[k] = k === tr.inbK ? INB_KEY : k;
+    const roles = {}, align = {};
+    for (const k of keys) { roles[RK[k]] = inb && k === tr.inbK ? 'inbounder' : def.players[k].role; align[RK[k]] = tr.steps.length ? tr.steps[0].from[k] : clampUV(def.players[k].at, k === tr.inbK); }
+    const steps = tr.steps.map((st) => {
+      const ev = [], pos = {};
+      let far = 0;
+      for (const k of keys) {
+        const a = st.from[k], b = st.to[k];
+        if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 0.5) { pos[RK[k]] = b.slice(); far = Math.max(far, Math.hypot(a[0] - b[0], a[1] - b[1])); }
+      }
+      for (const a of st.acts) {
+        if (a.t === 'screen') ev.push(['screen', RK[a.p], RK[a.on], a.ball ? 'ball' : 'off_ball']);
+        else if (a.t === 'pass') ev.push(['pass', RK[a.p], RK[a.to], postArea(st.to[a.to]) ? 'entry' : 'chest']);
+        else if (a.t === 'handoff') ev.push(['handoff', RK[a.p], RK[a.to]]);
+        else if (a.t === 'drive') ev.push(['move', RK[a.p], 'drive']);
+        else if (a.t === 'post') ev.push(['move', RK[a.p], 'backdown']);
+      }
+      // (in the order they were drawn: a screen, then the drive off it; a pass, then the screen for the catcher)
+      const m = ev.length;
+      const evF = m > 1 ? ev.map((e, j) => U.round(0.2 + 0.65 * j / (m - 1), 3)) : undefined;
+      if (!ev.length) ev.push(['step']);
+      const src = def.steps[st.k] || {};
+      const d = U.clamp(1.0 + far / 16, 0.9, 2.2) + 0.55 * Math.max(0, m - 1);
+      const out = { d: U.round(Math.min(3.4, d), 2), text: (src.text && String(src.text).trim()) || Playbook.customStepText(def, src, keys), ev, pos: Object.keys(pos).length ? pos : undefined };
+      if (evF) out.evF = evF;
+      return out;
+    });
+    // the reads, with the coach's choices
+    const opts = [];
+    for (const r of Playbook.customReads(def)) {
+      const o = def.reads && def.reads[r.key];
+      if (o && o.on === false) continue;
+      const K = READ_KIND[r.kind];
+      const x = { at: r.at, w: U.round(K.w * PRI_K[o && o.pri != null ? o.pri : 1], 2), label: r.label, key: r.key };
+      if (K.safety) x.safety = true; else { x.base = K.base; x.br = K.br; if (K.pop) x.pop = true; x.trig = K.trig; }
+      const zk = r.zk || K.zk; if (zk) x.zk = zk;
+      x.who = Array.isArray(r.who) ? r.who.map((k) => RK[k]) : RK[r.who];
+      if (r.from) x.from = RK[r.from];
+      opts.push(x);
+    }
+    // who the play is run for and how the engine picks him: by its first featured action
+    let pick = 'handler', primary = RK[def.ball], map = { handler: RK[def.ball] };
+    if (inb) {
+      const safe = opts.find((o) => o.safety);
+      pick = 'handler'; primary = safe ? safe.who : keys.map((k) => RK[k]).find((k) => k !== INB_KEY); map = { handler: primary };
+    } else {
+      const acts = [].concat(...tr.steps.map((st) => st.acts));
+      const bs = acts.find((a) => a.t === 'screen' && a.ball), os = acts.find((a) => a.t === 'screen' && !a.ball);
+      const ho = acts.find((a) => a.t === 'handoff'), pe = acts.find((a) => a.t === 'pass' && postArea(tr.steps.find((s) => s.acts.includes(a)).to[a.to]));
+      const cu = acts.find((a) => a.t === 'move' && a.p !== a.hBefore && nearRim(a.to || [30, 25]));
+      if (bs) { pick = 'pnr'; primary = RK[bs.on]; map = { handler: RK[bs.on], screener: RK[bs.p] }; }
+      else if (os) { pick = 'shooter'; primary = RK[os.on]; map = { handler: RK[def.ball], shooter: RK[os.on], screener: RK[os.p] }; }
+      else if (ho) { pick = 'dho'; primary = RK[ho.to]; map = { handler: RK[ho.to], big: RK[ho.p] }; }
+      else if (pe) { pick = 'post'; primary = RK[pe.to]; map = { handler: RK[def.ball], poster: RK[pe.to] }; }
+      else if (cu) { pick = 'cutter'; primary = RK[cu.p]; map = { handler: RK[def.ball], cutter: RK[cu.p] }; }
+      else if (acts.some((a) => a.t === 'drive' || a.t === 'post')) pick = 'iso';
+    }
+    const FAM_OF = { pnr: 'pnr', shooter: 'offscreen', dho: 'handoff', post: 'post', cutter: 'cut', iso: 'iso', handler: 'spot' };
+    const family = inb ? def.kind : def.family && def.family !== 'auto' && Playbook.FAMILY[def.family] && def.family !== 'blob' && def.family !== 'slob' ? def.family : FAM_OF[pick];
+    const tags = inb ? [def.kind] : [family === 'zone' ? 'zone' : 'half'].concat((def.tags || []).filter((t) => ['ato', 'eog', 'need3', 'three', 'early'].includes(t)));
+    const play = {
+      id: def.id, name: String(def.name).trim().slice(0, 40), family, tags, custom: true,
+      desc: (def.desc && String(def.desc).trim()) || 'A play drawn by the coach.',
+      roles, primary, pick, map, align, steps, opts, start: RK[def.ball],
+    };
+    if (inb) play.inbound = true;
+    play.last = steps.length - 1;
+    return { play };
+  };
+  /** the league's own plays (the play designer's) registered next to the library's, in step with the save */
+  Playbook.syncCustom = function (S) {
+    const want = (S && S.customPlays) || {};
+    for (const id in PLAYS) if (PLAYS[id].custom && !want[id]) delete PLAYS[id];
+    for (const id in want) {
+      const def = want[id];
+      const cur = PLAYS[id];
+      if (cur && cur._src === def) continue;
+      const r = Playbook.compileCustom(def);
+      if (r.play) { r.play._src = def; PLAYS[id] = r.play; } else delete PLAYS[id];
+    }
+  };
+  /** a new id for a drawn play */
+  Playbook.newCustomId = function (S) {
+    const have = (S && S.customPlays) || {};
+    let n = 1;
+    while (have['my_' + n] || PLAYS['my_' + n]) n++;
+    return 'my_' + n;
+  };
 })();

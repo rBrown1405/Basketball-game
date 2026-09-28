@@ -56,6 +56,11 @@
           const a = pos[e[1]], b = next[e[2]];
           if (!a || !b) continue;
           o.push(`<line x1="${X(a[1])}" y1="${Y(a[0])}" x2="${X(b[1])}" y2="${Y(b[0])}" stroke="${col}" stroke-width="1.3" stroke-dasharray="${e[0] === 'pass' ? '3,3' : '1,2'}" marker-end="${mk}"/>`);
+          if (e[0] === 'handoff') {
+            // (a hand-off: a hash mark across the line at the giver)
+            const du = b[0] - a[0], dv = b[1] - a[1], dl = Math.hypot(du, dv) || 1, mu = a[0] + du / dl * 2.2, mv = a[1] + dv / dl * 2.2, pu = -dv / dl * 1.6, pv = du / dl * 1.6;
+            o.push(`<line x1="${X(mv - pv)}" y1="${Y(mu - pu)}" x2="${X(mv + pv)}" y2="${Y(mu + pu)}" stroke="${col}" stroke-width="2.2" stroke-linecap="round"/>`);
+          }
           holder = e[2];
         } else if (e[0] === 'move' && (e[2] === 'drive' || e[2] === 'backdown')) {
           // a dribble: a zig-zag toward the rim
@@ -87,6 +92,11 @@
     o.push('</svg>');
     return o.join('');
   }
+
+  UI.playDiagram = diagram;
+  UI.PLAY_STEP_COL = STEP_COL;
+  UI.PLAY_ROLE_NAME = ROLE_NAME;
+  UI.PLAY_TAG_NAME = TAG_NAME;
 
   // ------------------------------------------------------------ the page
   function starters(S, tid) {
