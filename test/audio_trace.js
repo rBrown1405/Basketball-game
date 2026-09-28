@@ -42,6 +42,11 @@ const root = path.join(__dirname, '..');
   console.log(`playing ${SECONDS}s of a live game at ${SPEED}x ...`);
   await page.waitForTimeout(SECONDS * 1000);
 
+  // cost per frame, measured over the play window only (before the self-tests below add their own load)
+  const perf = await page.evaluate(() => {
+    const A = PBC.Audio.current;
+    return { frames: A.debug.frameStats(), slowestEmit: A.bus.slowest, handlers: A.bus.handlerStats(), byType: A.bus.typeStats(), unlockMs: A.unlockMs, arenaInitMs: A.arenaInitMs, mixer: Object.assign({}, A.mixer.stats) };
+  });
   const results = {};
   const check = (name, pass, evidence) => { results[name] = { pass: !!pass, evidence }; console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}: ${typeof evidence === 'string' ? evidence : JSON.stringify(evidence)}`); };
 
@@ -151,11 +156,6 @@ const root = path.join(__dirname, '..');
     Math.abs(duck.talkingDb - duck.targetDb) < 1 && duck.pushedDb > duck.talkingDb + 1.5 && Math.abs(duck.afterDb) < 0.5 && duck.maxStepDbPer50ms < 2.5,
     Object.fromEntries(Object.entries(duck).map(([k, v]) => [k, +v.toFixed(2)])));
 
-  // ---- cost per frame
-  const perf = await page.evaluate(() => {
-    const A = PBC.Audio.current;
-    return { frames: A.debug.frameStats(), slowestEmit: A.bus.slowest, handlers: A.bus.handlerStats(), unlockMs: A.unlockMs, arenaInitMs: A.arenaInitMs, mixer: A.mixer.stats };
-  });
   const fsx = perf.frames;
   const handlerMax = Math.max(...Object.entries(perf.handlers).filter(([k]) => /arena|mixer/.test(k)).map(([, v]) => v.max), 0);
   // (unlockMs is the browser starting its audio device, once, inside the Watch Live click while the game screen is

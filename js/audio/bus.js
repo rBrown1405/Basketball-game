@@ -28,7 +28,8 @@
     const log = [];
     let seq = 0, cur = null;
     const counts = {};
-    const handlerMs = {};   // label -> { calls, ms, max, maxType }: who costs time
+    const handlerMs = {};
+    const typeMs = {};      // event type -> total ms spent emitting it   // label -> { calls, ms, max, maxType }: who costs time
     const wall0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const wall = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) - wall0;
 
@@ -73,7 +74,11 @@
         } finally {
           cur = prev;
           // (time spent in subscribers that are not audio, such as the TV graphics, is not charged to audio)
-          if (!prev) { const dt = wall() - t0 - nonAudio; bus.ms += dt; if (dt > bus.slowest.ms) bus.slowest = { type, ms: dt, id: e.id }; }
+          if (!prev) {
+            const dt = wall() - t0 - nonAudio;
+            bus.ms += dt; typeMs[type] = (typeMs[type] || 0) + dt;
+            if (dt > bus.slowest.ms) bus.slowest = { type, ms: dt, id: e.id };
+          }
         }
         return e;
       },
@@ -93,6 +98,7 @@
       },
       log() { return log; },
       counts() { return Object.assign({}, counts); },
+      typeStats() { return Object.assign({}, typeMs); },
       handlerStats() { return JSON.parse(JSON.stringify(handlerMs)); },
       clear() { log.length = 0; for (const k in counts) delete counts[k]; },
       wall,
