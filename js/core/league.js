@@ -137,6 +137,7 @@
     S.boxes = {};
     S.teamSeason = {};
     for (const t of S.teams) S.teamSeason[t.id] = PBC.Stats.emptyTeamSeason();
+    S.playStats = { season: S.season, rs: {}, po: {} }; // plays and defensive schemes this season (js/core/playstats.js)
     League.makeSchedule(S);
     PBC.Draft && PBC.Draft.ensureClass ? PBC.Draft.ensureClass(S) : League.generateDraftClass(S);
     S.practice = { week: -1, done: false, log: [] };

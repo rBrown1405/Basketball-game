@@ -321,6 +321,16 @@
       }
       const o = pb.opt;
       if (o && (!live || k >= o.at)) rows.push(['   READ: ' + o.label + (o.read && o.read.length ? ' (' + o.read.join(', ') + ')' : '') + (o.at < play.steps.length - 1 ? ', an early read' : ''), '#b2f2bb', 1]);
+      // (play tracking, once the play is over: completed, or where and why it broke down)
+      const rec = !live && d.poss && d.poss.pbs ? d.poss.pbs.find((r) => r.id === run.id && r.out) : null;
+      if (rec) {
+        const PS = window.PBC.PlayStats, why = rec.brk && PS ? (PS.BRK[rec.brk[1]] || [rec.brk[1]])[0] : null;
+        // (the outcome once the court has shown it: no shot, foul or turnover still to come)
+        const shown = !(d.events || []).some((e, i) => e && (e.type === 'shot' || e.type === 'foul' || e.type === 'ft' || e.type === 'turnover') && (i >= d.ei || (d.beat && d.beat.ev === e && !d.beat.fired)));
+        const outW = shown ? (PS ? (PS.OUT[rec.out] || rec.out) : rec.out).toLowerCase() : '';
+        rows.push([rec.brk ? '   BROKE DOWN ' + (rec.brk[0] >= 0 ? 'at step ' + (rec.brk[0] + 1) : 'at the entry') + ': ' + why + (outW ? ' (' + outW + ')' : '')
+          : '   COMPLETED' + (rec.early ? ' on an early read' : '') + (outW ? ': ' + outW : '') + (rec.ctr ? ', a counter' : ''), rec.brk ? '#ffa8a8' : '#b2f2bb', 1]);
+      }
       if (pb.why && pb.why.length) rows.push(['   why this call: ' + pb.why.join(', '), '#adb5bd', 0]);
     } else rows.push(['PLAY: ' + (PLAY[d.play] || d.play) + (setEv && setEv.setName ? ' · ' + setEv.setName : ' (flow, no call)'), '#ffffff', 1]);
     const ev = d.events || [];

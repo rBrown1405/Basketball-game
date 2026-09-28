@@ -56,6 +56,12 @@ angles.
   dribbles and drives, step by step), give each spot a role, pick the reads, run it on the board, and add it to
   your playbook; or start from any library play and make it yours.
 - **Play paths on the court**: the called play drawn on the floor as it runs (the O key).
+- **Play tracking and analytics**: every possession is logged: the play, how far into it the offense got, where
+  and why it broke down (a denied pass, a blown screen, a switch, the help, the shot clock, a turnover) and the
+  outcome. The box score's Plays tab shows each team's plays, its defense by scheme and every possession; Playbook,
+  📊 Play stats (and any team's page) shows the season: each play's usage, points per possession against the
+  league, completion rate, shot quality and most common breakdown, and points allowed per possession by defensive
+  scheme and coverage. Past seasons are kept in each team's history.
 - **Game Impact Moments**: in clutch moments you draw up the play and hit the shot yourself with a shot meter.
 - **Gameplay sliders** (League Settings): pace, fast breaks, three-point rate and accuracy, shooting by zone,
   dunks, fouls, turnovers, steals, blocks, defense, rebounding, fatigue, injuries, star usage, clutch, home

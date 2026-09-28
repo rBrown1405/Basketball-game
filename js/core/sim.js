@@ -1211,10 +1211,13 @@
     const info = mkInfo(PBC.PlayCall.baseOf(play), play._up || (play._up = play.name.toUpperCase()));
     for (const k in play.map) if (R[play.map[k]]) info[k] = R[play.map[k]];
     if (!info.handler) info.handler = R.ball || ctx.handler;
+    const g = ctx.g;
     const rec = {
       id: play.id, name: play.name, family: play.family, base: info.play, fit: U.round(c.fit, 1), why: (c.why || []).slice(0, 3),
       roles: {}, ato: !!sit.ato, mode: sit.mode, opt: null, optI: -1, at: -1, step: -1, last: play.last, early: false, end: null,
-      cov: null, s0: ctx.g.score[ctx.O.idx], pts: 0, t: U.round(ctx.t, 2),
+      cov: null, s0: g.score[ctx.O.idx], pts: 0, t: U.round(ctx.t, 2),
+      // (play tracking: clutch time, and the shot, the shot clock and the breakdown, filled in as the play goes)
+      cl: g.period >= g.L.periods && g.clock - ctx.t <= 300 && Math.abs(g.score[0] - g.score[1]) <= 5,
     };
     for (const r in R) rec.roles[r] = R[r].id;
     info.pb = { play, roles: R, side: U.chance(0.5) ? 1 : -1, sit, rec, t0: Math.max(ctx.t, ctx.advT || 0), tAct: null, tAct0: null };
@@ -1470,6 +1473,52 @@
     const rec = info.pb.rec;
     rec.end = end;
     rec.step = rec.at;
+    // (play tracking: if the play breaks down here, a look passed up or a shot the clock forces, the defense's reaction
+    // that took its main option away, or the read's own, says where and why)
+    if (end === 'reset' || end === 'shot') {
+      rec.away = pbTakenAway(info.pb);
+      // (the offense went to a counter: not the play's main option)
+      rec.ctr = !!(info.pb.opt && info.pb.opt !== pbMain(info.pb.play));
+    }
+  }
+  /** a play's main option: its biggest read */
+  function pbMain(play) {
+    let main = null;
+    for (const x of play.opts) if (!x.safety && (!main || x.w > main.w)) main = x;
+    return main;
+  }
+  /** does step k of a play pass the ball (k = -1: the entry pass before the first step)? */
+  function pbPassStep(play, k) {
+    if (k < 0) return true;
+    const st = play.steps[k];
+    return !!(st && st.ev && st.ev.some(e => e[0] === 'pass' || e[0] === 'handoff'));
+  }
+  /** of the defense's reactions on the call, the one that took the most from read o (a trigger under 1), or null */
+  function pbHurt(o, rx) {
+    const tr = (o && o.trig) || {};
+    let why = null, low = 0.95;
+    const t = (k, w) => { const v = tr[k]; if (v != null && v < low) { low = v; why = w; } };
+    if (rx.zone) t('zone', 'help');
+    else if (rx.cov) t(rx.cov, rx.cov === 'switch' ? 'switch' : 'screen');
+    if (rx.ob) t(rx.ob, rx.ob === 'obswitch' ? 'switch' : 'screen');
+    if (rx.help) t('help', 'help');
+    if (rx.deny) t('deny', 'deny');
+    if (rx.double) t('double', 'help');
+    return why;
+  }
+  /**
+   * What the defense took away (play tracking): the play's main option (its biggest read) when the offense had to go
+   * elsewhere and the defense's reaction hurt it (a switch; a screen defended: over, under, top-locked, iced, dropped,
+   * hedged or blitzed; a denied pass; the help, a double, the zone), else the read it took if a reaction hurt that one.
+   * { at: the step, why } or null.
+   */
+  function pbTakenAway(pb) {
+    const rx = pb.rx, o = pb.opt;
+    if (!rx || !o) return null;
+    const main = pbMain(pb.play);
+    if (main && main !== o) { const w = pbHurt(main, rx); if (w) return { at: main.at, why: w }; }
+    const w = pbHurt(o, rx);
+    return w ? { at: o.at, why: w } : null;
   }
   /** a throw-in from under the basket (BLOB) or the sideline (SLOB) in the frontcourt */
   function pbInbound(ctx, mode) {
@@ -1540,6 +1589,57 @@
     } else if (P.play && P.play !== 'transition' && P.play !== 'putback' && P.play !== 'none') {
       PBC.PlayCall.rememberFlow(g, ctx.O, P.play, g.score[P.off] - ctx.score0);
     }
+  }
+
+  // ---- play tracking (js/core/playstats.js) ----
+  // Every possession is logged: how it was played, each call closed with its outcome and, when it broke down, the step
+  // and the reason; the game's tallies for the box score and the season. Nothing here draws a random number: the game
+  // plays the same with it.
+  const FLOW_FAM = { pnr: 1, iso: 1, post: 1, spot: 1, offscreen: 1, handoff: 1, cut: 1 };
+  function closeCall(ctx, r) {
+    const g = ctx.g;
+    let out, done = false, brk = null;
+    const at = r.step;
+    switch (r.end) {
+      case 'shot':
+        out = r.q == null ? 'other' : r.fouledShot ? 'ft' : r.made ? 'made' : 'miss';
+        // (the read came so late the clock forced the shot: the play broke down, where the defense took its main
+        // option away, or on the shot clock)
+        if (r.mode === 'normal' && !r.early && r.sc != null && r.sc < 4) brk = r.away ? [r.away.at, r.away.why] : [at, 'clock'];
+        else done = true;
+        break;
+      case 'safety': out = 'safety'; done = true; break;
+      case 'reset': out = 'reset'; brk = r.away ? [r.away.at, r.away.why] : [at, 'contest']; break;
+      case 'turnover': out = 'to'; brk = [at, r.tok === 'shot_clock' ? 'clock' : r.toScr ? 'screen' : r.tok === 'bad_pass' && r.passStep ? 'deny' : 'to']; break;
+      case 'foul': case 'def3': out = 'foul'; break;
+      default:
+        // (the period ran out on it, or the possession ended some other way: a held ball, an intentional foul)
+        out = g.clock - U.clamp(ctx.endT != null ? ctx.endT : ctx.t, 0, g.clock) <= 0.05 ? 'end' : 'other';
+        if (out === 'end') brk = [Math.max(-1, at), 'clock'];
+    }
+    r.out = out; r.done = done; r.brk = brk;
+    // (an inbound play that only got the ball in is credited with the whole possession, the way out-of-bounds
+    // possessions are counted; any other call with the points while it was on)
+    r.spts = out === 'safety' ? g.score[ctx.P.off] - r.s0 : r.pts;
+  }
+  function logPossession(ctx) {
+    const g = ctx.g, P = ctx.P, PS = PBC.PlayStats;
+    if (!PS) return;
+    const pts = g.score[P.off] - ctx.score0;
+    for (const r of P.pbs) closeCall(ctx, r);
+    const kind = P.pbs.length ? 'call' : P.play === 'transition' ? 'trans' : FLOW_FAM[P.play] ? 'flow' : 'other';
+    const e = { k: kind, f: kind === 'flow' ? P.play : undefined, pts, d: P.defScheme, v: P.defCov };
+    const st = g.pstats || (g.pstats = [PS.empty(), PS.empty()]);
+    PS.addPoss(st[P.off], st[1 - P.off], e);
+    for (const r of P.pbs) PS.addCall(st[P.off], r);
+    if (g.lite) return;
+    // the possession log of a live game (the box score's list): who, when, how it was played, each call, the outcome
+    P.log = {
+      o: P.off, q: P.period, c: Math.round(P.clockStart), k: kind, f: e.f, pts, d: P.defScheme, v: P.defCov,
+      sq: P.sq ? P.sq.q : undefined, xp: P.sq ? Math.round(P.sq.xp * 100) : undefined, to: P.tok,
+      p: P.pbs.map(r => ({ i: r.id, s: r.step, l: r.last, o: r.out, w: r.brk ? r.brk[1] : undefined, e: r.early && r.done ? 1 : undefined, u: r.user ? 1 : undefined, pts: r.spts })),
+    };
+    (g.plog || (g.plog = [])).push(P.log);
   }
 
   // ---- shot planning ----
@@ -1992,6 +2092,8 @@
     const kind = plan.kind;
     const contest = kind === 'heave' ? 'tight' : contestLevel(ctx, plan.cKey, plan);
     const d = shotDefender(ctx, sh, zone, info);
+    // (play tracking: the shot clock when the called play got to its read)
+    if (info.pb && info.pb.rec.sc == null) info.pb.rec.sc = U.round(ctx.scStart + ctx.scLen - tShot, 1);
     if (forcePlan) ctx.read = null;
     else if (passUp(ctx, plan, contest, d, info, tShot, mode)) {
       // (a called play ran to its read, the look was not good enough: the ball is swung and the next call comes)
@@ -2036,6 +2138,7 @@
     const g = ctx.g, O = ctx.O, D = ctx.D;
     const { sh, d, zone, kind, contest, info, pts, plan } = data;
     let pMake = makeProb(ctx, sh, zone, kind, contest, d, info);
+    const xpMake = pMake;
     let pBlock = kind === 'heave' ? 0 : blockProb(ctx, zone, sh, d);
     let pFoul = shootingFoulProb(ctx, zone, sh, d, kind);
     if (quality) {
@@ -2051,6 +2154,13 @@
     const fouled = !blocked && U.chance(pFoul);
     let made = !blocked && U.chance(fouled ? pMake * 0.5 : pMake);
     shot.made = made; shot.blocked = blocked; shot.fouled = fouled; shot.andOne = made && fouled;
+    // (play tracking: the first shot of the possession and of a called play, with its expected points)
+    {
+      const xp = U.round(xpMake * pts, 3);
+      if (!ctx.P.sq) ctx.P.sq = { q: contest, xp, zone };
+      const r = info && info.pb && info.pb.rec;
+      if (r && r.q == null) { r.q = contest; r.xp = xp; r.made = made; r.fouledShot = fouled && !made; r.zone = zone; }
+    }
     if (Sim.debug) { const z = Sim.debug[zone] || (Sim.debug[zone] = [0, 0, 0, 0]); if (made || !fouled) z[1]++; if (made) z[0]++; if (blocked) z[2]++; if (fouled) z[3]++; }
     shot.pending = false;
     // stats (a missed shot on a shooting foul is not a field-goal attempt)
@@ -2219,7 +2329,14 @@
     }
     if (who) who.st.tov++;
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play === 'putback' ? 'none' : info.play; ctx.P.setName = info.setName || ''; }
-    if (info.pb) pbCut(ctx, info, ctx.t, 'turnover');
+    ctx.P.tok = kind;
+    if (info.pb) {
+      pbCut(ctx, info, ctx.t, 'turnover');
+      // (play tracking: a bad pass on a step that passes the ball was a pass the defense denied; an offensive foul on
+      // the play's screener, an illegal screen)
+      const r = info.pb.rec;
+      r.tok = kind; r.toScr = kind === 'offensive_foul' && !!who && who === info.screener; r.passStep = pbPassStep(info.pb.play, r.step);
+    }
     else if (info.play && !info.noSet && info.play !== 'transition' && info.play !== 'putback' && !g.lite && ctx.t - Math.max(ctx.t, ctx.advT) >= 0) {
       if (ctx.t - ctx.advT > 1.5) evAt(ctx, U.round(ctx.advT + 0.4, 2), 'set', { play: info.play, setName: info.setName, handler: handler.id, team: O.idx });
     }
@@ -2361,6 +2478,7 @@
     if (!P.play || P.play === 'none') P.play = ctx.transition ? 'transition' : ctx.info ? ctx.info.play : 'none';
     if (!P.setName && ctx.info) P.setName = ctx.info.setName || '';
     pbPossessionDone(ctx);
+    logPossession(ctx);
     if (g.clock <= 0) {
       advancePeriod(g);
     } else {
@@ -2590,6 +2708,10 @@
     box.pog = best ? best.pid : null;
     if (g.stakesInfo) { box.stakes = g.stakes; box.stakesInfo = g.stakesInfo; }
     if (g.magic != null) box.magic = g.magic;
+    // play tracking: each team's plays, how its possessions were played, its defense (js/core/playstats.js); copies,
+    // so a box taken during a game (the live view's, before a possession is shown) keeps the numbers of that moment
+    if (g.pstats) box.plays = JSON.parse(JSON.stringify(g.pstats));
+    if (g.plog && !g.lite) box.plog = g.plog.slice();
     return box;
   };
 

@@ -718,6 +718,97 @@ game.
 - UI: a Plays tab in the box score and in the team page (usage, points per possession, completion rate, most common
   breakdown).
 
+### Phase 5: what was built
+
+Built on the Phase 3 and 4 play records: the engine already kept a record of each call (the play, the step it got
+to, the read taken, how it ended, its points). Phase 5 closes each record with the outcome and, when the play broke
+down, the step and the reason, and keeps the tallies. It only counts: it draws no random numbers, so every game
+plays exactly as before (the same league simulated with the Phase 4 code and this code gives the same score in all
+18 test games, men and women, full and quick sim).
+
+- **Every possession is logged** (`js/core/sim.js`, at the end of each possession; tallies in the new
+  `js/core/playstats.js`):
+  - how it was played: a called play (the staff's or the head coach's; an inbound play and the half-court call
+    after it are two calls), flow with no call (by the engine's action: pick and roll, isolation, post-up, spot-up,
+    off screens, hand-offs, cutting), transition, or other (no action run: a turnover or a foul before the offense
+    set up, the period's end);
+  - for each call, how far the offense got (the step) and whether the play was **completed**: it got to its read in
+    time (a shot, or the ball in on an inbound), with an early read (before the last step, the play working)
+    counted apart, and whether the read was the play's main option or a counter;
+  - where it **broke down and why**, from what happened in the engine, never guessed:
+    - a turnover: a bad pass on a step that passes the ball (or on the entry pass) is a **denied pass**; an
+      offensive foul by the play's screener a **blown screen** (an illegal screen); a shot-clock violation the
+      **shot clock**; any other lost ball, travel or offensive foul a **turnover**;
+    - a look passed up (the play reset into a new call) or a shot the clock forced (a normal possession, not an
+      early read, under 4 s on the shot clock at the shot): what the defense took away, read from the reactions
+      the engine drew for that call when one of them cut the odds of the play's main option: a **switch**, a
+      **blown screen** (the screen defended: over, under, top-locked, iced, dropped, hedged or blitzed), a
+      **denied pass**, the **help** (a help rotation, a double team, the zone); with none, **well defended** for a
+      reset and the **shot clock** for a late shot;
+    - the period ending on it: the shot clock;
+  - the **outcome**: the points (while the call was on; an inbound play that only got the ball in is credited with
+    the whole possession, the way out-of-bounds possessions are counted), the shot (open, contested or tight; made
+    or missed; fouled on it) and its **shot quality** (the engine's make chance for that shooter and that look,
+    times the shot's points: expected points), a turnover and its kind, a foul;
+  - the defense: its scheme and, in man-to-man, its pick-and-roll coverage; and clutch calls (the last 5 minutes of
+    the fourth quarter or overtime, within 5 points).
+- **Tallies**: per game in the box score (both teams; a live game also keeps the list of every possession), per team
+  per season (`S.playStats`, the regular season and the playoffs apart), and each season archived in the team's
+  history when it ends (the coach's team every play with its three most common breakdowns; the other teams their 10
+  most-called plays and the most common one). Games played before this version have no play numbers; the screens
+  say so.
+- **The box score's Plays tab** (`js/ui/playstats.js`, `cards.js`): for each team its possessions by how they were
+  played with points per possession, the completion rate, each play it ran (calls, points, points per possession,
+  completed, how the calls ended, the most common breakdown with its step, shot quality), its defense by scheme and in
+  transition; for a game played live, every possession in order (the clock, the team, the calls with how far each
+  got and its outcome, where and why it broke down, the shot, the points, the defense and its coverage).
+- **The season** (Playbook: 📊 Play stats for any team and season, regular season or playoffs; a "Plays this season"
+  card on every team's page with "Full play stats"): points per possession against the league's and by how the
+  possessions were played; the calls completed, the shot quality and why plays broke down; points per call against
+  each ball-screen coverage the defense played; a sortable table of every play (calls and per game, usage, points per
+  possession, **vs league** for that kind of play, completed, early, counters, turnovers, shot quality, the most
+  common breakdown with the step and the reason, the head coach's calls, clutch calls); and the defense: points
+  allowed per possession by scheme (against the league's for that scheme) and by pick-and-roll coverage, and in
+  transition. Past seasons come from the team's history.
+- **In the live game**: the Coach tab's "Tonight" shows the plays run so far (calls, points per possession,
+  completed) and the defense's points allowed by scheme, as of the last possession shown (no spoilers); the box
+  score's Plays tab stays open as the game goes on. The coach's debug view says, once a play is over, whether it was
+  completed (on an early read, a counter) or where and why it broke down, and its outcome once the court has shown
+  it.
+- **The audit** (`tools/audit`) gained section 10: the tallies checked against the game (possessions, points, calls,
+  one log entry per possession) and the numbers the screens show over all the games.
+
+### Research behind Phase 5
+
+- The standard for play analytics is Synergy's play types (the NBA's own play type pages use them): each possession
+  is tagged with the action it ended in, and a play type is judged by its points per possession, its frequency
+  (the share of possessions it was used on) and a percentile against the league. Phase 5 reports the same three for
+  each play: points per possession, usage, and "vs league" (the league's points per call for that kind of play this
+  season), with the defense measured the same way (points allowed per possession by scheme).
+  ([Synergy glossary](https://support.synergysports.com/support/solutions/articles/77000572558-glossary),
+  [NBA.com team play types](https://www.nba.com/stats/teams/isolation),
+  [Nylon Calculus on Synergy's categories](https://fansided.com/2017/09/08/nylon-calculus-understanding-synergy-play-type-data/),
+  [Raptors HQ on Synergy play types](https://www.raptorshq.com/2015/2/26/8068475/toronto-raptors-synergy-play-type-statistics),
+  [Databall: Synergy statistics](https://nbastatsgeeks.wordpress.com/advanced-statistics-summary/team-statistics/synergy-statistics/))
+- A Synergy play type is the action that ended the possession, so a set that becomes a pick and roll counts as a
+  pick and roll. The game tracks the call itself (the set the coach or the staff called) and says how far into it the
+  offense got and how it ended, which is what a coach grading his own sets wants; the flow possessions are still
+  grouped by the action the engine ran (pick and roll, isolation, post-up, spot-up, off screens, hand-offs, cuts).
+  Out-of-bounds plays are judged by the whole possession they start, so an inbound play that only gets the ball in
+  is credited with the possession.
+- Why sets break down, in coaching terms: the defense denies the pass the set needs (an entry or a reversal), blows
+  up the screen (jumps it, goes under or over it, switches it), or rotates and helps; otherwise the clock runs out on
+  it. The breakdown reasons are the engine's own defensive reactions (Phase 3: coverage, off-ball screens, denial,
+  help, double teams, the zone) and its turnover kinds, so each reason is something that happened in the engine, not
+  a label guessed afterwards.
+  ([Coach's Clipboard: switching defense](https://www.coachesclipboard.net/basketball-switching-defense.html),
+  [Coach's Clipboard: defending screens](https://www.coachesclipboard.net/basketball-defending-screens.html))
+- Shot quality: tracking data rates each shot by its expected value from its type, its spot and the nearest
+  defenders (Second Spectrum's quantified shot quality, the effective field goal percentage an average shooter would
+  get on it). The game has the engine's own make chance for each shot, so a play's shot quality is the expected points
+  of the shots it got, with that shooter and that look.
+  ([NBAstuffer: quantified shot quality](https://www.nbastuffer.com/analytics101/quantified-shot-quality-qsq/))
+
 ## Phase 6: assistant coaches and scouting reports
 
 - New `js/core/staff.js`: assistants with ratings (scouting, offense, defense, player development, ...), a market,

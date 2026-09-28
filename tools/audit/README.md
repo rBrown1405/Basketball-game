@@ -88,6 +88,21 @@ outside free throws, timeouts and dead balls):
 node tools/audit/run.js --games 52 --out audit/phase4/calls --label "Phase 4, the coach calling plays" --calls 1 --baseline audit/phase4/metrics.json --baseLabel "Phase 4, no calls"
 ```
 
+10. **Play tracking and analytics** (Phase 5 on; earlier code shows n/a): the tallies the engine keeps for the box
+   score's Plays tab and the season screens (`js/core/playstats.js`), checked against the game itself: the
+   possessions and points of each team equal the game's, the calls equal the audit's own count (section 8), and a
+   live game's possession log has one entry per possession. Then what the screens show, over all the games:
+   possessions by how they were played (a called play, flow, transition, other) with their points per possession,
+   calls completed, calls the shot clock forced, calls that broke down and why (a turnover, the shot clock, a denied
+   pass, a blown screen, a switch, the help, well defended) and at the entry, counters, the shot quality of the calls'
+   shots, points allowed per possession by defensive scheme (table 10b) and the calls by the ball-screen coverage the
+   defense played (table 10c), and the size of the tallies kept with a box score.
+
+```
+node tools/audit/run.js --games 52 --out audit/phase5 --label "Phase 5" --baseline audit/phase4/metrics.json --baseLabel "Phase 4"
+node tools/audit/run.js --games 52 --out audit/phase5/calls --label "Phase 5, the coach calling plays" --calls 1 --baseline audit/phase4/calls/metrics.json --baseLabel "Phase 4, the coach calling plays"
+```
+
 **Animation checks** (`anim.js`): the procedural animation work's regression checks, run on real possessions:
 body contact (the ball, hands or forearms inside the player's own body; knees, shins or feet of the two legs through
 each other) and feet stuck far behind the hip while running, per 10,000 player-frames:

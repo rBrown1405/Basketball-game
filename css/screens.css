@@ -311,3 +311,22 @@
 .pd-errs { margin: 0 0 8px; padding-left: 18px; color: #ff8592; line-height: 1.5; }
 @media (max-width: 1100px) { .pd-grid { grid-template-columns: minmax(0, 1fr); } .pd-board { max-height: none; } }
 @media (max-width: 560px) { .pd-rsel, .pd-inbr { flex-basis: 128px; width: 128px; } .pd-tool { padding: 5px 8px; } }
+
+/* play tracking (js/ui/playstats.js): the box score's Plays tab and the season's play stats */
+.bx-tabs { margin-bottom: 2px; }
+.ps-top { gap: 8px; margin-bottom: 12px; }
+.ps-top select.inp { padding: 6px 28px 6px 10px; }
+.ps-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; }
+.ps-big { font: 900 30px/1.1 var(--font-display); margin-bottom: 2px; }
+.ps-bar { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: 8px; align-items: center; font-size: 12.5px; margin: 3px 0; }
+.ps-bl { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-bt { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.ps-bt i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.ps-bv { min-width: 70px; text-align: right; white-space: nowrap; }
+.ps-def { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.ps-g { margin-top: 12px; }
+.ps-log { max-height: 460px; overflow: auto; }
+.ps-log td { vertical-align: top; }
+.ps-log td:nth-child(3) { white-space: normal; min-width: 260px; line-height: 1.4; }
+.tbl td.ps-wrap { white-space: normal; min-width: 230px; line-height: 1.35; }
+@media (max-width: 560px) { .ps-bar { grid-template-columns: 92px minmax(40px, 1fr) auto; gap: 6px; font-size: 12px; } .ps-bv { min-width: 0; } }

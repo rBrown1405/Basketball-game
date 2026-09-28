@@ -646,6 +646,21 @@
     R.score = v.score ? v.score.slice() : null;
     R.engineScore = g.score.slice();
     R.final = !!g.final;
+    // play tracking (Phase 5, js/core/playstats.js): the game's tallies, to check them against the game itself
+    const PSt = window.PBC.PlayStats;
+    if (g.pstats && PSt) {
+      R.track = {
+        teams: g.pstats.map((a, i) => {
+          const tot = new Array(Object.keys(PSt.F).length).fill(0);
+          for (const id in a.p) a.p[id].forEach((x, j) => { tot[j] += x || 0; });
+          const why = {}, at = { entry: 0, step: 0 };
+          for (const id in a.b) for (const k in a.b[id]) { const [st, w] = k.split('|'); why[w] = (why[w] || 0) + a.b[id][k]; at[+st < 0 ? 'entry' : 'step'] += a.b[id][k]; }
+          return { poss: a.poss, pts: a.pts, gamePoss: g.t[i].poss, gamePts: g.score[i], k: a.k, fl: a.fl, d: a.d, c: a.c, dt: a.dt, vc: a.vc, tot, why, at };
+        }),
+        logN: g.plog ? g.plog.length : 0,
+        kb: [JSON.stringify(g.pstats).length / 1024, g.plog ? JSON.stringify(g.plog).length / 1024 : 0],
+      };
+    }
     // players who played (for the offender lists)
     g.t.forEach((T) => T.players.forEach((c) => { if (c.st && (c.st.fga || c.st.min || c.sec)) { const p = info[c.id]; R.players[c.id] = { name: p.name, pos: p.pos, arch: p.arch, three: p.three, mid: p.mid, min: r1((c.sec || 0) / 60), fga: c.st.fga, tpa: c.st.tpa, tpm: c.st.tpm, pts: c.st.pts }; } }));
     return R;

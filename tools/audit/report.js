@@ -222,6 +222,48 @@ function metrics(games) {
       m.cMineSpot2 = smN ? pct(sm('lt2'), smN) : null; m.cMineSpot5 = smN ? pct(sm('lt2') + sm('lt5'), smN) : null; m.cMineSpotFar = smN ? pct(sm('far'), smN) : null;
     }
   }
+  // ---- play tracking (Phase 5: the tallies the box score and the season screens show; earlier games have none)
+  const TR = G.filter((g) => g.track);
+  if (TR.length) {
+    const tn = TR.length;
+    const T = (f) => sum(TR, (g) => sum(g.track.teams, f));
+    // (the tallies add up: possessions and points equal the game's, the calls the audit counted itself, one log
+    // entry per possession)
+    m.trkMatch = sum(TR, (g) => (g.track.teams.every((t) => t.poss === t.gamePoss && t.pts === t.gamePts)
+      && sum(g.track.teams, (t) => t.tot[0]) === (g.pb ? g.pb.calls : -1) && g.track.logN === sum(g.track.teams, (t) => t.poss) ? 1 : 0));
+    const poss = T((t) => t.poss), pts = T((t) => t.pts);
+    m.trkPossPerGame = poss / tn;
+    m.trkPpp = poss ? pts / poss : null;
+    const kind = (k, i) => T((t) => (t.k[k] ? t.k[k][i] : 0));
+    for (const k of ['call', 'flow', 'trans', 'other']) { m['trkShare_' + k] = pct(kind(k, 0), poss); m['trkPpp_' + k] = kind(k, 0) ? kind(k, 1) / kind(k, 0) : null; }
+    const F = { n: 0, pts: 1, done: 2, early: 3, to: 4, foul: 5, reset: 6, sh: 7, made: 8, xp: 9, open: 10, cont: 11, tight: 12, user: 13, cl: 14, brk: 15, ctr: 16, safe: 17 };
+    const c = (k) => T((t) => t.tot[F[k]] || 0), calls = c('n');
+    m.trkCallsPerGame = calls / tn;
+    m.trkDone = pct(c('done'), calls); m.trkEarly = pct(c('early'), calls);
+    // (a read the clock forced: section 8 counts it as reaching a read, the tracking as a shot-clock breakdown)
+    const pbDone = sum(TR, (g) => (g.pb ? g.pb.done : 0));
+    m.trkLate = pct(pbDone - c('done'), calls);
+    m.trkBroke = pct(c('brk'), calls);
+    m.trkFoul = pct(c('foul'), calls);
+    m.trkCounter = pct(c('ctr'), calls);
+    m.trkXps = c('sh') ? c('xp') / 100 / c('sh') : null;
+    m.trkOpen = pct(c('open'), c('sh')); m.trkTight = pct(c('tight'), c('sh'));
+    const brk = c('brk'), why = (w) => T((t) => t.why[w] || 0);
+    for (const w of ['to', 'clock', 'deny', 'screen', 'switch', 'help', 'contest']) m['trkWhy_' + w] = pct(why(w), brk);
+    m.trkEntry = pct(T((t) => t.at.entry), brk);
+    m.trkClutch = c('cl') / tn;
+    const dt = [T((t) => t.dt[0]), T((t) => t.dt[1])];
+    let dn = 0, dp = 0;
+    const d = {}, cv = {};
+    for (const g of TR) for (const t of g.track.teams) {
+      for (const k in t.d) { const x = d[k] || (d[k] = [0, 0]); x[0] += t.d[k][0]; x[1] += t.d[k][1]; dn += t.d[k][0]; dp += t.d[k][1]; }
+      for (const k in t.vc || {}) { const x = cv[k] || (cv[k] = [0, 0]); x[0] += t.vc[k][0]; x[1] += t.vc[k][1]; }
+    }
+    m.trkDefHalf = dn ? dp / dn : null;
+    m.trkDefTrans = dt[0] ? dt[1] / dt[0] : null;
+    m.trkKbBox = sum(TR, (g) => g.track.kb[0]) / tn; m.trkKbLog = sum(TR, (g) => g.track.kb[1]) / tn;
+    m._trkDef = d; m._trkCov = cv; m._trkGames = tn;
+  }
   return m;
 }
 
@@ -354,9 +396,9 @@ const SECTIONS = [
     ['pbEndReset', 'Plays whose look was passed up (reset into a new call)', '%', '', ''],
     ['pbEndTo', 'Plays stopped by a turnover', '%', 'down', ''],
     ['pbEndFoul', 'Plays stopped by a foul (side-out or free throws)', '%', '', ''],
-    ['pbPppHalf', 'Points per half-court possession (the whole possession: second chances and free throws included)', '', '', ''],
-    ['pbPppCalled', '  with a called play', '', '', ''],
-    ['pbPppFlow', '  in flow', '', '', ''],
+    ['pbPppHalf', 'Points per half-court possession (the whole possession: second chances and free throws included)', 'pp', '', ''],
+    ['pbPppCalled', '  with a called play', 'pp', '', ''],
+    ['pbPppFlow', '  in flow', 'pp', '', ''],
     ['pbSpot2', 'Players within 2 ft of their play spot 1.2 s into a step', '%', 'up', ''],
     ['pbSpot5', '  within 5 ft', '%', 'up', ''],
     ['pbSpotFar', '  more than 10 ft away', '%', 'down', ''],
@@ -371,12 +413,12 @@ const SECTIONS = [
     ['cUserDone', '  reached a read', '%', 'up', ''],
     ['cUserEarly', '  taken early', '%', '', ''],
     ['cUserTo', '  stopped by a turnover', '%', 'down', ''],
-    ['cUserPts', '  points per call', '', '', ''],
-    ['cStaffPts', 'Points per call on the staff\'s calls (both teams)', '', '', ''],
+    ['cUserPts', '  points per call', 'pp', '', ''],
+    ['cStaffPts', 'Points per call on the staff\'s calls (both teams)', 'pp', '', ''],
     ['cMinePerGame', 'Drawn plays run per game (called by the coach or the staff)', '', '', ''],
     ['cMineDone', '  reached a read', '%', 'up', ''],
     ['cMineTo', '  stopped by a turnover', '%', 'down', ''],
-    ['cMinePts', '  points per call', '', '', ''],
+    ['cMinePts', '  points per call', 'pp', '', ''],
     ['cMineSpot2', '  players within 2 ft of the drawn spot 1.2 s into a step', '%', 'up', ''],
     ['cMineSpot5', '  within 5 ft', '%', 'up', ''],
     ['cMineSpotFar', '  more than 10 ft away', '%', 'down', ''],
@@ -385,19 +427,56 @@ const SECTIONS = [
     ['cCovHonored', '  with the called pick-and-roll coverage', '%', 'up', '100'],
     ['cDefReverted', 'Defensive calls that went back to the team\'s own scheme when they ran out', '%', 'up', '100'],
   ]],
+  ['10. Play tracking and analytics (Phase 5: the numbers of the box score\'s Plays tab and the season screens)', [
+    ['trkMatch', 'Games whose play tallies add up (possessions and points equal the game\'s, calls equal the audit\'s own count, one log entry per possession)', '', 'up', 'all'],
+    ['trkPossPerGame', 'Possessions tracked per game (both teams)', '', '', ''],
+    ['trkPpp', 'Points per possession', 'pp', '', 'NBA ~1.14'],
+    ['trkShare_call', 'Possessions with a called play', '%', '', ''],
+    ['trkPpp_call', '  points per possession', 'pp', '', ''],
+    ['trkShare_flow', 'Possessions in flow (no call)', '%', '', ''],
+    ['trkPpp_flow', '  points per possession', 'pp', '', ''],
+    ['trkShare_trans', 'Transition possessions', '%', '', 'NBA ~15-18%'],
+    ['trkPpp_trans', '  points per possession', 'pp', '', 'NBA ~1.1-1.25'],
+    ['trkShare_other', 'Other possessions (no action run: a turnover or foul before the set, the period\'s end)', '%', '', ''],
+    ['trkPpp_other', '  points per possession', 'pp', '', ''],
+    ['trkCallsPerGame', 'Calls tracked per game (both teams)', '', '', 'section 8'],
+    ['trkDone', 'Calls completed (to the read in time: a shot, or the ball in on an inbound)', '%', '', ''],
+    ['trkEarly', '  on an early read', '%', '', ''],
+    ['trkLate', 'Calls whose read the shot clock forced (a late shot: a shot-clock breakdown)', '%', '', ''],
+    ['trkBroke', 'Calls that broke down', '%', '', ''],
+    ['trkWhy_to', '  of the breakdowns: turnover (lost ball, travel, offensive foul)', '%', '', ''],
+    ['trkWhy_clock', '  shot clock', '%', '', ''],
+    ['trkWhy_deny', '  denied pass', '%', '', ''],
+    ['trkWhy_screen', '  blown screen (defended, or an illegal screen)', '%', '', ''],
+    ['trkWhy_switch', '  defense switched', '%', '', ''],
+    ['trkWhy_help', '  help defense (help, double team, zone)', '%', '', ''],
+    ['trkWhy_contest', '  well defended (look passed up)', '%', '', ''],
+    ['trkEntry', '  at the entry, before the first step', '%', '', ''],
+    ['trkFoul', 'Calls cut short by a foul', '%', '', ''],
+    ['trkCounter', 'Calls ending on another read than the play\'s main option (a counter)', '%', '', ''],
+    ['trkXps', 'Shot quality of the calls\' shots (expected points per shot)', 'pp', '', ''],
+    ['trkOpen', '  open shots', '%', '', ''],
+    ['trkTight', '  tightly contested shots', '%', '', ''],
+    ['trkClutch', 'Clutch calls per game (last 5 minutes of the 4th or overtime, within 5)', '', '', ''],
+    ['trkDefHalf', 'Points allowed per half-court possession (by scheme: table 10b)', 'pp', '', ''],
+    ['trkDefTrans', 'Points allowed per transition possession', 'pp', '', ''],
+    ['trkKbBox', 'Play tallies kept with each box score (both teams)', 'KB', '', ''],
+    ['trkKbLog', 'Possession log of a live game', 'KB', '', ''],
+  ]],
 ];
 
 function fmtVal(v, unit) {
   if (v == null || !isFinite(v)) return 'n/a';
+  if (unit === 'pp') return v.toFixed(2); // (points per possession or per shot)
   if (unit === 'ms' || (!unit && Number.isInteger(v))) return String(Math.round(v));
   return f1(v) + (unit === '%' ? '%' : unit ? ' ' + unit : '');
 }
-function change(now, was, better) {
+function change(now, was, better, unit) {
   if (now == null || was == null || !isFinite(now) || !isFinite(was)) return '';
   const d = now - was;
   if (Math.abs(d) < 1e-9) return 'same';
   const good = better === 'down' ? d < 0 : better === 'up' ? d > 0 : null;
-  return (d > 0 ? '+' : '') + f1(d) + (good == null ? '' : good ? ' (better)' : ' (worse)');
+  return (d > 0 ? '+' : '') + (unit === 'pp' ? d.toFixed(2) : f1(d)) + (good == null ? '' : good ? ' (better)' : ' (worse)');
 }
 
 function tables(m, base) {
@@ -429,6 +508,16 @@ function tables(m, base) {
     const rd = { title: '8e. The reads taken most often', head: ['Read', 'per game'], rows: [] };
     for (const k of Object.keys(m._pbReads).sort((a, b) => m._pbReads[b] - m._pbReads[a]).slice(0, 14)) rd.rows.push([k, f1(m._pbReads[k] / m._pbGames)]);
     extra.push(fam, pl, cv, rd);
+  }
+  if (m._trkDef) {
+    const SCH = { man: 'Man-to-man', switch: 'Switch everything', drop: 'Drop coverage', hedge: 'Hedge the pick and roll', blitz: 'Blitz / trap', zone23: '2-3 zone', zone32: '3-2 zone', zone131: '1-3-1 zone', boxone: 'Box-and-one', press: 'Full-court press', packline: 'Pack the paint', nothree: 'Run shooters off the line', pressure: 'Ball pressure and deny' };
+    const dn = sum(Object.values(m._trkDef), (x) => x[0]);
+    const dtab = { title: '10b. Points allowed per half-court possession by defensive scheme', head: ['Scheme', 'possessions per game', 'share', 'points allowed per possession'], rows: [] };
+    for (const k of Object.keys(m._trkDef).sort((a, b) => m._trkDef[b][0] - m._trkDef[a][0])) { const x = m._trkDef[k]; dtab.rows.push([SCH[k] || k, f1(x[0] / m._trkGames), f1(pct(x[0], dn)) + '%', (x[1] / x[0]).toFixed(2)]); }
+    const cn = sum(Object.values(m._trkCov), (x) => x[0]);
+    const ctab = { title: '10c. Called plays by the ball-screen coverage the defense played on them', head: ['Coverage', 'calls per game', 'share', 'points per call'], rows: [] };
+    for (const k of Object.keys(m._trkCov).sort((a, b) => m._trkCov[b][0] - m._trkCov[a][0])) { const x = m._trkCov[k]; ctab.rows.push([k, f1(x[0] / m._trkGames), f1(pct(x[0], cn)) + '%', (x[1] / x[0]).toFixed(2)]); }
+    extra.push(dtab, ctab);
   }
   return { sections: out, extra };
 }
@@ -462,7 +551,7 @@ function build(games, o) {
     L.push('## ' + s.title, '');
     L.push(base ? '| Metric | Before | Now | Change | Reference |' : '| Metric | Value | Reference |');
     L.push(base ? '|---|---:|---:|---|---|' : '|---|---:|---|');
-    for (const r of s.rows) L.push(base ? `| ${r.label} | ${fmtVal(r.was, r.unit)} | ${fmtVal(r.now, r.unit)} | ${change(r.now, r.was, r.better)} | ${r.ref} |` : `| ${r.label} | ${fmtVal(r.now, r.unit)} | ${r.ref} |`);
+    for (const r of s.rows) L.push(base ? `| ${r.label} | ${fmtVal(r.was, r.unit)} | ${fmtVal(r.now, r.unit)} | ${change(r.now, r.was, r.better, r.unit)} | ${r.ref} |` : `| ${r.label} | ${fmtVal(r.now, r.unit)} | ${r.ref} |`);
     L.push('');
   }
   for (const t of T.extra) {
@@ -595,7 +684,7 @@ function html(games, o) {
   for (const s of T.sections) {
     H.push(`<h2>${esc(s.title)}</h2><div class="wrap"><table><tr><th>Metric</th>${base ? '<th>Before</th><th>Now</th><th>Change</th>' : '<th>Value</th>'}<th>Reference</th></tr>`);
     for (const r of s.rows) {
-      const ch = base ? change(r.now, r.was, r.better) : '';
+      const ch = base ? change(r.now, r.was, r.better, r.unit) : '';
       const cls = /better/.test(ch) ? 'better' : /worse/.test(ch) ? 'worse' : '';
       H.push(`<tr><td${/^\s/.test(r.label) ? ' class="sub"' : ''}>${esc(r.label.trim())}</td>${base ? `<td class="n">${fmtVal(r.was, r.unit)}</td>` : ''}<td class="n">${fmtVal(r.now, r.unit)}</td>${base ? `<td class="n ${cls}">${esc(ch)}</td>` : ''}<td class="ref">${esc(r.ref)}</td></tr>`);
     }

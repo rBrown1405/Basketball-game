@@ -14,6 +14,7 @@
   const TAG_NAME = { ato: 'After timeouts', eog: 'End of game', need3: 'Need a three', three: 'Threes', zone: 'Vs zone', early: 'Early offense', twoForOne: 'Two-for-one' };
   const STEP_COL = ['#4dabf7', '#63e6be', '#ffa94d', '#f783ac'];
   let tab = 'offense';
+  let statsSel = null; // (the Play stats tab's team, season and playoffs choice)
 
   // ------------------------------------------------------------ the diagram
   /** a half court (baseline at the top), the alignment, then each step's moves, screens, passes and drives */
@@ -153,7 +154,10 @@
       const isInb = (p) => p.family === 'blob' || p.family === 'slob';
       const sys = C.OFFENSES[team.strat.off] || C.OFFENSES.balanced;
       let body = '';
-      if (tab === 'mine') {
+      if (tab === 'stats') {
+        // each play's usage, points per possession, completion and breakdowns; the defense by scheme (js/ui/playstats.js)
+        body = '<div data-ps-root></div>';
+      } else if (tab === 'mine') {
         // the coach's own plays (the play designer), and any that need fixing before they can run
         const mine = all.filter((p) => p.custom);
         const broken = Object.values(S.customPlays || {}).filter((d) => !PBC.Playbook.PLAYS[d.id]);
@@ -194,11 +198,16 @@
       const nOff = book.off.filter((id) => PBC.Playbook.PLAYS[id] && !isInb(PBC.Playbook.PLAYS[id])).length, nInb = book.off.length - nOff;
       root.innerHTML = `<div class="page">
         <div class="page-h"><div><h1>Playbook</h1><div class="sub">${nOff} half-court and late-game plays, ${nInb} inbound plays · ${U.esc(sys.label)} offense · ${book.auto ? 'built by your assistants for this roster' : 'your own selection'}</div></div>
-          <div class="actions"><div class="tabs">${[['offense', 'Offense'], ['inbounds', 'Inbounds'], ['defense', 'Defense'], ['library', 'Library'], ['mine', 'My plays']].map(([k, l]) => `<button class="tab ${tab === k ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+          <div class="actions"><div class="tabs">${[['offense', 'Offense'], ['inbounds', 'Inbounds'], ['defense', 'Defense'], ['library', 'Library'], ['mine', 'My plays'], ['stats', '📊 Play stats']].map(([k, l]) => `<button class="tab ${tab === k ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
           <button class="btn primary" data-act="design">✏️ Design a play</button><button class="btn" data-act="rebuild">🤖 Rebuild for my roster</button></div></div>
         <div class="card pb-howto" style="margin-bottom:14px"><div class="card-b small muted">In games your coach calls plays from this book for each half-court possession: plays that fit the five on the floor, that the other team's defense opens up, that have been working tonight, and the right set for the moment (after a timeout, the last shot, a quick three, an inbound under the basket or from the sideline). Each play has reads: when the defense gives an opening before the last step, the players take it, and that counts as the play working. Some possessions are played in flow with no call. Diagrams: players numbered by role, the yellow circle has the ball; solid arrows are cuts, dashed ones passes, zig-zags dribbles, bars screens, two hash marks a hand-off; the colors follow the steps. Draw your own plays with ✏️ Design a play, or open any play here with ✏️ Make it mine and change it; call them in a timeout.</div></div>
         ${body}</div>`;
       UI.on(root, 'click', '[data-tab]', (e, el) => { tab = el.dataset.tab; UI.refresh(); });
+      const psHost = root.querySelector('[data-ps-root]');
+      if (psHost && UI.renderPlayStats) {
+        const draw = () => UI.renderPlayStats(psHost, S, Object.assign({ tid: S.userTid }, statsSel, { onChange: (o) => { statsSel = o; draw(); } }));
+        draw();
+      }
       UI.on(root, 'click', '[data-go]', (e, el) => UI.go(el.dataset.go));
       UI.on(root, 'change', '[data-play]', (e, el) => {
         const id = el.dataset.play;
