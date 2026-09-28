@@ -131,14 +131,14 @@
     const tid = o.tid != null ? o.tid : S.userTid, t = S.teams[tid];
     const seasons = PS().seasons(S, tid);
     const season = o.season != null && seasons.includes(o.season) ? o.season : seasons[0];
-    const cur = season === S.season;
-    const po = !!o.po && cur;
+    const cur = season === S.season, hasPo = PS().hasPo(S, tid, season);
+    const po = !!o.po && hasPo;
     const agg = PS().team(S, tid, season, po);
     const L = cur ? leagueNums(S, po) : null;
     const head = `<div class="row ps-top">
         <select class="inp" data-ps="tid">${S.teams.map((x) => `<option value="${x.id}" ${x.id === tid ? 'selected' : ''}>${U.esc(x.city + ' ' + x.name)}${x.id === S.userTid ? ' (you)' : ''}</option>`).join('')}</select>
         <select class="inp" data-ps="season">${seasons.map((s) => `<option value="${s}" ${s === season ? 'selected' : ''}>${U.seasonLabel(s)}${s === S.season ? ' (this season)' : ''}</option>`).join('')}</select>
-        ${cur ? `<div class="seg" data-ps-seg="po"><button data-v="0" class="${po ? '' : 'on'}">Regular season</button><button data-v="1" class="${po ? 'on' : ''}">Playoffs</button></div>` : ''}
+        ${hasPo ? `<div class="seg" data-ps-seg="po"><button data-v="0" class="${po ? '' : 'on'}">Regular season</button><button data-v="1" class="${po ? 'on' : ''}">Playoffs</button></div>` : ''}
       </div>`;
     if (!agg || !agg.poss) {
       root.innerHTML = head + `<div class="card" style="margin-top:12px"><div class="card-b muted">No games tracked ${po ? 'in the playoffs' : 'this season'} yet for the ${U.esc(t.name)}. The numbers fill in as games are played (quick-simmed games count too).</div></div>`;

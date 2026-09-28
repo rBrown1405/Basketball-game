@@ -116,14 +116,21 @@
       PS.merge(agg, Object.assign({}, g, { gp: 1 }));
     });
   };
+  const histOf = (S, tid, season) => { const t = S.teams[tid]; return t && t.history ? t.history.find((x) => x.season === season) : null; };
   /** the tallies of a team for a season ('rs' or 'po'; a past season from its archive) */
   PS.team = function (S, tid, season, po) {
     if (season == null || season === S.season) {
       const st = PS.season(S);
       return (po ? st.po : st.rs)[tid] || null;
     }
-    const t = S.teams[tid], h = t && t.history ? t.history.find((x) => x.season === season) : null;
-    return h && h.plays ? PS.expand(h.plays) : null;
+    const h = histOf(S, tid, season), c = h ? (po ? h.playsPo : h.plays) : null;
+    return c ? PS.expand(c) : null;
+  };
+  /** are there playoff numbers for this team and season? (this season: always a choice; past ones: archived) */
+  PS.hasPo = function (S, tid, season) {
+    if (season == null || season === S.season) return true;
+    const h = histOf(S, tid, season);
+    return !!(h && h.playsPo);
   };
   /** the seasons a team has play numbers for (this one first) */
   PS.seasons = function (S, tid) {
@@ -133,15 +140,18 @@
   };
   /**
    * The season into each team's history when it ends (Season.endSeason): the user's team keeps every play with its
-   * three most common breakdowns, the others their 10 most-called plays with the most common one, and the defense.
+   * three most common breakdowns (the regular season and the playoffs), the others their 10 most-called plays with the
+   * most common one (the regular season), and the defense.
    */
   PS.archive = function (S) {
     const st = PS.season(S);
     for (const t of S.teams) {
-      const agg = st.rs[t.id];
+      const agg = st.rs[t.id], pa = st.po[t.id];
       const h = t.history && t.history.find((x) => x.season === S.season);
-      if (!agg || !h) continue;
-      h.plays = t.id === S.userTid ? PS.compact(agg, 999, 3) : PS.compact(agg, 10, 1);
+      if (!h) continue;
+      const mine = t.id === S.userTid;
+      if (agg) h.plays = mine ? PS.compact(agg, 999, 3) : PS.compact(agg, 10, 1);
+      if (mine && pa && pa.poss) h.playsPo = PS.compact(pa, 999, 3);
     }
   };
   /** a tally for the archive: the top `keep` plays, each play's breakdowns cut to its `nb` most common */

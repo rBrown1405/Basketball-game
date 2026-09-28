@@ -754,9 +754,9 @@ plays exactly as before (the same league simulated with the Phase 4 code and thi
     the fourth quarter or overtime, within 5 points).
 - **Tallies**: per game in the box score (both teams; a live game also keeps the list of every possession), per team
   per season (`S.playStats`, the regular season and the playoffs apart), and each season archived in the team's
-  history when it ends (the coach's team every play with its three most common breakdowns; the other teams their 10
-  most-called plays and the most common one). Games played before this version have no play numbers; the screens
-  say so.
+  history when it ends (the coach's team every play with its three most common breakdowns, regular season and
+  playoffs; the other teams the regular season's 10 most-called plays with the most common one). Games played before
+  this version have no play numbers; the screens say so.
 - **The box score's Plays tab** (`js/ui/playstats.js`, `cards.js`): for each team its possessions by how they were
   played with points per possession, the completion rate, each play it ran (calls, points, points per possession,
   completed, how the calls ended, the most common breakdown with its step, shot quality), its defense by scheme and in

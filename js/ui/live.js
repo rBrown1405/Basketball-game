@@ -977,8 +977,14 @@
       panel._boxKey = key;
       panel.innerHTML = `<div class="lv-box">${UI.boxScoreHtml(LG.S, bx, { noPbp: true })}</div>`;
     } else if (LG.tab === 'coach') {
-      if (!force) return;
+      if (!force) {
+        // (the numbers tonight follow the game; the rest of the tab is drawn again only on a change)
+        const el = panel.querySelector('[data-tonight]');
+        if (el && !LG.busy) { const h = tonightHtml(); if (h !== panel._tonight) { panel._tonight = h; el.outerHTML = h; } }
+        return;
+      }
       renderCoach(panel);
+      panel._tonight = tonightHtml();
     }
   }
 
@@ -989,11 +995,12 @@
     if (!PS) return '';
     const bx = LG.possDone || !LG.boxSnap ? PBC.Sim.box(LG.g) : LG.boxSnap;
     const agg = bx.plays && bx.plays[LG.uIdx], opp = bx.plays && bx.plays[1 - LG.uIdx];
-    if (!agg || !agg.poss) return '';
+    // (an empty holder until the first possession: renderPanel fills it in as the game goes on)
+    if (!agg || !agg.poss) return '<div data-tonight></div>';
     const sm = PS.summary(agg), rows = PS.rows(agg).slice(0, 4);
     const f2 = (x) => (x == null ? '-' : x.toFixed(2));
     const defs = Object.keys(agg.d).sort((a, b) => agg.d[b][0] - agg.d[a][0]).slice(0, 2);
-    return `<div class="lv-calls" style="margin-top:10px"><div class="row" style="justify-content:space-between"><span class="small up muted">Tonight</span>
+    return `<div class="lv-calls" data-tonight style="margin-top:10px"><div class="row" style="justify-content:space-between"><span class="small up muted">Tonight</span>
         <span class="tiny muted">${sm.poss} poss · ${f2(sm.ppp)} PPP${opp && opp.poss ? ' · they ' + f2(opp.pts / opp.poss) : ''}</span></div>
       ${rows.map((r) => { const p = PB.get(r.id); return `<div class="lv-call"><span class="ellip" style="flex:1">${p && p.custom ? '✏️ ' : ''}${U.esc(p ? p.name : r.id)}</span><span class="tiny muted">${r.n} · ${f2(r.ppp)} PPP · ${Math.round(r.done)}% done</span></div>`; }).join('')}
       ${defs.map((k) => `<div class="lv-call"><span class="ellip" style="flex:1">🛡️ ${U.esc(C.DEFENSES[k] ? C.DEFENSES[k].label : k)}</span><span class="tiny muted">${agg.d[k][0]} poss · ${f2(agg.d[k][1] / agg.d[k][0])} allowed</span></div>`).join('')}
