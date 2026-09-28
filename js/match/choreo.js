@@ -1890,7 +1890,7 @@
         b.passTarget = pr && pr.actor ? pr.actor : null;
         if (pr) this.scheduleRebounder(pr, b.time + 0.16 + T2);
         v.arena.cheer(this.def, 0.9, 2.2);
-        if (v.sound) v.sound('block', 1);
+        if (v.sound) { const bk = this.A(ev.blocker); v.sound('block', 1, { player: bk ? bk.id : null, team: bk ? bk.team : null }); }
         this.crashBoards(sh);
         return;
       }
@@ -1924,7 +1924,7 @@
         this.hoop.hang(1);
         if (!result.made) { /* dunk miss: treat as rim miss */ }
         v.arena.cheer(this.off, 1, 3);
-        if (v.sound) v.sound('dunk', 1);
+        if (v.sound) v.sound('dunk', 1, { player: sh ? sh.id : null, team: sh ? sh.team : null });
         // the stanchion takes the hit: a small jolt of the picture as the ball goes down
         this.at(this.T + 0.12, () => { if (v.camRig && v.camRig.kick) v.camRig.kick(0.22); }, 'dunk jolt');
         this.at(this.T + 0.35, () => { this.hoop.hitRim(2); }, 'rim shake');
@@ -2247,7 +2247,7 @@
           who.moveTo(who.x, who.y, { speed: 2 });
           if (b.holder === who) b.give(who, 'chest');
           const r = ref(); if (r) r.play('refCharge');
-          v.whistle();
+          v.whistle('charge');
           this.deadBall(who);
         };
         return 1.0;
@@ -2321,7 +2321,7 @@
         const r = ref();
         const clip = kind === 'travel' ? 'refTravel' : kind === 'three_seconds' ? 'refThreeSec' : kind === 'shot_clock' ? 'refShotClock' : kind === 'eight_seconds' ? 'refEight' : kind === 'backcourt' ? 'refBackcourt' : 'refOut';
         if (r) r.play(clip);
-        if (kind === 'shot_clock') v.horn(); else v.whistle();
+        if (kind === 'shot_clock') v.horn('shot_clock'); else v.whistle(kind || 'violation');
         if (b.holder) b.give(b.holder, 'chest');
         this.deadBall(b.holder);
       };
@@ -2399,7 +2399,7 @@
       beat.onFire = () => {
         const ref = def3 && fouler ? v.nearestRef(fouler.x, fouler.y) : v.nearestRef(on ? on.x : v.ball.x, on ? on.y : v.ball.y);
         if (ref) ref.play(def3 ? 'refDef3' : 'refFoul');
-        v.whistle();
+        v.whistle(def3 ? 'def3' : 'foul');
         if (!shooting) {
           const b = v.ball;
           if (b.holder && b.state === 'dribble') b.give(b.holder, 'chest');
@@ -2621,7 +2621,7 @@
     p_period_end(ev, beat, gap) {
       const v = this.v;
       beat.onFire = () => {
-        v.horn();
+        v.horn('period_end');
         for (const a of this.offActors().concat(this.defActors())) {
           if (a.isBusy()) continue;
           const r = this.role[a.id]; if (r) r.until = this.T + 99;

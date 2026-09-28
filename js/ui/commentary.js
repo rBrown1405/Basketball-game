@@ -182,12 +182,18 @@
       const list = set[gen] || set.m;
       return speaker === 'pbp' ? list[0] : list[1] || list[0];
     }
+    // premium audio plays through the broadcast mixer's commentary bus (one AudioContext for the whole broadcast)
     function actx() {
+      if (host.audio) return host.audio.mixer.ensure();
       if (B.actx) return B.actx;
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       try { B.actx = new AC(); } catch (e) { return null; }
       return B.actx;
+    }
+    function busNote(line, engine) {
+      if (!host.audio) return;
+      host.audio.bus.emit('commentary_line', { who: line.who, detail: `${line.who}: "${line.text}" [${engine}${engine === 'browser' ? ', plays outside the mixer, not recorded' : ''}]`, text: line.text, engine, pri: line.pri });
     }
     function fetchCloud(line) {
       const c = B.cloud;
@@ -272,6 +278,7 @@
       };
       const speakBrowser = () => {
         if (!B.voice || !('speechSynthesis' in window) || !B.unlocked) { setTimeout(done, line.dur); return; }
+        busNote(line, 'browser');
         const u = new SpeechSynthesisUtterance(line.text);
         const v = line.who === 'pbp' ? B.vPbp : B.vColor;
         if (v) { u.voice = v; u.lang = v.lang; }
@@ -293,8 +300,16 @@
           if (!ctx || !buf) { speakBrowser(); return; }
           if (ctx.state === 'suspended') ctx.resume().catch(() => {});
           const s = ctx.createBufferSource(), gn = ctx.createGain();
-          gn.gain.value = Math.min(1, (st.volume == null ? 0.7 : st.volume) + 0.3);
-          s.buffer = buf; s.connect(gn); gn.connect(ctx.destination);
+          s.buffer = buf; s.connect(gn);
+          if (host.audio) {
+            // the mixer's master carries the player's volume; this trim keeps the booth as loud as it always was
+            // (it used to play at volume + 0.3, straight to the speakers)
+            const vol = st.volume == null ? 0.7 : st.volume;
+            let slot = null;
+            host.audio.bus.emitWith('commentary_line', { who: line.who, detail: `${line.who}: "${line.text}" [cloud]`, text: line.text, engine: 'cloud', pri: line.pri }, () => { slot = host.audio.mixer.voice('voiceLine', { dur: buf.duration + 0.2 }); });
+            if (!slot) { speakBrowser(); return; }
+            gn.gain.value = Math.min(1, vol + 0.3) / Math.max(0.05, vol); gn.connect(slot.out);
+          } else { gn.gain.value = Math.min(1, (st.volume == null ? 0.7 : st.volume) + 0.3); gn.connect(ctx.destination); }
           line.src = s;
           s.onended = done;
           if (host.au) host.au.duck(true);
@@ -677,7 +692,7 @@
         B.destroyed = true; B.queue = [];
         stopSpeaking();
         if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); window.speechSynthesis.removeEventListener('voiceschanged', refreshVoices); } catch (e) { /* ignore */ } }
-        if (B.actx) { try { B.actx.close(); } catch (e) { /* ignore */ } }
+        if (B.actx) { try { B.actx.close(); } catch (e) { /* ignore */ } } // (only a context of its own; the mixer closes the shared one)
       },
     };
     return api;

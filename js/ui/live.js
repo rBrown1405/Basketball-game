@@ -202,7 +202,7 @@
     window.removeEventListener('resize', LG.onResize);
     document.removeEventListener('keydown', LG.onKey);
     if (LG.ro) { try { LG.ro.disconnect(); } catch (e) { /* ignore */ } }
-    for (const k of ['bc', 'cm', 'au']) if (LG[k] && LG[k].destroy) { try { LG[k].destroy(); } catch (e) { console.error(e); } }
+    for (const k of ['bc', 'cm', 'au', 'audio']) if (LG[k] && LG[k].destroy) { try { LG[k].destroy(); } catch (e) { console.error(e); } }
     if (LG.view && LG.view.destroy) { try { LG.view.destroy(); } catch (e) { console.error(e); } }
     LG = null;
   }
@@ -269,12 +269,26 @@
     if (window.ResizeObserver && LG.view) { LG.ro = new ResizeObserver(() => LG && LG.onResize()); LG.ro.observe(root.querySelector('#stage')); }
     // broadcast package: audio, commentary booth, TV graphics
     const host = { S, g, sg, teams, uIdx, stakes, stage: root.querySelector('#stage'), layer: root.querySelector('#bc'), view: LG.view, speed: () => (LG ? LG.speed : 1), boxSnap: () => (LG ? LG.boxSnap : null) };
-    try { if (PBC.ArenaAudio) { LG.au = PBC.ArenaAudio.create(host); host.au = LG.au; } } catch (e) { console.error('audio', e); }
+    // the audio session: event bus + broadcast mixer + debug overlay (F9 or backquote)
+    try {
+      if (PBC.Audio) {
+        LG.audio = PBC.Audio.create({ stage: root.querySelector('#stage'), speed: host.speed,
+          now: () => (LG ? { t: LG.view ? LG.view.time : null, clock: LG.clockShow, period: LG.P ? LG.P.period : LG.g.period } : {}) });
+        host.audio = LG.audio;
+      }
+    } catch (e) { console.error('audio session', e); }
+    try { if (PBC.ArenaAudio && LG.audio) { LG.au = PBC.ArenaAudio.create(host); host.au = LG.au; } } catch (e) { console.error('audio', e); }
     try { if (PBC.Broadcast) { LG.bc = PBC.Broadcast.create(host); host.bc = LG.bc; } } catch (e) { console.error('broadcast', e); }
     try { if (PBC.Commentary) { LG.cm = PBC.Commentary.create(host); host.cm = LG.cm; } } catch (e) { console.error('commentary', e); }
     if (LG.view) {
       if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: stakes.playoff, level: stakes.level, effort: g.intensity, label: stakes.short, finals: stakes.playoff && stakes.roundName === 'Finals' });
-      LG.view.onSound = (name, v) => { if (LG && LG.au) LG.au.play(name, v); };
+      wireViewAudio(LG.view);
+    }
+    // sim events reach the TV package, the booth and the arena through the bus (in that order, as before)
+    if (LG.audio) {
+      LG.audio.bus.on(e => !!e.sim, e => { if (LG && LG.bc) LG.bc.onEvent(e.sim, e.P, LG.dispScore); }, 'tv graphics', { audio: false });
+      LG.audio.bus.on(e => !!e.sim, e => { if (LG && LG.cm) LG.cm.onEvent(e.sim, e.P, LG.dispScore); }, 'commentary');
+      LG.audio.bus.on(e => !!e.sim, e => { if (LG && LG.au) LG.au.onEvent(e.sim, e.P); }, 'arena crowd');
     }
     LG.onKey = e => {
       if (e.target.closest && e.target.closest('input,select,textarea')) return;
@@ -552,8 +566,12 @@
         if (LG.view) { LG.clockShow = LG.view.clock(); LG.scShow = LG.view.shotClock ? LG.view.shotClock() : LG.scShow; }
         renderBug();
         if (LG.bc) LG.bc.update(dtReal, bugState());
-        if (LG.au) LG.au.update(dtReal, audioState());
-        if (LG.cm) LG.cm.update(dtReal);
+        if (LG.audio) {
+          const A = LG.audio;
+          if (LG.au) A.timed(() => LG.au.update(dtReal, audioState()));
+          if (LG.cm) A.timed(() => LG.cm.update(dtReal));
+          A.frame(dtReal);
+        } else if (LG.cm) LG.cm.update(dtReal);
         if (ts - LG.lastPanelRender > 700) { renderPanel(false); renderOnCourt(); LG.lastPanelRender = ts; }
       }
     } catch (e) {
@@ -576,7 +594,8 @@
     const g = LG.g;
     const lead = LG.dispScore[0] - LG.dispScore[1];
     const late = (LG.P ? LG.P.period : g.period) >= g.L.periods && LG.clockShow < 180;
-    return { lead, close: Math.abs(lead) <= 6, late, stakes: LG.stakes.level, playing: !LG.paused && !LG.finished && !LG.busy, speed: LG.speed, off: LG.P ? LG.P.off : -1 };
+    const playing = !LG.paused && !LG.finished && !LG.busy;
+    return { lead, close: Math.abs(lead) <= 6, late, stakes: LG.stakes.level, playing, live: playing && !LG.hold && !!LG.P && !LG.possDone, speed: LG.speed, off: LG.P ? LG.P.off : -1 };
   }
 
   /** what the panels show while a possession is on screen: the state after the previous one (no spoilers) */
@@ -612,6 +631,7 @@
     showPlayLabel(P);
     if (LG.bc) LG.bc.onPossession(P);
     if (LG.cm) LG.cm.onPossession(P);
+    if (LG.audio) LG.audio.possession(P.off, P);
     if (LG.view) {
       if (P.defScheme && LG.view.setDefScheme) LG.view.setDefScheme(1 - P.off, P.defScheme);
       LG.view.play(P, { onEvent: onViewEvent, onDone: () => { if (LG) { syncScore(P); afterPossession(P); } } });
@@ -656,23 +676,50 @@
     holdFor(secs, () => { if (LG) { if (LG.bc) LG.bc.hidePeriodCard(); LG.possDone = true; } });
   }
 
+  /** court view -> audio bus (court sounds, foot plants, catches) */
+  function wireViewAudio(view) {
+    if (!view || !LG || !LG.audio) return;
+    const bus = LG.audio.bus;
+    view.onAudio = (type, d) => { if (LG && LG.audio && LG.audio.bus === bus) bus.emit(type, d); };
+    view.audioWants = type => bus.wants(type);
+  }
+  /** a sim event, published on the audio bus (the TV package, the booth and the arena subscribe) */
+  function publishSim(ev, P) {
+    if (!LG) return;
+    if (!LG.audio) {
+      if (LG.bc) LG.bc.onEvent(ev, P, LG.dispScore);
+      if (LG.cm) LG.cm.onEvent(ev, P, LG.dispScore);
+      if (LG.au) LG.au.onEvent(ev, P);
+      return;
+    }
+    const sh = ev.shotEvent || null;
+    const d = { sim: ev, P, team: ev.team, score: LG.dispScore.slice() };
+    d.player = ev.shooter != null ? ev.shooter : ev.player != null ? ev.player : ev.fouler != null ? ev.fouler : sh ? sh.shooter : ev.in != null ? ev.in : null;
+    if (ev.x != null) { d.x = ev.x; d.y = ev.y; }
+    let type = ev.type;
+    if (ev.type === 'shot') {
+      type = 'shot_release';
+      d.detail = `${ev.kind || 'shot'} ${ev.pts}pt${ev.pending ? ' (pending)' : ''} [result already known: ${ev.blocked ? 'blocked' : ev.made ? 'make' : 'miss'}]`;
+    } else if (ev.type === 'score') { d.pts = ev.pts; d.detail = `+${ev.pts} ${d.score[0]}-${d.score[1]}${sh && sh.kind ? ' ' + sh.kind : ''}`; }
+    else if (ev.type === 'ft') { d.made = !!ev.made; d.detail = `${ev.num}/${ev.of} ${ev.made ? 'make' : 'miss'}`; }
+    else if (ev.type === 'foul' || ev.type === 'turnover') d.detail = ev.kind || '';
+    else if (ev.type === 'rebound') d.detail = ev.off ? 'offensive' : 'defensive';
+    LG.audio.bus.emit(type, d);
+  }
+
   // events from the court view (fired when they visibly happen)
   function onViewEvent(ev) {
     if (!LG) return;
     if (ev.type === 'score') {
       LG.dispScore[ev.team] += ev.pts; flashScore(ev.team);
       noteHighlight(ev.shotEvent || {}, true);
-      if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
-      if (LG.cm) LG.cm.onEvent(ev, LG.P, LG.dispScore);
-      if (LG.au) LG.au.onEvent(ev, LG.P);
+      publishSim(ev, LG.P);
       return;
     }
     handleEvent(ev);
     if (ev.type === 'shot' && ev.blocked) noteHighlight(ev, false);
     if (ev.type === 'turnover' && ev.stealer && LG.P && LG.P.events.some(e => e.type === 'shot' && e.made && (e.kind === 'dunk' || e.kind === 'layup'))) { /* steal & score handled on score */ }
-    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
-    if (LG.cm) LG.cm.onEvent(ev, LG.P, LG.dispScore);
-    if (LG.au) LG.au.onEvent(ev, LG.P);
+    publishSim(ev, LG.P);
     if (ev.type === 'shot' && ev.pending) resolveGimShot(ev);
   }
 
@@ -858,9 +905,7 @@
     while (tx.idx < tx.P.events.length && tx.times[tx.idx] <= tx.t) {
       const ev = tx.P.events[tx.idx++];
       handleEvent(ev);
-      if (LG.bc) LG.bc.onEvent(ev, tx.P, LG.dispScore);
-      if (LG.cm) LG.cm.onEvent(ev, tx.P, LG.dispScore);
-      if (LG.au) LG.au.onEvent(ev, tx.P);
+      publishSim(ev, tx.P);
       if (ev.type === 'shot' && ev.pending) { tx.waiting = true; resolveGimShot(ev); return; }
     }
     if (tx.idx >= tx.P.events.length && tx.t >= tx.end) {
@@ -1041,7 +1086,7 @@
         if (LG.view) {
           LG.view.period = LG.g.period;
           if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: LG.stakes.playoff, level: LG.stakes.level, effort: LG.g.intensity, label: LG.stakes.short, finals: LG.stakes.playoff && LG.stakes.roundName === 'Finals' });
-          LG.view.onSound = (name, v) => { if (LG && LG.au) LG.au.play(name, v); };
+          wireViewAudio(LG.view);
           if (LG.bc) LG.bc.setView(LG.view);
         }
         LG.onResize();

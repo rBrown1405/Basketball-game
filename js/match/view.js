@@ -6,6 +6,8 @@
   'use strict';
   const M = window.PBC.Match, U = M.U;
   const STEP = 1 / 60;
+  // court sound name -> audio bus event type
+  const SOUND_EVENT = { dribble: 'dribble_contact', bounce: 'ball_bounce', rim: 'rim_hit', board: 'board_hit', swish: 'net', net: 'net', dunk: 'dunk_contact', block: 'block_contact', whistle: 'whistle', horn: 'horn' };
 
   const REF_LOOKS = [
     { id: 'ref1', num: 14, height: 74, weight: 200, gender: 'm', look: { skin: 1, hair: 'bald', hairColor: '#2a1d14', beard: 'none', build: 0.4 } },
@@ -127,10 +129,30 @@
       U.safe(() => { this.court = new M.Court(this.ctx, this.opts); }, this, 'court atmosphere');
       if (this.arena.setAtmosphere) this.arena.setAtmosphere(this.atm);
     }
-    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk' */
-    sound(name, v) {
-      if (!this.onSound || this.replay) return;
-      try { this.onSound(name, v == null ? 1 : v); } catch (e) { /* audio must never break the view */ }
+    /**
+     * Court sounds for the host: name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk','block'.
+     * Published as audio events (host sets view.onAudio(type, data), see js/audio/bus.js) with where it happened
+     * (the ball by default) and who; o adds or overrides fields. Silent during replays.
+     */
+    sound(name, v, o) {
+      if (this.replay) return;
+      if (this.onAudio) {
+        const type = SOUND_EVENT[name] || name;
+        const b = this.ball, h = b && b.holder;
+        const d = { vol: v == null ? 1 : v, x: b ? b.x : null, y: b ? b.y : null, z: b ? b.z : null, player: h && h.kind !== 'ref' ? h.id : null, team: h ? h.team : null };
+        if (name === 'swish') d.swish = true;
+        if (o) Object.assign(d, o);
+        try { this.onAudio(type, d); } catch (e) { /* audio must never break the view */ }
+      } else if (this.onSound) {
+        try { this.onSound(name, v == null ? 1 : v); } catch (e) { /* audio must never break the view */ }
+      }
+    }
+    /** does anybody listen for this audio event (hot publishers such as foot plants skip the work otherwise) */
+    wantsAudio(type) { return !!(this.onAudio && !this.replay && (!this.audioWants || this.audioWants(type))); }
+    /** publish an animation / body event (foot plants, landings, cuts, catches) */
+    audioEvent(type, data) {
+      if (!this.onAudio || this.replay) return;
+      try { this.onAudio(type, data); } catch (e) { /* audio must never break the view */ }
     }
     setDefScheme(team, scheme) {
       if (team !== 0 && team !== 1) return;
@@ -198,8 +220,8 @@
       for (const r of this.refs) { const d = Math.hypot(r.x - x, r.y - y); if (d < bd) { bd = d; best = r; } }
       return best;
     }
-    whistle() { this.whistleT = this.time; this.sound('whistle', 1); }
-    horn() { this.hornT = this.time; this.sound('horn', 1); }
+    whistle(kind) { this.whistleT = this.time; this.sound('whistle', 1, { kind: kind || 'foul', player: null, team: null }); }
+    horn(kind) { this.hornT = this.time; this.sound('horn', 1, { kind: kind || 'period_end', player: null, team: null }); }
     onEmit(ev) {
       if (!ev) return;
       if (ev.type === 'score') { const t = ev.team === 1 ? 1 : 0; this.score[t] += +ev.pts || 0; this.updateBoards(); }

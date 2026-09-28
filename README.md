@@ -40,7 +40,8 @@ angles.
   animations for dribbles, passes, dunks, blocks, free throws and celebrations, an auto-zooming broadcast camera,
   **instant replays** of big plays, a score bug with shot clock, timeouts and bonus, play-call tags, player
   lower thirds, run graphics, quarter recaps and a timeout team-stats panel. Arena sound: crowd, sneakers,
-  swishes, horns and whistles.
+  swishes, horns and whistles, mixed like a broadcast. Press **F9** or the **`** key during a game for the audio
+  debug overlay (event log, meters, mute and solo per bus, save the last 30 seconds).
 - **Two-person commentary booth**: a play-by-play voice and a color analyst call the game with captions and
   spoken voices. The game picks the most natural voices your device has (Microsoft Edge's free "Natural" voices
   sound best). Optional **premium AI announcers** with your own OpenAI or ElevenLabs key (stored only in your
@@ -86,6 +87,7 @@ js/match/             fake-3D broadcast court view (Canvas 2D) with the pixel-ar
 js/mini/              Game Impact Moment shot meter and practice drills
 js/lib/procanim.js    standalone procedural animation module (dribble, crossover, chest pass, layup, two-bone IK);
                       no dependencies, works with Three.js or any engine. Demo: procanim_demo.html
+js/audio/             broadcast audio foundation: config, event bus, mixer, asset loader, debug overlay (docs/AUDIO.md)
 js/ui/                screens, portraits, TV graphics, arena audio and the commentary booth
 docs/                 engine ⇄ view contract, data model, UI guide
 test/                 Node test scripts (node test/calibrate.js men, node test/procanim.js …)

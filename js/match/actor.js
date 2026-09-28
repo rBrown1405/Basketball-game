@@ -1047,6 +1047,7 @@
             // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down
             f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = Math.min(0, gp.landPitch); f.hs = f.pitch < 0;
             f.sw = 0; f.tPlant = this.time; f.liftRel = null;
+            this._plantEvent(f, 'gait');
           }
           const rel = frac(this.phase - cph);
           if (f.state === 'plant' && f.mode !== 'step') {
@@ -1222,6 +1223,7 @@
       f.pitch = U.clamp(Math.asin(U.clamp((P[jh + 2] - P[jb + 2]) / L, -1, 1)), 0, 40 * D);
       f.lz = U.clamp(P[jb + 2], 0, 0.8);
       f.land = true; f.state = 'plant'; f.tPlant = this.time; f.sw = 0;
+      this._plantEvent(f, 'landing');
     }
     _settleLanding(f, dt) {
       if (!f.land) return;
@@ -1374,7 +1376,32 @@
         f.yawNow = this.facing + U.clamp(U.lerp(r0, r1, U.smooth(f.s / 0.5)), -0.7, 0.7);
       } else f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
       f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * 0.18;
-      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; }
+      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; this._plantEvent(f, 'step'); }
+    }
+    /**
+     * A foot just landed: publish it for audio (footsteps, squeaks). Carries how fast the body is moving, how sharply
+     * the line of travel turned since this player's last plant (a cut), and how much speed went into the plant.
+     * Also publishes 'cut' for a sharp change of direction and 'landing' for a landing from a jump.
+     */
+    _plantEvent(f, kind) {
+      const v = this.view;
+      if (!v || !v.wantsAudio || !v.wantsAudio('foot_plant')) return;
+      const cfg = window.PBC.AudioConfig && window.PBC.AudioConfig.feet;
+      if (cfg && !cfg.publish) return;
+      const sp = this.speed || 0, dir = sp > 0.5 ? Math.atan2(this.vy, this.vx) : null;
+      const pv = this._plantPrev;
+      let turn = 0, decel = 0;
+      if (pv) {
+        if (dir != null && pv.dir != null) turn = Math.abs(U.wrapPi(dir - pv.dir));
+        decel = Math.max(0, pv.speed - sp);
+      }
+      this._plantPrev = { dir: dir != null ? dir : (pv ? pv.dir : null), speed: sp, t: this.time };
+      const who = this.kind === 'ref' ? null : this.id;
+      const d = { player: who, team: this.team, actor: this.kind, side: f.side, x: f.x, y: f.y, speed: sp, turn, decel, kind, weight: this.look.weight || null };
+      v.audioEvent('foot_plant', d);
+      if (kind === 'landing') v.audioEvent('landing', d);
+      const turnMin = ((cfg && cfg.cutMinTurnDeg) || 35) * Math.PI / 180;
+      if (who != null && kind !== 'landing' && turn >= turnMin && Math.max(sp, pv ? pv.speed : 0) >= ((cfg && cfg.cutMinSpeed) || 8)) v.audioEvent('cut', d);
     }
 
     // ============================================================ clips
