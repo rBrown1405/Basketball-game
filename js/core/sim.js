@@ -166,6 +166,7 @@
       possN: 0, score: [0, 0], final: false, pbp: [], userIdx: S.userTid === homeTid ? 0 : S.userTid === awayTid ? 1 : -1,
       gimCount: 0, gimLog: [], run: { team: -1, pts: 0 }, tipWinner: -1, lastStealer: null, lastRebounder: null,
       pending: null, elapsedReg: 0, lastGimClock: 99999, buzzerGim: false,
+      pstats: null, plog: null, // (play tracking: js/core/playstats.js; declared here so the game object keeps one shape)
     };
     const sl = g.sl = PBC.Sliders && PBC.Sliders.simMods ? PBC.Sliders.simMods(S) : Object.assign({}, SL_DEFAULT);
     const st = Sim.stakesFor(S, opts);
@@ -465,6 +466,7 @@
       n: g.possN++, off: g.poss, period: g.period, clockStart: U.round(g.clock, 2), clockEnd: null,
       start: g.nextStart, startSpot: g.nextSpot, play: 'none', setName: '', defScheme: g.t[1 - g.poss].strat.def,
       events: [], endScore: null, gim: opts.gim || null, pbs: [], pb: null, userCall: null, defCov: null,
+      sq: null, tok: undefined, log: null, // (play tracking: the first shot, the turnover's kind, the log entry)
     };
     const ctx = newCtx(g, P);
     ctx.starId = starOf(ctx.O);
@@ -1216,8 +1218,11 @@
       id: play.id, name: play.name, family: play.family, base: info.play, fit: U.round(c.fit, 1), why: (c.why || []).slice(0, 3),
       roles: {}, ato: !!sit.ato, mode: sit.mode, opt: null, optI: -1, at: -1, step: -1, last: play.last, early: false, end: null,
       cov: null, s0: g.score[ctx.O.idx], pts: 0, t: U.round(ctx.t, 2),
-      // (play tracking: clutch time, and the shot, the shot clock and the breakdown, filled in as the play goes)
+      // (play tracking: clutch time, and the shot, the shot clock and the breakdown, filled in as the play goes;
+      // every field declared here so the records keep one shape)
       cl: g.period >= g.L.periods && g.clock - ctx.t <= 300 && Math.abs(g.score[0] - g.score[1]) <= 5,
+      sc: null, q: null, xp: 0, made: false, fouledShot: false, zone: null, away: null, ctr: false,
+      tok: null, toScr: false, passStep: false, out: null, done: false, brk: null, spts: 0,
     };
     for (const r in R) rec.roles[r] = R[r].id;
     info.pb = { play, roles: R, side: U.chance(0.5) ? 1 : -1, sit, rec, t0: Math.max(ctx.t, ctx.advT || 0), tAct: null, tAct0: null };
