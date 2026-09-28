@@ -69,7 +69,14 @@
   }
 
   // ------------------------------------------------------------ dimensions
-  function makeDims(look) {
+  /**
+   * Segment lengths for one person (look: height and wingspan in inches, weight, gender, build; kind 'ref' for an
+   * official). The fractions of height are a 6'6" player's (fitted to the MakeHuman mesh's landmarks and ANSUR); a
+   * person of another size differs from him the way people do (Tune.body): taller players have relatively longer
+   * legs and smaller heads, the trunk takes what is left of the height, and the arms follow the wingspan.
+   */
+  function makeDims(look, kind) {
+    const TB = M.Tune.body;
     const hIn = U.clamp(+look.height || 78, 60, 92);
     const H = hIn / 12;
     const fem = look.gender === 'f';
@@ -79,24 +86,50 @@
     // thickness: 1 = typical athlete; heavier BMI and higher build -> thicker
     const bulk = U.clamp(1 + (bmi - (fem ? 22.5 : 24.5)) * 0.035 + (build - 0.5) * 0.16, 0.82, 1.35);
     const musc = U.clamp(0.9 + build * 0.25 - (fem ? 0.1 : 0), 0.75, 1.2);
-    return {
-      H, fem, bulk, musc,
-      // pelvis root height with straight legs: the hip joint sits 0.012 H below the root, so the leg (hip joint to
-      // ankle, 0.491 H) is only ~4 deg short of straight when standing tall. (At 0.53 H the knees could never
-      // straighten past ~25 deg, which gave every walk and idle a crouched, toddler-like look.)
-      hipH: 0.542 * H,
-      pelSp: 0.095 * H, spCh: 0.1 * H, chNk: 0.1 * H, neck: 0.07 * H,
-      headR: 0.058 * H,
+    // proportions by size: legs (hip joint to floor, 0.53 H at the reference) and head relative to height
+    const kLeg = U.clamp(1 + TB.legPerFt * (H - TB.refHeightFt), TB.legClamp[0], TB.legClamp[1]);
+    const kHd = Math.pow(H / TB.refHeightFt, TB.headExp);
+    // pelvis root height with straight legs: the hip joint sits 0.012 H below the root, so the leg (hip joint to
+    // ankle, 0.491 H) is only ~4 deg short of straight when standing tall. (At 0.53 H the knees could never
+    // straighten past ~25 deg, which gave every walk and idle a crouched, toddler-like look.)
+    const hipF = 0.53 * kLeg + 0.012;
+    // the trunk and neck (0.365 H at the reference) take what is left: the head top stays at 1.005 H standing tall
+    const kT = (1.005 - hipF - 0.098 * kHd) / 0.365;
+    // arms from the wingspan (Tune.body.spanOffsetH): fingertip to fingertip = 2 x (shoulder joint offset + upper arm +
+    // forearm + hand); the shoulder breadth and the hand stay proportional to height
+    const shX = (fem ? 0.1 : 0.112) * H, hand = 0.112 * H;
+    const dflt = TB.spanDefaultIn[kind === 'ref' ? 'ref' : fem ? 'f' : 'm'];
+    const wIn = U.clamp(+look.wing || hIn + dflt, hIn * TB.spanClamp[0], hIn * TB.spanClamp[1]);
+    const arm = wIn / 24 + TB.spanOffsetH * H / 2 - shX - hand;
+    const d = {
+      H, fem, bulk, musc, wing: wIn / 12, kLeg, kHd, kT,
+      hipH: hipF * H,
+      pelSp: 0.095 * H * kT, spCh: 0.1 * H * kT, chNk: 0.1 * H * kT, neck: 0.07 * H * kT,
+      // head: radius, centre and top above the head joint (C1), and their forward offsets
+      headR: 0.058 * H * kHd, hdC: 0.03 * H * kHd, hdTop: 0.098 * H * kHd, hdFwd: 0.014 * H * kHd, hdTopFwd: 0.004 * H * kHd,
       // shoulder joint = the glenohumeral centre (~0.80 H), about 4 cm below the acromion (ANSUR acromion .826 H)
-      shX: (fem ? 0.1 : 0.112) * H, shZ: 0.064 * H,
+      shX, shZ: 0.064 * H * kT,
       hipX: (fem ? 0.056 : 0.051) * H,
-      // arm segments from the shoulder joint centre (ANSUR / MakeHuman): upper arm ~0.172 H, forearm ~0.152 H, hand
-      // ~0.112 H (wingspan ~1.09 H, long like an NBA player's; Drillis-Contini's 0.186 H is measured from the acromion)
-      ua: 0.172 * H, fa: 0.152 * H, hand: 0.112 * H,
-      th: 0.245 * H, sh: 0.246 * H, ankH: 0.039 * H,
+      // arm segments from the shoulder joint centre (ANSUR / MakeHuman): at a 1.05 H wingspan upper arm ~0.172 H,
+      // forearm ~0.152 H, hand ~0.112 H (Drillis-Contini's 0.186 H upper arm is measured from the acromion)
+      ua: arm * TB.armSplit, fa: arm * (1 - TB.armSplit), hand,
+      th: 0.245 * H * kLeg, sh: 0.246 * H * kLeg, ankH: 0.039 * H * kLeg,
       heel: 0.03 * H, ball: 0.084 * H, toe: 0.04 * H,
       footW: 0.036 * H,
     };
+    // how far the hip joint, chest joint, neck base and head joint sit above where a uniformly scaled reference body
+    // has them, standing (the 3D mesh's trunk is moved to match, js/match/human.js): [reference height, shift] (ft)
+    const zHip = d.hipH - 0.012 * H, zChs = d.hipH + d.pelSp + d.spCh, zNck = zChs + d.chNk, zHj = zNck + d.neck;
+    d.shiftZ = [[0.53 * H, zHip - 0.53 * H], [0.737 * H, zChs - 0.737 * H], [0.837 * H, zNck - 0.837 * H], [0.907 * H, zHj - 0.907 * H]];
+    return d;
+  }
+  /** the vertical shift of a standing body's point at reference height z (dims.shiftZ, linear between the joints) */
+  function shiftAt(d, z) {
+    const k = d.shiftZ;
+    if (!k) return 0;
+    if (z <= k[0][0]) return k[0][1];
+    for (let i = 1; i < k.length; i++) if (z <= k[i][0]) return k[i - 1][1] + (k[i][1] - k[i - 1][1]) * (z - k[i - 1][0]) / (k[i][0] - k[i - 1][0]);
+    return k[k.length - 1][1];
   }
 
   // ------------------------------------------------------------ matrix helpers (row-major 3x3)
@@ -206,8 +239,8 @@
       mulRot(R, 27, 2, p[CH.hdTwist], R, 36);
       mulRot(R, 36, 0, -p[CH.hdFlex], R, 36);
       mulRot(R, 36, 1, p[CH.hdLat], R, 36);
-      xf(R, 36, P[12], P[13], P[14], 0, 0.014 * H, 0.03 * H, P, 15);
-      xf(R, 36, P[12], P[13], P[14], 0, 0.004 * H, 0.098 * H, P, 18);
+      xf(R, 36, P[12], P[13], P[14], 0, d.hdFwd, d.hdC, P, 15);
+      xf(R, 36, P[12], P[13], P[14], 0, d.hdTopFwd, d.hdTop, P, 18);
       // arms
       for (let side = 0; side < 2; side++) this._arm(side);
       // legs
@@ -475,6 +508,10 @@
         const cy = Math.cos(ik.yaw), sy = Math.sin(ik.yaw);
         mset(R, ft, sy, cy, 0, -cy, sy, 0, 0, 0, 1);
         mulRot(R, ft, 0, -ik.pitch, R, ft);
+        // a foot in the air (steered by its heading and pitch) still hangs from its ankle: past the ankle's range
+        // against the shank (the foot held flat under a shank swinging back bent it ~35-40 deg up) it turns with the
+        // shank, toes down, to the end of the range
+        if (ik.soft) this._footRange(side, LIM[pre + 'Ank']);
       } else {
         mulRot(R, sh, 0, p[CH[pre + 'Ank']], R, ft);
         if (ik.on > 0.001) {
@@ -493,6 +530,34 @@
       const toeAng = ik.on >= 0.999 ? Math.max(0, ik.pitch) : p[CH[pre + 'Toe']];
       mulRot(R, ft, 0, toeAng, T2, 0);
       xf(T2, 0, P[an + 6], P[an + 7], P[an + 8], 0, d.toe, 0, P, an + 9);
+    }
+
+    /** the foot frame held inside the ankle's range [lo, hi] against the shank (pitch, + = dorsiflexion) and turned no
+     *  further against it than the lower leg and foot can turn it (~35 deg either way): past either, the foot is
+     *  rebuilt on the shank at the nearest angles it can have. Returns true if it moved (the foot's points are not
+     *  recomputed: call before placing them, or use clampFoot) */
+    _footRange(side, r, noYaw) {
+      // (noYaw: a planted foot keeps its heading, set by the floor; only its pitch is held)
+      const R = this.R, sh = (side ? F.R_SH : F.L_SH) * 9, ft = sh + 9, m = 0.25 * U.DEG, yr = noYaw ? Math.PI : FOOT_YAW_MAX;
+      const fx = R[ft + 1], fy = R[ft + 4], fz = R[ft + 7];
+      const lx = R[sh] * fx + R[sh + 3] * fy + R[sh + 6] * fz, ly = R[sh + 1] * fx + R[sh + 4] * fy + R[sh + 7] * fz, lz = R[sh + 2] * fx + R[sh + 5] * fy + R[sh + 8] * fz;
+      const yw = Math.atan2(-lx, ly), a = Math.atan2(lz, Math.hypot(lx, ly));
+      if (a <= r[1] - m && a >= r[0] + m && Math.abs(yw) <= yr) return false;
+      mulRot(R, sh, 2, U.clamp(yw, -yr, yr), R, ft);
+      mulRot(R, ft, 0, U.clamp(a, r[0] + m, r[1] - m), R, ft);
+      return true;
+    }
+    /** a planted foot past the ankle's range [lo, hi] (radians) after everything else: the foot rolls onto the nearest
+     *  angle it can have against the shank and its heel, ball and toe are placed again (the caller re-plants it) */
+    clampFoot(side, lo, hi) {
+      if (!this._footRange(side, [lo, hi], true)) return false;
+      const d = this.dims, P = this.P, R = this.R, an = (side ? J.R_AN : J.L_AN) * 3, ft = (side ? F.R_FT : F.L_FT) * 9;
+      xf(R, ft, P[an], P[an + 1], P[an + 2], 0, -d.heel, -d.ankH, P, an + 3);
+      xf(R, ft, P[an], P[an + 1], P[an + 2], 0, d.ball, -d.ankH, P, an + 6);
+      // (toes flat on the floor while the heel is up, as in _legFK)
+      mulRot(R, ft, 0, Math.max(0, Math.asin(U.clamp(-R[ft + 7], -1, 1))), T2, 0);
+      xf(T2, 0, P[an + 6], P[an + 7], P[an + 8], 0, d.toe, 0, P, an + 9);
+      return true;
     }
 
     _legIK(side, pre, sg, hx, hy, hz) {
@@ -516,14 +581,30 @@
       const k = Math.acos(cosK);
       const Vy = -L2 * Math.sin(k), Vz = -L1 - L2 * Math.cos(k);
       // knee direction follows the foot yaw: set hip twist from foot yaw relative to pelvis facing
-      if (ik.on >= 0.5) {
+      const sc = dist > 1e-6 ? dd / dist : 1;
+      if (ik.on >= 0.999 && !ik.soft) {
+        // a planted leg: the knee goes over the toes. The leg's plane is turned so the knee bulges the way the foot
+        // points (a pole-vector solve: the foot's heading on the floor, in the pelvis frame), with the hip's twist
+        // whatever that takes; if the hip cannot twist that far, it twists as far as it can and the knee points as
+        // near the toes as that allows (before, the twist was the foot's heading against the pelvis's, which is only
+        // right for an upright thigh: in a deep stance the knees splayed ~13 deg outside the feet)
+        const cy = Math.cos(ik.yaw), sy = Math.sin(ik.yaw);
+        const qx = R[0] * cy + R[3] * sy, qy = R[1] * cy + R[4] * sy, qz = R[2] * cy + R[5] * sy;
+        const ps = legPole(Dx * sc, Dy * sc, Dz * sc, dd, L1, L2, qx, qy, qz, sg, p[CH[pre + 'HipF']], -sg * p[CH[pre + 'HipA']]);
+        const T = sg * ps.t, rT = LIM[pre + 'HipT'];
+        if (T >= rT[0] && T <= rT[1]) {
+          p[CH[pre + 'HipF']] = ps.f; p[CH[pre + 'HipA']] = -sg * ps.b; p[CH[pre + 'HipT']] = T; p[CH[pre + 'Knee']] = k;
+          if (this.limHits) { for (const kk of LEG_KEYS[pre]) { const r = LIM[kk], v = p[CH[kk]]; if (v < r[0] - 0.02 || v > r[1] + 0.02) this.limHits[CH[kk]] = 1; } }
+          return;
+        }
+        p[CH[pre + 'HipT']] = U.clamp(T, rT[0], rT[1]);
+      } else if (ik.on >= 0.5) {
         const pelYaw = Math.atan2(R[4], R[1]); // forward axis (col 1) heading
         const rel = U.wrapPi(ik.yaw - pelYaw);
         p[CH[pre + 'HipT']] = U.clamp(sg * rel, -0.75, 0.6);
       }
       const tw = sg * p[CH[pre + 'HipT']];
       const Wx = -Vy * Math.sin(tw), Wy = Vy * Math.cos(tw), Wz = Vz;
-      const sc = dist > 1e-6 ? dd / dist : 1;
       const sol = solve2(Wx, Wy, Wz, Dx * sc, Dy * sc, Dz * sc, -sg * p[CH[pre + 'HipA']]);
       const w = Math.min(1, ik.on);
       const F0 = p[CH[pre + 'HipF']], A0 = p[CH[pre + 'HipA']], K0 = p[CH[pre + 'Knee']];
@@ -566,16 +647,19 @@
   // Transitions in Gears of War", GDC 2018; D. Holden, "Dead Blending", 2023).
   class Inert {
     /** idx: indices into the array given to apply(); ang[i]: 1 = angle (wrapped); thr[i]: the smallest
-     *  unexplained change per 60 Hz frame treated as a jump; hl: half-life of the offset (s) */
-    constructor(idx, ang, thr, hl) {
+     *  unexplained change per 60 Hz frame treated as a jump; hl: half-life of the offset (s); coolS: after a jump, how
+     *  long the new pose's motion is learned before another jump is caught (s) */
+    constructor(idx, ang, thr, hl, coolS) {
       const n = idx.length;
-      this.idx = idx; this.ang = ang; this.thr = thr; this.hl = hl || 0.065;
+      this.idx = idx; this.ang = ang; this.thr = thr; this.hl = hl || 0.065; this.coolS = coolS || 0.05;
       this.raw = new Float64Array(n); this.vel = new Float64Array(n);
       this.off = new Float64Array(n); this.offV = new Float64Array(n);
       this.jmp = new Float64Array(n); this.dlt = new Float64Array(n);
+      // (the velocity the part had going into a jump, handed to the offset once the new pose's own velocity is known)
+      this.vOld = new Float64Array(n); this.pend = false;
       this.init = false; this.mag = 0;
     }
-    reset() { this.init = false; this.mag = 0; }
+    reset() { this.init = false; this.mag = 0; this.pend = false; }
     /** v: values (raw in, smoothed out, in place); dt: time since the previous frame (0 = the same frame again);
      *  allow === false: only follow the raw values (no offset). Returns true when an offset is active (v changed). */
     apply(v, dt, allow) {
@@ -586,13 +670,13 @@
           if (dt > 0) this.vel[i] = (this.ang[i] ? U.wrapPi(r - this.raw[i]) : r - this.raw[i]) / dt;
           this.raw[i] = r; this.off[i] = 0; this.offV[i] = 0;
         }
-        this.mag = 0;
+        this.mag = 0; this.pend = false;
         return false;
       }
       if (!this.init || !(dt >= 0) || dt > 0.12) {
         // first frame, or a long gap (fast-forward, off screen): start clean
         for (let i = 0; i < n; i++) { this.raw[i] = v[idx[i]]; this.vel[i] = 0; this.off[i] = 0; this.offV[i] = 0; }
-        this.init = true; this.mag = 0;
+        this.init = true; this.mag = 0; this.pend = false;
         return false;
       }
       if (dt > 0) {
@@ -606,6 +690,13 @@
           this.dlt[i] = d; this.jmp[i] = j;
           if (Math.abs(j) > this.thr[i] * tk) big = true;
         }
+        // the step after a jump: the new pose's velocity is known now; the offset takes the difference from the
+        // velocity the part had, so it keeps moving the way it was and eases onto the new course (the velocity is
+        // carried through the jump as well as the position: no kink in the motion)
+        if (this.pend) {
+          for (let i = 0; i < n; i++) this.offV[i] = U.clamp(this.offV[i] + this.vOld[i] - this.dlt[i] / dt, -OFFV_MAX, OFFV_MAX);
+          this.pend = false;
+        }
         // (one cut per few frames: right after one, the new pose's own motion is learned, not absorbed)
         if (this.cool > 0) big = false;
         const y = 2 * Math.LN2 / this.hl, e = Math.exp(-y * dt);
@@ -615,14 +706,15 @@
           this.offV[i] = e * (this.offV[i] - j1 * y * dt);
           if (big) {
             // a jump: the pose carries on at its old velocity for this frame and the rest becomes offset; the new
-            // pose's velocity is not known yet
+            // pose's velocity is not known yet (next step)
             this.off[i] = U.clamp(this.off[i] - this.jmp[i], -OFF_MAX, OFF_MAX);
+            this.vOld[i] = this.vel[i];
             this.vel[i] = 0;
           } else this.vel[i] = this.dlt[i] / dt;
           if (Math.abs(this.off[i]) < 1e-6 && Math.abs(this.offV[i]) < 1e-4) { this.off[i] = 0; this.offV[i] = 0; }
           this.raw[i] = v[idx[i]];
         }
-        if (big) this.cool = 0.05;
+        if (big) { this.cool = this.coolS; this.pend = true; }
       } else for (let i = 0; i < n; i++) this.raw[i] = v[idx[i]];
       let m = 0;
       for (let i = 0; i < n; i++) {
@@ -634,6 +726,7 @@
     }
   }
   const OFF_MAX = 1.6; // an offset never exceeds ~90 deg (or 1.6 of a linear channel's unit)
+  const OFFV_MAX = 12; // nor moves faster than ~700 deg/s
   const LEG_INERT = ['HipF', 'HipA', 'HipT', 'Knee', 'Ank', 'Toe'];
   const LEG_INERT_IDX = [0, 1, 2, 3, 4, 5], LEG_INERT_ANG = [1, 1, 1, 1, 1, 1];
   const LEG_INERT_THR = [0.165, 0.165, 0.19, 0.165, 0.25, 0.3];
@@ -720,34 +813,84 @@
     return out(F < -Math.PI / 2 ? F + 2 * Math.PI : F, LIM.lShF) + out(A, LIM.lShA) + out(T, LIM.lShT);
   }
 
+  // (how far a foot in the air can be turned against its shank: tibial rotation with the knee bent plus the foot's own
+  // turn at the ankle, ~35 deg either way)
+  const FOOT_YAW_MAX = 35 * U.DEG;
+  const LSOL = { f: 0, b: 0, t: 0 };
+  /** Two-bone leg solve with a knee pole (pelvis frame, hip joint at the origin): (nx,ny,nz) the ankle target at
+   *  distance dd, (qx,qy,qz) the way the knee should bulge. The same as armPole but for a hinge that bends backward
+   *  (the shank folds behind the thigh). Returns the thigh frame's Euler angles Rx(f) Ry(b) Rz(t) (HipF = f,
+   *  HipA = -sg b, HipT = sg t), of the two equivalent sets the one inside the hip's range, else nearest the last */
+  function legPole(nx, ny, nz, dd, L1, L2, qx, qy, qz, sg, f0, b0) {
+    const il = 1 / (dd || 1e-6);
+    const ux0 = nx * il, uy0 = ny * il, uz0 = nz * il;
+    const a = (L1 * L1 - L2 * L2 + dd * dd) / (2 * dd);
+    const r = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+    let k = qx * ux0 + qy * uy0 + qz * uz0;
+    let px = qx - k * ux0, py = qy - k * uy0, pz = qz - k * uz0;
+    let pl = Math.sqrt(px * px + py * py + pz * pz);
+    if (pl < 1e-4) { k = uy0; px = -k * ux0; py = 1 - k * uy0; pz = -k * uz0; pl = Math.sqrt(px * px + py * py + pz * pz) || 1; }
+    px /= pl; py /= pl; pz /= pl;
+    // knee, thigh and shank directions
+    const ex = a * ux0 + r * px, ey = a * uy0 + r * py, ez = a * uz0 + r * pz;
+    const ux = ex / L1, uy = ey / L1, uz = ez / L1;
+    const fx = (nx - ex) / L2, fy = (ny - ey) / L2, fz = (nz - ez) / L2;
+    // hinge axis = shank x thigh (knee flexion turns the shank about -X); straight leg: thigh x pole
+    let hx = fy * uz - fz * uy, hy = fz * ux - fx * uz, hz = fx * uy - fy * ux;
+    let hl = Math.sqrt(hx * hx + hy * hy + hz * hz);
+    if (hl < 1e-3) { hx = uy * pz - uz * py; hy = uz * px - ux * pz; hz = ux * py - uy * px; hl = Math.sqrt(hx * hx + hy * hy + hz * hz) || 1; }
+    hx /= hl; hy /= hl; hz /= hl;
+    const b1 = -Math.asin(U.clamp(ux, -1, 1)), f1 = Math.atan2(uy, -uz);
+    const b2 = U.wrapPi(Math.PI - b1), f2 = U.wrapPi(f1 + Math.PI);
+    const twist = (f, b) => {
+      const cf = Math.cos(f), sf = Math.sin(f), cb = Math.cos(b), sb = Math.sin(b);
+      const e1x = cb, e1y = sf * sb, e1z = -cf * sb, e2y = cf, e2z = sf;
+      return Math.atan2(hy * e2y + hz * e2z, hx * e1x + hy * e1y + hz * e1z);
+    };
+    const t1 = twist(f1, b1), t2 = twist(f2, b2);
+    const out = (v, rr) => (v < rr[0] ? rr[0] - v : v > rr[1] ? v - rr[1] : 0);
+    const viol = (f, b, t) => out(U.wrapPi(f), LIM.lHipF) + out(U.wrapPi(-sg * b), LIM.lHipA) + out(U.wrapPi(sg * t), LIM.lHipT);
+    const v1 = viol(f1, b1, t1), v2 = viol(f2, b2, t2);
+    const d1 = Math.abs(U.wrapPi(f1 - f0)) + Math.abs(U.wrapPi(b1 - b0)), d2 = Math.abs(U.wrapPi(f2 - f0)) + Math.abs(U.wrapPi(b2 - b0));
+    const two = v2 * 4 + d2 < v1 * 4 + d1;
+    LSOL.f = two ? f2 : f1; LSOL.b = two ? b2 : b1; LSOL.t = two ? t2 : t1;
+    return LSOL;
+  }
+
   // ------------------------------------------------------------ anatomical joint limits
   // Active range of motion of healthy adults (AAOS / clinical goniometry norms), in the rig's conventions:
   // shoulder flexion 180 / extension 60, abduction 180, internal rotation 70 / external 90, elbow 0-150,
   // hip flexion 125 / extension 30, abduction 45 / adduction 30, rotation 45, knee 0-150, ankle dorsiflexion 30 /
   // plantarflexion 50; trunk flexion ~80 / extension ~30, lateral bend ~35, rotation ~45; neck flexion ~50 /
   // extension ~60, lateral bend ~45, rotation ~80.
-  const LIM = {};
-  (function () {
-    const set = (k, lo, hi) => { LIM[k] = [lo * U.DEG, hi * U.DEG]; };
-    for (const s of ['l', 'r']) {
-      // (elbows and knees bend one way only: straight is the end of their range, never past it)
-      set(s + 'ShF', -60, 185); set(s + 'ShA', -45, 180); set(s + 'ShT', -90, 80); set(s + 'ElF', 0, 150);
-      set(s + 'WrF', -75, 85); set(s + 'WrD', -25, 35);
-      // forearm rotation: 76 is neutral (arm hanging, palm to the thigh, thumb forward); about 90 deg either way,
-      // palm forward (supination) to palm back (pronation). Without it clips could twist a forearm past what a
-      // human forearm can turn
-      set(s + 'Pro', -14, 168);
-      set(s + 'HipF', -32, 130); set(s + 'HipA', -30, 50); set(s + 'HipT', -45, 45); set(s + 'Knee', 0, 152); set(s + 'Ank', -52, 32);
-    }
-  })();
+  // (the ranges themselves are in Tune.limits: limbs per side, each spine and neck joint, and the two spine and the two
+  // neck joints together; the torso's ranges are soft, see limitPose)
+  const LIM = {}, SOFT = new Uint8Array(NCH), TORSO_PAIRS = [];
+  let SOFT_S = 8 * U.DEG;
+  /** (re)build the joint ranges from Tune.limits (call again after changing them live) */
+  function buildLimits() {
+    const TL = M.Tune.limits;
+    for (const k in LIM) delete LIM[k];
+    SOFT.fill(0);
+    for (const s of ['l', 'r']) for (const k in TL.joints) LIM[s + k] = [TL.joints[k][0] * U.DEG, TL.joints[k][1] * U.DEG];
+    for (const k in TL.segments) { LIM[k] = [TL.segments[k][0] * U.DEG, TL.segments[k][1] * U.DEG]; SOFT[CH[k]] = 1; }
+    TORSO_PAIRS.length = 0;
+    for (const [a, b, lo, hi] of TL.pairs) TORSO_PAIRS.push([CH[a], CH[b], lo * U.DEG, hi * U.DEG]);
+    SOFT_S = TL.softDeg * U.DEG;
+  }
+  buildLimits();
   const FING_CH = [CH.lFing, CH.rFing];
   const ARM_REST = { l: ['lElF', 'lPro', 'lWrF', 'lWrD'], r: ['rElF', 'rPro', 'rWrF', 'rWrD'] };
   const LEG_KEYS = { l: ['lHipF', 'lHipA', 'lHipT', 'lKnee', 'lAnk'], r: ['rHipF', 'rHipA', 'rHipT', 'rKnee', 'rAnk'] };
-  const TORSO_PAIRS = [
-    // [channel a, channel b, min sum, max sum] (degrees): shared ranges of the two spine or neck segments
-    ['spFlex', 'chFlex', -32, 82], ['spLat', 'chLat', -36, 36], ['spTwist', 'chTwist', -46, 46],
-    ['nkFlex', 'hdFlex', -62, 52], ['nkLat', 'hdLat', -42, 42], ['nkTwist', 'hdTwist', -80, 80],
-  ].map(([a, b, lo, hi]) => [CH[a], CH[b], lo * U.DEG, hi * U.DEG]);
+  /** v held inside [lo, hi], easing in over the last s of the range: the same value and rate at the start of the ease
+   *  (no kink in the motion), and the limit itself is never quite reached (tanh) */
+  function softClamp(v, lo, hi, s) {
+    s = Math.min(s, (hi - lo) * 0.25);
+    const a = hi - s, b = lo + s;
+    if (v > a) return a + s * Math.tanh((v - a) / s);
+    if (v < b) return b - s * Math.tanh((b - v) / s);
+    return v;
+  }
   /** a joint angle held to its range [lo, hi], the way round the circle that moves it least (an IK answer of -125 deg
    *  of shoulder flexion is the arm 55 deg past straight up, so it goes to +185, not down to -60) */
   function clampAng(v, lo, hi) {
@@ -766,17 +909,24 @@
     }
     return moved;
   }
-  /** clamp a pose to human joint ranges (in place) */
+  /** hold a pose to human joint ranges (in place): limbs clamped, spine and neck joints eased into their ends (soft
+   *  ranges, each joint and each pair) so a turn or bend running into its limit slows down instead of stopping dead */
   function limitPose(p, hits) {
+    const tol = 0.5 * U.DEG;
     for (const k in LIM) {
       const i = CH[k], r = LIM[k]; const v = p[i];
-      if (v < r[0]) { p[i] = r[0]; if (hits) hits[i] = 1; } else if (v > r[1]) { p[i] = r[1]; if (hits) hits[i] = 1; }
+      if (SOFT[i]) {
+        const c = softClamp(v, r[0], r[1], SOFT_S);
+        p[i] = c; if (hits && Math.abs(c - v) > tol) hits[i] = 1;
+      } else if (v < r[0]) { p[i] = r[0]; if (hits) hits[i] = 1; } else if (v > r[1]) { p[i] = r[1]; if (hits) hits[i] = 1; }
     }
     // fingers curl in, never bend back (0 = open flat, 1 = a fist)
     for (const i of FING_CH) { if (p[i] < 0) { p[i] = 0; if (hits) hits[i] = 1; } else if (p[i] > 1) { p[i] = 1; if (hits) hits[i] = 1; } }
     for (const t of TORSO_PAIRS) {
       const sum = p[t[0]] + p[t[1]];
-      if (sum < t[2] || sum > t[3]) { const k = (sum < t[2] ? t[2] : t[3]) / sum; p[t[0]] *= k; p[t[1]] *= k; if (hits) { hits[t[0]] = 1; hits[t[1]] = 1; } }
+      if (Math.abs(sum) < 1e-9) continue;
+      const c = softClamp(sum, t[2], t[3], SOFT_S);
+      if (c !== sum) { const k = c / sum; p[t[0]] *= k; p[t[1]] *= k; if (hits && Math.abs(c - sum) > tol) { hits[t[0]] = 1; hits[t[1]] = 1; } }
     }
     return p;
   }
@@ -847,5 +997,5 @@
     m[o] = xx; m[o + 3] = xy; m[o + 6] = xz; m[o + 1] = yx; m[o + 4] = yy; m[o + 7] = yz; m[o + 2] = zx; m[o + 5] = zy; m[o + 8] = zz;
   }
 
-  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, pose, mirrorPose, mmul, mulRot, xf, orthoCols, limitPose, armPole, LIM, TORSO_PAIRS, FING_CH, Inert };
+  M.Rig = { CH, NCH, GROUP, LINEAR, J, F, Skeleton, makeDims, shiftAt, pose, mirrorPose, mmul, mulRot, xf, orthoCols, limitPose, softClamp, buildLimits, armPole, LIM, TORSO_PAIRS, FING_CH, Inert };
 })();

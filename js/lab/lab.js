@@ -58,6 +58,8 @@
     return {
       id: 'lab' + idx, teamIdx: idx ? 1 : 0, first: p.first || 'Lab', last: p.last || 'Player' + idx, num: idx ? 21 : 15, pos: p.pos || 'G',
       height: idx ? set.height2 : set.height, weight: Math.round(215 * Math.pow((idx ? set.height2 : set.height) / 78, 2.2)),
+      // (the picked player's wingspan over his height, on the lab's height)
+      wing: p.wing && p.hgt ? (idx ? set.height2 : set.height) + (p.wing - p.hgt) : undefined,
       hand: idx ? 'R' : set.hand, gender: set.gender, look: p.look, speed: set.speed, agility: set.agility,
       vert: (p.r && p.r.vert) || 65, handle: (p.r && p.r.handle) || 60,
     };
@@ -89,6 +91,14 @@
   const go = (ctx, dist, speed, side, o) => { const p = ahead(ctx, dist, side); ctx.a.moveTo(p[0], p[1], Object.assign({ speed }, o || {})); };
 
   add('Locomotion', 'stand', 'Standing', 6, (c) => { c.a.setStance('stand'); });
+  // (Trial 2: two body sizes side by side, the heights set by the two Height sliders: standing, then running the same
+  // speed, where the bigger one takes fewer, longer strides)
+  add('Locomotion', 'sizes', 'Two sizes side by side (stand, then run together)', 7, (c) => {
+    // (the start spot between them, where the camera looks when it does not follow)
+    c.a.place(c.x0 - c.rx * 1.6, c.y0 - c.ry * 1.6, c.f0); c.a.setStance('stand'); c.a.setFace(c.f0);
+    c.d.place(c.x0 + c.rx * 1.6, c.y0 + c.ry * 1.6, c.f0); c.d.setStance('stand'); c.d.setFace(c.f0);
+    c.at(2.5, () => { go(c, 300, 14); const p = ahead(c, 300, 3.2); c.d.moveTo(p[0], p[1], { speed: 14 }); });
+  }, { two: true });
   add('Locomotion', 'ready', 'Ready stance', 6, (c) => { c.a.setStance('ready'); });
   add('Locomotion', 'walk', 'Walk', 8, (c) => { c.a.setStance('stand'); c.at(0.3, () => go(c, 300, 4.5)); });
   add('Locomotion', 'jog', 'Jog', 7, (c) => { c.a.setStance('stand'); c.at(0.3, () => go(c, 300, 10)); });
@@ -789,6 +799,7 @@
       const pl = this.el('div', { class: 'sec' }, [this.el('h2', { text: 'Player' })]);
       const inch = (v) => Math.floor(v / 12) + "'" + (v % 12) + '"';
       pl.appendChild(this.slider('Height', 'height', 68, 88, 1, inch, () => this.restartSoon()));
+      pl.appendChild(this.slider('Height (second player)', 'height2', 68, 88, 1, inch, () => this.restartSoon()));
       pl.appendChild(this.slider('Speed', 'speed', 30, 99, 1, (v) => String(v), () => this.restartSoon()));
       pl.appendChild(this.slider('Agility', 'agility', 30, 99, 1, (v) => String(v), () => this.restartSoon()));
       const hand = this.el('select', { onchange: (e) => { set.hand = e.target.value; save(); L.rebuild(0); this.sync(); } }, [this.el('option', { value: 'R', text: 'Right-handed' }), this.el('option', { value: 'L', text: 'Left-handed' })]);
@@ -856,7 +867,7 @@
     }
     restartSoon() { clearTimeout(this._rt); this._rt = setTimeout(() => { this.lab.rebuild(0); this.sync(); }, 180); }
     preset(ang, h) { set.cam = ang; set.camH = h; save(); this.syncSliders(); }
-    syncSliders() { for (const k of ['cam', 'camH', 'dist', 'height', 'speed', 'agility']) { const s = this['s_' + k]; if (s) { s.inp.value = set[k]; s.val.textContent = s.fmt(set[k]); } } }
+    syncSliders() { for (const k of ['cam', 'camH', 'dist', 'height', 'height2', 'speed', 'agility']) { const s = this['s_' + k]; if (s) { s.inp.value = set[k]; s.val.textContent = s.fmt(set[k]); } } }
     togglePlay() {
       const L = this.lab;
       if (!L.playing && L.simT >= L.sc.dur - 1e-6) L.rebuild(0);

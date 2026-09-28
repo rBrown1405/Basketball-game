@@ -50,6 +50,16 @@
       velArrowS: 0.25,              // velocity arrow = where the body will be in this many seconds
       accArrowS2: 0.02,             // acceleration arrow length = accel x this (ft per ft/s^2)
       lookRayFt: 30,                // longest drawn look ray (ft)
+      // body meters (Trial 2)
+      kneeTrackMinFlexDeg: 20,      // knees over toes: measured on planted legs bent at least this much
+      kneeCaveDeg: 20,              // a knee pointing further than this inside its foot's line is caving in
+      kneeOffDeg: 25,               // a knee pointing further than this off its foot's line (either way) is off the toes
+      counterRunFtps: 9,            // counter-rotation: measured in a forward run faster than this (ft/s)
+      counterMeanS: 0.5,            // ...each yaw taken from its own running mean over about this long (s)...
+      counterSettleS: 0.5,          // ...once the run has lasted this long (s)
+      spineShareMinDeg: 12,         // spine sharing: bends and twists larger than this (deg, lumbar + thoracic)...
+      spineKinkShare: 0.9,          // ...with one joint carrying more than this share are a kink, not a curve
+      spinePopDegps2: 12000,        // a spine or neck angle whose rate jumps by more than this (deg/s^2) in a step pops
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -57,6 +67,110 @@
         look: 'rgba(120,220,255,0.9)', lookNone: '#ff4d5a', lookStale: '#f2c14e',
         limitBad: '#ff3b45', limitClamp: '#f2a33a', limitReach: '#f2e24e', label: '#e8ecf5', labelBg: 'rgba(8,10,16,0.72)',
       },
+    },
+
+    // ---------------------------------------------------------------- body proportions (Trial 2)
+    // The rig's segment lengths are fractions of height fitted to a 6'6" player (MakeHuman mesh landmarks, ANSUR); a
+    // player of another size or reach differs from him in the ways people really do (js/match/rig.js makeDims)
+    body: {
+      refHeightFt: 6.5,
+      // legs: most of the height difference between two adults is leg (sitting height rises only ~0.4 cm per cm of
+      // stature), so taller players are relatively longer-legged: hip-to-floor length +3.5% per foot of height
+      legPerFt: 0.035,
+      legClamp: [0.94, 1.06],
+      // heads grow much less than stature: head size relative to height ~ (H / ref) ^ -0.55 (the 3D mesh uses the
+      // same law, js/match/human.js)
+      headExp: -0.55,
+      // wingspan: a rig T-pose spans this many heights more than the wingspan it stands for (its shoulder joints sit
+      // on the mesh's shoulders, ~1.4 in wider each side than where a wingspan measurement's lever starts), so the
+      // reference arms are a 1.05 H wingspan (NBA average ~1.05-1.06) and a player's arms (shoulder to wrist) grow
+      // or shrink by half the difference of his own wingspan
+      spanOffsetH: 0.045,
+      armSplit: 0.531,              // share of the shoulder-to-wrist length in the upper arm (0.172 / 0.324 H)
+      // wingspan minus height when none is given (in): the engine's average for men and women, and an official's
+      spanDefaultIn: { m: 3.5, f: 2, ref: 1 },
+      spanClamp: [0.97, 1.14],      // wingspan / height kept inside this range
+    },
+
+    // ---------------------------------------------------------------- joint ranges (Trial 2)
+    // Active range of motion of healthy adults (AAOS / clinical goniometry norms), degrees, in the rig's conventions
+    // (flexion moves a limb forward; knee flexion bends the shank back; twist = internal rotation). The final pose
+    // never leaves these (js/match/rig.js limitPose; planted legs by the hip guard in js/match/actor.js).
+    limits: {
+      joints: {
+        // shoulder flexion 180 / extension 60, abduction 180, rotation 70 in / 90 out; elbows and knees bend one way
+        // only (straight is the end of their range, never past it)
+        ShF: [-60, 185], ShA: [-45, 180], ShT: [-90, 80], ElF: [0, 150],
+        WrF: [-75, 85], WrD: [-25, 35],
+        // forearm rotation: 76 is neutral (arm hanging, palm to the thigh), ~90 either way
+        Pro: [-14, 168],
+        // hip flexion 125 / extension 30, abduction 45 / adduction 30, rotation 45; ankle dorsiflexion 30 (more with
+        // the weight on it) / plantarflexion 50
+        HipF: [-32, 130], HipA: [-30, 50], HipT: [-45, 45], Knee: [0, 152], Ank: [-52, 32],
+      },
+      // each spine and neck joint on its own. The lumbar joint (sp) bends forward and sideways freely but turns only a
+      // little (its facets allow ~1.2-1.7 deg per level, ~9 deg over T12-S1 in a 45 deg trunk turn: Fujii et al. 2007,
+      // MRI); the trunk's twist is mostly thoracic (ch, ~30-35 deg each way). The neck's lower joint (nk, C2-C7) and
+      // upper one (hd, C0-C2: the nod and half the turn) share its ~80 deg of rotation
+      segments: {
+        spFlex: [-25, 55], spLat: [-24, 24], spTwist: [-10, 10],
+        chFlex: [-22, 42], chLat: [-24, 24], chTwist: [-38, 38],
+        nkFlex: [-42, 40], nkLat: [-34, 34], nkTwist: [-42, 42],
+        hdFlex: [-28, 18], hdLat: [-14, 14], hdTwist: [-44, 44],
+      },
+      // [a, b, min, max]: the two spine joints together (trunk flexion ~80 / extension ~30, lateral bend ~35, rotation
+      // ~45) and the two neck joints together (flexion ~50 / extension ~60, lateral bend ~45, rotation ~80)
+      pairs: [
+        ['spFlex', 'chFlex', -32, 82], ['spLat', 'chLat', -36, 36], ['spTwist', 'chTwist', -46, 46],
+        ['nkFlex', 'hdFlex', -62, 52], ['nkLat', 'hdLat', -42, 42], ['nkTwist', 'hdTwist', -80, 80],
+      ],
+      // a planted ankle carries the body's weight, which bends it further than it bends on its own (weight-bearing
+      // lunge test ~40-50 deg of dorsiflexion); past ~47 deg of shin lean the heel comes up instead (actor _ankleRange)
+      ankleLoaded: [-52, 50],
+      // spine and neck joints slow down into the end of their range (the tissues stiffen) instead of stopping dead:
+      // within this many degrees of a limit the angle eases in and never quite reaches it
+      softDeg: 8,
+    },
+
+    // ---------------------------------------------------------------- spine as a chain (Trial 2)
+    // however a pose asks for a bend or twist, the lumbar (sp) and thoracic (ch) joints share it the way a spine does
+    // (the rest of the trunk is the pelvis below and the rib cage above)
+    spine: {
+      // share of the total taken by the lumbar joint: forward bend, backward bend, side bend, twist
+      lumbarShare: { flex: 0.55, ext: 0.5, lat: 0.45, twist: 0.2 },
+      // how far each bend moves from the split the layers asked for (0) to the anatomical one (1): a twist mostly,
+      // since clips and layers put a lot of twist in the lumbar joint, which barely turns
+      blend: { flex: 0.5, lat: 0.5, twist: 0.8 },
+      // a spine or neck angle that jumps by more than this in one step, beyond what its own motion explains (deg; an
+      // acceleration past ~7,000 deg/s^2), glides to its new course instead (inertialization, this half-life in s)
+      jumpDeg: 2,
+      jumpHalfLifeS: 0.07,
+      jumpCoolS: 0.025,             // after one, the next step's motion is learned before another is caught
+    },
+
+    // ---------------------------------------------------------------- head turning to a look target (Trial 2)
+    // the head (with the neck and a little of the chest) turns toward what the player looks at through a short lag
+    // and a critically damped spring: a 60 deg turn peaks near 280 deg/s and settles in ~0.35 s (head turns to a new
+    // target: ~200-400 deg/s peak); a moving target is followed ~0.15 s behind. Trial 13 builds the full gaze on it
+    look: {
+      maxRad: 1.35,                 // furthest the head, neck and chest turn from the body's facing (~77 deg)
+      softRad: 0.25,                // eased into that end over its last ~14 deg
+      leadS: 0.03,                  // lag on the wanted turn (s): the turn starts with no jolt
+      omega: 14,                    // spring rate (1/s)
+    },
+
+    // ---------------------------------------------------------------- planted hip guard (Trial 2)
+    // a planted leg whose hip would pass its range (the body has moved on over a foot that stays put) moves the pelvis
+    // toward that foot instead (the weight shifts over it) until it is back in range; the shift eases away after
+    // (and a planted ankle inside its weight-bearing range: the heel comes up or down about the ball of the foot)
+    hipGuard: {
+      iterations: 8,
+      marginDeg: 1.5,               // aim this far inside the limit
+      gain: 1.15,                   // shift per radian of excess, per foot of hip height over the ankle (over-relaxed)
+      maxShiftH: 0.3,               // most the pelvis moves this way (heights)
+      releaseS: 0.12,               // half-life of the shift easing away once it is not needed (s)
+      stepAtH: 0.06,                // held back further than this (heights, ~4.7 in), the foot steps now instead...
+      forceStepAtH: 0.1,            // ...and past this even with the other foot still in the air (a quick skip)
     },
 
     // ---------------------------------------------------------------- body segment masses (center of mass)

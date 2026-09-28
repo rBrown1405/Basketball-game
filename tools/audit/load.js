@@ -55,7 +55,7 @@ function engineGame(PBC, seed, women) {
   const g = PBC.Sim.createGame(S0, 0, 1, {});
   const uniformFor = (t, home) => { const p = t.colors.primary, s = t.colors.secondary; return home ? { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' } : { jersey: p, number: s, trim: s, shorts: p }; };
   const teamLook = (t, home) => ({ id: t.id, abbr: t.abbr, city: t.city, name: t.name, colors: Object.assign({}, t.colors), uniform: uniformFor(t, home), court: { paint: t.colors.primary, logoText: t.abbr, wood: t.wood || 'light' } });
-  const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, expr: 'neutral' });
+  const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, expr: 'neutral' });
   const L = PBC.League.cfg(S0), players = {};
   g.t.forEach((T, i) => T.players.forEach((c) => { players[c.id] = playerLook(c.p, i); }));
   const ctx = { league: L.key, periodLen: L.quarterLen, otLen: L.otLen, threePt: L.threePt, home: teamLook(S0.teams[g.tids[0]], true), away: teamLook(S0.teams[g.tids[1]], false), players, lineups: [g.t[0].on.map((x) => x.id), g.t[1].on.map((x) => x.id)], defScheme: [g.t[0].strat.def, g.t[1].strat.def] };

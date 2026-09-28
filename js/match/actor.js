@@ -50,6 +50,12 @@
     }
   }
 
+  // the spine's two joints per axis (lumbar sp, thoracic ch): forward bend, side bend, twist
+  const SPINE_AX = [['spFlex', 'chFlex'], ['spLat', 'chLat'], ['spTwist', 'chTwist']];
+  // spine and neck joints (a second, finer inertialization: see the constructor)
+  const SPINE_INERT = ['spFlex', 'spLat', 'spTwist', 'chFlex', 'chLat', 'chTwist', 'nkFlex', 'nkLat', 'nkTwist', 'hdFlex', 'hdLat', 'hdTwist'].map(k => RG.CH[k]);
+  // planted-leg hip channels the hip guard keeps in range
+  const HG_KEYS = ['HipF', 'HipA'];
   // torso, neck and head channels (and the pose's hip shift) smoothed by inertialization
   const TORSO_INERT = ['rootX', 'rootY', 'pelPitch', 'pelRoll', 'pelTwist', 'spFlex', 'spLat', 'spTwist', 'chFlex', 'chLat', 'chTwist',
     'nkFlex', 'nkLat', 'nkTwist', 'hdFlex', 'hdLat', 'hdTwist'].map(k => RG.CH[k]);
@@ -71,7 +77,7 @@
       this.id = this.look.id != null ? this.look.id : 'a' + this.uid;
       this.team = team;
       this.kind = kind || 'player';
-      this.dims = RG.makeDims(this.look);
+      this.dims = RG.makeDims(this.look, this.kind);
       this.H = this.dims.H;
       this.sk = new RG.Skeleton(this.dims);
       const teamLook = view && view.teamLook ? view.teamLook(team) : null;
@@ -103,6 +109,9 @@
       this.stP = { gaitArms: 1, gaitTorso: 1, slide: 0, def: 0, idle: 1 };
       this.prevStP = { gaitArms: 1, gaitTorso: 1, slide: 0, def: 0, idle: 1 };
       this._inTorso = new RG.Inert(POSE_INERT, POSE_INERT.map(i => (POSE_INERT_LIN[i] != null ? 0 : 1)), POSE_INERT.map(i => (POSE_INERT_LIN[i] != null ? POSE_INERT_LIN[i] : POSE_INERT_ARM.has(i) ? 0.165 : 0.12)), 0.07);
+      // (and the spine and neck on their own, catching the smaller jumps too: Tune.spine.jumpDeg)
+      const TS = M.Tune.spine;
+      this._inSpine = new RG.Inert(SPINE_INERT, SPINE_INERT.map(() => 1), SPINE_INERT.map(() => TS.jumpDeg * D), TS.jumpHalfLifeS, TS.jumpCoolS);
       // arm IK inputs, smoothed: weight, target (body frame) and elbow pole
       this._armS = [0, 1].map(() => ({ w: 0, t: new RG.Inert([0, 1, 2], [0, 0, 0], [0.2, 0.2, 0.2], 0.07), v: new Float64Array(3), pole: null, lx: 0, ly: 0, lz: 0, has: false }));
       this._inT = null;
@@ -1016,7 +1025,10 @@
           const cyc = (this.phaseN || 0) + Math.floor(this.phase - cph);
           const due = crossed(ph0, ph1, lph) || (f.state === 'plant' && f.liftCyc !== cyc && relNow >= gp.beta && relNow < gp.beta + 0.2 &&
             !(f.tStep != null && this.time - f.tStep < 0.15));
-          if (f.state === 'plant' && (early || late || due || f.liftPending)) {
+          // a planted foot the body has run away from while the other was in the air: its hip at the end of its range
+          // even with the pelvis held back over it (the hip guard's shift past Tune.hipGuard.stepAtH) steps now
+          const strained = f.state === 'plant' && (f.strain || 0) > M.Tune.hipGuard.stepAtH;
+          if (f.state === 'plant' && (early || late || due || f.liftPending || strained)) {
             // the stride's turn says this foot, but the other one is planted further behind: that one goes (the
             // stride flips half a cycle), else it would be dragged through this whole swing
             const o = this.feet[1 - f.side];
@@ -1037,7 +1049,9 @@
                 continue;
               }
             }
-            if (canLift(f, late && sp > 9)) {
+            // (held back far past that, it goes even with the other foot still in the air: a quick skip, the way a
+            // body run past its foot really springs off it)
+            if (canLift(f, (late && sp > 9) || strained) || (f.strain || 0) > M.Tune.hipGuard.forceStepAtH) {
               // lift off
               const a = this._ankleFromBall(f.x, f.y, f.yaw, f.pitch, TA);
               f.state = 'swing'; f.mode = 'gait';
@@ -1045,9 +1059,9 @@
               f.nSwing = (f.nSwing || 0) + 1;
               // the swing runs from here to the contact (its share of the stride fixed now, so later changes of
               // speed do not move the foot)
-              f.liftRel = early || late || f.liftPending ? relNow : Math.min(relNow, gp.beta);
+              f.liftRel = early || late || strained || f.liftPending ? relNow : Math.min(relNow, gp.beta);
               // (why it went, for the audits)
-              f.liftWhy = early ? 'early' : late ? 'late' : f.liftPending ? 'pend' : crossed(ph0, ph1, lph) ? 'due' : 'missed';
+              f.liftWhy = early ? 'early' : late ? 'late' : strained ? 'strain' : f.liftPending ? 'pend' : crossed(ph0, ph1, lph) ? 'due' : 'missed';
               f.liftPending = false; f.liftT = this.time; this._lastSwing = f.side; f.liftCyc = cyc; f.liftKind = 'gait';
             } else if (due) f.liftPending = true;
           }
@@ -1905,13 +1919,9 @@
         p[CH.rootZ] = U.lerp(p[CH.rootZ], -0.4, f); p[CH.pelPitch] = U.lerp(p[CH.pelPitch], -70 * D, f);
         p[CH.spFlex] = U.lerp(p[CH.spFlex], 20 * D, f); p[CH.nkFlex] = U.lerp(p[CH.nkFlex], 25 * D, f);
       }
-      // 5. head look-at
-      if (this.look_) this._applyLook(p);
-      // turned to run somewhere, he still watches the ball (or whatever he was facing) over his shoulder
-      else if (this._watchK > 0.05 && !this.clip && this._watch != null) {
-        const rel = U.clamp(U.wrapPi(this._watch - this.facing), -1.35, 1.35) * this._watchK;
-        p[CH.chTwist] += rel * 0.2; p[CH.nkTwist] += rel * 0.35; p[CH.hdTwist] += rel * 0.35;
-      }
+      // 5. head look-at, or, turned to run somewhere, watching the ball (or whatever he was facing) over his shoulder;
+      // the head gets there at a human pace
+      this._applyLook(p);
       // 5b. knocked off balance by a contact: the torso goes with the push, the head lags, the arms come out
       const hit = this.hit;
       if (hit) {
@@ -1953,12 +1963,30 @@
       // 6. procedural overlays (dribble arm etc.) handled in IK stage
     }
 
+    /** the head turns to what the player looks at (Tune.look): the turn it asks for (eased into its ends, no dead stop)
+     *  is followed by a critically damped spring driven through a short lag, so a new target draws the head round in
+     *  a smooth, human-paced turn (fast at first, settling in) instead of snapping there in one frame, and letting go
+     *  of a target lets the head come back the same way. Split chest 0.2, neck 0.35, head 0.35 */
     _applyLook(p) {
-      const t = this.look_;
-      const tx = t.x != null ? t.x : 0, ty = t.y != null ? t.y : 0;
-      const ang = Math.atan2(ty - this.y, tx - this.x);
-      let rel = U.wrapPi(ang - this.facing);
-      rel = U.clamp(rel, -1.35, 1.35);
+      const TL = M.Tune.look, t = this.look_;
+      let want = 0;
+      if (t) {
+        const tx = t.x != null ? t.x : 0, ty = t.y != null ? t.y : 0;
+        want = U.wrapPi(Math.atan2(ty - this.y, tx - this.x) - this.facing);
+      } else if (this._watchK > 0.05 && !this.clip && this._watch != null) want = U.wrapPi(this._watch - this.facing) * this._watchK;
+      want = RG.softClamp(want, -TL.maxRad, TL.maxRad, TL.softRad);
+      const lk = this._lk || (this._lk = { y: want, v: 0, u: want, t: this.time || 0 });
+      const dt = (this.time || 0) - lk.t;
+      lk.t = this.time || 0;
+      if (!(dt >= 0) || dt > 0.12) { lk.y = want; lk.u = want; lk.v = 0; }
+      else if (dt > 0) {
+        // (a target jumping across behind the head: the short way round is through the front, never the back)
+        lk.u += (want - lk.u) * (1 - Math.exp(-dt / TL.leadS));
+        const w = TL.omega, e = Math.exp(-w * dt), j0 = lk.y - lk.u, j1 = lk.v + j0 * w;
+        lk.y = e * (j0 + j1 * dt) + lk.u; lk.v = e * (lk.v - j1 * w * dt);
+      }
+      const rel = lk.y;
+      if (Math.abs(rel) < 1e-5) return;
       p[CH.chTwist] += rel * 0.2; p[CH.nkTwist] += rel * 0.35; p[CH.hdTwist] += rel * 0.35;
     }
 
@@ -2132,8 +2160,12 @@
       this._armTargets();
       // pose channels that jump between frames (stance and clip switches, dribble arm poses, look-at flips) glide
       this._inTorso.apply(p, dtI);
+      this._inSpine.apply(p, dtI);
       // one body: each segment out along the spine and the arms trails and follows through a little
       this._followThrough(p, dtI);
+      // the spine bends and twists as a chain, and a hip held in range over a planted foot keeps its pelvis shift
+      this._spineChain(p);
+      const hg = this._hipShift(p, dtI);
       sk.dt = dtI;
       sk.solve(p, this.x, this.y, this.facing);
       sk.dt = 0;
@@ -2166,11 +2198,163 @@
           sk.solve(p, this.x, this.y, this.facing);
         }
       }
+      // a foot in the air never goes through the floor
+      this._swingFloor(p);
+      // planted legs never pass the hip's range: the pelvis goes over the foot instead
+      this._hipGuard(p, hg);
+      // (a foot set by the floor or by its steering is not placed by its ankle channel: the pose is told the real bend)
+      this._footAnkles();
       // legs leaving the floor (take-off): the IK pose eases into the clip's air pose instead of switching in one frame
       sk.limitSwivel(dtI);
       sk.inertLegs(dtI, this.feet[0].state === 'air' || this.fall > 0.5, this.feet[1].state === 'air' || this.fall > 0.5);
       this._ankleRange(dtI);
       this._cacheBody();
+    }
+    /** the spine as a chain (Tune.spine): however the layers asked for a bend or twist of the trunk, the lumbar (sp) and
+     *  thoracic (ch) joints share it the way a spine does (a twist mostly thoracic, a forward bend a little more
+     *  lumbar), part way from the authored split; a joint at the end of its own range hands the rest to the other */
+    _spineChain(p) {
+      const T = M.Tune.spine, L = RG.LIM, sh = T.lumbarShare, bl = T.blend, sz = M.Tune.limits.softDeg * D;
+      for (let ax = 0; ax < 3; ax++) {
+        const k1 = SPINE_AX[ax][0], k2 = SPINE_AX[ax][1], i1 = CH[k1], i2 = CH[k2];
+        const a = p[i1], tot = a + p[i2];
+        const w = ax === 0 ? (tot >= 0 ? sh.flex : sh.ext) : ax === 1 ? sh.lat : sh.twist, k = ax === 0 ? bl.flex : ax === 1 ? bl.lat : bl.twist;
+        // (the lumbar joint eases into the end of its own range and the thoracic one takes the rest: smooth, so a
+        // growing twist never has one joint stop dead while the other speeds up)
+        const r1 = L[k1], lo = RG.softClamp(a + (tot * w - a) * k, r1[0], r1[1], sz);
+        p[i1] = lo; p[i2] = tot - lo;
+      }
+    }
+    /** the hip guard's pelvis shift from earlier frames (body frame: rootX right, rootY forward, rootZ in heights),
+     *  easing away with Tune.hipGuard.releaseS, added to the pose */
+    _hipShift(p, dt) {
+      const G = M.Tune.hipGuard, hg = this._hg || (this._hg = { x: 0, y: 0, z: 0, n: 0 });
+      if (!(dt >= 0) || dt > 0.12) { hg.x = hg.y = hg.z = 0; } else if (dt > 0) { const k = Math.exp(-Math.LN2 * dt / G.releaseS); hg.x *= k; hg.y *= k; hg.z *= k; }
+      if (Math.abs(hg.x) + Math.abs(hg.y) + Math.abs(hg.z) < 1e-5) { hg.x = hg.y = hg.z = 0; }
+      p[CH.rootX] += hg.x; p[CH.rootY] += hg.y; p[CH.rootZ] += hg.z;
+      return hg;
+    }
+    /**
+     * Planted legs stay inside the hip's range (Tune.hipGuard). A body that has moved on over a foot that stays put
+     * (the other foot still in the air, so this one cannot step yet) would stretch the hip past what it can do; the
+     * pelvis goes toward that foot instead, the weight over it, just enough to stay in range, and lowers if a planted
+     * leg could no longer reach its foot. The feet never move. The shift eases away once it is not needed.
+     */
+    _hipGuard(p, hg) {
+      // (p: the pose asked for, where the shift goes; the solved leg angles are in the skeleton's own pose)
+      const G = M.Tune.hipGuard, sk = this.sk, q = sk.pose, L = RG.LIM, P = sk.P, H = this.H, m = G.marginDeg * D;
+      const AL = M.Tune.limits.ankleLoaded, aLo = AL[0] * D + m, aHi = AL[1] * D - m;
+      hg.ank = 0;
+      // (the leg's full reach, as the IK allows it; not while a jump lifts the body off planted feet at take-off)
+      const c = Math.cos(this.facing), s = Math.sin(this.facing), Lmax = (this.dims.th + this.dims.sh) * 0.9995, reach = this.jumpZ < 0.05;
+      hg.n = 0;
+      const need = [false, false];
+      for (let it = 0; it < G.iterations; it++) {
+        let wx = 0, wy = 0, dz = 0, any = false, ank = 0;
+        for (let side = 0; side < 2; side++) {
+          const ik = sk.legIK[side];
+          if (ik.on < 0.999 || ik.soft) continue;
+          const pre = side ? 'r' : 'l', o = (side ? RG.J.R_HIP : RG.J.L_HIP) * 3;
+          // the planted ankle inside its weight-bearing range: the heel comes up about the ball of the foot, which stays
+          // on its spot, or the toes come up off the floor about the heel
+          const f = this.feet[side], an = this._ankleBend(side);
+          if (f && f.state === 'plant' && (an > aHi || an < aLo)) {
+            // (a heel down with the shank leaning far back over it lifts the toes: the foot rocks on its heel)
+            const pit = U.clamp(ik.pitch + (an > aHi ? an - aHi : an - aLo), -30 * D, 75 * D);
+            if (Math.abs(pit - ik.pitch) > 1e-4) {
+              const t = this._ankleFromBall(f.x, f.y, f.yaw, pit, TA);
+              ik.x = t[0]; ik.y = t[1]; ik.z = t[2] + (f.land ? f.lz || 0 : 0); ik.pitch = pit; f.pitchUsed = pit;
+              if (an > aHi) f.heelFloor = Math.max(f.heelFloor || 0, pit);
+              hg.ank++; any = true; ank |= 1 << side;
+            }
+          }
+          let ex = 0;
+          for (const kk of HG_KEYS) {
+            const r = L[pre + kk], v = q[CH[pre + kk]];
+            if (v > r[1] - m) ex = Math.max(ex, v - (r[1] - m)); else if (v < r[0] + m) ex = Math.max(ex, r[0] + m - v);
+          }
+          const hx = ik.x - P[o], hy = ik.y - P[o + 1], hz = P[o + 2] - ik.z, dh = Math.hypot(hx, hy);
+          // (it holds the hip the margin inside its limit: acting every frame it is needed, the pelvis moves smoothly)
+          if (ex > 1e-3 && dh > 1e-4) { const mag = ex * Math.max(0.5, hz) * G.gain; wx += hx / dh * mag; wy += hy / dh * mag; any = true; need[side] = true; }
+          // a planted leg out of reach once the pelvis has moved off it: the pelvis comes down until it reaches
+          if (reach && (hg.n > 0 || Math.abs(hg.x) + Math.abs(hg.y) > 1e-4) && Math.hypot(dh, hz) > Lmax && dh < Lmax) { dz = Math.max(dz, hz - Math.sqrt(Lmax * Lmax - dh * dh)); any = true; }
+        }
+        if (!any) break;
+        // (world to body frame)
+        let bx = wx * s - wy * c, by = wx * c + wy * s;
+        const lim = G.maxShiftH * H, nx = hg.x + bx, ny = hg.y + by, nl = Math.hypot(nx, ny);
+        if (nl > lim) { bx = nx * lim / nl - hg.x; by = ny * lim / nl - hg.y; }
+        const bz = -dz / H;
+        const moved = Math.abs(bx) + Math.abs(by) + Math.abs(bz) >= 1e-5;
+        if (!moved && !ank) break;
+        // (the pelvis moved: the whole body is solved again; only a heel moved: just that leg)
+        if (moved) { hg.x += bx; hg.y += by; hg.z += bz; hg.n++; p[CH.rootX] += bx; p[CH.rootY] += by; p[CH.rootZ] += bz; sk.solve(p, this.x, this.y, this.facing); }
+        else for (let side = 0; side < 2; side++) if (ank & (1 << side)) sk._leg(side);
+      }
+      // (how far the pelvis is held back over each planted foot: a foot the body has run away from steps, see _locomote)
+      const sh = Math.hypot(hg.x, hg.y) / H;
+      for (let side = 0; side < 2; side++) this.feet[side].strain = need[side] ? sh : 0;
+      // last resort (the pelvis held back as far as it goes, and the hip still past its range): the hip stops at its
+      // limit and drags the foot with it, which is re-planted where it ends up (a slip the foot meter counts; the joint
+      // never goes past what a hip can do)
+      hg.slip = 0;
+      for (let side = 0; side < 2; side++) {
+        const ik = sk.legIK[side];
+        if (ik.on < 0.999 || ik.soft) continue;
+        const pre = side ? 'r' : 'l';
+        let cl = false;
+        for (const kk of HG_KEYS) { const i = CH[pre + kk], r = L[pre + kk], v = q[i]; if (v > r[1] || v < r[0]) { q[i] = U.clamp(v, r[0], r[1]); cl = true; } }
+        if (!cl) continue;
+        sk._legFK(side);
+        const f = this.feet[side], jb = (side ? RG.J.R_BALL : RG.J.L_BALL) * 3;
+        f.x = P[jb]; f.y = P[jb + 1];
+        hg.slip++;
+      }
+    }
+    /** a foot in the air never goes through the floor: hanging from its ankle (toes down as the swing starts, or held
+     *  in the ankle's range against the shank), its lowest point (heel, ball or toe) below the floor lifts the ankle
+     *  target by that much, and the body is solved again */
+    _swingFloor(p) {
+      const sk = this.sk, P = sk.P, J = RG.J;
+      // (only that leg is solved again: nothing else hangs from it)
+      for (let side = 0; side < 2; side++) {
+        const ik = sk.legIK[side];
+        if (ik.on < 0.999 || !ik.soft) continue;
+        for (let it = 0; it < 4; it++) {
+          const z = Math.min(P[(side ? J.R_HEEL : J.L_HEEL) * 3 + 2], P[(side ? J.R_BALL : J.L_BALL) * 3 + 2], P[(side ? J.R_TOE : J.L_TOE) * 3 + 2]);
+          if (z >= -0.002) break;
+          ik.z += 0.004 - z;
+          sk._leg(side);
+        }
+      }
+    }
+    /** the real bend of an ankle whose foot is set by the floor or its steering (+ = dorsiflexion), last solve: the
+     *  foot's forward axis against the shank's, up or down (its turn against the shank taken out) */
+    _ankleBend(side) {
+      const R = this.sk.R, sh = (side ? RG.F.R_SH : RG.F.L_SH) * 9, ft = (side ? RG.F.R_FT : RG.F.L_FT) * 9;
+      const fx = R[ft + 1], fy = R[ft + 4], fz = R[ft + 7];
+      const lx = R[sh] * fx + R[sh + 3] * fy + R[sh + 6] * fz, ly = R[sh + 1] * fx + R[sh + 4] * fy + R[sh + 7] * fz;
+      return Math.atan2(R[sh + 2] * fx + R[sh + 5] * fy + R[sh + 8] * fz, Math.hypot(lx, ly));
+    }
+    /** a foot on the floor is set by the floor (its ball, heading and heel rise) and a stepping foot by its steered
+     *  heading and pitch, not by the ankle channel: write the ankle's real bend (the foot's pitch against the shank,
+     *  + = dorsiflexion) back into the pose, so the pose and every meter tell the truth and a foot leaving the floor
+     *  starts from where it really was */
+    _footAnkles() {
+      const sk = this.sk, p = sk.pose, AL = M.Tune.limits.ankleLoaded;
+      for (let side = 0; side < 2; side++) {
+        if (sk.legIK[side].on < 0.999) continue;
+        // (last resort: a planted ankle the guard could not bring into its range, after the hip itself had to stop at
+        // its limit, rolls the foot to the nearest angle it can have; the foot is re-planted where it is)
+        const f = this.feet[side];
+        if (f.state === 'plant' && sk.clampFoot(side, AL[0] * D, AL[1] * D)) {
+          const P = sk.P, jb = (side ? RG.J.R_BALL : RG.J.L_BALL) * 3, jh = (side ? RG.J.R_HEEL : RG.J.L_HEEL) * 3;
+          f.x = P[jb]; f.y = P[jb + 1];
+          f.pitch = Math.max(0, Math.asin(U.clamp((P[jh + 2] - P[jb + 2]) / (this.dims.heel + this.dims.ball), -1, 1)));
+          if (this._hg) this._hg.slip = (this._hg.slip || 0) + 1;
+        }
+        p[CH[side ? 'rAnk' : 'lAnk']] = this._ankleBend(side);
+      }
     }
     /** a planted foot's ankle bends ~50 deg at most with the weight on it (weight-bearing lunge test): past ~48 deg
      *  of shin lean over the foot the heel rises (the foot rolls onto its ball, which stays on its spot), instead of

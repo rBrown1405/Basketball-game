@@ -35,6 +35,9 @@
     JOINT_OF[CH[k]] = j;
   }
   const SEG = () => (M.Tune.segMass || []).map(([a, b, m, c]) => [J[a], J[b], m, c]);
+  // the spine's two joints per axis (lumbar sp, thoracic ch), and every spine and neck angle watched for pops
+  const SPINE_AX = [['spFlex', 'chFlex'], ['spLat', 'chLat'], ['spTwist', 'chTwist']].map(q => q.map(k => CH[k]));
+  const POP_CH = ['spFlex', 'spLat', 'spTwist', 'chFlex', 'chLat', 'chTwist', 'nkFlex', 'nkLat', 'nkTwist', 'hdFlex', 'hdLat', 'hdTwist'].map(k => CH[k]);
   const wrap = (a) => U.wrapPi(a);
   function pct(sorted, p) { return sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : 0; }
   function summ(arr, k) {
@@ -122,6 +125,10 @@
         lookNone: 0, lookStale: 0, lookBall: 0, lookPoint: 0, lookWatch: 0,
         gap: { dribble: [], hold: [], shot: [], pass: [], catch: [] },
         torsoOverlap: 0, handInBody: 0, closePairs: 0, offBalance: 0, groundFrames: 0,
+        knee: [], kneeCave: 0, kneeOff: 0, kneeCtx: {},
+        cr: { pp: 0, ss: 0, ps: 0, n: 0, opp: 0, hip: [], sh: [] },
+        spShare: [[], [], []], spKink: [0, 0, 0], spinePops: 0, spinePopBy: {}, spineAcc: [],
+        cad: new Map(), guardFrames: 0, guardShift: [], guardAnk: 0, guardSlip: 0,
       };
     }
     tracker(a) {
@@ -154,6 +161,7 @@
         this._kin(a, t, count, dt);
         this._look(a, t, count, ball, s.time);
         this._hands(a, t, count, ball);
+        this._body(a, t, count, dt);
         t.label = stateLabel(a, s.view);
       }
       this._pairs(list);
@@ -215,8 +223,12 @@
     _limits(a, t, count) {
       const p = a.sk.pose, S = this.S, tol = TU().limitTolDeg * U.DEG, L = RG.LIM;
       const bad = t.lim.bad; bad.length = 0;
+      // (a planted ankle carries weight: its own, wider range; the actor writes the planted ankle's real bend)
+      const AL = M.Tune.limits && M.Tune.limits.ankleLoaded, al = AL ? [AL[0] * U.DEG, AL[1] * U.DEG] : null;
       for (const k of LIMK) {
-        const v = p[CH[k]], r = L[k];
+        let r = L[k];
+        if (al && (k === 'lAnk' || k === 'rAnk') && a.feet && a.feet[k[0] === 'l' ? 0 : 1].state === 'plant') r = al;
+        const v = p[CH[k]];
         if (v < r[0] - tol || v > r[1] + tol) bad.push([CH[k], v, r[0], r[1]]);
       }
       for (const tp of RG.TORSO_PAIRS || []) {
@@ -323,6 +335,82 @@
       t.gap = g; t.gapKind = kind;
       if (count) this.S.gap[kind].push(g);
     }
+    /** the body (Trial 2): knees over the toes of planted legs, hips and shoulders counter-rotating in a run, a bend
+     *  or twist shared through the spine's joints, spine and neck angles that pop, cadence by body size */
+    _body(a, t, count, dt) {
+      const S = this.S, Tn = TU(), P = a.sk.P, R = a.sk.R, p = a.sk.pose, D = U.DEG;
+      const B = t.body || (t.body = { kn: [0, 0], run: 0, pm: 0, sm: 0, ang: [new Float64Array(POP_CH.length), new Float64Array(POP_CH.length), new Float64Array(POP_CH.length)], n: 0 });
+      // knees over toes: the way a bent knee points (its bulge off the hip-ankle line) against the heel-to-toe line
+      for (let side = 0; side < 2; side++) {
+        B.kn[side] = 0;
+        const f = a.feet && a.feet[side];
+        if (!f || f.state !== 'plant' || !t.pts[side * 3 + 1].on) continue;
+        if (p[CH[side ? 'rKnee' : 'lKnee']] < Tn.kneeTrackMinFlexDeg * D) continue;
+        const h = (side ? J.R_HIP : J.L_HIP) * 3, k = (side ? J.R_KN : J.L_KN) * 3, an = (side ? J.R_AN : J.L_AN) * 3;
+        const he = (side ? J.R_HEEL : J.L_HEEL) * 3, to = (side ? J.R_TOE : J.L_TOE) * 3;
+        const lx = P[an] - P[h], ly = P[an + 1] - P[h + 1], lz = P[an + 2] - P[h + 2], l2 = lx * lx + ly * ly + lz * lz || 1e-9;
+        const qx = P[k] - P[h], qy = P[k + 1] - P[h + 1], qz = P[k + 2] - P[h + 2], u = (qx * lx + qy * ly + qz * lz) / l2;
+        const kx = qx - u * lx, ky = qy - u * ly, fx = P[to] - P[he], fy = P[to + 1] - P[he + 1];
+        if (Math.hypot(kx, ky) < 0.02 * a.H || Math.hypot(fx, fy) < 1e-3) continue;
+        // (+ = the knee turned inside the foot's line, toward the other leg: caving in)
+        const med = (side ? 1 : -1) * Math.atan2(fx * ky - fy * kx, fx * kx + fy * ky);
+        B.kn[side] = med;
+        if (!count) continue;
+        S.knee.push(Math.abs(med) / D);
+        if (med > Tn.kneeCaveDeg * D) S.kneeCave++;
+        if (Math.abs(med) > Tn.kneeOffDeg * D) { S.kneeOff++; const c = this.ctx(a).split(':').slice(0, 2).join(':'); S.kneeCtx[c] = (S.kneeCtx[c] || 0) + 1; }
+      }
+      // counter-rotation: in a forward run the hips and the shoulder line swing opposite ways about the travel line
+      const run = a.gaitOn && a.speed > Tn.counterRunFtps && !(a.clip && a.clip.clip) && (a.latK || 0) < 0.5 && !(a.fwdDot != null && a.fwdDot < -0.3);
+      if (run) {
+        const hy = wrap(Math.atan2(R[4], R[1]) - a.facing);
+        const ls = J.L_SH * 3, rs = J.R_SH * 3, sy = wrap(Math.atan2(P[rs] - P[ls], -(P[rs + 1] - P[ls + 1])) - a.facing);
+        // (the slow part, a turn or a lean, comes out: each yaw is measured from its own running mean)
+        const kk = B.run > 0 ? 1 - Math.exp(-dt / Tn.counterMeanS) : 1;
+        B.pm += (hy - B.pm) * kk; B.sm += (sy - B.sm) * kk; B.run += dt;
+        if (count && B.run > Tn.counterSettleS) {
+          const dp = hy - B.pm, ds = sy - B.sm, cr = S.cr;
+          cr.pp += dp * dp; cr.ss += ds * ds; cr.ps += dp * ds; cr.n++;
+          if (dp * ds < 0) cr.opp++;
+          cr.hip.push(Math.abs(dp) / D); cr.sh.push(Math.abs(ds) / D);
+        }
+      } else B.run = 0;
+      // the spine as a chain: a bend or twist shared by the lumbar (sp) and thoracic (ch) joints, not one kink
+      for (let ax = 0; ax < 3; ax++) {
+        const v1 = Math.abs(p[SPINE_AX[ax][0]]), v2 = Math.abs(p[SPINE_AX[ax][1]]), tot = v1 + v2;
+        if (!count || tot < Tn.spineShareMinDeg * D) continue;
+        const sh = Math.max(v1, v2) / tot;
+        S.spShare[ax].push(sh);
+        if (sh > Tn.spineKinkShare) S.spKink[ax]++;
+      }
+      // spine and neck angles that pop: the step-to-step change of rate (second difference), deg/s^2
+      const A0 = B.ang[B.n % 3], A1 = B.ang[(B.n + 2) % 3], A2 = B.ang[(B.n + 1) % 3];
+      for (let i = 0; i < POP_CH.length; i++) A0[i] = p[POP_CH[i]];
+      if (B.n >= 2 && count) {
+        let worst = 0;
+        for (let i = 0; i < POP_CH.length; i++) {
+          const acc = Math.abs(wrap(A0[i] - A1[i]) - wrap(A1[i] - A2[i])) / (dt * dt) / D;
+          if (acc > worst) worst = acc;
+          if (acc > Tn.spinePopDegps2) { S.spinePops++; const nm = CHNAME[POP_CH[i]]; S.spinePopBy[nm] = (S.spinePopBy[nm] || 0) + 1; }
+        }
+        S.spineAcc.push(worst);
+      }
+      B.n++;
+      // the planted-leg guard at work: the pelvis held over a planted foot to keep its hip in range (in), heels moved
+      const hg = a._hg;
+      if (count && hg) {
+        const shv = Math.hypot(hg.x, hg.y) * IN;
+        if (shv > 0.1) { S.guardFrames++; S.guardShift.push(shv); }
+        if (hg.ank) S.guardAnk++;
+        if (hg.slip) S.guardSlip += hg.slip;
+      }
+      // cadence by body size: steps per second at a steady 12-16 ft/s run
+      if (count && run && a.speed >= 12 && a.speed <= 16 && a.gaitDbg && a.gaitDbg.sps) {
+        let c = S.cad.get(a);
+        if (!c) S.cad.set(a, c = { H: a.H, n: 0, sps: 0, v: 0 });
+        c.n++; c.sps += a.gaitDbg.sps; c.v += a.speed;
+      }
+    }
     _pairs(list) {
       const S = this.S, Tn = TU();
       for (const a of list) { const t = this.tr.get(a); if (t) { t.overlap = false; t.handIn = false; } }
@@ -380,6 +468,31 @@
           catchGapIn: Object.assign(summ(S.gap.catch), { overOk: over(S.gap.catch, Tn.handGapOkIn) }),
         },
         contact: { torsoOverlapPairFrames: S.torsoOverlap, handInOtherBodyFrames: S.handInBody, closePairFrames: S.closePairs },
+        body: this.bodySummary(),
+      };
+    }
+    /** the Trial 2 body scorecard */
+    bodySummary() {
+      const S = this.S, cr = S.cr, pf = (n, d) => +(n / Math.max(1, d) * 100).toFixed(2);
+      const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n || 8);
+      const cad = [];
+      for (const c of S.cad.values()) if (c.n >= 30) cad.push({ heightIn: +(c.H * 12).toFixed(1), stepsPerSec: +(c.sps / c.n).toFixed(3), speed: +(c.v / c.n).toFixed(2), frames: c.n });
+      cad.sort((a, b) => a.heightIn - b.heightIn);
+      const grp = (lo, hi) => { const g = cad.filter(c => c.heightIn >= lo && c.heightIn < hi); if (!g.length) return null; const w = g.reduce((s, c) => s + c.frames, 0); return { players: g.length, heightIn: +(g.reduce((s, c) => s + c.heightIn * c.frames, 0) / w).toFixed(1), stepsPerSec: +(g.reduce((s, c) => s + c.stepsPerSec * c.frames, 0) / w).toFixed(3), speed: +(g.reduce((s, c) => s + c.speed * c.frames, 0) / w).toFixed(2) }; };
+      return {
+        kneeOverToeDeg: Object.assign(summ(S.knee, 1), { cavePct: pf(S.kneeCave, S.knee.length), offPct: pf(S.kneeOff, S.knee.length), offContexts: top(S.kneeCtx) }),
+        counterRotation: {
+          frames: cr.n, hipShoulderCorrelation: cr.n ? +(cr.ps / Math.sqrt(cr.pp * cr.ss || 1e-12)).toFixed(3) : null,
+          oppositePct: pf(cr.opp, cr.n), hipYawDeg: summ(cr.hip, 1), shoulderYawDeg: summ(cr.sh, 1),
+        },
+        spineShare: {
+          flex: Object.assign(summ(S.spShare[0], 3), { kinkPct: pf(S.spKink[0], S.spShare[0].length) }),
+          lat: Object.assign(summ(S.spShare[1], 3), { kinkPct: pf(S.spKink[1], S.spShare[1].length) }),
+          twist: Object.assign(summ(S.spShare[2], 3), { kinkPct: pf(S.spKink[2], S.spShare[2].length) }),
+        },
+        spinePopsPerPlayerMin: +(S.spinePops / Math.max(1e-9, S.playerFrames * S.stepDt / 60)).toFixed(2), spinePopsBy: top(S.spinePopBy), spineAccelDegps2: summ(S.spineAcc, 0),
+        cadence12to16: { short: grp(0, 76), mid: grp(76, 82), tall: grp(82, 99), players: cad },
+        plantedGuard: { pelvisShiftPctPlayerFrames: pf(S.guardFrames, S.playerFrames), pelvisShiftIn: summ(S.guardShift, 2), heelMovedPctPlayerFrames: pf(S.guardAnk, S.playerFrames), lastResortSlips: S.guardSlip },
       };
     }
   }
@@ -422,6 +535,7 @@
           ov[o + 25] = t.lim.bad.length; ov[o + 26] = t.lim.clamp.length; ov[o + 27] = t.lim.reach.length;
           ov[o + 28] = t.gap == null ? -1e4 : t.gap; ov[o + 29] = ['', 'dribble', 'hold', 'shot', 'pass', 'catch'].indexOf(t.gapKind);
           ov[o + 30] = a.x; ov[o + 31] = a.y; ov[o + 32] = t.overlap ? 1 : 0; ov[o + 33] = t.handIn ? 1 : 0;
+          if (t.body) { ov[o + 34] = t.body.kn[0]; ov[o + 35] = t.body.kn[1]; }
           f.labels[i] = t.label;
           f.sup[i] = t.sup.map(q => q.slice());
           f.limBad = f.limBad || new Array(this.maxP); f.limBad[i] = t.lim.bad.map(q => q.slice());
@@ -635,6 +749,15 @@
             for (const i of t.lim.clamp) { const j = JOINT_OF[i]; if (j == null || seen.has(j)) continue; seen.add(j); const p = proj(P[j * 3], P[j * 3 + 1], P[j * 3 + 2]); g.strokeStyle = C.limitClamp; g.lineWidth = 1.5; g.beginPath(); g.arc(p.x, p.y, 6, 0, U.TAU); g.stroke(); }
             for (const i of t.lim.reach) { const j = JOINT_OF[i]; if (j == null || seen.has(j)) continue; seen.add(j); const p = proj(P[j * 3], P[j * 3 + 1], P[j * 3 + 2]); g.strokeStyle = C.limitReach; g.lineWidth = 1.5; g.setLineDash([2, 2]); g.beginPath(); g.arc(p.x, p.y, 6, 0, U.TAU); g.stroke(); g.setLineDash([]); }
           } else if (nClamp + nReach > 0) { /* (rewound frames keep only the violations) */ }
+          // knees not over their toes (Trial 2): orange ring and the angle, "in" when caving in
+          for (let side = 0; side < 2; side++) {
+            const kn = ov ? ov[34 + side] : t.body ? t.body.kn[side] : 0;
+            if (Math.abs(kn) <= T.kneeOffDeg * U.DEG) continue;
+            const j = (side ? J.R_KN : J.L_KN) * 3, p = proj(P[j], P[j + 1], P[j + 2]);
+            g.strokeStyle = C.limitClamp; g.lineWidth = 2; g.beginPath(); g.arc(p.x, p.y, 7, 0, U.TAU); g.stroke();
+            g.fillStyle = C.limitClamp; g.font = 'bold 10px ui-monospace, monospace';
+            g.fillText('knee ' + (kn > 0 ? 'in ' : 'out ') + Math.abs(kn / U.DEG).toFixed(0) + '°', p.x + 9, p.y + 10);
+          }
         }
         if (this.show.hands) {
           const gap = ov ? (ov[28] > -1e3 ? ov[28] : null) : t.gap, kind = ov ? ['', 'dribble', 'hold', 'shot', 'pass', 'catch'][ov[29]] : t.gapKind;
@@ -904,6 +1027,12 @@
         lines.push('look ' + t.look.state + (t.gap != null ? '   hand-ball ' + t.gap.toFixed(2) + ' in (' + t.gapKind + ')' : ''));
         if (t.lim.bad.length) lines.push('LIMIT ' + t.lim.bad.map(q => CHNAME[q[0]] + ' ' + (q[1] / U.DEG).toFixed(0) + '°').join(', '));
         if (t.lim.clamp.length) lines.push('clamped ' + t.lim.clamp.map(i => CHNAME[i]).join(', '));
+        if (t.body) {
+          const kn = t.body.kn.map(v => (v ? (v > 0 ? 'in ' : 'out ') + Math.abs(v / U.DEG).toFixed(0) + '°' : '-'));
+          const p = a.sk.pose, dg = (k) => (p[CH[k]] / U.DEG).toFixed(0);
+          lines.push('knees vs toes L ' + kn[0] + ' R ' + kn[1] + '   ' + (a.H * 12).toFixed(0) + ' in, span ' + (a.look.wing ? a.look.wing + ' in' : '-'));
+          lines.push('spine twist ' + dg('pelTwist') + '/' + dg('spTwist') + '/' + dg('chTwist') + '  flex ' + dg('pelPitch') + '/' + dg('spFlex') + '/' + dg('chFlex') + ' (pelvis/lumbar/thoracic)');
+        }
       } else lines.push('Click a player (or Tab) to select.');
       lines.push('');
       lines.push('this session: ' + (S.playerFrames * S.stepDt / 60).toFixed(1) + ' player-min');
