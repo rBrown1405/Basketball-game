@@ -46,7 +46,7 @@
       dribble: { bus: 'court', prio: 20, cooldownMs: 60, max: 4, cutAtSpeed: 8 },
       bounce: { bus: 'court', prio: 25, cooldownMs: 30, max: 4 },
       squeak: { bus: 'court', prio: 18, cooldownMs: 0, max: 3, cutAtSpeed: 8 },
-      step: { bus: 'court', prio: 10, cooldownMs: 0, max: 6, cutAtSpeed: 8 },
+      step: { bus: 'court', prio: 10, cooldownMs: 0, max: 6, cutAtSpeed: 4 },   // (at 4x the running is only a patter; over half of the court's sounds at 1x)
       land: { bus: 'court', prio: 28, cooldownMs: 0, max: 4, cutAtSpeed: 8 },
       catch: { bus: 'court', prio: 35, cooldownMs: 30, max: 2 },
       pass: { bus: 'court', prio: 22, cooldownMs: 30, max: 2, cutAtSpeed: 8 },
@@ -182,7 +182,7 @@
         pivotYawRate: 5, pivotMaxSpeed: 2.5, pivotChance: 0.35,   // turning on the spot faster than this (rad/s)
         jumpStopSpeed: 9, jumpStopChance: 0.6,
         playerGapS: 0.6,                     // one player squeaks at most this often (game time)
-        perSecond: 2.5,                      // and the floor at most this many a second (a sliding second of audio time)
+        perSecond: 3,                        // and the floor at most this many in any second (a sliding second of audio time)
         eMin: 0.15,                          // the quietest squeak played
         massK: 0.35,                         // a heavier body plants harder: energy x (mass ratio ^ massK)
         refs: false,                         // officials' shoes (they do not cut hard)
@@ -204,6 +204,7 @@
       // or a hit hard enough to knock one off balance; screens thud, box-outs and post-ups push
       body: {
         minClosing: 4, fullClosing: 15, radiusK: 1.08,   // contact when closer than radiusK x (0.15 H + 0.15 H)
+        boxoutMinClosing: 2,                 // a box-out is a slow push into the man: heard from this closing speed (ft/s)
         pairGapS: 0.7, playerGapS: 0.25,
         screenK: 1.2, boxoutK: 0.75, postK: 0.9,
       },
@@ -306,7 +307,7 @@
       block: { slapHz: 1400, slapQ: 1, slapTau: 0.009, slapAmp: 1, thumpHz: 150, thumpTau: 0.012, thumpAmp: 0.5, ring: 0.8, peak: 0.2 },
       // rolling: the floor (a low rumble, the seams) and the rim (the ring's modes, rubbed)
       roll: { lpHz: 650, bpHz: 170, bpQ: 1.2, seams: 2, amDepth: 0.55, peak: 0.05 },
-      rimroll: { modes: [463, 888, 1436], q: 28, am: [13, 21], amDepth: 0.6, peak: 0.07 },
+      rimroll: { modes: [463, 888, 1436], q: 28, am: [13, 21], amDepth: 0.6, peak: 0.12 },
       // a referee's whistle: pealess (three chambers a little apart beat against each other: the harsh warble), a
       // breath, a quick chirp as it starts
       whistle: { hz: [2880, 3060], chambers: [1, 1.017, 1.034], chamberAmp: [1, 0.7, 0.5], h2: 0.14, breathHz: 3000, breathQ: 1.5, breathAmp: 0.12, chirp: [0.93, 0.02], wobble: [4, 7], wobbleDepth: 0.08, a: 0.008, rel: 0.035, peak: 0.085,

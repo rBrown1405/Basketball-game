@@ -142,18 +142,20 @@ const o = T.args({ seed: 21, secs: 120, rec: 60, speed: 1, tag: 'court', out: 'a
   const sq = out.court.filter((e) => e.type === 'court.squeak');
   const played = sq.filter((e) => e.sounds.some((s) => s.s === 'play'));
   const perMin = played.length / Math.max(1, secs) * 60;
+  // (in any second of what is heard: each squeak's scheduled start)
+  const heardAt = (e) => (e.when != null ? e.when : e.at);
   let maxFloor = 0, maxPlayer = 0;
   for (const e of played) {
-    const w = played.filter((f) => f.at >= e.at && f.at < e.at + 1);
+    const w = played.filter((f) => heardAt(f) >= heardAt(e) && heardAt(f) < heardAt(e) + 1);
     maxFloor = Math.max(maxFloor, w.length);
     maxPlayer = Math.max(maxPlayer, w.filter((f) => f.pid === e.pid).length);
   }
   const kinds = {}; for (const e of played) kinds[e.kind] = (kinds[e.kind] || 0) + 1;
-  const sources = played.filter((e) => /brake|turn|jump stop|jab/.test(e.src || ''));
+  const sources = played.filter((e) => /brake|turn|jump stop|landing|jab/.test(e.src || ''));
   const Q = require('vm').runInNewContext(fs.readFileSync(path.join(o.repo, 'js/audio/config.js'), 'utf8') + ';window.PBC.AudioConfig.court.squeak', { window: {} });
   R.push('', `Squeaks: ${played.length} played (${perMin.toFixed(1)} a minute), from ${out.animPlayers} foot plants and landings by players: ${(played.length / Math.max(1, out.animPlayers) * 100).toFixed(1)}% of them squeaked`);
   R.push(`  kinds: ${JSON.stringify(kinds)}`);
-  R.push(`  most in any second: ${maxFloor} on the floor (the cap is ${Q.perSecond}), ${maxPlayer} by one player (one every ${Q.playerGapS} s at most)`);
+  R.push(`  most in any second as heard: ${maxFloor} on the floor (the cap is ${Q.perSecond}), ${maxPlayer} by one player (one every ${Q.playerGapS} s at most)`);
   R.push(`  every squeak came from a plant, a landing or a jab with its numbers: ${sources.length}/${played.length}`);
   const hardOk = played.filter((e) => e.kind === 'cut' || e.kind === 'stop').every((e) => { const m = /speed ([\d.]+)(?: \(was ([\d.]+)\))? brake ([\d.]+) turn ([\d.]+)/.exec(e.src || ''); if (!m) return /jab/.test(e.src || ''); const sp = +m[1], was = m[2] ? +m[2] : sp, a = Math.hypot(+m[3], +m[4]); return a >= Q.minAccel - 0.15 && Math.max(sp, was) >= Q.minSpeed - 0.05; });
   R.push(`  every cut and stop was a hard push (${Q.minAccel} ft/s² or more) at jogging speed (${Q.minSpeed} ft/s) or faster: ${hardOk ? 'yes' : 'NO'}`);

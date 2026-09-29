@@ -3,9 +3,10 @@
 // (the game's view, broadcast camera and bodies), with the court's audio listening as in a game: an official's
 // signal and whistle for each kind of call, the shot clock running out (its buzzer over the basket), the period's
 // end (the horn) and the game's end right after it (the same horn, not a second), a player going down (the charge's
-// contact, then the floor), a post-up's bump, a jab step, and a loose ball bouncing out of bounds onto the apron and
-// past it into the courtside seats, then rolling. For each: the court sounds it made (kind, what made it, the floor
-// under it, where it sits). Writes events_result.txt and events.wav (everything in order).
+// contact, then the floor), a post-up's bump, a jab step, a defender's slide, a closeout, a jump stop, and a loose ball
+// bouncing out of bounds onto the apron and past it into the courtside seats, then rolling. For each: the court sounds
+// it made (kind, what made it, the floor under it, where it sits). Writes events_result.txt and events.wav (everything
+// in order).
 //   node tools/audio/test/events.js [--seed 21] [--out audit/audio2]
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -64,6 +65,25 @@ const o = T.args({ seed: 21, out: 'audit/audio2' });
     mark('a player takes a charge: down he goes'); A.play('fall', { facing: 0 }); await sleep(2400);
     mark('a post-up bump'); B.place(30, 25, 0); B.play('backdown', { facing: 0 }); await sleep(1200);
     mark('a jab step'); A.place(40, 20, 0); A.play('jab', { facing: 0 }); await sleep(1200);
+    // sneakers on the defensive moves and a jump stop, from the court's own gait and clips (the odds of a squeak set
+    // to 1 here: what is tested is that these plants are found and heard; the odds are the listen test's)
+    const Q = PBC.AudioConfig.court.squeak, q0 = Object.assign({}, Q);
+    Object.assign(Q, { chanceMin: 1, chanceMax: 1, slideChance: 1, jumpStopChance: 1 });
+    mark('a defender slides one way and back');
+    B.place(47, 22, Math.PI / 2); B.setStance('defense');
+    for (let k = 0; k < 4; k++) { B.moveTo(k % 2 ? 41 : 53, 22, { speed: 12, face: Math.PI / 2, stance: 'defense' }); await sleep(750); }
+    B.stop(Math.PI / 2); await sleep(600);
+    mark('a closeout: a sprint at the shooter, then the stop');
+    // (as the court closes out: a sprint, then chop steps under control over the last 8 ft, choreo.js)
+    B.place(47, 46, -Math.PI / 2); B.setStance('ready');
+    B.moveTo(47, 24, { speed: B.maxSpeed, face: { x: 47, y: 20 }, stance: 'defense' });
+    for (let k = 0; k < 40; k++) { await sleep(50); if (Math.hypot(B.goal.x - B.x, B.goal.y - B.y) < 8 && B.speed > 8) { B.goal.speed = 9; break; } }
+    await sleep(1400);
+    mark('a jump stop on the move');
+    A.place(20, 30, 0); A.setStance('ready');
+    A.moveTo(60, 30, { speed: 18, face: 0 }); await sleep(900);
+    A.jumpStop(); await sleep(1200);
+    Object.assign(Q, q0);
     // a loose ball over the near sideline: the apron, then the seats
     mark('a loose ball bounces out of bounds and rolls');
     view.ball.placeAt(40, 3, 3.5);
@@ -102,6 +122,9 @@ const o = T.args({ seed: 21, out: 'audit/audio2' });
     ['a player takes a charge: down he goes', (x) => has(x, 'fall') && has(x, 'body')],
     ['a post-up bump', (x) => has(x, 'body', 'post')],
     ['a jab step', (x) => has(x, 'step')],
+    ['a defender slides one way and back', (x) => has(x, 'squeak', 'slide')],
+    ['a closeout: a sprint at the shooter, then the stop', (x) => has(x, 'squeak', 'stop')],
+    ['a jump stop on the move', (x) => has(x, 'squeak', 'jumpstop')],
     ['a loose ball bounces out of bounds and rolls', (x) => x.ev.some((e) => e.n === 'bounce' && e.floor === 'apron') && x.ev.some((e) => e.n === 'bounce' && e.floor === 'courtside') && has(x, 'roll')],
   ];
   let ok = true;

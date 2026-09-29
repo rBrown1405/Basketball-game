@@ -114,8 +114,8 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       return c;
     }
     // the arena's impulse: noise under the decay envelope, darker as it decays (an arena's air and seats take the high
-    // end first: a one-pole lowpass gliding from reverb.hzStart to reverb.hzEnd), each 10 ms brought back to the
-    // noise's own level so the envelope, and so the reverb's level and length, is what it was (Trial 2)
+    // end first: a one-pole lowpass gliding from reverb.hzStart to reverb.hzEnd; it passes the lows at full level, so
+    // the reverb of anything low or middle, the crowd's bed, is what it was, and only the highs die away sooner)
     function impulse(c, secs, decay, fadeIn) {
       const R = PBC.AudioRandom.random, RV = C.reverb, sr = c.sampleRate;
       const n = Math.floor(sr * secs), buf = c.createBuffer(2, n, sr), blk = Math.floor(sr * 0.01);
@@ -124,10 +124,7 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
         let y = 0;
         for (let b0 = 0; b0 < n; b0 += blk) {
           const b1 = Math.min(n, b0 + blk), f = RV.hzStart * Math.pow(RV.hzEnd / RV.hzStart, b0 / n), a = 1 - Math.exp(-2 * Math.PI * f / sr);
-          let ei = 0, eo = 0;
-          for (let i = b0; i < b1; i++) { const w = R() * 2 - 1; y += a * (w - y); d[i] = y; ei += w * w; eo += y * y; }
-          const k = eo > 0 ? Math.sqrt(ei / eo) : 1;
-          for (let i = b0; i < b1; i++) d[i] *= k * Math.pow(1 - i / n, decay) * (i < fadeIn ? i / fadeIn : 1);
+          for (let i = b0; i < b1; i++) { y += a * (R() * 2 - 1 - y); d[i] = y * Math.pow(1 - i / n, decay) * (i < fadeIn ? i / fadeIn : 1); }
         }
       }
       return buf;

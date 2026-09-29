@@ -39,6 +39,7 @@
     const C = PBC.AudioConfig, K = C.court, Bus = PBC.AudioBus, R = PBC.AudioRandom;
     const mx = host.mx;
     const synth = PBC.CourtSynth.create(mx);
+    try { synth.warm(); } catch (e) { /* no audio yet: built on the first sound */ }
     const viewOf = () => (typeof host.view === 'function' ? host.view() : host.view);
     const speedOf = () => (host.speed ? +host.speed() || 1 : 1);
     const A = {
@@ -51,7 +52,8 @@
       act: new Map(),          // per body: air peak, last land / squeak / body sound, facing, yaw rate, hit seen
       pairs: new Map(),        // two players' contact state
       clipSeen: new WeakMap(), // a clip's events already sounded
-      squeaks: [],             // audio times of recent squeaks (the floor's window)
+      squeaks: [],             // audio times of recent squeaks (the floor's window, as their plants happen)
+      sqHeard: [],             // and when they are heard
       tokens: K.step.perSecond, tokenT: null,
       lastShow: null, rate: 1,
       hornAt: -1e9,
@@ -184,14 +186,19 @@
       const Q = K.squeak;
       if (isRef && !Q.refs) return;
       const acc = Math.hypot(brake, turn), vr = recentSpeed(s, gt, sp);
+      // a defender going sideways to the way the body faces (the animation's slide): its push-off is a slide's chirp
+      const sliding = DEF[a.stance] && (f.mode === 'step' || sideways(a, sp) >= Q.slideSideways);
       let kind = null, e = 0, odds = 0;
       if (sp < Q.pivotMaxSpeed && vr < Q.pivotMaxSpeed * 2 && s.yaw > Q.pivotYawRate) { kind = 'pivot'; e = clamp01((s.yaw - Q.pivotYawRate) / Q.pivotYawRate); odds = Q.pivotChance; }
-      else if (acc >= Q.minAccel && (turn > brake ? sp : vr) >= Q.minSpeed) {
+      else if (sliding && vr >= Q.slideMinSpeed && acc >= Q.slideMinAccel) {
+        // a slide: a hard push from jogging speed (a change of direction) as likely as a hard cut, a slide step at
+        // speed now and then
+        kind = 'slide';
+        if (acc >= Q.minAccel && vr >= Q.minSpeed) { e = clamp01((acc - Q.minAccel) / (Q.fullAccel - Q.minAccel)); odds = lerp(Q.chanceMin, Q.chanceMax, e); e = lerp(0.6, 1, e); }
+        else { e = clamp01((acc - Q.slideMinAccel) / (Q.minAccel - Q.slideMinAccel)) * 0.6; odds = Q.slideChance; }
+      } else if (acc >= Q.minAccel && (turn > brake ? sp : vr) >= Q.minSpeed) {
         // a cut at jogging speed or faster, or a stop out of it (by then the body may already be slower)
         kind = turn > brake ? 'cut' : 'stop'; e = clamp01((acc - Q.minAccel) / (Q.fullAccel - Q.minAccel)); odds = lerp(Q.chanceMin, Q.chanceMax, e);
-      } else if (sp >= Q.slideMinSpeed && acc >= Q.slideMinAccel && DEF[a.stance] && (f.mode === 'step' || sideways(a, sp) >= Q.slideSideways)) {
-        // a defender's slide (the animation's stride going sideways to the way he faces): a push off the sole
-        kind = 'slide'; e = clamp01((acc - Q.slideMinAccel) / (Q.minAccel - Q.slideMinAccel)) * 0.6; odds = Q.slideChance;
       }
       if (!kind) return;
       e = Math.max(Q.eMin, clamp01(e * Math.pow(mass, Q.massK)));
@@ -209,9 +216,9 @@
       if (!(h >= L.hMin)) { note('skip', 'land: low hop'); return; }
       const mass = massOf(a), e = lerp(L.eMin, L.eMax, clamp01((h - L.hMin) / (L.hMax - L.hMin))) * Math.pow(mass, L.massK);
       queue({ name: 'land', gt, e, mass, x: a.x, y: a.y, z: 0, pid: a.id, team: a.team, src: 'jump ' + h.toFixed(1) + ' ft' });
-      // a jump stop on the move: both feet skid
+      // landing on the move (a layup): both feet skid (a jump stop's own landing: see its clip in pollBodies)
       const Q = K.squeak;
-      if (sp >= Q.jumpStopSpeed && squeakGate(s, gt, Q.jumpStopChance)) queue({ name: 'squeak', kind: 'jumpstop', gt, e: Math.max(Q.eMin, clamp01(sp / 20)), x: a.x, y: a.y, z: 0, pid: a.id, team: a.team, src: 'jump stop at ' + sp.toFixed(1) });
+      if (sp >= Q.jumpStopSpeed && squeakGate(s, gt, Q.jumpStopChance)) queue({ name: 'squeak', kind: 'jumpstop', gt, e: Math.max(Q.eMin, clamp01(sp / 20)), x: a.x, y: a.y, z: 0, pid: a.id, team: a.team, src: 'landing on the move at ' + sp.toFixed(1) });
     }
     function onCatch(a, d, v) {
       if (Bus.wants('anim.catch')) Bus.emit('anim.catch', { pid: a ? a.id : null, team: a ? a.team : null, x: d.x, y: d.y, z: d.z, from: d.from || null });
@@ -219,7 +226,7 @@
       const spd = b ? Math.hypot(b.vx || 0, b.vy || 0, b.vz || 0) : 20;
       let e = lerp(K2.eMin, K2.eMax, clamp01((spd - K2.vMin) / (K2.vMax - K2.vMin)));
       if (d.from === 'loose' && spd < 8) e *= K2.looseSoft;
-      queue({ name: 'catch', gt: v.time, e, x: d.x, y: d.y, z: d.z, pid: a ? a.id : null, team: a ? a.team : null, src: 'ball ' + spd.toFixed(0) + ' ft/s' + (d.from ? ' from ' + d.from : '') });
+      queue({ name: 'catch', gt: v.time, e, x: d.x, y: d.y, z: d.z, pid: a ? a.id : null, team: a ? a.team : null, src: 'ball ' + spd.toFixed(0) + ' ft/s' + (d.from === 'loose' && spd < 8 ? ' (a loose ball, picked up)' : '') });
     }
     function onPass(a, d, v) {
       if (Bus.wants('anim.pass')) Bus.emit('anim.pass', { pid: a ? a.id : null, team: a ? a.team : null, x: d.x, y: d.y, z: d.z, dur: d.dur, bounce: d.bounce });
@@ -382,7 +389,7 @@
         if ((a.jumpZ || 0) > K.land.airZ) s.peak = Math.max(s.peak, a.jumpZ);
         if (a.kind !== 'player' || !onFloor(a)) continue;
         list.push(a);
-        // a fall's floor contact, a charge's collision, a post-up's bump, a jab step
+        // a fall's floor contact, a charge's collision, a post-up's bump, a jab step, a jump stop's landing
         const cs = a.clip;
         if (cs && cs.clip && cs.fired) {
           const nm = cs.clip.name;
@@ -392,6 +399,12 @@
             if ((ago = clipEvent(a, cs, 'floor')) != null) queue({ name: 'fall', gt: gt - ago, e: K.fall.level, mass: massOf(a), x: a.x, y: a.y, z: 0, pid: a.id, team: a.team, src: 'down on the floor' });
           } else if (nm === 'backdown') {
             if ((ago = clipEvent(a, cs, 'bump')) != null) bodyHit(a, null, gt - ago, 0.7, 'post', 'backing down');
+          } else if (nm === 'jumpStop') {
+            // a jump stop: the hop lands on both feet as the clip's own steps (not a jump's landing), still moving
+            if ((ago = clipEvent(a, cs, 'land')) != null) {
+              const Q = K.squeak, vr = recentSpeed(s, gt, a.speed || 0);
+              if (vr >= Q.jumpStopSpeed && squeakGate(s, gt - ago, Q.jumpStopChance)) queue({ name: 'squeak', kind: 'jumpstop', gt: gt - ago, e: Math.max(Q.eMin, clamp01(vr / 20)), x: a.x, y: a.y, z: 0, pid: a.id, team: a.team, src: 'jump stop at ' + vr.toFixed(1) });
+            }
           } else if (nm === 'jab') {
             if ((ago = clipEvent(a, cs, 'jab')) != null) {
               queue({ name: 'step', gt: gt - ago, e: 0.55 * Math.pow(massOf(a), K.step.massK), mass: massOf(a), x: a.x, y: a.y, z: 0, pid: a.id, team: a.team, src: 'jab step' });
@@ -425,10 +438,12 @@
           if (d < rs) {
             if (!p.on) {
               const nx = dx / (d || 1), ny = dy / (d || 1), vn = ((a.vx || 0) - (b.vx || 0)) * nx + ((a.vy || 0) - (b.vy || 0)) * ny;
-              if (vn >= B.minClosing && gt - p.last >= B.pairGapS) {
-                const kind = a.stance === 'screen' || b.stance === 'screen' ? 'screen' : a.stance === 'boxout' || b.stance === 'boxout' ? 'boxout' : a.stance === 'postUp' || b.stance === 'postUp' || a.stance === 'postD' || b.stance === 'postD' ? 'post' : 'bump';
-                if (bodyHit(a, b, gt, clamp01((vn - B.minClosing) / (B.fullClosing - B.minClosing)), kind, 'closing at ' + vn.toFixed(1) + ' ft/s')) p.last = gt;
-              }
+              const kind = a.stance === 'screen' || b.stance === 'screen' ? 'screen' : a.stance === 'boxout' || b.stance === 'boxout' ? 'boxout' : a.stance === 'postUp' || b.stance === 'postUp' || a.stance === 'postD' || b.stance === 'postD' ? 'post' : 'bump';
+              // (a box-out is a slow push into the man: heard from a lower closing speed)
+              const minC = kind === 'boxout' && B.boxoutMinClosing != null ? B.boxoutMinClosing : B.minClosing;
+              if (vn >= minC && gt - p.last >= B.pairGapS) {
+                if (bodyHit(a, b, gt, clamp01((vn - minC) / (B.fullClosing - minC)), kind, 'closing at ' + vn.toFixed(1) + ' ft/s')) p.last = gt;
+              } else if (vn < minC) note('skip', 'body: soft ' + kind + (vn >= 2 ? ' 2-' + minC + ' ft/s' : ' under 2 ft/s'));
             }
             p.on = true;
           } else if (d > rs * 1.15) p.on = false;
@@ -512,6 +527,14 @@
         if (d < -S.staleS) { note('skip', h.name + ': stale'); continue; }
         const late = d < 0 ? -d : null;
         d = Math.max(0, Math.min(S.maxAheadS, d + S.avOffsetMs / 1000));
+        // the floor's squeaks, counted again when they will be heard (a squeak let through as its plant happened can
+        // still sound a frame later than the one before it: the window is what the ear gets)
+        if (h.name === 'squeak') {
+          const at = now + d, Q = K.squeak;
+          while (A.sqHeard.length && A.sqHeard[0] <= at - 1) A.sqHeard.shift();
+          if (A.sqHeard.length >= Q.perSecond) { note('skip', 'squeak: floor window (heard)'); continue; }
+          A.sqHeard.push(at);
+        }
         h.dly = d;
         playHit(h, now + d, v, late);
       }
@@ -519,7 +542,8 @@
     function frame(dtReal) {
       if (A.destroyed) return;
       const v = viewOf();
-      if (!v || !mx.ctx) { A.q.length = 0; return; }
+      // (the broadcast court only: the retro court keeps no game time or camera to hear it by, text mode has no court)
+      if (!v || !mx.ctx || typeof v.time !== 'number' || !v.cam || typeof v.cam.project !== 'function') { A.q.length = 0; return; }
       if (v.replay) { A.q.length = 0; A.lastShow = null; return; }
       const ts = showTime(v);
       // game seconds a real second: the game's speed, or measured while the animation tools run their own clock

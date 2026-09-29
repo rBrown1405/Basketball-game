@@ -434,3 +434,353 @@ Also heard, and left to the trial that owns them (each is noted where it belongs
   `audit/audio1/ab_result.txt`).
 - **Still to come** (not this trial): squeaks that follow the feet, block and ball contact sounds at the right moment
   (Trial 2), the crowd bed (Trial 3), chants that follow the game (Trial 4), new voices (Trial 7).
+
+## Trial 2: the court
+
+Every sound the floor makes, from the court's own contacts, placed where it happens as the broadcast camera sees it.
+Built on Trial 1 (the bus, the mixer, the voices, the config, the console) and on the court exactly as the animation
+branch leaves it: no animation, ball or court file was changed. The court's audio hears what the court already reports
+(`view.sound`, `view.cue`) and reads, never writes, the rest of what it needs from the view each frame.
+
+No free sound library could be reached from where this was built (freesound, OpenGameArt, Kenney, Wikimedia Commons,
+archive.org, Sonniss, Pixabay and ZapSplat all refused the connection), so every court sound is made by this project
+from a small physical model of what makes it: the license is the game's own and nothing from anywhere else is in it.
+The sound packs Trial 1 built take over any sound they have (CC0 or CC BY recordings, each license checked by the
+packer), through the same path: a recording plays as a take, with the same jitter, physics and placement.
+
+### What was built
+
+```
+ court (untouched)                         js/ui/live.js (the hookup: 3 lines to the court's audio, 1 per frame)
+   view.sound: dribble, bounce, rim,         view.cue: plant, land,        every frame, read only: the ball's flight
+   board, swish/net, dunk, block,            catch, pass (shotResult       segments, bodies in contact, jump heights,
+   whistle, horn                             still goes to the tracker)    clip events (fall, bump, jab, jump stop), refs
+          │                                          │                                   │
+          ▼                                          ▼                                   ▼
+ ┌──────────────────────────── PBC.CourtAudio (js/audio/court.js) ──────────────────────────────────────────────┐
+ │  decides: a dribble's height, speed and floor spot; a squeak only on a hard plant; footsteps from running;    │
+ │  the rim's front, back or side; the net as the ball enters it; the block at the hand; the dunk at the rim ... │
+ │  when: the contact's exact game time → the audio time that moment is on screen (queued in the steps, played │
+ │  at the frame); where: the camera → pan, level, air, room                                                    │
+ └───────────────┬──────────────────────────────────────────────────────────────────────────────────────────────┘
+                 │ court.<sound> on the bus, with what made it, where, and when
+                 ▼
+ PBC.CourtSynth (js/audio/courtsynth.js): a take (12 per sound, a shuffled round robin) + pitch and level jitter +
+ the hit's physics → the model (or a pack's recording) → mixer voice → placement (level, air lowpass, pan, extra
+ room) → Court or Arena bus
+```
+
+- **When it plays.** The court runs fixed 1/60 s steps and draws the picture blended between the last two, so a
+  contact's moment on screen is known: the court's audio takes the contact's exact game time (a ball segment's start;
+  for a dribble, the step's time less the part of the step after the phase crossed the floor) and schedules the sound
+  for the audio time the drawn picture reaches it. A contact that is already on screen when its frame is drawn (at
+  high speed, or on a slow frame) plays at once; anything more than 0.25 s old is dropped rather than played late. The
+  master's two compressors delay everything 12 ms (6 ms look-ahead each, measured), which the scheduled sounds take
+  back (`sync.avOffsetMs`).
+- **Where it plays.** Each sound is projected through the broadcast camera: its pan follows where it is in the picture
+  (the edge of the picture pans 0.62 of the way, off the picture up to 0.8), its level the distance from the camera
+  (inverse distance to the 0.9, from +3 to -9 dB, centre court at 0 dB), 5 dB more off once it is off the picture, the
+  air takes the high end off further away (a lowpass from 18 kHz near to 5.5 kHz far) and the room comes up (an extra
+  reverb send, none at the near sideline, full at the far corners). The Court bus's own reverb send went down to 0.55
+  so distance can bring it up. A placed sound is as loud in the middle of the picture as it was unplaced (the panner's
+  3 dB is given back).
+- **Variation.** Every sound has 12 takes: each a fixed draw of every random part of its model (the same every game,
+  like a set of recordings), played in a shuffled round robin (a take does not come back until 9 others have played,
+  so any 10 in a row are 10 different takes), then a random ±2.5% of pitch and ±1.5 dB of level, a different stretch
+  of noise, and the hit's own physics.
+- **The ball** (dribble, bounce): a thump (the floor's give and the ball's squash, 165 falling to 62 Hz), the floor
+  under it (a board's resonance near 230 Hz), the pressurised air cavity ringing in the modes of a sphere (956, 1536,
+  2069, 2595, 2730, 3105, 3608, 4450 Hz for a 0.119 m ball; Russell, "Basketballs as spherical acoustic cavities") and
+  the pebbled cover's slap; 30% of the takes land on a seam (rings less, slaps lower and harder). A dribble's energy
+  comes from the ball's speed into the floor (time-scaled with the dribble, 10 to 32 ft/s), and its tightness from how
+  low and how quick it is (a low quick dribble rings shorter with less thump and more slap). A loose ball's bounce
+  from its speed down.
+- **The floor.** Every arena's floor has its own smooth field (±3.5% of pitch, ±1.2 dB over about 11 ft), an arena can
+  have up to two dead spots (a duller, hollow bounce: 4 dB down, the ring 10 dB down), out of bounds the wood runs on
+  for 6 ft (the apron) and past that the ball is in the courtside seats (muffled, 6 dB down, little ring), a roll
+  there too. The painted lanes and the logo give the cover's slap a little more bite, too little to pick out (the
+  ball's ring covers it: measured and left as it is).
+- **Sneakers.** A squeak is a stick-slip pulse train (the sole sticks and slips a few thousand times a second:
+  Harvard, Nature 2026) through the sole's resonance near 3.6 kHz, its rate wandering and its level chattering; a cut
+  glides up and back, a stop skids down, a pivot is a short high "eek", a slide a short chirp, a jump stop two quick
+  skids. It sounds only on a hard plant, the animation's own hard push (Trial 4 of the animation gauntlet: 18 ft/s² or
+  more across or against the way the body goes, from jogging speed, 10 ft/s, up, judged against the body's top speed
+  over the last 0.35 s so a stop counts), with odds rising from 25% to 80% with the force, a pivot turning faster than
+  5 rad/s on the spot, a defender's slide (a stride going sideways to the way the body faces, at 8 ft/s or more) at
+  15% (a hard change of direction in a slide as likely as a hard cut), a jump stop (its clip's own landing, by the
+  speed going into it); one player at most every 0.6 s, the floor at most 3 in any second. A heavier body plants
+  harder.
+- **Footsteps and landings.** A rubber sole on sprung wood: a low thud (heel then forefoot a few ms apart in most
+  takes), the board's knock, the sole's tap; lower and louder the heavier the body (mass from height cubed and build).
+  Only running bodies (12 ft/s up), at most 5 a second over the floor with the loudest and nearest first; walking and
+  the half-court shuffle stay silent, and at 4x and faster the footsteps drop out (only a patter at that pace). A
+  landing's size comes from how high the jump went (the peak the audio saw), both feet in one landing; a landing on
+  the move (a layup) adds a skid.
+- **Hands on the ball.** A catch is a slap of skin on leather with the ball's damped ring, as hard as the ball came in
+  (a loose ball scooped up softer); a pass release is a softer push, with a little air for a hard one (34 ft/s up).
+- **The rim.** A steel ring's bending modes (5/8 in rod, 18 in across: 164, 463, 888, 1436, 2106, 2900, 3815 Hz),
+  split in two by the clamp at the back (the shimmer), the tick of contact, the mount's thunk and the ball's own ring.
+  The part comes from the shot's line: in front of the rim's centre by 0.3 ft or more the front iron (rings longest),
+  behind it the back iron (near the mount: shorter, more of the high modes, the support thunking), else the side; a
+  soft touch; a second and later hit in one flight is a rattle. A ball rolling round the rim is the ring's modes
+  rubbed, as long as the roll and slowing with it, then the net as it drops.
+- **The glass.** The tempered plate's low modes (72 x 42 x 1/2 in: 37 to 330 Hz, a thwack; where on the glass the ball
+  hits sets which ones it drives), the frame's rattle and the ball's ring.
+- **The net.** A swish is only the net: nylon dragged over the ball (a band of noise sweeping up from 3.3 to 6.4 kHz)
+  and the net whipping at the end (a snap); it starts as the ball enters the net (the court announces a make as the
+  ball leaves it, 0.2 s later: the audio finds the moment in the ball's flight). A make off the rim is the rim's hit
+  and then a lower, slower brush with no snap. An air ball makes nothing at the hoop: the next sound is the floor.
+- **A dunk** plays as the ball goes through the rim (the court's call comes 0.12 s before, as the slam starts): the
+  front iron slammed and cut short by the hands, the breakaway rim rattling on its spring (5 to 8 taps at 24 to 33 Hz,
+  then 3 more 0.23 s later as the rim springs back), the glass and stanchion shaking (the plate's two lowest modes,
+  the frame's buzz), and the net whipped.
+- **A block** is the slap of the hand on the ball, at the moment the ball meets the blocker's hand (the court's call
+  comes at the release, 0.16 s early; the deflection it sounded as a floor bounce is not a floor contact any more).
+- **Bodies.** Two players' torsos coming within their radii with 4 ft/s or more of closing speed (a box-out, a slow
+  push into the man, from 2 ft/s), or a hit hard enough to knock one off balance (the court's collision response),
+  make one thud for the two of them: a bump, a screen (heavier, lower), a box-out (a longer push and a jersey's
+  rustle) or a post-up (a shoulder); a pair at most every 0.7 s. A charge's fall is the contact, then the body on the
+  floor at the fall's floor event (the seat, then the back, the hands slapping); a post-up's backing-down bump and a
+  jab step come from their moves' own events.
+- **The officials and the clocks.** The whistle comes from the official whose signal just started, as long as the call
+  (a foul 0.48 to 0.75 s, a charge a little longer, a violation 0.32 to 0.46 s, out of bounds shorter): a pealess
+  whistle's three chambers beating against each other, a breath, a chirp in, and in some blasts the pitch sags as the
+  breath runs out. The horn the court sounds with the game clock still running is the shot clock's buzzer (a rough
+  square buzz over the basket the offense attacks); with it at zero, the period's horn over the arena; the game's end
+  right after it is the same horn, not a second one.
+- **Rolling.** A ball rolling on the floor rumbles with its seams, slowing and stopping with the roll, and stops at
+  once when somebody picks it up.
+- **The mix around it.** The mixer (`js/audio/mixer.js`) places each voice (level, lowpass, pan, its own reverb send
+  through its bus's fader and mute / solo gate), can stop a voice early (a rolling ball picked up), and its recorder
+  now stamps every sample with the audio clock (`recording()`), so the tests line sounds up to the sample. The arena's
+  reverb got darker as it decays (an arena's air and seats take the highs first: from 9 kHz to 1.2 kHz over its 2.2 s,
+  the lows at their old level: the crowd's A/B is unchanged).
+- **The config** (`PBC.AudioConfig`): `court` (sync, place, floor, and every rule: dribble, bounce, squeak, step,
+  land, catch, pass, body, fall, roll, rim, board, whistle, buzzer, the horn's window, takes, jitter) and `courtSynth`
+  (every model's numbers); the sounds' buses, priorities, cooldowns and limits in `sounds`; the reverb's colour in
+  `reverb`. The squeak timer is gone.
+- **The console** shows each court sound with what made it (the plant's speed, braking and turning; the dribble's
+  tightness; the rim's part; the call), where it is, how far ahead it was scheduled or how late it came, the take it
+  played and its pan and level.
+- **Tests anyone can run**: `tools/audio/test/court.js`, `variety.js`, `shots.js`, `place.js`, `events.js`, `modes.js`
+  (see `tools/audio/README.md`), results in `audit/audio2/`.
+
+New parameters: everything under `court` and `courtSynth` in `js/audio/config.js`, `reverb.hzStart` / `hzEnd`, the new
+sounds in `sounds` (step, land, catch, pass, body, fall, roll, rimroll, buzzer). New assets: none. Every sound is
+generated at play time by the project's own code; no model, library or recording from anywhere else.
+
+### Listen test
+
+`node tools/audio/test/court.js`: seed 21 (the game Trials 0 and 1 listened to), 1x, 120 s, the arena's sound and the
+booth on (the stand-in speech engine, as in Trial 1). Every court sound on the bus next to what made it, when and
+where: `audit/audio2/court_trace.txt` (726 events), the first 400 foot plants and landings it heard in
+`court_trace_anim.txt`, the proofs in `court_result.txt` and the first minute at the speakers in `court_60s.webm`.
+Headless Chromium draws this court in software, about 23 frames a second (43 ms apart), so the timing below is against
+the frames it really drew. A possession in the far corner, a lob and a pull-up that swishes, as logged (real s, audio
+s, game clock, the event, what made it and where; then the sound: the take, the pan and the level):
+
+```
+ real s  audio s  clock        event            what (and where, ft)                               | sound
+ 17.632   16.390  Q1 11:49.1  court.dribble    v 0.55 Mills tight 0.61 at 5.9, 47.7            | dribble [take 4] pan -0.24 -1.5dB
+ 18.077   16.834  Q1 11:48.7  court.dribble    v 0.62 Mills tight 0.61 at 6, 47.7              | dribble [take 10] pan -0.24 -1.5dB
+ 18.500   17.261  Q1 11:48.3  court.dribble    v 0.62 Mills tight 0.61 at 6.1, 47.2            | dribble [take 5] pan -0.23 -1.6dB
+ 19.170   17.932  Q1 11:47.6  game.pass        UTA lob
+ 19.196   17.952  Q1 11:47.6  court.pass       v 0.48 Mills (ball 22 ft/s) at 5.8, 44.4, 6.6   | pass [take 4] pan -0.24 -0.6dB
+ 19.957   18.721  Q1 11:47.0  court.catch      v 0.53 Collins (ball 21 ft/s) at 13.3, 32.9, 6  | catch [take 9] pan -0.12 +0.2dB
+ 20.865   19.621  Q1 11:46.2  game.shot        Collins 2pt pullup UTA
+ 21.292   20.050  Q1 11:46.2  court.land       v 0.28 Collins (jump 0.9 ft) at 11.7, 29.5      | land [take 2] pan -0.14 +0.3dB
+ 21.342   20.103  Q1 11:46.2  court.land       v 0.35 Payton (jump 1.2 ft) at 9.4, 27.9        | land [take 10] pan -0.19 +0.5dB
+ 21.525   20.283  Q1 11:46.2  court.swish      v 1 (nothing but net) at 5.3, 25, 10            | swish [take 1] pan -0.3 +0.9dB
+ 21.671   20.431  Q1 11:46.2  game.shotResult  Collins swish, net (court)
+ 21.671   20.431  Q1 11:46.2  game.score       UTA +2, 0-2                                     | crowd.murmur
+ 22.465   21.220  Q1 11:45.9  court.bounce     v 0.9 (down at 22.7 ft/s) at 4.7, 26 paint     | bounce [take 5] pan -0.26 +1.1dB
+```
+
+The dribbles in the far corner sit left of centre and a little down (pan -0.24, -1.5 dB), each a different take; the
+lob is a soft pass (22 ft/s) and the catch as hard as the ball came in; the shooter's landing and the contesting
+defender's are as big as their jumps (0.9 and 1.2 ft); the swish plays as the ball enters the net, 0.15 s before the
+court calls the make; the ball's first bounce after it is on the paint under the basket. (Headless Chromium drew this
+court about 23 times a second, so most sounds are a few tens of ms late against the step they came from, each within a
+frame of the moment the picture shows it: below.)
+
+What the 120 s made: 117 dribbles, 385 footsteps (3.2 a second), 77 squeaks, 28 catches, 24 passes, 9 landings, 12
+body contacts (10 bumps and 2 box-outs), 7 loose-ball bounces, 3 rim hits, a swish, a dunk and 2 whistles. The mixer
+played 671 sounds, never more than 7 at once, stole nothing and refused nothing. The court's audio held back, by its
+own rules, 348 footsteps over the floor's budget and 20 too quiet, 198 hard plants that did not squeak (the odds, one
+player's gap, the floor's window) and 82 contacts too soft to hear.
+
+Every dribble's sound was scheduled within one drawn frame of the moment its contact is on screen (117 of 117; median
+18 ms after it, the frames 43 ms apart) and started with the first frame that shows the ball down (median 0 ms); at
+the speakers the 114 dribbles clear of other sharp sounds began 17 ms after their scheduled start (the compressors'
+look-ahead and the hit's own rise), every one within two frames of the picture. The 77 squeaks (38 a minute, from 2.0%
+of 3,770 foot plants and landings) were 39 stops, 20 slides, 11 cuts and 7 pivots, each with its plant's speed,
+braking and turning in the trace, never more than 3 in any second on the floor or 2 by one player.
+
+### Devil's advocate: what a fan would say, and the fixes
+
+The first runs of the finished build (a live game with every court sound traced next to what made it, and the variety
+test) found three things a fan would say at once:
+
+1. **"The sneakers never stop squeaking."** 79 squeaks a minute in the first run. The first rule squeaked on any plant
+   with 18 ft/s² of braking or turning, whatever the speed, so a player easing out of a walk squeaked like a hard cut.
+   Fixed: a squeak needs the animation's own hard push from jogging speed (10 ft/s) up, a stop judged by how fast the
+   body was going over the last 0.35 s (by the plant it has already slowed), with odds rising from 25% to 80% with the
+   force (a hard plant does not always squeak), one player at most every 0.6 s and the floor at most 3 in any second.
+   On the final listen test: 38 a minute, from 2.0% of the foot plants, in bursts on cuts, closeouts and stops, and
+   none while players walk or stand.
+2. **"The footsteps sound like rain."** 12 footsteps a second in the first run: every jogging plant of ten players and
+   three officials, a patter under everything. Fixed: running bodies only (12 ft/s up; walking, the jog back and the
+   half-court shuffle stay silent, as the court mics on a broadcast mostly catch the running), at most 5 a second over
+   the floor with the loudest and nearest first, the officials at half level. On the final listen test: 3.2 a second.
+3. **"It's the same dribble over and over."** On the first variety test 17 of the 33 sounds had two hits among ten in
+   a row that a listener could not tell apart (the dribble, the bounce, the footstep, the landing, the pass, the body
+   contacts, the fall, the glass, the roll, the whistle, the buzzer and the horn). Each hit took a fresh stretch of
+   noise but the same shape, and fresh noise alone is not a different sound. Fixed: 12 takes a sound, each a fixed
+   draw of every part of its model (a panel or a seam meeting the floor; heel then forefoot, or flat; where on the
+   glass; how the whistle's blast starts and sags; how long the horn holds and swells), in a shuffled round robin so a
+   take is not heard again for 9 others, with ±2.5% of pitch and ±1.5 dB on top. Final: 33 of 33. The test's first
+   rule only counted a change in the spectrum's shape (1.5 dB in some third-octave band); a whistle or a horn is one
+   strong tone whose takes differ in pitch and length rather than shape, so the rule now counts any difference past
+   what a listener can hear (1 dB of level, 1% of pitch, 1.5 dB in a band, 15% in how long it rings) and still fails
+   any two hits whose waveforms correlate at 0.98 or more. The smallest band difference of each sound is still in the
+   result.
+
+Also found while proving the rest, and fixed:
+- **A sound in the middle of the picture was 3 dB louder than one just beside it.** A sound panned dead centre skipped
+  the panner, and Web Audio's equal-power panner puts a centred sound 3 dB down in each ear. Every placed sound now
+  goes through the panner, with the 3 dB given back.
+- **The far end sounded as dry as the near sideline.** The Court bus sent everything to the arena's reverb at one
+  level, so distance added little room. The bus's own send went down to 0.55 and the placement's extra send goes from
+  none at the near sideline to full at the far corners: now 4.3 to 4.9 dB more tail against the direct sound there.
+- **The far end sounded brighter, not duller.** More room meant more of a reverb tail as bright as the sound itself,
+  and the air's lowpass had a small bump at its corner (Web Audio reads a lowpass's Q in dB; 0.55 was meant as a plain
+  Q). The tail now darkens as it decays (9 kHz to 1.2 kHz over its 2.2 s, the lows untouched, so the crowd's A/B is
+  unchanged) and the lowpass is flat (Q -3.01 dB, a Butterworth).
+- **Two thuds for one collision.** Both players of a contact reported it: now one thud a pair.
+- **A defender's slide never squeaked.** The gait tells a slide from a run by its stride going sideways, not by a mode
+  of its own, so the rule never saw one: a stride 60% or more sideways to the facing, at 8 ft/s or more, is a slide.
+  The final review's test of a defender sliding one way and back found the next thing: each hard change of direction
+  came out as a stop's long skid, as the stop rule was asked first. A hard push going sideways in a defensive stance
+  is now a slide's short chirp (as likely as a hard cut); a slide step at speed still chirps now and then (15%).
+- **A jump stop never squeaked** (found in the final review, by a test that makes one): the jump stop's hop lands as
+  two steps of its own clip, not as a jump's landing, so the landing rule never saw it, and the two plants looked like
+  running steps (12 ft/s, the braking still to come). The court's audio now hears the clip's own landing, as it hears
+  a charge's fall or a jab, and skids it by the speed going into it.
+- **Some hits ticked and others did not** (found in the final review, by the floor test: the same take measured
+  differently at different spots). Every envelope started from 0 at the hit's time, but a Web Audio gain sits at 1
+  until its first event, and when a hit started between two samples a noise burst's first sample went through at full
+  level: the same dribble, started at different moments, came out with or without a hard tick above 5 kHz (16 to 19 dB
+  more energy up there) about half the time. Every envelope now starts its gain at its first value, and the same
+  dribble started anywhere is the same to the sample's rounding. The crowd's reactions (Trial 1's arena audio) had the
+  same fault and have the same fix (their A/B levels below).
+- **The retro court was being listened to as well** (found in the final review, by reading the code): the court's
+  audio read its bodies every frame, but the retro court keeps no game time, so their speed history grew with every
+  frame and nothing could ever be heard from it. The court's audio now listens to the broadcast court only (the retro
+  court and text mode have no court sounds; `modes.js` checks both).
+- **The first court sound of a game cost up to 9.8 ms of the main thread** (building the shared noise and waveforms):
+  they are built when the court's audio starts.
+- **Every scheduled sound came 12 ms late at the speakers.** The master's two compressors look 6 ms ahead each
+  (measured on the recorder: 12.07 ms). A sound scheduled ahead now starts 12 ms earlier (`sync.avOffsetMs`); one that
+  is already late plays at once.
+- **At 4x the court cost frames.** The same seeded game frame for frame with the audio on and off (`perfsame.js`): at
+  1x the audio added 0.3 ms a frame, inside the 1.0 ms that the same setting varies from round to round, but at 4x it
+  added 1.8 ms, past the 1.2 ms spread. Each court sound takes 0.5 to 0.7 ms of the main thread to build (a rim 1.3
+  ms, a dunk 3 ms: 20 to 180 Web Audio nodes), and at 1x over half of them are footsteps. The footsteps now drop out
+  at 4x and faster, where the running is only a patter: the same test on the final code at 4x shows +0.5 ms a frame
+  (+1.3 ms at the 99th percentile), inside that run's round-to-round spread (4.0 ms), with half as many sounds (310 a
+  run instead of 652).
+
+### Scorecard
+
+| Criterion | Result | Evidence |
+|---|---|---|
+| Every dribble sound plays within a frame or two of the ball's contact | PASS | `court.js`, 120 s of a live game: all 117 dribbles scheduled within one drawn frame of the moment the contact is on screen (median 18 ms after it, the frames 43 ms apart in headless Chromium), starting with the first frame that shows the ball down (median 0 ms); their onsets found in the recording at the speakers within two frames of that moment, 114 of the 114 clear of other sharp sounds (`court_result.txt`) |
+| Squeaks only on real plants and cuts, never spam | PASS | `court.js`: 77 squeaks (38 a minute) from 3,770 foot plants and landings (2.0%), each with its plant's speed, braking and turning in the trace; every cut and stop a hard push (18 ft/s² or more from 10 ft/s or faster); never more than 3 in any second as heard, 2 by one player; none from a timer. `events.js`: a defender's slide, a closeout and a jump stop each squeak |
+| The same sound played 10 times in a row never sounds identical | PASS | `variety.js`: 33 of 33 sounds, ten in a row with the same physics, the exact samples: no two hits correlating at 0.98 or more, every pair apart by a difference a listener can hear, no take twice running (`variety_result.txt`; four of them as `variety_*.webm`) |
+| Swish, rim-in and air ball clearly different | PASS | `shots.js`, the court's own ball physics: at the hoop the swish is the net alone (1.6% rim metal, 78% of its energy in the net's 3 to 9 kHz), the make off the rim is the iron and then the net (85% rim metal), the air ball makes nothing there (-88 dB, 50 dB under the others) (`shots_result.txt`, `swish_rimin_airball.webm`) |
+| Dribbles: level and tone from the height, the force, the camera's distance and the floor; a low quick one tighter; every bounce different | PASS | each dribble's energy from the ball's speed into the floor and its tightness from how low and quick it is (both in the trace); `variety.js`: a hard dribble 11 dB over a soft one, the low quick one 3.1 dB less energy than a high one at the same peak (a shorter ring, less thump), on an arena's floor the field moves the level 2.1 dB from spot to spot, a dead spot is 4 dB down with its ring 10 dB down, the seats 9 dB down and muffled (the centroid from 989 to 159 Hz); `place.js`: the distance (below); ten in a row never alike (above) |
+| Squeaks on hard cuts, plants, pivots, closeouts and slides, by the plant's force | PASS | the listen test's squeaks by kind (39 stops, 20 slides, 11 cuts, 7 pivots), each with its plant; `events.js`: a slide, a closeout, a jump stop, a jab; the level, length and odds rise with the force (`court.squeak`) |
+| Footsteps: soft thuds, heavier for bigger players, landings | PASS | 3.2 a second from running bodies only, lower and louder with the body's mass; each landing as big as its jump (0.9 ft: v 0.28, 1.2 ft: v 0.35 in the excerpt above) |
+| The ball: catches, passes, the rim's front and back, a soft roll, the glass, the net, out of bounds, rolling | PASS | the listen test's 28 catches and 24 passes (as hard as the ball's speed); `shots.js`: front, back and side iron, a rattle, a roll round the rim and in, the glass in and out; `events.js`: a loose ball on the apron and into the seats, then rolling |
+| Dunks: the rim's rattle and the glass shaking | PASS | the dunk: the iron slammed, the breakaway rim's spring taps and its rebound, the glass's two lowest modes and the frame's buzz, the net whipped; `shots.js`: it plays as the ball goes through the rim (0.12 s after the court's call), 69% rim metal at the hoop; `variety_dunk` |
+| Body contact: screens, box-outs, post-ups, falls | PASS | the listen test: 10 bumps and 2 box-outs (a box-out heard from 2 ft/s of closing speed); `events.js`: a charge (the contact, then the floor), a post-up's bump; `variety.js`: a screen, a box-out and a post-up each ten times |
+| Whistles, the shot clock's buzzer, the end of quarter horn | PASS | `events.js`: a whistle for a foul, a charge, a violation and out of bounds, each from the official signalling and as long as the call; the buzzer with the game clock running, over the basket; the period's horn at 0:00 over the arena; the game's end right after it the same horn, not a second; the game's end alone its own horn |
+| Everything panned and attenuated from the broadcast camera | PASS | `place.js`, the same dribble at ten spots measured in stereo at the speakers: the near sideline's ends 8.9 dB and the far corners 9.6 dB to their side, centre court and the sidelines' middles centred (0.0 dB), the near sideline 2.0 dB louder and the far one 1.7 dB quieter than centre court, off the picture 16 dB to its side and 6.4 dB down; the far corners 4.3 to 4.9 dB more room and 1.1 dB less above 4 kHz than the near sideline |
+| Audio never costs a frame | PARTIAL | the main thread: the same seeded game frame for frame with the audio on and off (`perfsame_before_result.txt`, before the merge and the fix) adds 0.3 ms a frame at 1x, inside the 1.0 ms round-to-round spread; at 4x it added 1.8 ms until the footsteps dropped out there, and on the final code 0.5 ms, inside that run's 4.0 ms spread (`perfsame_result.txt`); the audio's own work each frame (`perf_result.txt`: the bus, the court's audio, the mixer, the booth) is 0.35 ms on average and 1.8 ms at the 99th percentile at 1x, 0.72 and 2.6 ms at 4x. Not proven: headless Chromium draws the court in software on the same 4 cores as the audio thread, and in two of three unpaired runs it drew about 8% fewer frames with the audio on (20.4 against 22.1 a second at 1x in the last; 22.7 against 22.6 in the first); a GPU-drawn browser was not measured here |
+| Every tunable in one config | PASS | `court` and `courtSynth` in `js/audio/config.js` (every rule and every model's numbers), the sounds' buses, priorities and caps in `sounds`, the reverb's colour in `reverb` |
+| Everything free and licensed | PASS | nothing from outside: every court sound is generated by the project's own code (Trial 1's packs can bring in CC0 or CC BY recordings, licenses checked by the packer) |
+| Earlier trials still pass | PASS | the regression check below |
+
+### Regression check
+
+Everything Trial 1 proved, rerun on the final code, merged with the animation session's latest work (results in
+`audit/audio2/`):
+- **The audio never changes the game** (`same.js`): seeds 21 and 33 with the audio all on, all off and the arena only:
+  the same play-by-play, box score and court fingerprint (`same_result.txt`: IDENTICAL, both seeds). The court's audio
+  reads the view and never writes to it, and draws only from the audio's own random numbers.
+- **The duck** (`duck.js`): PASS with the same numbers as Trial 1 (bed -6 dB, cheers -3 dB, no surges, no chop).
+- **Voice limits and priority** (`voices.js`): 10 of 10, with the court's new sounds in the caps.
+- **Mute and solo on every bus in a live game** (`mutesolo.js`): 10 of 10.
+- **The A/B against Trial 0's code** (`ab.js`, the same random variations on both sides): every crowd sound within
+  0.12 dB and the bed within 0.10 dB, with the envelope fix in the crowd's reactions. The court's sounds are new by
+  design (their levels next to the old ones are in `variety_result.txt`: the dribble sits 4 to 7 dB under the old one
+  on average with the same peak, a sharper hit with less boom; the squeak is louder, as it now only comes on a real
+  plant).
+- **Trial 1's listen test** (`listen.js`, the same game as Trials 0 and 1): all six shots' results came from the court
+  when the ball got there (the misses at the rim after 1.2 and 1.3 s, the makes at the net after 0.3 to 2.0 s) and the
+  crowd's "ooh" and murmur came with the rim; no `timer.squeak`; the crowd sat 5.6 dB down (the bed) and 2.8 dB
+  (reactions) while the booth talked, with no surges and no chops; 781 sounds, never more than 7 at once; the mixer's
+  own time building and playing them 458 ms over the 150 s (0.3% of the main thread); no errors (`listen_result.txt`).
+- **Frame time**: on the main thread the audio's work fits (the scorecard's row: paired frames within the
+  round-to-round spread at 1x and, since the footsteps drop out there, at 4x; 0.35 ms a frame on average at 1x). What
+  is not proven is the whole pipeline in headless Chromium, which draws in software on the cores the audio thread also
+  uses: two of three unpaired runs drew about 8% fewer frames with the audio on. Left open for the next trial that
+  touches performance: fewer Web Audio nodes a hit (a court sound builds 12 to 180 of them; takes rendered once and
+  replayed would build 2 or 3) and a measurement in a browser that draws with its GPU.
+- **Trial 1's list for Trial 2** is done: the squeaks come from the feet (no `timer.squeak` anywhere in the logs), the
+  block sounds at the blocker's hand and its deflection makes no floor sound.
+- **The animation branch's court is untouched**: this trial changed `js/audio/`, `js/ui/arenaaudio.js`, the hookup
+  lines in `js/ui/live.js` and two script tags in `index.html`, nothing else; the animation gauntlet's own checks
+  (`tools/audit/check.js`): 116 of 116, on the code merged with the animation session's latest work (its Trial 10
+  commits).
+- **Other ways to watch**: `modes.js` (seed 21 at 2x, 70 s each, the arena's sound on): the retro court and
+  play-by-play only make no court sounds and no errors, and every shot's result is still heard (the retro court's 13
+  from its own ball, text mode's 8 with the text); on the broadcast court an instant replay (52 to 60 s) had no court
+  sound in it, and the court's sounds came back after it (73) (`modes_result.txt`).
+
+### What to listen for
+
+- **The clips** in `audit/audio2/` (headphones):
+  - `court_60s.webm`: the first minute of the listen test at the speakers (dribbles, squeaks on the cuts and stops,
+    the running, passes and catches, the rim, the crowd).
+  - `swish_rimin_airball.webm`: a swish (the net alone), a make off the rim (the iron, then a slower brush of the
+    net), an air ball (nothing until the floor).
+  - `shots_all.webm`: every kind of shot in turn (front, back and side iron, a rattle, the glass, a roll round the
+    rim, a dunk, a block).
+  - `place.webm`: the same dribble at ten spots, centre court first, then the near and far sidelines, the corners, the
+    rim and off the picture: it moves across, gets quieter, duller and roomier as it goes away.
+  - `events.webm`: a whistle for each kind of call, the shot clock's buzzer, the period's horn (and no second horn for
+    the game's end right after it), a charge, a post-up, a jab, a defender's slide, a closeout, a jump stop and a
+    loose ball into the seats.
+  - `variety_dribble.webm`, `variety_squeak_cut.webm`, `variety_rim_front.webm`, `variety_whistle.webm`: one sound ten
+    times in a row, the same physics each time.
+- **In a game**:
+  - a dribble lands when the ball does. A low, quick crossover is tighter and slappier than a high dribble bringing
+    the ball up; every bounce is a little different; the floor changes from spot to spot, and a dead spot thuds.
+  - squeaks come in bursts where the play is hard (a cut off a screen, a closeout, a stop at the elbow, a pivot, a
+    defender's slide, a jump stop) and not while players walk or stand.
+  - the running: a fast break thuds, a big man's steps are lower and heavier, a rebound's landing is as big as the
+    jump.
+  - the rim: the front iron rings long, the back iron is shorter with the support's thunk, a ball rolling round the
+    rim rubs, then drops through. A swish is only the net; an air ball is silent until the floor.
+  - a dunk: the iron slammed, the rim rattling on its spring, the glass shaking, the net whipped.
+  - the whistle comes as the official signals and lasts as long as the call; the shot clock's buzzer sits over the
+    basket; the period's horn fills the arena; the game's end is one horn.
+  - everything sits where it is in the picture: from the near sideline the ball is close and dry, in the far corner it
+    is small, dull and roomy.
+- **The console** (A): each court sound's line says what made it (the plant's speed, braking and turning; the
+  dribble's tightness; the rim's part; the call), where it is, how far ahead it was scheduled or how late it came, and
+  the take, pan and level it played with.
+- **Still to come** (not this trial): the crowd bed (Trial 3), chants that follow the game (Trial 4), the booth's new
+  voices (Trial 7) and set calls on time (Trial 8), the whole mix's loudness (Trial 9). Recorded sound packs (CC0) can
+  replace any of the modelled sounds through the packer when a library can be reached.

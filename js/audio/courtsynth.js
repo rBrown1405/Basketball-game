@@ -90,15 +90,18 @@
       }
       return s;
     }
+    // (every envelope sets its gain's own value to where it starts, 0, as well as the first event: a GainNode is at 1
+    // until its first event, and at a start between two samples a noise burst's first sample went through at full
+    // level, a click on some hits and not others)
     /** a decaying sine (one mode of a body): f in Hz, or [from, to] gliding over sweepS; attack a, then e^(-t/tau) */
     function mode(V, ctx, dest, f, amp, tau, t, a, sweepS) {
       if (!(amp > 1e-6) || !(tau > 0)) return null;
       const o = ctx.createOscillator(), g = ctx.createGain();
       const f0 = Array.isArray(f) ? f[0] : f;
-      o.frequency.setValueAtTime(f0, t);
+      o.frequency.value = f0; o.frequency.setValueAtTime(f0, t);
       if (Array.isArray(f)) o.frequency.exponentialRampToValueAtTime(f[1], t + (sweepS || tau * 3));
       a = a || 0.0015;
-      g.gain.setValueAtTime(0, t);
+      g.gain.value = 0; g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(amp, t + a);
       g.gain.setTargetAtTime(0, t + a, tau);
       o.connect(g); g.connect(dest);
@@ -117,10 +120,10 @@
       const len = a + hold + tau * 6;
       flt.type = type;
       const f0 = Array.isArray(f) ? f[0] : f;
-      flt.frequency.setValueAtTime(f0, t);
+      flt.frequency.value = f0; flt.frequency.setValueAtTime(f0, t);
       if (Array.isArray(f)) flt.frequency.exponentialRampToValueAtTime(f[1], t + len);
       flt.Q.value = q;
-      g.gain.setValueAtTime(0, t);
+      g.gain.value = 0; g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(amp, t + a);
       if (hold) g.gain.setValueAtTime(amp, t + a + hold);
       g.gain.setTargetAtTime(0, t + a + hold, tau);
@@ -288,7 +291,7 @@
         fo.type = 'sawtooth'; fo.frequency.value = lerp(Sh.frameHz[0], Sh.frameHz[1], u());
         ff.type = 'lowpass'; ff.frequency.value = 700;
         am.frequency.value = Sh.frameAm; amg.gain.value = bpk * Sh.frameAmp * 0.5;
-        fg.gain.setValueAtTime(0, t); fg.gain.linearRampToValueAtTime(bpk * Sh.frameAmp * 0.5, t + 0.01); fg.gain.setTargetAtTime(0, t + 0.01, Sh.tau * 0.6);
+        fg.gain.value = 0; fg.gain.setValueAtTime(0, t); fg.gain.linearRampToValueAtTime(bpk * Sh.frameAmp * 0.5, t + 0.01); fg.gain.setTargetAtTime(0, t + 0.01, Sh.tau * 0.6);
         am.connect(amg); amg.connect(fg.gain); fo.connect(ff); ff.connect(fg); fg.connect(V.out);
         const st = t + 0.01 + Sh.tau * 0.6 * 7;
         for (const o of [fo, am]) { o.start(t); o.stop(st); V.src(o, st); }
@@ -317,7 +320,7 @@
         lg.gain.value = dep * 0.5; am.gain.value = 1 - dep * 0.5;
         lfo.connect(lg); lg.connect(am.gain);
         // the level follows the speed (linear slowing: level ~ speed)
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + 0.03); g.gain.linearRampToValueAtTime(pk * 0.08, t + T); g.gain.setTargetAtTime(0, t + T, 0.05);
+        g.gain.value = 0; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + 0.03); g.gain.linearRampToValueAtTime(pk * 0.08, t + T); g.gain.setTargetAtTime(0, t + T, 0.05);
         s.connect(lp); lp.connect(bp); bp.connect(g); g.connect(am); am.connect(V.out);
         const stop = t + T + 0.4;
         s.start(t, R.random() * 1.5); s.stop(stop); lfo.start(t); lfo.stop(stop);
@@ -333,7 +336,7 @@
         sum.gain.value = 4;
         const lfos = Rr.am.map((hz) => { const o = ctx.createOscillator(), lg = ctx.createGain(); o.frequency.value = hz * lerp(0.85, 1.15, u()); lg.gain.value = Rr.amDepth * 0.25; o.connect(lg); lg.connect(am.gain); return o; });
         am.gain.value = 1 - Rr.amDepth * 0.5;
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + 0.02); g.gain.linearRampToValueAtTime(pk * 0.45, t + T); g.gain.setTargetAtTime(0, t + T, 0.03);
+        g.gain.value = 0; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + 0.02); g.gain.linearRampToValueAtTime(pk * 0.45, t + T); g.gain.setTargetAtTime(0, t + T, 0.03);
         sum.connect(g); g.connect(am); am.connect(V.out);
         const stop = t + T + 0.25;
         s.start(t, R.random() * 1.5); s.stop(stop); V.src(s, stop);
@@ -344,7 +347,7 @@
         const W = CS.whistle, u = p.u, t = V.t0, len = Math.max(0.15, p.len || 0.4), pk = W.peak * p.lm * Math.max(0.5, p.e);
         const f = lerp(W.hz[0], W.hz[1], u()) * p.pm;
         const g = ctx.createGain(), wob = ctx.createOscillator(), wg = ctx.createGain();
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + W.a); g.gain.setValueAtTime(pk, t + len - W.rel); g.gain.linearRampToValueAtTime(0, t + len);
+        g.gain.value = 0; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + W.a); g.gain.setValueAtTime(pk, t + len - W.rel); g.gain.linearRampToValueAtTime(0, t + len);
         wob.frequency.value = lerp(W.wobble[0], W.wobble[1], u()); wg.gain.value = pk * W.wobbleDepth; wob.connect(wg); wg.connect(g.gain);
         g.connect(V.out);
         const stop = t + len + 0.02;
@@ -366,7 +369,7 @@
         const S = shared(ctx);
         const g = ctx.createGain(), lp = ctx.createBiquadFilter(), am = ctx.createOscillator(), amg = ctx.createGain();
         lp.type = 'lowpass'; lp.frequency.value = Bz.lpHz;
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + Bz.a); g.gain.setValueAtTime(pk, t + len - Bz.rel); g.gain.linearRampToValueAtTime(0, t + len);
+        g.gain.value = 0; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + Bz.a); g.gain.setValueAtTime(pk, t + len - Bz.rel); g.gain.linearRampToValueAtTime(0, t + len);
         am.frequency.value = Bz.am * lerp(0.85, 1.15, u()); amg.gain.value = pk * Bz.amDepth * lerp(0.6, 1.3, u()); am.connect(amg); amg.connect(g.gain);
         const f = lerp(Bz.hz[0], Bz.hz[1], u()) * p.pm;
         const stop = t + len + 0.02;
@@ -379,7 +382,7 @@
         const g = ctx.createGain(), lp = ctx.createBiquadFilter(), vib = ctx.createOscillator();
         lp.type = 'lowpass'; lp.frequency.value = H.lpHz;
         const att = lerp(H.attack[0], H.attack[1], u()), swell = lerp(H.swellDepth[0], H.swellDepth[1], u());
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + att); g.gain.setValueAtTime(pk, t + len); g.gain.linearRampToValueAtTime(0, t + len + H.rel);
+        g.gain.value = 0; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + att); g.gain.setValueAtTime(pk, t + len); g.gain.linearRampToValueAtTime(0, t + len + H.rel);
         vib.frequency.value = H.vib[0];
         const stop = t + len + H.rel + 0.05;
         const top = u() < H.topShare;   // (some horns have a fourth, higher voice)
@@ -416,7 +419,7 @@
       rough.frequency.value = lerp(Q.rough[0], Q.rough[1], u()); rg.gain.value = pk * Q.roughDepth; rough.connect(rg); rg.connect(g.gain);
       hp.type = 'highpass'; hp.frequency.value = Q.hpHz;
       res.type = 'peaking'; res.frequency.value = Q.resHz * lerp(0.85, 1.15, u()); res.Q.value = Q.resQ; res.gain.value = 9;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + Q.a);
+      g.gain.value = 0; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + Q.a);
       if (p.kind === 'stop') g.gain.linearRampToValueAtTime(pk * 0.55, t + Math.max(Q.a, dur - Q.rel));
       else g.gain.setValueAtTime(pk, t + Math.max(Q.a, dur - Q.rel));
       g.gain.linearRampToValueAtTime(0, t + dur);
@@ -458,7 +461,7 @@
       s.buffer = buf;
       s.playbackRate.value = p.pm;
       const lv = p.lm * Math.max(0.05, Math.min(1.3, p.e == null ? 1 : p.e));
-      g.gain.setValueAtTime(lv, V.t0);
+      g.gain.value = lv; g.gain.setValueAtTime(lv, V.t0);
       if (p.tight != null) g.gain.setTargetAtTime(0, V.t0 + lerp(0.12, 0.05, clamp01(p.tight)), 0.03);
       s.connect(g); g.connect(V.out);
       const stop = V.t0 + buf.duration / p.pm + 0.02;
@@ -498,6 +501,9 @@
 
     return {
       play,
+      /** build what every sound shares (the noise, the squeak's and buzzer's waves) now, when the game's audio starts,
+       *  not on the first hit in the middle of play (it takes a few ms once) */
+      warm() { if (mx.ctx) shared(mx.ctx); },
       has: (name) => !!SND[name],
       names: () => Object.keys(SND),
       /** for tests: which take a bank played last */

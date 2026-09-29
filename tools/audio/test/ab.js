@@ -4,6 +4,7 @@
 // Math.random calls are pointed at the same xorshift the new code's PBC.AudioRandom uses, same seed, same order), so
 // both play exactly the same variations:
 //  - one-shots (the crowd bed off in both): mean energy and peak of N hits of every court sound and crowd reaction
+//    (since Trial 2 the court's sounds are new by design: their rows are information, the crowd's must still match)
 //  - the crowd bed once settled, then the duck while the booth talks for 3 s (depth, attack, release)
 //   node tools/audio/test/ab.js [--rev 8baee19] [--nc 6] [--nr 4] [--out audit/audio1]
 'use strict';
@@ -87,6 +88,9 @@ async function side(browser, which) {
     await sleep(300);
     const hits = [];
     for (const [n, v] of COURT) for (let k = 0; k < NC; k++) { hits.push({ key: n, t: c.currentTime, w: n === 'horn' ? 1.5 : 0.8 }); A.au.play(n, v); await sleep(n === 'horn' ? 1700 : 1000); }
+    // (the same random numbers again for the crowd on both sides: since Trial 2 the court's sounds draw a different
+    // number of them, and the crowd's variations must still line up)
+    seed(123456789);
     for (const [label, oe, ne] of CROWD) for (let k = 0; k < NR; k++) {
       hits.push({ key: label, t: c.currentTime, w: 4.2, crowd: true });
       if (which === 'old') A.au.onEvent(JSON.parse(JSON.stringify(oe)), null); else PBC.AudioBus.emit(ne[0], JSON.parse(JSON.stringify(ne[1])));
@@ -130,17 +134,17 @@ const db = (ms) => 10 * Math.log10(Math.max(1e-12, ms));
   await browser.close();
   fs.rmSync(tmp, { recursive: true, force: true });
   const L = [`A/B: the arena audio of ${o.rev} (old) against the working copy (new), the same random variations on both sides`, '', 'One-shots: mean energy of the hits in their window (dBFS), crowd bed off in both'];
-  const diffs = [];
-  const row = (k, a, b) => {
+  const diffs = [], crowdDiffs = [];
+  const row = (k, a, b, crowd) => {
     const ea = a.reduce((s, m) => s + m.ms, 0) / a.length, eb = b.reduce((s, m) => s + m.ms, 0) / b.length;
     const pa = Math.max(...a.map((m) => m.pk)), pb = Math.max(...b.map((m) => m.pk)), d = db(eb) - db(ea);
-    diffs.push(d);
-    L.push(`${k.padEnd(28)} old ${db(ea).toFixed(1).padStart(6)}  new ${db(eb).toFixed(1).padStart(6)}  diff ${(d >= 0 ? '+' : '') + d.toFixed(2)} dB   peak old ${(20 * Math.log10(pa)).toFixed(1)} new ${(20 * Math.log10(pb)).toFixed(1)} dBFS  ${Math.abs(d) <= 1 ? 'OK' : 'OVER 1 dB'}`);
+    diffs.push(d); if (crowd) crowdDiffs.push(d);
+    L.push(`${k.padEnd(28)} old ${db(ea).toFixed(1).padStart(6)}  new ${db(eb).toFixed(1).padStart(6)}  diff ${(d >= 0 ? '+' : '') + d.toFixed(2)} dB   peak old ${(20 * Math.log10(pa)).toFixed(1)} new ${(20 * Math.log10(pb)).toFixed(1)} dBFS  ${crowd ? (Math.abs(d) <= 1 ? 'OK' : 'OVER 1 dB') : '(new court sound, Trial 2)'}`);
   };
-  for (const k of Object.keys(A.court)) row(k, A.court[k], B.court[k]);
-  for (const k of Object.keys(A.crowd)) row(k, A.crowd[k], B.crowd[k]);
-  const worst = Math.max(...diffs.map(Math.abs));
-  L.push(`largest difference: ${worst.toFixed(2)} dB over ${diffs.length} sounds`, '', 'Crowd bed and the duck while the booth talks (dBFS)');
+  for (const k of Object.keys(A.court)) row(k, A.court[k], B.court[k], false);
+  for (const k of Object.keys(A.crowd)) row(k, A.crowd[k], B.crowd[k], true);
+  const worst = Math.max(...crowdDiffs.map(Math.abs));
+  L.push(`largest difference among the crowd's sounds: ${worst.toFixed(2)} dB over ${crowdDiffs.length} (the court's ${diffs.length - crowdDiffs.length} are Trial 2's new sounds: information only)`, '', 'Crowd bed and the duck while the booth talks (dBFS)');
   for (const [k, S] of [['old', A.bed], ['new', B.bed]]) L.push(`${k}: bed ${S.settled.toFixed(1)}, while the booth talks ${S.ducked.toFixed(1)} (${(S.ducked - S.settled).toFixed(1)} dB), 3.5 s after it stops ${S.after.toFixed(1)}`);
   L.push(`bed level, new minus old: ${(B.bed.settled - A.bed.settled).toFixed(2)} dB`);
   L.push('level every 0.1 s from 0.5 s before the booth starts to 4 s after it stops (it talks from the 6th value for 3 s):');
@@ -148,7 +152,7 @@ const db = (ms) => 10 * Math.log10(Math.max(1e-12, ms));
   L.push('new ' + B.bed.env.map((x) => x.toFixed(0)).join(' '));
   L.push(`errors: old ${A.errs.length}, new ${B.errs.length}`);
   const pass = worst <= 1 && Math.abs(B.bed.settled - A.bed.settled) <= 1 && !A.errs.length && !B.errs.length;
-  L.push(pass ? 'RESULT: PASS (every sound and the bed within 1 dB of the old code; only the duck differs)' : 'RESULT: FAIL');
+  L.push(pass ? 'RESULT: PASS (every crowd sound and the bed within 1 dB of the old code; the duck and, since Trial 2, the court differ by design)' : 'RESULT: FAIL');
   const txt = L.join('\n');
   fs.writeFileSync(path.join(o.out, 'ab_result.txt'), txt + '\n');
   console.log(txt);

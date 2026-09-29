@@ -11,7 +11,10 @@ end of the game on its own                     OK  horn
 a player takes a charge: down he goes          OK  body bump, fall
 a post-up bump                                 OK  body post
 a jab step                                     OK  step
-a loose ball bounces out of bounds and rolls   OK  bounce (apron), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), roll
+a defender slides one way and back             OK  step, squeak slide, squeak slide, squeak slide, squeak slide
+a closeout: a sprint at the shooter, then the stop OK  step, step, step, squeak stop
+a jump stop on the move                        OK  step, squeak jumpstop, step, step
+a loose ball bounces out of bounds and rolls   OK  bounce (apron), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), roll (courtside)
 
 errors: 0
 RESULT: PASS

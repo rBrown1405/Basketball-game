@@ -70,6 +70,9 @@
 
     // ------------------------------------------------------------ recipes (each builds one voice from voice.t0)
     function env(g, t0, a, peak, hold, rel) {
+      // (the gain's own value starts where the envelope does: a GainNode is at 1 until its first event, and at a start
+      // between two samples a noise burst's first sample went through at full level, a click)
+      g.gain.value = 0.0001;
       g.gain.cancelScheduledValues(t0);
       g.gain.setValueAtTime(0.0001, t0);
       g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + a);

@@ -8,8 +8,12 @@
 //     third-octave band of the spectrum (timbre), 15% in how long it rings (to 20 dB down). It also lists the take
 //     each hit used and the pitch and level it got on top.
 //     Writes variety_<sound>.wav (the 10 in a row, 1 s apart: listen to them) and variety_result.txt.
-//  2. Levels: each sound 4 times through the real mixer (as Trial 1's A/B measured them: at the speakers, volume 0.7,
-//     not placed), mean energy in its window and peak (dBFS), next to what Trial 1 measured for that sound.
+//  2. Levels: each sound 4 times through the real mixer (volume 0.7, not placed), from the mixer's own recording (every
+//     sample on the audio clock): mean energy in its window from the hit's start and peak (dBFS), next to what Trial 1
+//     measured for the old sound (its A/B's tap windows started up to 0.3 s late: a reference, not a like for like).
+//  3. The floor and the force: one take of the dribble on an arena's floor as the court's audio plays it (the field's
+//     loudest and quietest wood, a painted lane, the logo, a dead spot, the apron, the courtside seats) and soft and
+//     hard on plain wood: level, thump, ring and slap against plain wood (the paint's small difference for information).
 //   node tools/audio/test/variety.js [--only dribble,rim.front] [--out audit/audio2]
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -185,41 +189,115 @@ const TRIAL1 = { dribble: [-34.7, -14.7], bounce: [-34.4, -14.7], squeak: [-44.5
   // ---- 2. levels through the real mixer
   const lv = await browser.newPage();
   lv.on('pageerror', (e) => errs.push(e.message));
-  await lv.addInitScript(T.TAP);
   await lv.goto('file://' + path.join(o.repo, 'index.html') + '?low=1');
   await lv.waitForTimeout(600);
   const levels = await lv.evaluate(async (list) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     PBC.AudioBus.reset(); PBC.AudioRandom.seed(987654321);
-    const mx = PBC.AudioMixer.create({ volume: 0.7 });
-    mx.unlock();
-    await sleep(700);
-    const c = mx.ctx, syn = PBC.CourtSynth.create(mx);
     const out = {};
-    window.__tap.rec = true; window.__tap.only = c;
-    await sleep(200);
-    const hits = [];
+    // one sound at a time on a fresh mixer (its recorder keeps 30 s), measured from the mixer's own recording, every
+    // sample on the audio clock: from each hit's start for its window, before the next
     for (const [label, name, phys, S] of list) {
-      for (let k = 0; k < 4; k++) { const t = c.currentTime + 0.05; syn.play(name, Object.assign({}, phys), { when: t }); hits.push({ label, t, w: Math.min(S, 1.5) }); await sleep(Math.max(900, S * 1000)); }
-    }
-    await sleep(400);
-    window.__tap.rec = false;
-    const T = window.__tap, sr = T.sr;
-    for (const h of hits) {
-      let ss = 0, n = 0, pk = 0;
-      for (let k = 0; k < T.times.length; k++) {
-        const a = T.times[k], L = T.pcm[0][k], R = T.pcm[1][k], len = L.length;
-        if (a + len / sr < h.t || a > h.t + h.w) continue;
-        const i0 = Math.max(0, Math.floor((h.t - a) * sr)), i1 = Math.min(len, Math.ceil((h.t + h.w - a) * sr));
-        for (let i = i0; i < i1; i++) { ss += L[i] * L[i] + R[i] * R[i]; n += 2; pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i])); }
+      const mx = PBC.AudioMixer.create({ volume: 0.7 });
+      mx.unlock();
+      await sleep(700);
+      const c = mx.ctx, syn = PBC.CourtSynth.create(mx), hits = [];
+      for (let k = 0; k < 4; k++) { const vo = syn.play(name, Object.assign({}, phys), { when: c.currentTime + 0.05 }); hits.push({ t: vo ? vo.t0 : c.currentTime, w: Math.min(S, 1.5) }); await sleep(Math.max(900, S * 1000) + 100); }
+      await sleep(300);
+      const rec = await mx.recording(), sr = rec.sampleRate;
+      const e = out[label] = { ms: [], pk: 0 };
+      for (const h of hits) {
+        let ss = 0, n = 0;
+        const i0 = Math.max(0, Math.floor((h.t - rec.start) * sr)), i1 = Math.min(rec.L.length, i0 + Math.floor(h.w * sr));
+        for (let i = i0; i < i1; i++) { ss += rec.L[i] * rec.L[i] + rec.R[i] * rec.R[i]; n += 2; e.pk = Math.max(e.pk, Math.abs(rec.L[i]), Math.abs(rec.R[i])); }
+        e.ms.push(n ? ss / n : 0);
       }
-      const e = out[h.label] || (out[h.label] = { ms: [], pk: 0 });
-      e.ms.push(n ? ss / n : 0); e.pk = Math.max(e.pk, pk);
+      mx.destroy();
     }
     return out;
   }, list);
+
+  // ---- 3. the floor under the ball, and how hard it comes down: one take of the dribble (no jitter) with the court's
+  // own floor at a spot (an arena's field, a painted lane, the centre logo, a dead spot, the apron, the courtside
+  // seats) and the floor's level and courtside muffle applied as the court's audio applies them, and on plain wood at
+  // three speeds into the floor. Against plain wood: the level, the thump (below 250 Hz), the ring (the ball's cavity
+  // modes, 900 Hz to 2.5 kHz) and the cover's slap (2.5 to 8 kHz), each band's energy, and the spectral centroid
+  const fp = await browser.newPage();
+  fp.on('pageerror', (e) => errs.push(e.message));
+  await fp.goto('file://' + path.join(o.repo, 'index.html') + '?low=1');
+  await fp.waitForTimeout(600);
+  const floor = await fp.evaluate(async () => {
+    const sr = 48000, W = 0.35, S = 0.8;
+    // an arena whose floor has a dead spot (a floor has none to two), its centre
+    const quiet = { ctx: null, now: () => 0, play() { return null; }, stop() {} };
+    let ca = null, dead = null, arena = null;
+    for (const abbr of ['BOS', 'LAL', 'NYK', 'CHI', 'MIA', 'GSW', 'PHX', 'DEN', 'DAL', 'UTA', 'MIL', 'ATL', 'SAS', 'HOU']) {
+      ca = PBC.CourtAudio.create({ mx: quiet, view: () => null, speed: () => 1, teams: [{ abbr }] });
+      let best = 1;
+      for (let x = 20; x <= 74; x += 0.25) for (let y = 4; y <= 46; y += 0.25) { const f = ca.floorAt(x, y); if (f.zone === 'dead' && f.ring < best) { best = f.ring; dead = [x, y]; } }
+      if (dead) { arena = abbr; break; }
+    }
+    // plain wood: where the arena's field is at its middle (the reference), its loudest and its quietest
+    let mid = null, hi = null, lo = null;
+    for (let x = 22; x <= 72; x += 0.5) for (let y = 4; y <= 46; y += 0.5) {
+      const f = ca.floorAt(x, y);
+      if (f.zone !== 'wood') continue;
+      if (!mid || Math.abs(f.db) < Math.abs(mid.f.db)) mid = { x, y, f };
+      if (!hi || f.db > hi.f.db) hi = { x, y, f };
+      if (!lo || f.db < lo.f.db) lo = { x, y, f };
+    }
+    const at = (x, y) => ({ x, y, f: ca.floorAt(x, y) });
+    const cases = [
+      ['plain wood (the reference)', mid, 0.7],
+      ['plain wood, the field at its loudest', hi, 0.7],
+      ['plain wood, the field at its quietest', lo, 0.7],
+      ['a painted lane', at(8, 25), 0.7],
+      ['the centre logo', at(47, 25), 0.7],
+      ['a dead spot', dead ? at(dead[0], dead[1]) : null, 0.7],
+      ['the apron (out of bounds)', at(47, -3), 0.7],
+      ['the courtside seats', at(47, -9), 0.7],
+      ['plain wood, a soft dribble', mid, 0.3],
+      ['plain wood, a hard dribble', mid, 1.1],
+    ].filter((c) => c[1]);
+    const off = new OfflineAudioContext(1, Math.ceil(sr * (S * cases.length + 0.5)), sr);
+    const fake = { ctx: off, now: () => 0, stop() {},
+      play(n, v, build, oo) {
+        const out = off.createGain(), P = oo && oo.place;
+        let last = out;
+        if (P) {
+          const g = off.createGain(); g.gain.value = Math.pow(10, (P.db || 0) / 20); last.connect(g); last = g;
+          if (P.lp && P.lp < 20000) { const f = off.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = P.lp; f.Q.value = -3.01; last.connect(f); last = f; }
+        }
+        last.connect(off.destination);
+        const V = { t0: (oo && oo.when) || 0, out, end: 0, src(node, stop) { if (stop > this.end) this.end = stop; return node; } };
+        build(V, v); return V;
+      } };
+    PBC.AudioRandom.seed(20260929);
+    const syn = PBC.CourtSynth.create(fake);
+    cases.forEach(([label, spot, e], k) => syn.play('dribble', { e, tight: 0.5, surf: spot.f, fixed: true }, { when: 0.05 + k * S, place: { pan: 0, db: spot.f.db, lp: spot.f.lp || 20000, wet: 0 } }));
+    const d = (await off.startRendering()).getChannelData(0);
+    const n = 16384, w = Math.floor(W * sr);
+    return { arena, cases: cases.map(([label, spot, e], k) => {
+      const i0 = Math.floor((0.05 + k * S) * sr), x = d.subarray(i0, i0 + w);
+      let ms = 0; for (let i = 0; i < x.length; i++) ms += x[i] * x[i];
+      const re = new Float64Array(n), im = new Float64Array(n);
+      for (let i = 0; i < x.length; i++) re[i] = x[i];
+      for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { const t = re[i]; re[i] = re[j]; re[j] = t; } }
+      for (let len = 2; len <= n; len <<= 1) { const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang); for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let q = 0; q < len / 2; q++) { const ur = re[i + q], ui = im[i + q], vr = re[i + q + len / 2] * cr - im[i + q + len / 2] * ci, vi = re[i + q + len / 2] * ci + im[i + q + len / 2] * cr; re[i + q] = ur + vr; im[i + q] = ui + vi; re[i + q + len / 2] = ur - vr; im[i + q + len / 2] = ui - vi; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } } }
+      let all = 0, fw = 0; const band = [0, 0, 0];
+      for (let i = 1; i < n / 2; i++) {
+        const p = re[i] * re[i] + im[i] * im[i], f = i * sr / n;
+        if (f < 30 || f > 16000) continue;
+        all += p; fw += f * p;
+        if (f < 250) band[0] += p; else if (f >= 900 && f < 2500) band[1] += p; else if (f >= 2500 && f < 8000) band[2] += p;
+      }
+      const dB = (v) => 10 * Math.log10(v + 1e-24);
+      return { label, e, x: spot.x, y: spot.y, zone: spot.f.zone, floorDb: spot.f.db, level: dB(ms / x.length), thump: dB(band[0]), ring: dB(band[1]), slap: dB(band[2]), centroid: fw / all };
+    }) };
+  });
+  await fp.close();
   await browser.close();
-  L.push('', 'Levels through the mixer (at the speakers, volume 0.7, not placed): mean energy in the window and peak, dBFS; Trial 1 for the sounds it had');
+  L.push('', 'Levels through the mixer (volume 0.7, not placed, from the mixer\'s clock-stamped recording): mean energy over the window from each hit\'s start and peak, dBFS; Trial 1\'s old sound (from its A/B, measured with the tap: its window started up to 0.3 s late) for reference');
   const db = (x) => 10 * Math.log10(Math.max(1e-12, x));
   for (const [label, name] of list) {
     const e = levels[label];
@@ -228,10 +306,33 @@ const TRIAL1 = { dribble: [-34.7, -14.7], bounce: [-34.4, -14.7], squeak: [-44.5
     const t1 = TRIAL1[name];
     L.push(`${label.padEnd(25)} mean ${m.toFixed(1).padStart(6)}  peak ${p.toFixed(1).padStart(6)}${t1 ? `      Trial 1: mean ${t1[0].toFixed(1)}  peak ${t1[1].toFixed(1)}` : ''}`);
   }
+  L.push('', `The floor under the ball and how hard it comes down (one take of the dribble, no jitter, as the court's audio plays it on ${floor.arena}'s floor): against plain wood, dB`);
+  L.push('spot                                       at (ft)       floor   level   thump <250 Hz   ring 0.9-2.5 kHz   slap 2.5-8 kHz   centroid');
+  const F0 = floor.cases[0], Fb = {};
+  for (const c of floor.cases) {
+    Fb[c.label] = c;
+    const r = (k) => { const v = c[k] - F0[k]; return (v >= 0 ? '+' : '') + v.toFixed(1); };
+    L.push(`${(c.label + ' (' + c.e + ')').padEnd(42)} ${(c.x.toFixed(1) + ', ' + c.y.toFixed(1)).padEnd(13)} ${c.zone.padEnd(9)} ${r('level').padStart(5)}   ${r('thump').padStart(8)}        ${r('ring').padStart(8)}          ${r('slap').padStart(8)}       ${Math.round(c.centroid)} Hz`);
+  }
+  const fc = (k) => Fb[k] || null;
+  const floorChecks = [
+    ['the arena\'s field moves a dribble\'s level from spot to spot (1 dB or more between its loudest and quietest wood)', fc('plain wood, the field at its loudest') && fc('plain wood, the field at its quietest') && fc('plain wood, the field at its loudest').level - fc('plain wood, the field at its quietest').level >= 1],
+    ['a dead spot is quieter and rings less (the ring 3 dB or more down, past its level)', !!fc('a dead spot') && fc('a dead spot').level < F0.level && fc('a dead spot').ring - fc('a dead spot').level - (F0.ring - F0.level) <= -3],
+    ['the apron is the same wood (within 1.5 dB)', !!fc('the apron (out of bounds)') && Math.abs(fc('the apron (out of bounds)').level - F0.level - (fc('the apron (out of bounds)').floorDb - F0.floorDb)) < 1.5],
+    ['the courtside seats are muffled (4 dB or more down, the centroid a third lower or more)', !!fc('the courtside seats') && fc('the courtside seats').level <= F0.level - 4 && fc('the courtside seats').centroid <= F0.centroid * 0.67],
+    ['a hard dribble is louder than a soft one (6 dB or more)', !!fc('plain wood, a hard dribble') && fc('plain wood, a hard dribble').level - fc('plain wood, a soft dribble').level >= 6],
+  ];
+  L.push('');
+  for (const [k, ok] of floorChecks) L.push(`${k}: ${ok ? 'OK' : 'NO'}`);
+  // (the painted lanes and the logo: a harder slap of the cover, which the cavity's ring above 2.5 kHz all but hides)
+  const paint = ['a painted lane', 'the centre logo'].filter(fc).map((k) => `${k} ${(fc(k).slap - F0.slap - (fc(k).floorDb - F0.floorDb) >= 0 ? '+' : '') + (fc(k).slap - F0.slap - (fc(k).floorDb - F0.floorDb)).toFixed(1)} dB`);
+  L.push(`(for information: the paint's harder slap, the 2.5 to 8 kHz band past the field's level: ${paint.join(', ')}; too small to pick out)`);
+  const floorOk = floorChecks.every((c) => c[1]);
   const bad = res.filter((r) => !r.ok);
   L.push('', `errors: ${errs.length}${errs.length ? ' ' + errs.slice(0, 3).join(' | ') : ''}`);
   L.push(`never identical in 10 in a row (no two of the 10 correlating at 0.98+, every pair apart by a difference a listener can hear, no take twice running): ${res.length - bad.length}/${res.length} sounds${bad.length ? ' (not: ' + bad.map((b) => b.label).join(', ') + ')' : ''}`);
-  L.push(bad.length || errs.length ? 'RESULT: FAIL' : 'RESULT: PASS');
+  L.push(`the floor and the force change the dribble as they should: ${floorOk ? 'yes' : 'NO'}`);
+  L.push(bad.length || errs.length || !floorOk ? 'RESULT: FAIL' : 'RESULT: PASS');
   const txt = L.join('\n');
   fs.writeFileSync(path.join(o.out, 'variety_result.txt'), txt + '\n');
   console.log(txt.split('\n').slice(-(list.length + 6)).join('\n'));

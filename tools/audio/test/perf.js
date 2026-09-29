@@ -2,7 +2,7 @@
 // Frame times of the live view with the audio on and off (the same seeded game setup), --dur seconds each at every
 // speed asked for, and the audio's own main-thread time per frame: the bus and everything it calls (the arena audio,
 // the booth, the tracker, the mixer's play), the court's sound and cue hooks, and the per-frame updates of the arena
-// audio, the mixer, the tracker and the booth.
+// audio, the mixer, the tracker, the booth and the court's audio (Trial 2).
 //   node tools/audio/test/perf.js [--dur 120] [--runs 1:on,1:off,4:on,4:off] [--out audit/audio1]
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -33,6 +33,7 @@ const RUNS = String(o.runs).split(',').map((s) => { const [sp, a] = s.split(':')
       };
       wrap(PBC.AudioBus, 'emit');
       for (const k of ['au', 'mx', 'at', 'cm']) wrap(LG[k], 'update');
+      wrap(LG.ca, 'frame');   // (the court's audio, Trial 2: its reading of the court and its sounds each frame)
       if (LG.view) { wrap(LG.view, 'onSound'); wrap(LG.view, 'onCue'); }
       const P = window.__perf = { on: false, dts: [], audio: [], last: 0 };
       const tick = (ts) => { if (P.on && P.last) { P.dts.push(ts - P.last); P.audio.push(acc); } acc = 0; P.last = ts; requestAnimationFrame(tick); };
