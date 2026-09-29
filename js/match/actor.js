@@ -4198,7 +4198,9 @@
       // palms behind it and fingers up (thumbs together, or the little fingers for a ball below the waist)
       this._rcW = 0;
       const rc = this._rc;
-      if (rc && rc.caught == null && !this.hasBall && !this.dribble && this.view && this.view.ball && !(this.clip && this.clip.clip.ballKeys)) {
+      // (not through his own throw's follow-through: told of the return pass of a give-and-go as he let the ball go, the hands
+      // came up for it out of the release, the pass's wrists and the target's fitted against each other, popping, Trial 10)
+      if (rc && rc.caught == null && !this.hasBall && !this.dribble && this.view && this.view.ball && !(this.clip && this.clip.clip.ballKeys) && !this.throwing()) {
         const b = this.view.ball, q = RT2, w = this._rcHands(rc, b, q);
         if (w > 0.001) {
           this._rcW = w;
@@ -4322,9 +4324,12 @@
       // (while it holds the palm on the ball the bend takes up the pose's own wrist changes, the wrist staying where the fit
       // has it: a pass clip coming in over a hold moved the wrist the clip's way ~30 deg in 0.1 s until the spring caught up,
       // the palms ~2.5 in off the ball, Trial 10)
+      // (only while he holds it: past the release a pass's grips ease out over its follow-through, and the bend took up
+      // the clip's own wrist snap for a frame, then sprang back from it, the hands popping)
+      const hb = this.view && this.view.ball, holding = !!(hb && hb.holder === this && hb.state === 'held');
       if (wf) for (let side = 0; side < 2; side++) {
         const f = wf[side], i = CH[side ? 'rWrF' : 'lWrF'], pw = this.pose[i];
-        if (f[2] && f.act && f.pw != null && dtI > 0 && dtI <= 0.12) f[0] -= pw - f.pw;
+        if (f[2] && f.act && holding && f.pw != null && dtI > 0 && dtI <= 0.12) f[0] -= pw - f.pw;
         if (dtI !== 0) f.pw = f[2] ? pw : null;
         if (f[0]) this.pose[i] += f[0];
       }

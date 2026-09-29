@@ -555,7 +555,7 @@
     keys: [
       { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
       { t: 0.14, p: { base: 'holdChest', pelPitch: 12, spFlex: 2, chFlex: -2, nkFlex: -8, both: { ShF: -5.5, ShA: -0.5, ShT: 28, ElF: 130.5, Pro: 129.5, WrF: -48, WrD: 15, Fing: 0.1 } }, ball: [0.0, 0.16, 0.68], grip: 'passW' },
-      { t: 0.26, p: { pelPitch: 18, spFlex: 10, chFlex: 6, nkFlex: -14, both: { ShF: 45, ShA: -3, ShT: 22, ElF: 113.5, Pro: 156, WrF: -48, WrD: -7.5, Fing: 0.08 } }, ball: [0.0, 0.3, 0.71], grip: 'passR' },
+      { t: 0.26, p: { pelPitch: 18, spFlex: 10, chFlex: 6, nkFlex: -14, both: { ShF: 45, ShA: -3, ShT: 22, ElF: 113.5, Pro: 156, WrF: -48, WrD: -7.5, Fing: 0.08 } }, ball: [0.0, 0.46, 0.7], grip: 'passR' },
       { t: 0.42, p: { pelPitch: 16, spFlex: 9, chFlex: 5, nkFlex: -12, both: { ShF: 110, ShA: -1, ShT: 80, ElF: 7, Pro: 166, WrF: -7, WrD: -15, Fing: 0.1 } } },
       { t: 0.62, p: 'ready' },
     ],
