@@ -37,7 +37,7 @@ function stubs() {
 // (the half-court defense, offense, called plays and rebounds extend the Director after flow.js, as they do in the page)
 const FILES = ['js/core/util', 'js/core/names', 'js/core/config', 'js/core/player', 'js/core/identity', 'js/core/persona', 'js/core/tendency', 'js/core/sliders', 'js/core/league', 'js/core/stats', 'js/core/ai', 'js/core/playbook', 'js/core/playcall', 'js/core/sim',
   'js/match/util', 'js/match/tune', 'js/match/camera', 'js/match/court', 'js/match/arena', 'js/match/hoop', 'js/match/rig', 'js/match/poses', 'js/match/figure', 'js/match/body3d', 'js/match/body3d_parts', 'js/match/human_data', 'js/match/human', 'js/match/human_build', 'js/match/gl3d',
-  'js/match/anims', 'js/match/clips', 'js/match/actor', 'js/match/ball', 'js/match/choreo', 'js/match/passlab', 'js/match/flow', 'js/match/defense', 'js/match/offense', 'js/match/plays', 'js/match/rebound', 'js/match/debugdraw', 'js/match/view', 'js/match/debug', 'js/match/mock'];
+  'js/match/anims', 'js/match/clips', 'js/match/actor', 'js/match/ball', 'js/match/choreo', 'js/match/passlab', 'js/match/shotlab', 'js/match/flow', 'js/match/defense', 'js/match/offense', 'js/match/plays', 'js/match/rebound', 'js/match/debugdraw', 'js/match/view', 'js/match/debug', 'js/match/mock'];
 
 function load(seed) {
   seedRandom(seed == null ? 1 : seed);

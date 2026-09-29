@@ -563,7 +563,9 @@
         // triple threat first, the ball was still sliding to the hip as the first push began, Trial 10)
         if (b.holder !== a || b.state !== 'held' || a.isBusy() || (b._dribSoon && b._dribSoon.actor === a)) return;
         const bt = this.beat, ev = bt && !bt.fired ? bt.ev : null;
-        if (ev && (ev.shooter === a.id || ev.from === a.id || ev.player === a.id) && bt.fireAt - this.T < 1.5) return;
+        // (nor the shooter at the free throw line: the routine stands tall there, Trial 9; faced up into the triple threat
+        // after the official's bounce pass, a routine with no dribbles went into the shot from a crouch, with no dip left)
+        if (ev && (ev.shooter === a.id || ev.from === a.id || ev.player === a.id) && (bt.fireAt - this.T < 1.5 || bt.type === 'ft')) return;
         const nx = this.nextFor(a.id);
         if (nx && nx.type === 'move' && (nx.move === 'backdown' || nx.move === 'spin')) return;
         if (nx && nx.type === 'shot' && /hook|post/.test(nx.kind || '')) return;
@@ -1804,11 +1806,9 @@
     }
     nextFor(id) { return this.findNext((e) => e.shooter === id || e.from === id || e.player === id); }
 
-    /** does this shooter shoot a two-motion jumper? (fixed per player: ~1 in 4, ~1 in 2 among 6-9 and up) */
-    twoMotion(sh) {
-      const h = U.hashStr(String(sh.id) + ':form') / 4294967296;
-      return h < (sh.H > 6.7 ? 0.5 : 0.25);
-    }
+    /** does this shooter shoot a two-motion jumper? (the shooter's form, M.Anims.shotForm: fixed per player, ~1 in 4, ~1 in 2 among
+     *  6-9 and up) */
+    twoMotion(sh) { return M.Anims.shotForm(sh).motion === 2; }
     // --- shot
     p_shot(ev, beat, gap) {
       const v = this.v;
@@ -1817,8 +1817,13 @@
       this.lastShot = ev;
       const kind = ev.kind || 'jumper';
       let clipName = SHOT_CLIP[kind] || 'jumpshot';
-      if (kind === 'dunk' && sh.H < 6.2 && sh.rVert < 0.6) clipName = 'layup';
-      if (kind === 'dunk' && Math.random() < 0.35) clipName = 'dunk2';
+      // (a dunk needs the hand over the rim at the top of the jump: a player who cannot reach it lays it up instead; the women's
+      // league's dunks mostly never got there, the hand on the rim for a frame at most, Trial 9. The two-hand choice only
+      // for a dunk still)
+      // (each dunk with its own jump: the two-hand and the standing putback dunk go up less than the one-hand dunk on the run)
+      const reaches = (cn) => { const j = M.Anims.get(cn).jump; return sh.H * M.Tune.shot.dunkReachH + (j ? j.h : 0) * sh.H * (0.85 + (sh.rVert || 0) * 0.3) >= M.Tune.shot.dunkRimFt[cn]; };
+      if (kind === 'dunk' && !reaches('dunk')) clipName = 'layup';
+      if (kind === 'dunk' && clipName === 'dunk' && (ev.twoHand != null ? !!ev.twoHand : Math.random() < 0.35) && reaches('dunk2')) clipName = 'dunk2';
       // posting up (back to the basket after a back-down or a post entry): a fadeaway or jumper is the turnaround
       // post fade, over the shoulder that turns him to the rim quicker; a finish at the rim starts with a drop step
       const rimA0 = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x);
@@ -1840,17 +1845,22 @@
       // (a dunk is always thrown down at the rim: a standing putback dunk only from close in, otherwise a
       // short running dunk whose run-up absorbs the distance)
       if ((RIM_SHOTS[kind] && kind !== 'alley' && dRimNow < (kind === 'dunk' ? 5.5 : 9.5)) || (kind === 'tip' && dRimNow <= 6.5)) {
-        if (kind !== 'tip') clipName = (kind === 'dunk') ? 'putbackDunk' : 'putback';
+        if (kind !== 'tip') clipName = (kind === 'dunk' && reaches('putbackDunk')) ? 'putbackDunk' : 'putback';
         standFinish = true;
       }
       // per-player form: some shooters set the ball over the forehead before the legs go (a two-motion shot, more
       // common among the bigger players), the rest shoot it in one motion on the way up
+      // (a jumper taken off the dribble from a way off its spot is a pull-up: the standing jump shot started on the run slid the
+      // shooter ~5 ft through the jump, the ball snatched out of the dribble with no dip, Trial 9)
+      const offSpot = isFinite(+ev.x) && isFinite(+ev.y) ? Math.hypot(sh.x - +ev.x, sh.y - +ev.y) : 0;
+      if (kind === 'jumper' && clipName === 'jumpshot' && v.ball.holder === sh && v.ball.state !== 'flight' && offSpot > M.Tune.shot.pullUpFromFt) clipName = 'pullup';
       if (clipName === 'jumpshot' && this.twoMotion(sh)) clipName = 'jumpshot2';
-      const clip = M.Anims.get(clipName);
-      // per-player form: a quicker or slower release and a little more or less lift
-      const style = U.hashStr(String(sh.id)) / 4294967296;
+      // the shooter's own shot (Trial 9): the jump shots are built for each player from that player's form, the contest shaping it too (released
+      // higher and quicker, leaning away), their speed and jump already in them (M.Anims.shotClip)
+      const contestK = RIM_SHOTS[kind] || kind === 'floater' ? 0 : ev.contest === 'tight' ? 1 : ev.contest === 'open' ? 0 : 0.5;
+      let clip = M.Anims.shotClip(sh, clipName, { contest: contestK });
       const jumper = /jumpshot|pullup|stepback|fadeaway/.test(clipName);
-      const spk = jumper ? 0.93 + style * 0.14 : 1;
+      const spk = 1;
       const rel = clip.events.release / spk;
       let sx = +ev.x, sy = +ev.y;
       if (!isFinite(sx) || !isFinite(sy)) { sx = sh.x; sy = sh.y; }
@@ -1929,22 +1939,37 @@
       // a driving layup waits for its take-off run the same way (started wherever the driver was held up, it went
       // up from 7-10 ft out and never got near the rim)
       const layWait = (clipName === 'layup' || clipName === 'reverse') && !standFinish && !alleyLob;
-      if (dunkWait || layWait) beat.waitFor = () => !dk.waiting && (!dk.cs || dk.cs.done || dk.cs.t >= clip.events.release - 0.02);
+      // (and a jump shot for its shooter to get to where it starts: started from where the shooter stood, a pull-up ~8 ft off
+      // its start dragged the body there at up to 24 ft/s through the jump, Trial 9)
+      const jumpWait = jumper || postTurn;
+      // (a jump shot's ball leaves at its clip's release too: a clip started on a slow clock (a pull-up from a standstill, Tune.weight
+      // .clipWarpS) is behind the beat, and the ball went before the arm got there, with no follow-through, Trial 9)
+      if (dunkWait || layWait || jumper || postTurn) beat.waitFor = () => !dk.waiting && (!dk.cs || dk.cs.done || dk.cs.hold != null || dk.cs.t >= clip.events.release - 0.02);
       const need = (alleyLob ? clipLead : Math.max(tReach * 1.25 + 0.25, clipLead)) + rel;
       if (alleyLob) beat.maxDur = need;
+      // (a catch-and-shoot goes up off the catch, released ~0.5-0.8 s after it (NBA tracking: ~0.54 s on average): it does
+      // not wait out a longer gap in the play-by-play with the ball in the shooter's hands, the clock catching up instead, Trial 9)
+      else if (catchAndShoot && kind === 'catch_shoot') beat.maxDur = need + M.Tune.shot.cnsHoldS;
       const pending = !!ev.pending;
       const result = this.shotResult(ev, sh, spot, kind);
       // rebound look-ahead
       beat.onStart = (fireAt) => {
         const clipStart = fireAt - rel;
         const r = this.role[sh.id]; if (r) r.until = fireAt + 2.5;
+        // (a catch-and-shoot keeps the ball in the shot pocket from the catch to the shot: caught on the move short of the spot,
+        // the shooter was sent into a dribble for the last steps, the shot then picking the ball up off the floor with no dip, Trial 9)
+        if (catchAndShoot) sh.holdBallUntil = Math.max(sh.holdBallUntil || 0, clipStart + 0.2);
         const approach = () => {
           // a drive still getting past its defender keeps its line (heading straight for the gather spot from
           // here ran the driver into his man)
           const dv = sh._drive;
           if (dv && !dv.st.fin && this.T < dv.tEnd && this.T < clipStart - 0.7 && b.holder === sh) { this.at(this.T + 0.05, approach, 'approach after drive'); return; }
           if (r) { r.until = fireAt + 2.5; r.probe = null; r.probeAnchor = null; r.path = null; }
-          sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: postTurn ? Math.atan2(this.rim.y - origin.y, this.rim.x - origin.x) + Math.PI : rimShot ? 'move' : this.rim, stance: postTurn ? 'postUp' : b.holder === sh ? 'dribble' : 'ready', pace: rimShot ? 8 : 5.5 });
+          // (a jump shot with the ball already in the shooter's hands at the spot: set in the shot pocket, knees bent, ready to dip
+          // into it; in the dribbling stance the body sat ~4 in lower and the dip out of it was ~2 in, Trial 9)
+          const pocket = jumper && b.holder === sh && b.state === 'held' && Math.hypot(sh.x - origin.x, sh.y - origin.y) <= 2;
+          sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: postTurn ? Math.atan2(this.rim.y - origin.y, this.rim.x - origin.x) + Math.PI : rimShot ? 'move' : this.rim, stance: postTurn ? 'postUp' : pocket ? 'shotPocket' : b.holder === sh ? 'dribble' : 'ready', pace: rimShot ? 8 : 5.5 });
+          if (pocket) sh.ballHold = 'pocket';
           if (b.holder === sh && b.state === 'held' && !catchAndShoot && Math.hypot(sh.x - origin.x, sh.y - origin.y) > 2) b.dribble(sh);
         };
         // a long wait with the ball in his hands: he works it (probe dribbles around his spot) and only then
@@ -1955,6 +1980,11 @@
           this.at(tApp, approach, 'shot approach');
         } else approach();
         const startClip = () => {
+          // (a jump shot straight off the dribble, the ball still bouncing or just picked up out of it for the shot, is a pull-up: its
+          // gather takes the ball up out of the dribble into the dip, and absorbs a run; the standing jump shot started on a ball
+          // picked up low had no dip left, and one still coming at speed slid through the jump. Its later release is waited for,
+          // beat.waitFor)
+          if (/^jumpshot2?$/.test(clipName) && b.holder === sh && (b.state === 'dribble' || dk.offDribble)) { clipName = 'pullup'; clip = M.Anims.shotClip(sh, clipName, { contest: contestK }); }
           if (b.holder !== sh && !(b.state === 'flight' && b.passTarget === sh)) this.giveBall(sh, 'pocket');
           sh.stopClip(0);
           if (b.holder === sh && b.state === 'dribble' && /^jumpshot2?$/.test(clip.name)) b.give(sh, 'pocket');
@@ -1977,7 +2007,7 @@
               ox -= Math.cos(of) * r0.fwd; oy -= Math.sin(of) * r0.fwd;
             }
           }
-          const lift = clip.jump ? clip.jump.h * sh.H * (0.85 + sh.rVert * 0.3) * (jumper ? 0.88 + ((style * 7.3) % 1) * 0.26 : 1) : null;
+          const lift = clip.jump ? (clip.jump.hFt != null ? clip.jump.hFt : clip.jump.h * sh.H * (0.85 + sh.rVert * 0.3)) : null;
           const noHang = Math.random() < 0.6;
           // up to the rim: a layup ends its rise with the ball just in front of the rim (a reverse just past it), a
           // dunk puts it over the middle of the rim and the hand(s) then grab the front of the rim until he drops (the
@@ -1995,9 +2025,9 @@
               hands: clipName === 'dunk' ? null : [0, 1],
             };
           }
-          const cs = sh.play(clipName, {
+          const cs = sh.play(clip, {
             x: ox, y: oy, facing: of, mirror, fadeIn: 0.08, speed: spk, jumpH: lift, blendT: blendT == null ? undefined : blendT,
-            noHang, reach,
+            noHang, reach, data: { kind, contest: contestK },
             hold: pending ? clip.events.set : null,
             onEvent: (name) => {
               if (name === 'set' && pending && !this.resumeReq) this.freeze(ev, sh);
@@ -2019,6 +2049,54 @@
             this.at(this.T + 0.05, tryClip, 'dunk approach');
             return;
           }
+          const TSj = M.Tune.shot;
+          if (jumpWait && off > TSj.jumpSlipFt && this.T < clipStart + TSj.jumpWaitS && !(catchAndShoot && b.holder !== sh)) {
+            dk.waiting = true;
+            const rw = this.role[sh.id];
+            if (rw) { rw.until = Math.max(rw.until || 0, this.T + 0.5); rw.probe = null; rw.probeAnchor = null; rw.path = null; }
+            // (the ball back on the floor to get there (a catch short of the spot too), taken up again into the shot pocket as the
+            // start comes near and kept there: a step or two with it in the hands, no more; let go of, the game's own dribble took
+            // it back out of the hands at the last moment, the shot picking it up off the floor with no dip)
+            if (b.holder === sh) {
+              if (b.state === 'held' && off > TSj.jumpSlipFt + 2) { sh.holdBallUntil = 0; b.dribble(sh); }
+              else if (b.state === 'dribble' && off <= TSj.jumpSlipFt + 2) b.gatherSoon(sh, 'pocket');
+              else if (b.state === 'held') sh.ballHold = 'pocket';
+              if (b.state === 'held') sh.holdBallUntil = Math.max(sh.holdBallUntil || 0, this.T + 0.3);
+            }
+            if (!sh.isBusy()) sh.moveTo(origin.x, origin.y, { speed: sh.maxSpeed * 0.8, face: off < 6 ? this.rim : 'move', stance: b.holder === sh && b.state === 'dribble' ? 'dribble' : b.holder === sh ? 'shotPocket' : 'ready' });
+            this.at(this.T + 0.05, tryClip, 'jumper approach');
+            return;
+          }
+          // (the gather: off the dribble the ball is picked up as it comes up into the hand, not snatched from wherever it is in
+          // its bounce (a hand and elbow pop at every layup's start, Trial 9), and on the right foot: the first of the move's
+          // two steps is taken by the foot that is off the floor as the ball is picked up, the other one on it (the zero step);
+          // with that one still in the air the move waits for it to come down, a stride at most (Tune.shot.gatherFootWaitS), or it
+          // came down after the gather too and the steps went three. The dribble bounces with the inside foot's landing, so
+          // the two come together)
+          const st0 = clip.steps && clip.steps[0];
+          if (st0 && (dunkWait || layWait) && !sh.isBusy()) {
+            const TS = M.Tune.shot, t0w = dk.footT = dk.footT || this.T;
+            // (a dribble move under way holds the gather back: the wait goes on through it and a bounce after it, twice the
+            // wait at most)
+            if (b.holder === sh && b.state === 'dribble' && b.dr && b.dr.move) dk.moveT = this.T;
+            const f0 = sh.feet[((st0.foot === 'r') !== !!mirror) ? 0 : 1];
+            // (the ball is taken only while the zero-step foot is down: gathered with it in the air, its landing was the first of three
+            // steps, a walking swing, ~0.4 s, outlasting the wait. Off it, the ball goes on bouncing to the next time it comes up)
+            if (f0.state !== 'plant') dk.offT = this.T;
+            const ballEnd = Math.min(t0w + 2 * TS.gatherBallWaitS, Math.max(t0w, dk.moveT != null ? dk.moveT : t0w, dk.offT != null ? dk.offT - TS.gatherBallWaitS * 0.5 : t0w) + TS.gatherBallWaitS);
+            if (b.holder === sh && b.state === 'dribble' && this.T < ballEnd) {
+              // (walking or standing still, a gait's swing is slow to come down, or never does: the foot is brought down now in a
+              // quick short step, before the ball is taken, so it is the zero step; hovering it kept the gather off until the wait
+              // ran out)
+              if (f0.state === 'swing' && f0.mode === 'gait' && f0.ax != null && sh.speed < TS.zeroLandFtps) {
+                const near = f0.tx != null && Math.hypot(f0.tx - f0.ax, f0.ty - f0.ay) < 1;
+                sh._beginStep(f0, near ? f0.tx : f0.ax, near ? f0.ty : f0.ay, f0.tyaw != null ? f0.tyaw : sh.facing, TS.zeroLandS, 0.01);
+              }
+              b.gatherSoon(sh, 'low', null, () => f0.state === 'plant');
+              dk.waiting = true; this.at(this.T + 1 / 60, tryClip, 'gather ball'); return;
+            }
+            if (f0.state !== 'plant' && this.T < ballEnd + TS.gatherFootWaitS) { dk.waiting = true; this.at(this.T + 1 / 60, tryClip, 'gather foot'); return; }
+          }
           dk.waiting = false;
           startClip();
         };
@@ -2031,6 +2109,10 @@
             sh.pivotTo(Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x), { hold: 'postUp' });
           }, 'drop step');
         }
+        // (a jumper off the dribble: the ball asked for into the hands a moment before the move, so it is gathered as it comes up
+        // into the hand, not snatched from wherever it is in its bounce as the move starts, Trial 9)
+        // (and kept in the hands from there: moving, the shooter was put back into a dribble between the gather and the shot)
+        if (/^(pullup|stepback|fadeaway|jumpshot2?)$/.test(clipName)) this.at(clipStart - M.Tune.shot.pullGatherS, () => { if (b.holder === sh) sh.holdBallUntil = Math.max(sh.holdBallUntil || 0, clipStart + 0.2); if (b.holder === sh && b.state === 'dribble') { dk.offDribble = true; b.gatherSoon(sh, 'low'); } }, 'gather for the shot');
         this.at(clipStart, tryClip, 'shot clip');
         this.planContest(ev, sh, spot, fireAt);
         this.planRebound(ev, sh, spot, fireAt, result);
@@ -2756,7 +2838,7 @@
       const lineU = 19 + 0.9;
       const spot = this.P(lineU, 25);
       const facing = this.rimAngleFrom(spot.x, spot.y);
-      const clip = M.Anims.get('freethrow');
+      const clip = M.Anims.shotClip(sh, 'freethrow');
       const rel = clip.events.release;
       let setup = 0;
       const busy = sh.clip ? Math.max(0, (sh.clip.clip.dur - sh.clip.t) / (sh.clip.speed || 1)) : 0;
@@ -2769,7 +2851,10 @@
         setup = Math.max(1.5, busy);
       }
       const lead = v.nearestRef(this.rim.x, 25) || v.refs[0];
-      const routine = 2.2;
+      // the shooter's own routine at the line (Trial 9, M.Anims.ftRoutine): the official's bounce pass, the dribbles, a spin of the ball,
+      // a deep breath, the set
+      const R = M.Anims.ftRoutine(sh), TS = M.Tune.shot;
+      const routine = TS.ftCatchS + (R.dribbles ? M.Tune.pass.secureS + R.dribbles * R.period : 0) + (R.spin ? TS.ftSpinS : 0) + (R.breath ? TS.ftBreathS : 0) + TS.ftSetS;
       const tFlight = 1.05;
       const need = setup + routine + rel + tFlight;
       const made = !!ev.made;
@@ -2778,6 +2863,9 @@
         const tRelease = fireAt - tFlight;
         const tClip = tRelease - rel;
         const r = this.role[sh.id]; if (r) r.until = fireAt + 1.5;
+        // (the routine's own dribbles only: still walking to the line as the bounce pass came, the shooter was put into a
+        // dribble of the game's that ran through the routine and into the shot, Trial 9)
+        sh.holdBallUntil = Math.max(sh.holdBallUntil || 0, fireAt);
         sh.moveTo(spot.x, spot.y, { by: tClip - routine + 0.3, speed: 12, face: facing, stance: 'stand', pace: 4.4 });
         // ref bounces the ball to the shooter
         if (lead) {
@@ -2796,7 +2884,7 @@
             if (b.holder !== lead) this.giveBall(lead, 'chest');
             lead.ballHold = 'chest';
             const d = Math.hypot(sh.x - lead.x, sh.y - lead.y);
-            this.passBall(lead, sh, 'bounce', U.clamp(d / 26, 0.4, 0.9), () => { b.dribble(sh, sh.lefty ? 0 : 1, { period: 0.62 }); sh.setFace(facing); });
+            this.passBall(lead, sh, 'bounce', U.clamp(d / 26, 0.4, 0.9), () => this.ftRoutineGo(sh, R, facing, tClip));
           };
           this.at(tClip - routine + 0.1, bounce, 'ref bounce');
           this.at(tClip - routine + 0.9, () => {
@@ -2804,7 +2892,9 @@
             if (!lead.isBusy()) lead.moveTo(out.x, out.y, { speed: 8, face: { x: this.rim.x, y: 25 } });
           }, 'ref steps out');
         }
-        this.at(tClip - 0.35, () => { if (b.holder === sh) b.give(sh, 'pocket'); }, 'ft set');
+        this.at(tClip - TS.ftSetS, () => { if (b.holder === sh) { if (b.state === 'dribble') b.give(sh, 'pocket'); else sh.ballHold = 'pocket'; sh.setStance('stand'); } }, 'ft set');
+        // (no official to bounce it over: the shooter has it at the line, the routine from there)
+        if (!lead) this.at(tClip - routine + TS.ftCatchS, () => { if (b.holder !== sh) this.giveBall(sh, 'chest'); this.ftRoutineGo(sh, R, facing, tClip); }, 'ft routine');
         this.at(tClip - routine + 0.35, () => {
           // safety: make sure he is heading to the line (and hurries if late)
           if (!sh.isBusy() && Math.hypot(sh.x - spot.x, sh.y - spot.y) > 0.8) sh.moveTo(spot.x, spot.y, { speed: 14, face: facing, stance: 'stand' });
@@ -2812,7 +2902,7 @@
         this.at(tClip, () => {
           if (b.holder !== sh) this.giveBall(sh, 'pocket');
           sh.stopClip(0);
-          sh.play('freethrow', { x: spot.x, y: spot.y, facing, fadeIn: 0.15 });
+          sh.play(clip, { x: spot.x, y: spot.y, facing, fadeIn: 0.15 });
         }, 'ft clip');
         this.at(tRelease, () => {
           if (b.holder !== sh) this.giveBall(sh, 'pocket');
@@ -2863,6 +2953,38 @@
         }
       };
       return need;
+    }
+    /** the free throw routine from the catch of the official's bounce pass (Trial 9): as many of the shooter's dribbles as
+     *  there is time for, then the spin of the ball and the deep breath, each only if it fits before the set */
+    ftRoutineGo(sh, R, facing, tClip) {
+      const b = this.v.ball, TS = M.Tune.shot, setAt = tClip - TS.ftSetS, t0 = this.T;
+      sh.setFace(facing);
+      const extra = (R.spin ? TS.ftSpinS : 0) + (R.breath ? TS.ftBreathS : 0);
+      let n = R.dribbles;
+      while (n > 0 && t0 + M.Tune.pass.secureS + n * R.period + extra > setAt + 1e-6) n--;
+      let t = t0;
+      if (n > 0 && b.holder === sh) {
+        b.dribble(sh, sh.lefty ? 0 : 1, { period: R.period });
+        // (the last one caught as it comes up into the hands, standing tall again; the dribble starts once the catch is
+        // secured, Tune.pass.secureS)
+        const sec = M.Tune.pass.secureS;
+        this.at(t0 + sec + (n - 0.3) * R.period, () => { if (b.holder === sh && b.state === 'dribble') b.gatherSoon(sh, 'chest', () => sh.setStance('stand')); }, 'ft gather');
+        t += sec + n * R.period;
+      } else { sh.ballHold = 'chest'; sh.setStance('stand'); }
+      // (each as soon as the ball is in the shooter's hands and the last one done, a few frames' grace)
+      const when = (at, len, fn, tag) => {
+        const go = () => {
+          if (b.holder !== sh || this.T > at + 0.25 || this.T + len > setAt + 0.05) return;
+          if (b.state !== 'held' || sh.upper) { this.at(this.T + 1 / 60, go, tag); return; }
+          fn();
+        };
+        this.at(at, go, tag);
+      };
+      if (R.spin && t + TS.ftSpinS <= setAt + 1e-6) {
+        when(t, TS.ftSpinS, () => { sh.play('ftSpin', { mirror: false }); b.spinHeld(sh, TS.ftSpinS * 0.85, TS.ftSpinRps); }, 'ft spin');
+        t += TS.ftSpinS;
+      }
+      if (R.breath && t + TS.ftBreathS <= setAt + 1e-6) when(t, TS.ftBreathS, () => sh.play('ftBreath', { mirror: false }), 'ft breath');
     }
     placeForFT(shooter) {
       const v = this.v;

@@ -124,6 +124,9 @@
       this.holder = actor;
       this.state = actor ? 'held' : 'dead';
       this.segs = null; this.dr = null; this.loose_ = null;
+      // (a hold asked for outright wins over a dribble still waiting for the catch to be secured: a jump shot started off the
+      // catch had the ball dribbled out of the shooter's hands in the middle of it, Trial 9)
+      this._dribSoon = null;
       if (actor) {
         actor.hasBall = true; actor.dribble = null;
         if (hold !== undefined) actor.ballHold = hold;
@@ -160,19 +163,25 @@
     /** end the dribble into a hold the next time the ball comes up into the hand (Trial 10: a pass off the dribble; picked
      *  up wherever it was as the pass began, a ball on its way to the floor was lifted into the hands at ~28 ft/s through
      *  the windup). Taken at once if it is in the hand now; cb once it is held */
-    gatherSoon(actor, hold, cb) {
+    gatherSoon(actor, hold, cb, cond) {
       if (this.state !== 'dribble' || !this.dr || this.dr.actor !== actor) return false;
-      this.dr.gather = { actor, hold, cb: cb || null };
+      // (cond: taken only while it holds, the layup's zero-step foot down, Trial 9; otherwise the ball goes on bouncing)
+      this.dr.gather = { actor, hold, cb: cb || null, cond: cond || null };
       this._gatherNow();
       return true;
     }
     /** the gather asked for, once the ball is in the hand (its ride up to the top, no move under way) */
     _gatherNow() {
       const d = this.dr, g = d && d.gather;
-      if (!g || !d.plan || !(d.u >= d.plan.uC) || (d.move && d.moveStarted)) return;
+      if (!g || !d.plan || !(d.u >= d.plan.uC) || (d.move && d.moveStarted) || (g.cond && !g.cond())) return;
       d.gather = null;
       this.give(g.actor, g.hold);
       if (g.cb) U.safe(g.cb, null, 'gather');
+    }
+    /** spin the ball in the holder's hands for dur (s): backspin toward where the holder faces, rps turns a second */
+    spinHeld(actor, dur, rps) {
+      if (this.holder !== actor || this.state !== 'held') return;
+      this.heldSpin = { actor, until: this.time + dur, w: spinAlong(Math.cos(actor.facing), Math.sin(actor.facing), -U.TAU * rps) };
     }
     release() {
       if (this.holder) { this.holder.hasBall = false; this.holder.dribble = null; }
@@ -730,7 +739,9 @@
       if (wl > 1e-3 && dt > 0) {
         rotMul(this.rot, w[0] / wl, w[1] / wl, w[2] / wl, wl * dt);
       }
-      if (this.state === 'held') { this.spin[0] *= 0.9; this.spin[1] *= 0.9; this.spin[2] *= 0.9; }
+      // (spun in the hands, Trial 9's free throw routine: kept turning until the spin is let go of)
+      if (this.state === 'held' && this.heldSpin && this.time < this.heldSpin.until && this.holder === this.heldSpin.actor) { this.spin[0] = this.heldSpin.w[0]; this.spin[1] = this.heldSpin.w[1]; this.spin[2] = this.heldSpin.w[2]; }
+      else if (this.state === 'held') { this.spin[0] *= 0.9; this.spin[1] *= 0.9; this.spin[2] *= 0.9; }
       this.squash = Math.max(0, this.squash - dt * 9);
     }
 

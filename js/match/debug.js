@@ -39,6 +39,9 @@
   const SPINE_AX = [['spFlex', 'chFlex'], ['spLat', 'chLat'], ['spTwist', 'chTwist']].map(q => q.map(k => CH[k]));
   const POP_CH = ['spFlex', 'spLat', 'spTwist', 'chFlex', 'chLat', 'chTwist', 'nkFlex', 'nkLat', 'nkTwist', 'hdFlex', 'hdLat', 'hdTwist'].map(k => CH[k]);
   const wrap = (a) => U.wrapPi(a);
+  // the shot's clips (Trial 9): jump shots, the free throw, finishes at the rim, dunks, the rest (floater, hook, tip)
+  const SHOT_RE = /^(jumpshot2?|pullup|stepback|fadeaway|postFade[LR]|freethrow|floater|hook|layup|reverse|dunk2?|putback|putbackDunk|alley|tip)$/;
+  const JUMPER_RE = /^(jumpshot2?|pullup|stepback|fadeaway|postFade[LR])$/, FINISH_RE = /^(layup|reverse)$/, RUNNER_RE = /^(floater|hook)$/, DUNK_RE = /^(dunk2?|putbackDunk|alley)$/;
   function pct(sorted, p) { return sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : 0; }
   function summ(arr, k) {
     const s = Float64Array.from(arr).sort();
@@ -172,6 +175,8 @@
           air: { frames: 0, jolts: 0, worst: 0, worstAt: '', by: {}, p: [] } },
         // the pass and the catch (Trial 10), see _pass
         ps: { recs: [], cur: null, hb: [], prevSt: null, prevHolder: null, pg: null },
+        // the shot (Trial 9), see _shot
+        sh: { recs: [], cur: new Map(), caught: new Map(), gathered: new Map(), bounces: new Map(), pf: new Map(), rtn: new Map(), prevSt: null, prevHolder: null, prevDr: null, bz: [] },
       };
     }
     tracker(a) {
@@ -220,6 +225,7 @@
       this._pairs(list);
       this._handle(list, ball, s.time || 0);
       this._pass(ball, s.time || 0, dt);
+      this._shot(list, ball, s.time || 0, dt);
       for (const a of list) { const t = this.tr.get(a); if (t) t.ballState = ball ? ball.state : null; }
     }
     /** the handle (Trial 8), once a frame: the ball through anyone's body or the floor, and the dribbler's hand on the
@@ -435,6 +441,227 @@
         releaseFtps2: cur.releaseFtps2 == null ? null : Math.round(cur.releaseFtps2), from: cur.from && cur.from.id, to: cur.to && cur.to.id };
       if (caught) Object.assign(rec, { setS: +cur.setS.toFixed(3), eyeS: +cur.eyeS.toFixed(3), gapNearIn: +cur.gapNearIn.toFixed(2), gapFarIn: +cur.gapFarIn.toFixed(2), stopFtps2: Math.round(cur.stop), thruAfterFrames: cur.thruAfter, thruAfterWorstIn: +(cur.afterWorst || 0).toFixed(2) });
       this.S.ps.recs.push(rec);
+    }
+    /** the shot (Trial 9), once a frame: every shot followed from its clip's first frame to its last (the dip, the rise,
+     *  the release against the top of the jump, the shooting elbow under the ball, the wrist's snap, the follow-through
+     *  held, the landing), a finish's gather, steps and take-off, a dunk's hand on the rim, a free throw's dribbles, and
+     *  each shooter's form (where and when the ball goes, how high the jump, how long the follow-through is held) */
+    _shot(list, ball, time, dt) {
+      if (!ball) return;
+      const SH = this.S.sh, R = M.Ball.R;
+      // (a catch: the ball into the shooter's hands out of a flight; a gather: out of the shooter's own dribble; a bounce of it)
+      const hb = ball.holder;
+      if (hb && ball.state === 'held' && SH.prevHolder !== hb) {
+        if (SH.prevSt === 'flight') SH.caught.set(hb, time);
+        else if (SH.prevSt === 'dribble' && SH.prevDr === hb) SH.gathered.set(hb, time);
+      }
+      const bz = SH.bz; bz.push(ball.z); if (bz.length > 3) bz.shift();
+      if (ball.state === 'dribble' && ball.dr && ball.dr.actor && bz.length === 3 && bz[1] < bz[0] && bz[1] <= bz[2] && bz[1] < R + 0.25) {
+        const L = SH.bounces.get(ball.dr.actor) || []; L.push(time); if (L.length > 12) L.shift(); SH.bounces.set(ball.dr.actor, L);
+      }
+      SH.prevDr = ball.state === 'dribble' && ball.dr ? ball.dr.actor : ball.holder;
+      SH.prevSt = ball.state; SH.prevHolder = ball.holder;
+      for (const a of list) {
+        if (!a || a.kind !== 'player' || !a.sk) continue;
+        const cs = a.clip, nm = cs && cs.clip && cs.clip.name;
+        let r = SH.cur.get(a);
+        if (r && cs !== r.cs) { this._shotEnd(r); SH.cur.delete(a); r = null; }
+        // (a free throw routine's spin of the ball and deep breath, the upper body's own moves)
+        const up = a.upper && a.upper.clip && a.upper.clip.name;
+        if ((up === 'ftSpin' || up === 'ftBreath') && a.upper.t < 0.05) { const q = SH.rtn.get(a) || {}; q[up] = time; SH.rtn.set(a, q); }
+        if (!r && nm && SHOT_RE.test(nm) && cs.t < 0.25) {
+          const tc = SH.caught.get(a), tg = SH.gathered.get(a), bl = SH.bounces.get(a) || [];
+          r = { cs, a, name: nm, kind: JUMPER_RE.test(nm) ? 'jumper' : nm === 'freethrow' ? 'ft' : FINISH_RE.test(nm) ? 'finish' : RUNNER_RE.test(nm) ? 'runner' : DUNK_RE.test(nm) ? 'dunk' : 'other',
+            t0: time, mirror: !!cs.mirror, H: a.H, id: a.id, fr: [], plants: [], leaves: [null, null], tRel: null, relB: null, close: null, lean: null,
+            ek: cs.data && cs.data.kind || null, contest: cs.data && cs.data.contest != null ? cs.data.contest : null,
+            tCatch: tc != null && time - tc < 1.5 ? tc : null, tGather: tg != null && time - tg < 1.2 ? tg : null,
+            // (the feet as they were the frame before, so a step begun as the move starts counts from its start)
+            bounces: bl.filter(t => time - t < 3.5).length, feet: (SH.pf.get(a) || a.feet.map(f => f.state)).slice(), held: ball.holder === a, reach: cs.reach || null };
+          if (r.kind === 'ft') {
+            const q = SH.rtn.get(a) || {};
+            r.spin = q.ftSpin != null && time - q.ftSpin < 5; r.breath = q.ftBreath != null && time - q.ftBreath < 5;
+            r.routineS = tc != null && time - tc < 8 ? time - tc : null;
+          }
+          SH.cur.set(a, r);
+        }
+        if (r) this._shotFrame(r, a, ball, time);
+        const pf = SH.pf.get(a) || (SH.pf.set(a, [null, null]), SH.pf.get(a));
+        pf[0] = a.feet[0].state; pf[1] = a.feet[1].state;
+      }
+    }
+    /** end the shots still under way (a run that stops mid-shot) */
+    shotFlush() {
+      const SH = this.S.sh;
+      for (const r of SH.cur.values()) this._shotEnd(r);
+      SH.cur.clear();
+    }
+    _shotFrame(r, a, ball, time) {
+      const P = a.sk.P, p = a.sk.pose, D = U.DEG, sd = r.mirror ? 'l' : 'r', od = r.mirror ? 'r' : 'l';
+      // (a foot coming down, a foot leaving the floor)
+      for (let i = 0; i < 2; i++) {
+        const st = a.feet[i].state, was = r.feet[i];
+        if (st === 'plant' && was !== 'plant') r.plants.push({ t: time, side: a.feet[i].side, from: r.leaves[a.feet[i].side] });
+        if (st !== 'plant' && was === 'plant') r.leaves[a.feet[i].side] = time;
+        if (st === 'plant' && was !== 'plant') r.leaves[a.feet[i].side] = null;
+        r.feet[i] = st;
+      }
+      // (when each foot last left the floor, as the body leaves it)
+      if (!r.leavesAtTake && (a.jumpZ || 0) > 0.02) r.leavesAtTake = r.leaves.slice();
+      const held = ball.holder === a && (ball.state === 'held' || ball.state === 'dribble');
+      if (r.tRel == null && r.held && !held && ball.state === 'flight' && ball.isPass !== true) {
+        r.tRel = time; r.relB = r.fr.length ? r.fr[r.fr.length - 1].bz : ball.z;
+        // (the nearest man of the other side as it goes, and the trunk's lean toward the rim: the pelvis to the neck)
+        let near = Infinity;
+        for (const o of (this.src().people || [])) if (o && o.kind === 'player' && o.team !== a.team && o.sk) near = Math.min(near, Math.hypot(o.x - a.x, o.y - a.y));
+        r.close = isFinite(near) ? near : null;
+        const c = Math.cos(a.facing), s = Math.sin(a.facing), n = J.NCK * 3, pe = J.PEL * 3;
+        r.lean = Math.atan2((P[n] - P[pe]) * c + (P[n + 1] - P[pe + 1]) * s, P[n + 2] - P[pe + 2]) / D;
+      }
+      r.held = held;
+      const deg = (k) => p[CH[k]] / D;
+      const E = J[sd === 'r' ? 'R_EL' : 'L_EL'] * 3, Hd = J[sd === 'r' ? 'R_HD' : 'L_HD'] * 3;
+      // (the shooting arm's shape from where its joints are, not the solver's angles: two sets of shoulder angles give the same
+      // arm, and the arm IK takes the other set as the arm goes straight up, ShF ~140 read as ~-40): how far the upper arm is
+      // raised (0 down, 180 straight up), how bent the elbow is (0 straight), the hand bent forward off the forearm's line
+      // (+, the gooseneck: the fingers over toward the rim) or back (-, cocked under the ball), and the upper arm out to the
+      // shooting side (the elbow's flare, + out)
+      const Sj = J[sd === 'r' ? 'R_SH' : 'L_SH'] * 3, Wj = J[sd === 'r' ? 'R_WR' : 'L_WR'] * 3, Oj = J[sd === 'r' ? 'L_SH' : 'R_SH'] * 3, OE = J[sd === 'r' ? 'L_EL' : 'R_EL'] * 3;
+      const V = (i, j) => [P[j] - P[i], P[j + 1] - P[i + 1], P[j + 2] - P[i + 2]], nrm = (v) => Math.hypot(v[0], v[1], v[2]) || 1e-9;
+      const ang = (u, v) => Math.acos(U.clamp((u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (nrm(u) * nrm(v)), -1, 1)) / D;
+      const cf = Math.cos(a.facing), sf = Math.sin(a.facing), sgn = sd === 'r' ? 1 : -1;
+      const ua = V(Sj, E), fa = V(E, Wj), ha = V(Wj, Hd), ou = V(Oj, OE);
+      const up = Math.acos(U.clamp(-ua[2] / nrm(ua), -1, 1)) / D;
+      // (the hand's own pitch toward the rim: the fingers pointing forward past the wrist (+, the gooseneck), up (0) or back
+      // under the ball (-, the set); a bend's sign from the joints flipped with the forearm's roll)
+      const wr = Math.asin(U.clamp((ha[0] * cf + ha[1] * sf) / nrm(ha), -1, 1)) / D;
+      const flare = Math.asin(U.clamp(sgn * (ua[0] * sf - ua[1] * cf) / nrm(ua), -1, 1)) / D;
+      r.fr.push({ t: time, jz: a.jumpZ || 0, pel: P[J.PEL * 3 + 2], kL: deg('lKnee'), kR: deg('rKnee'), hL: deg('lHipF'), hR: deg('rHipF'),
+        bx: ball.x, by: ball.y, bz: held ? ball.z : null, ex: P[E], ey: P[E + 1], ez: P[E + 2], hx: P[Hd], hy: P[Hd + 1], hz: P[Hd + 2],
+        shF: up, shA: flare, elF: ang(ua, fa), wrF: wr, oShF: Math.acos(U.clamp(-ou[2] / nrm(ou), -1, 1)) / D, oShA: 0,
+        gap: held ? (Math.hypot(P[Hd] - ball.x, P[Hd + 1] - ball.y, P[Hd + 2] - ball.z) - M.Ball.R - TU().palmOffsetH * a.H) * IN : null,
+        x: a.x, y: a.y, f: a.facing });
+    }
+    _shotEnd(r) {
+      const Tn = TU(), F = r.fr, IN12 = IN;
+      if (F.length < 4) return;
+      const knee = (f) => (f.kL + f.kR) / 2;
+      const iOf = (t) => { let k = 0; for (let i = 0; i < F.length; i++) if (F[i].t <= t + 1e-6) k = i; return k; };
+      const rec = { name: r.name, kind: r.kind, ek: r.ek, contest: r.contest, id: r.id, t0: +r.t0.toFixed(3), H: +r.H.toFixed(2), released: r.tRel != null };
+      // the jump: off the floor, its top, back down
+      let iTake = -1, iApex = -1, iLand = -1, jMax = 0;
+      for (let i = 0; i < F.length; i++) { if (iTake < 0 && F[i].jz > 0.02) iTake = i; if (F[i].jz > jMax) { jMax = F[i].jz; iApex = i; } }
+      if (iApex >= 0) for (let i = iApex + 1; i < F.length; i++) if (F[i].jz <= 0.005) { iLand = i; break; }
+      rec.jumpIn = +(jMax * IN12).toFixed(1);
+      const tRel = r.tRel, iRel = tRel != null ? iOf(tRel) : -1;
+      if (tRel != null) {
+        rec.relS = +(tRel - r.t0).toFixed(3);
+        rec.relH = +(r.relB / r.H).toFixed(3); rec.relIn = +(r.relB * IN12).toFixed(1);
+        if (iApex >= 0 && jMax > 0.02) rec.relApexS = +(tRel - F[iApex].t).toFixed(3);
+        if (r.tCatch != null) rec.catchToRelS = +(tRel - r.tCatch).toFixed(3);
+        rec.closeFt = r.close != null ? +r.close.toFixed(1) : null;
+        rec.leanDeg = r.lean != null ? +r.lean.toFixed(1) : null;
+      }
+      // the dip: the ball down and the hips and knees down with it before the rise. Its bottom is where the ball has come
+      // down furthest from where it was (off the dribble it comes up into the pocket first; caught, it comes down from the
+      // catch) and from where it goes on up to the release; the hips' and knees' own bottom near the ball's
+      const iEnd = iTake >= 0 ? iTake : iRel >= 0 ? iRel : F.length - 1;
+      let ibMin = -1, iTop = -1;
+      if (iRel >= 0) {
+        let iH = iRel;
+        while (iH > 0 && F[iH].bz == null) iH--;
+        let top = -Infinity, iT = -1, best = -1;
+        for (let i = 0; i <= iH; i++) {
+          if (F[i].bz == null) continue;
+          if (F[i].bz > top) { top = F[i].bz; iT = i; }
+          const drop = top - F[i].bz;
+          if (drop > best + 1e-6 && (r.relB - F[i].bz) * IN12 >= Tn.shotRiseMinIn) { best = drop; ibMin = i; iTop = iT; }
+        }
+      }
+      if (ibMin >= 0) {
+        const bMin = F[ibMin].bz, b0 = F[iTop].bz, tb = F[ibMin].t;
+        // (the hips' bottom within Tune.debug.shotDipSyncS of the ball's (before the take-off), their top and the knees' least
+        // bend from a little before the ball's top on)
+        let pMin = Infinity, ipMin = -1;
+        for (let i = 0; i <= Math.max(iEnd, ibMin); i++) if (Math.abs(F[i].t - tb) <= Tn.shotDipSyncS + 0.03 && F[i].pel < pMin) { pMin = F[i].pel; ipMin = i; }
+        if (ipMin < 0) { ipMin = ibMin; pMin = F[ibMin].pel; }
+        let p0 = -Infinity, k0 = Infinity, kMax = -Infinity;
+        for (let i = 0; i <= ipMin; i++) if (F[i].t >= F[iTop].t - 0.1) { p0 = Math.max(p0, F[i].pel); k0 = Math.min(k0, knee(F[i])); }
+        for (let i = 0; i <= Math.min(iEnd, F.length - 1); i++) if (Math.abs(F[i].t - F[ipMin].t) <= 0.15) kMax = Math.max(kMax, knee(F[i]));
+        rec.dipBallIn = +((b0 - bMin) * IN12).toFixed(1); rec.dipHipIn = +((p0 - pMin) * IN12).toFixed(1); rec.dipKneeDeg = +(kMax - k0).toFixed(1);
+        rec.dipSyncS = +Math.abs(F[ibMin].t - F[ipMin].t).toFixed(3);
+        rec.riseBallIn = +((r.relB - bMin) * IN12).toFixed(1);
+        if (iTake >= 0) rec.riseKneeDeg = +(kMax - knee(F[iTake])).toFixed(1);
+      }
+      // the set: the shooting elbow under the ball just before the push (in the shooting plane, and below it)
+      if (iRel >= 0) {
+        const f = F[iOf(tRel - Tn.shotSetLeadS)], c = Math.cos(f.f), s = Math.sin(f.f), dx = f.ex - f.bx, dy = f.ey - f.by;
+        rec.elbowOffIn = +Math.abs((dx * s - dy * c) * IN12).toFixed(1);
+        rec.elbowBelowIn = +(((f.bz != null ? f.bz : f.hz) - f.ez) * IN12).toFixed(1);
+        rec.setH = f.bz != null ? +(f.bz / r.H).toFixed(3) : null;
+        rec.flareDeg = +f.shA.toFixed(1);
+        // (the shooting hand on the ball from the dip to the release: its worst gap off the ball, in; - inside it)
+        let gw = 0;
+        for (let i = 0; i <= iRel; i++) if (F[i].gap != null && F[i].t >= F[0].t + 0.1 && Math.abs(F[i].gap) > Math.abs(gw)) gw = F[i].gap;
+        rec.handGapIn = +gw.toFixed(2);
+        // the wrist's snap through the release, and the gooseneck after it
+        let snap = 0, goose = -Infinity;
+        for (let i = 1; i < F.length; i++) {
+          const dtt = F[i].t - F[i - 1].t;
+          if (F[i].t >= tRel - 0.05 && F[i].t <= tRel + 0.15 && dtt > 1e-6) snap = Math.max(snap, (F[i].wrF - F[i - 1].wrF) / dtt);
+          if (F[i].t >= tRel && F[i].t <= tRel + 0.3) goose = Math.max(goose, F[i].wrF);
+        }
+        rec.snapDegps = Math.round(snap); rec.gooseDeg = +goose.toFixed(1);
+        // the follow-through: the arm up and straight with the wrist over, from the wrist's snap (within shotSnapS of the
+        // release) for as long as it lasts
+        let hold = 0, h0 = null;
+        for (let i = iRel; i < F.length; i++) {
+          const g = F[i], up = g.shF >= Tn.shotHoldShFDeg && g.elF <= Tn.shotHoldElFDeg && g.wrF >= Tn.shotHoldWrFDeg;
+          if (h0 == null) { if (up) h0 = g.t; else if (g.t - tRel > Tn.shotSnapS) break; continue; }
+          if (!up) break;
+          hold = g.t - h0;
+        }
+        rec.holdS = +hold.toFixed(3);
+        rec.offUpDeg = +Math.max(F[iRel].oShF, F[iRel].oShA).toFixed(1);
+      }
+      // the landing: the knees and hips giving after it, and where the body came down against where it went up
+      if (iLand > 0 && iTake >= 0) {
+        const k0 = knee(F[iLand]), p0 = F[iLand].pel;
+        let kM = k0, pM = p0;
+        for (let i = iLand; i < F.length && F[i].t - F[iLand].t <= Tn.shotLandS; i++) { kM = Math.max(kM, knee(F[i])); pM = Math.min(pM, F[i].pel); }
+        rec.landKneeDeg = +(kM - k0).toFixed(1); rec.landHipIn = +((p0 - pM) * IN12).toFixed(1);
+        const ft = F[iTake], fl = F[iLand], c = Math.cos(ft.f), s = Math.sin(ft.f), dx = fl.x - ft.x, dy = fl.y - ft.y;
+        rec.driftIn = +((dx * c + dy * s) * IN12).toFixed(1); rec.driftSideIn = +((dx * s - dy * c) * IN12).toFixed(1);
+        rec.airS = +(fl.t - ft.t).toFixed(3);
+      }
+      // a finish: the gather, the steps after it and the foot it goes up from, the other knee driving, the off hand up
+      if (r.kind === 'finish' || r.kind === 'runner' || r.kind === 'dunk') {
+        const tG = r.tGather != null ? r.tGather : r.t0, tT = iTake >= 0 ? F[iTake].t : null;
+        if (tT != null) {
+          // (the steps after the gather; the take-off foot is the last one down before the body leaves the floor, and it is
+          // off two feet when both came down together, or the jump went up from where the shooter stood)
+          // (every foot put down after the gather is a step; the one on the floor as he gathered it is the zero step)
+          const steps = r.plants.filter(q => q.t >= tG - 1e-6 && q.t <= tT + 1e-6);
+          rec.steps = steps.length;
+          // (off one foot the other has already left the floor, its knee coming up; off two both leave it together)
+          const lv = r.leavesAtTake || [null, null], lvL = lv[0], lvR = lv[1];
+          const both = lvL != null && lvR != null && Math.abs(lvL - lvR) <= Tn.shotTwoFootS;
+          const foot = both ? (steps.length ? steps[steps.length - 1].side : null) : lvL == null && lvR == null ? null : (lvR != null && (lvL == null || lvR > lvL)) ? 1 : 0;
+          rec.takeoffFoot = foot == null ? null : foot ? 'R' : 'L';
+          rec.hand = r.mirror ? 'L' : 'R';
+          rec.twoFoot = both || foot == null;
+          let drive = 0;
+          const free = foot == null || rec.twoFoot ? null : foot ? 'hL' : 'hR';
+          if (free) for (const f of F) if (f.t >= tT - 0.05 && f.t <= tT + 0.35) drive = Math.max(drive, f[free]);
+          rec.kneeDriveDeg = +drive.toFixed(1);
+        }
+        if (r.reach && r.reach.hx != null) {
+          let on = 0;
+          for (let i = 1; i < F.length; i++) if (Math.hypot(F[i].hx - r.reach.hx, F[i].hy - r.reach.hy, F[i].hz - r.reach.hz) < Tn.shotRimHandFt) on += F[i].t - F[i - 1].t;
+          rec.rimHandS = +on.toFixed(3);
+        }
+      }
+      if (r.kind === 'ft') { rec.dribbles = r.bounces; rec.spin = !!r.spin; rec.breath = !!r.breath; rec.routineS = r.routineS != null ? +r.routineS.toFixed(2) : null; }
+      this.S.sh.recs.push(rec);
     }
     _hdEnd(h) {
       const HD = this.S.hd;
@@ -939,6 +1166,58 @@
         releaseFtps2: summ(col(R, 'releaseFtps2'), 0), releaseJolts: R.filter(r => r.releaseFtps2 != null && r.releaseFtps2 > Tn.passStopFtps2).length,
       };
     }
+    /** the Trial 9 shot scorecard: each jump shot's phases present (a dip with the ball and the hips down together, a rise,
+     *  the release near the top of the jump, the follow-through held, a landing that gives), each finish's footwork, and
+     *  the spread of form between shooters */
+    shotSummary() {
+      const Tn = TU(), R = this.S.sh.recs, col = (L, k) => L.map(r => r[k]).filter(v => v != null);
+      const byName = {};
+      for (const r of R) byName[r.name] = (byName[r.name] || 0) + 1;
+      const J = R.filter(r => r.kind === 'jumper' && r.released);
+      // (a jump shot has all five: the dip (ball and hips down, within shotDipSyncS of each other), the rise, the release
+      // within shotApexBeforeS before to shotApexAfterS after the top, the follow-through held shotHoldMinS, a landing that
+      // gives shotLandMinDeg at the knee)
+      const phase = (r) => ({
+        dip: r.dipBallIn >= Tn.shotDipMinIn && r.dipHipIn >= Tn.shotDipHipMinIn && r.dipSyncS <= Tn.shotDipSyncS,
+        rise: r.riseBallIn >= Tn.shotRiseMinIn,
+        apex: r.relApexS != null && r.relApexS >= -Tn.shotApexBeforeS && r.relApexS <= Tn.shotApexAfterS,
+        follow: r.holdS >= Tn.shotHoldMinS,
+        land: r.landKneeDeg != null && r.landKneeDeg >= Tn.shotLandMinDeg,
+      });
+      const miss = { dip: 0, rise: 0, apex: 0, follow: 0, land: 0 };
+      let all = 0;
+      for (const r of J) { const q = phase(r); let ok = true; for (const k in q) if (!q[k]) { miss[k]++; ok = false; } if (ok) all++; }
+      const F = R.filter(r => r.kind === 'finish' && r.released && r.steps != null);
+      const footOk = (r) => r.steps === 2 && r.takeoffFoot != null && r.takeoffFoot !== r.hand && r.kneeDriveDeg >= Tn.shotKneeDriveDeg;
+      const FT = R.filter(r => r.kind === 'ft');
+      const Dk = R.filter(r => r.kind === 'dunk' && r.released);
+      const Rn = R.filter(r => r.kind === 'runner' && r.released && r.takeoffFoot != null);
+      const cs = J.filter(r => r.catchToRelS != null);
+      // (the engine's own catch-and-shoot, against NBA tracking's ~0.5-0.8 s from the catch to the release)
+      const cse = J.filter(r => r.ek === 'catch_shoot' && r.catchToRelS != null);
+      // (the same shot open, contested and tight: released higher and quicker, leaning away)
+      const byC = {};
+      for (const c of [0, 0.5, 1]) { const L = J.filter(r => r.contest === c && r.name === 'jumpshot'); if (L.length) byC[c] = { n: L.length, relH: summ(col(L, 'relH'), 3).p50, relS: summ(col(L, 'relS'), 3).p50, leanDeg: summ(col(L, 'leanDeg'), 1).p50, jumpIn: summ(col(L, 'jumpIn'), 1).p50 }; }
+      return {
+        shots: R.length, byName,
+        jumpers: J.length, jumpersAllPhases: all, jumpersMissing: miss,
+        dipBallIn: summ(col(J, 'dipBallIn'), 1), dipHipIn: summ(col(J, 'dipHipIn'), 1), dipKneeDeg: summ(col(J, 'dipKneeDeg'), 1), dipSyncS: summ(col(J, 'dipSyncS'), 3),
+        riseBallIn: summ(col(J, 'riseBallIn'), 1), relApexS: summ(col(J, 'relApexS'), 3), holdS: summ(col(J, 'holdS'), 3),
+        landKneeDeg: summ(col(J, 'landKneeDeg'), 1), driftIn: summ(col(J, 'driftIn'), 1), jumpIn: summ(col(J, 'jumpIn'), 1),
+        elbowOffIn: summ(col(J, 'elbowOffIn'), 1), elbowBelowIn: summ(col(J, 'elbowBelowIn'), 1), snapDegps: summ(col(J, 'snapDegps'), 0), gooseDeg: summ(col(J, 'gooseDeg'), 1),
+        relH: summ(col(J, 'relH'), 3), relS: summ(col(J, 'relS'), 3),
+        catchAndShoot: cs.length, catchToRelS: summ(col(cs, 'catchToRelS'), 3),
+        catchShoot: cse.length, catchShootToRelS: summ(col(cse, 'catchToRelS'), 3), catchShootIn: cse.filter(r => r.catchToRelS >= Tn.shotCnsMinS && r.catchToRelS <= Tn.shotCnsMaxS).length,
+        byContest: byC,
+        finishes: F.length, finishFootworkOk: F.filter(footOk).length, finishSteps: summ(col(F, 'steps'), 0),
+        finishWrongFoot: F.filter(r => r.takeoffFoot === r.hand).length, kneeDriveDeg: summ(col(F, 'kneeDriveDeg'), 1),
+        runners: Rn.length, runnerFootOk: Rn.filter(r => !r.twoFoot && r.takeoffFoot !== r.hand).length,
+        freeThrows: FT.length, ftDribbles: summ(col(FT, 'dribbles'), 0), ftRoutineS: summ(col(FT, 'routineS'), 2), ftSpin: FT.filter(r => r.spin).length, ftBreath: FT.filter(r => r.breath).length,
+        ftJumpIn: summ(col(FT, 'jumpIn'), 1), ftHoldS: summ(col(FT, 'holdS'), 3), ftAllPhases: FT.filter(r => r.released && r.dipBallIn >= Tn.shotDipMinIn && r.holdS >= Tn.shotHoldMinS && (r.jumpIn || 0) < 1).length,
+        dunks: Dk.length, dunkTwoFoot: Dk.filter(r => r.twoFoot).length, dunkOneFootOk: Dk.filter(r => !r.twoFoot && r.takeoffFoot !== r.hand).length, dunkRimHandS: summ(col(Dk, 'rimHandS'), 3),
+        dunkLandKneeDeg: summ(col(Dk, 'landKneeDeg'), 1),
+      };
+    }
     /** the Trial 8 handle scorecard */
     handleSummary() {
       const HD = this.S.hd, Tn = TU(), top = (o, n) => Object.entries(o).sort((p, q) => q[1] - p[1]).slice(0, n || 10);
@@ -1083,6 +1362,7 @@
         gait: this.gaitSummary(),
         handle: this.handleSummary(),
         pass: this.passSummary(),
+        shot: this.shotSummary(),
       };
     }
     /** the Trial 2 body scorecard */
