@@ -545,6 +545,32 @@ console.log('the handle (Trial 8)');
   }
 }
 
+console.log('the pass and the catch (Trial 10)');
+{
+  // every pass of the pass audit (tools/audit/pass.js; the Lab's "Passing (two players)" group), measured by the game's own
+  // pass meter
+  const P10 = require('./pass');
+  const rows = P10.scenarios(PBC).map(sc => P10.run(PBC, sc)), recs = rows.flatMap(r => r.recs.map(x => Object.assign({ sc: r.name }, x)));
+  const standing = recs.filter(x => !/run|cutter|drive|sprinter|popping/.test(x.sc)), moving = recs.filter(x => standing.indexOf(x) < 0);
+  const mn = (xs, k) => Math.min(...xs.map(x => x[k])), mx = (xs, k) => Math.max(...xs.map(x => x[k]));
+  ok(recs.length >= 26 && recs.every(x => x.caught), `${recs.length} passes in ${rows.length} scenarios, every one caught`);
+  ok(recs.every(x => x.setS >= 0.05 && x.eyeS >= 0.15), `the receiver reacts before the ball gets there: hands set at least ${mn(recs, 'setS')} s before, eyes on it at least ${mn(recs, 'eyeS')} s before`);
+  ok(standing.every(x => x.setS >= 0.25), `a receiver standing for it shows the target at least ${mn(standing, 'setS')} s before (${standing.length} passes)`);
+  // (a ball into a hand's capsule by less than its radius, ~0.6 in, on the frame it is caught is the ball meeting the fingers)
+  const thru = recs.filter(x => x.thruFrames > 0 && x.thruWorstIn > 0.75);
+  ok(thru.length <= 1 && thru.every(x => /sprinter/.test(x.sc) && x.thruFrames <= 1), `the ball never into the hands by over 0.75 in before the catch (the fingers' own depth), but for the sprinter's outlet from behind (still open: ${thru.map(x => x.thruFrames + ' frame, ' + x.thruWorstIn + ' in').join('; ') || 'none'}); ${recs.filter(x => x.thruFrames > 0).length} passes touch the fingers on the catch frame`);
+  ok(standing.every(x => x.gapFarIn <= 0.6) && moving.every(x => x.gapFarIn <= 3.2), `the palms on the ball at the catch: within ${mx(standing, 'gapFarIn')} in standing, ${mx(moving, 'gapFarIn')} in on the move`);
+  ok(standing.every(x => x.stopFtps2 <= 1600), `the catch gives with the ball: it stops at no more than ${mx(standing, 'stopFtps2')} ft/s^2 standing`);
+  ok(recs.every(x => x.bentIn === 0), 'every flight its own ballistic path, not bent onto the hands (0 in)');
+  ok(recs.every(x => x.releaseFtps2 <= 1000), `the ball leaves the hands without a jolt: at most ${mx(recs, 'releaseFtps2')} ft/s^2`);
+  const two = recs.filter(x => /^(chest|bounce|entry|lob)$/.test(x.kind || '') && !/inbound/.test(x.sc));
+  ok(two.every(x => x.passGapIn <= 2.2) && recs.every(x => x.passGapIn <= 4.5), `the passer's hands on the ball through the throw: within ${mx(two, 'passGapIn')} in for the two-handed passes, ${mx(recs, 'passGapIn')} in for any`);
+  const kinds = new Set(recs.map(x => x.kind));
+  ok(['chest', 'bounce', 'overhead', 'lob', 'kick', 'outlet', 'btb', 'whip', 'nolook'].every(k => kinds.has(k)), `every pass and variation thrown and caught: ${[...kinds].join(', ')}`);
+  const calm = rows.filter(r => !/drive|facing away/.test(r.name));
+  ok(calm.every(r => r.armPops <= 4), `hands and elbows without pops: at most ${Math.max(...calm.map(r => r.armPops))} in any of ${calm.length} scenarios (still open: ${rows.filter(r => calm.indexOf(r) < 0).map(r => r.name.replace(/ \(.*$/, '') + ' ' + r.armPops).join(', ')})`);
+}
+
 console.log('the floor and the weight in a real game (the first minute of seed 7)');
 {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'quarter.js'), '--seed', '7', '--frames', '3600'], { encoding: 'utf8', maxBuffer: 1 << 26 });
