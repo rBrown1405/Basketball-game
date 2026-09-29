@@ -5,19 +5,30 @@
 Recordings go in `assets/audio/<folder>/` (`court`, `crowd`, `chants`, `chatter`, `arena`, `commentary`, `test`), and
 every file needs a row in that folder's `LICENSES.md`: the file, where it came from, who made it, and its license.
 The packer refuses a file without a row, or with a license the game cannot ship (only CC0 or public domain, CC BY
-with the author credited, or made by this project; no NC, ND or SA, no "personal use", no "royalty free but no
-redistribution").
+with the author credited, the Pixabay Content License, or made by this project; no NC, ND or SA, no "personal use",
+no "royalty free but no redistribution"). One exception: sounds generated on ElevenLabs' free plan (elevenlabs.io,
+without signing in) pass with the credit "elevenlabs.io" in their row, but they are for non-commercial use only, so
+every pack run lists them and the pack carries the list (`nonCommercial`): replace them before the game is ever sold.
 
 ```
+node tools/audio/cut.js court --src <downloads>   # cuts the takes out of the downloads (assets/audio/court/cuts.json)
 node tools/audio/pack.js court        # assets/audio/court/ → js/audio/packs/court.js (base64), rewrites js/audio/packs/index.js
 node tools/audio/pack.js --all
 node tools/audio/testpack.js          # the test pack's three tones (made here), then: node tools/audio/pack.js test
 ```
 
+`cut.js` makes a folder's files from the downloads they come from, following the folder's `cuts.json`: one-shots
+(each take from a little before its onset, faded, levelled on its body, 16-bit WAV so it starts on time) and loops (a
+bed's stretches levelled, crossfaded, looped seamlessly and rolled so an MP3 decoder's delay only moves where the
+loop starts; MP3 through lamejs, `npm install` in `tools/audio` first, needed only to cut). The downloads stay out
+of git (`--src`, or `tools/audio/sources/`, which is ignored): Pixabay's license lets the game ship its edited
+sounds, not the original files on their own.
+
 A pack is a script so a game opened by double-clicking `index.html` (a `file://` page, where `fetch` is blocked) can
 load it. A file's sound name is its name without the take number (`rim_01.ogg`, `rim_02.ogg`: two takes of `rim`).
-The court's sounds (Trial 2) are synthesized until a pack has them; a court pack's names are the sound, or the sound
-and its kind: `dribble`, `bounce`, `squeak.cut` / `squeak.stop` / `squeak.pivot` / `squeak.slide` / `squeak.jumpstop`
+The court's sounds (Trial 2) are synthesized until a pack has them (the recordings in the court pack now: `dribble`,
+`swish`, `board`, `pass`; `bounce` plays the dribbles and `net` the swishes, as `AudioConfig.court.rec` says); a court
+pack's names are the sound, or the sound and its kind: `dribble`, `bounce`, `squeak.cut` / `squeak.stop` / `squeak.pivot` / `squeak.slide` / `squeak.jumpstop`
 (or plain `squeak`), `step`, `land`, `catch`, `pass`, `body.bump` / `body.screen` / `body.boxout` / `body.post`,
 `fall`, `roll`, `rimroll`, `rim.front` / `rim.back` / `rim.side` / `rim.soft` / `rim.rattle`, `board`, `swish`, `net`,
 `dunk`, `block`, `whistle.foul` / `whistle.charge` / `whistle.violation` / `whistle.out`, `buzzer`, `horn` (a file
@@ -53,6 +64,11 @@ Trial 2 (the court), results in `audit/audio2` by default:
 | `node tools/audio/test/place.js` | the same dribble at spots around the floor from the broadcast camera: pan, level, room and high end measured in stereo | `place_result.txt`, `place.wav` |
 | `node tools/audio/test/events.js` | the rarer moments through the court's own calls and clips: whistles by call, the shot clock buzzer, the period and game-end horns, a fall, a post-up bump, a jab step, a defender's slide, a closeout, a jump stop, a ball bouncing and rolling out of bounds | `events_result.txt`, `events.wav` |
 | `node tools/audio/test/modes.js` | the other ways to watch with the arena's sound on: the retro court and play-by-play only (no court sounds, no errors, every shot's result still heard) and the broadcast court with instant replays (no court sound while a replay runs) | `modes_result.txt` |
+| `node tools/audio/test/recab.js` | the recordings against the synthesized sounds they replaced, through the mixer: each court sound a few times synthesized then recorded, then the crowd bed both ways at two crowd levels (a clip to listen to, with where each part starts) | `recab_result.txt`, `recab.wav` |
+
+The recordings (the court pack's dribbles, swishes, glass and passes, the crowd pack's beds) play in every test where
+the game would play them; `variety.js --synth 1` and `AudioConfig.court.rec.use` / `crowd.rec.use = false` switch
+them off. Their results are in `audit/audio2rec/`.
 
 The mixer's recorder (`mx.recording()`) stamps its samples with the audio clock, so the tests line sounds up against
 what was scheduled to the sample; the tap in `common.js` (`TAP`) is for what reaches the speakers, but its block times

@@ -1,7 +1,8 @@
-/* Pro BBALL Coach — arena audio for live games (PBC.ArenaAudio).
+/* Pro BBALL Coach: arena audio for live games (PBC.ArenaAudio).
  * The crowd: a living crowd bed that swells with close games and playoff stakes, cheers / groans / "ooohs" / boos,
- * rhythmic DE-FENSE claps. Everything is synthesized with Web Audio until recordings replace it (a sound pack loaded by
- * js/audio/assets.js takes over a sound when it has it).
+ * rhythmic DE-FENSE claps. The bed is a recorded crowd (the crowd pack's murmur and cheer loops) over a little of the
+ * synthesized one, which is the whole bed until the pack is ready; the rest is synthesized with Web Audio until
+ * recordings replace it (a sound pack loaded by js/audio/assets.js takes over a sound when it has it).
  * It listens on the audio event bus (js/audio/bus.js): game.* events for the crowd's reactions (a miss or a block only
  * once the ball gets there: game.shotResult), live.final for the horn and the last roar.
  * The court's sounds (the ball, the sneakers, the bodies, the rim, the net, the whistle, the shot clock and the horn)
@@ -21,7 +22,7 @@
     const mx = host.mx;
     const A = {
       enabled: st.arenaSound !== false, crowdLevel: 0.2, excite: 0, chantT: 0,
-      noise: null, pink: null, bed: null, destroyed: false,
+      noise: null, pink: null, bed: null, rec: null, recIn: 0, destroyed: false,
     };
     const HOME = 0;
     const offs = [];
@@ -61,10 +62,35 @@
       const into = mx.input('crowd');
       for (const [kind, type, f, q, gain] of CC.bedLayers) {
         const s = src(kind === 'pink' ? A.pink : A.noise, true), flt = c.createBiquadFilter(), g = c.createGain();
-        flt.type = type; flt.frequency.value = f; flt.Q.value = q; g.gain.value = gain;
+        // (from the crowd's level, as update() will hold it: at the layer's full gain the bed opened with a burst
+        // 10 dB over itself that took a second to settle)
+        flt.type = type; flt.frequency.value = f; flt.Q.value = q; g.gain.value = gain * A.crowdLevel;
         s.connect(flt); flt.connect(g); g.connect(into);
         s.start(0, R.random() * 2);
         A.bed.push({ s, flt, g, base: gain, f });
+      }
+    }
+    // the recorded bed: each loop twice, half a loop apart, panned apart, into the Crowd bus (from silence: update()
+    // brings it in). The loop is the file's [rollS, rollS + loopS]
+    function startRecBed(c) {
+      const RC = CC.rec, into = mx.input('crowd');
+      A.rec = {};
+      for (const key of ['murmur', 'cheer']) {
+        const L = RC[key], takes = Assets.takes('crowd', L.name);
+        if (!takes) continue;
+        const buf = takes[0], g = c.createGain(), srcs = [];
+        g.gain.value = 0; g.connect(into);
+        const at = R.random();
+        for (let k = 0; k < 2; k++) {
+          const s = src(buf, true);
+          s.loopStart = L.rollS; s.loopEnd = Math.min(buf.duration, L.rollS + L.loopS);
+          let tail = s;
+          if (c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = k ? RC.pan : -RC.pan; s.connect(pn); tail = pn; }
+          tail.connect(g);
+          s.start(0, L.rollS + ((at + k * 0.5) % 1) * L.loopS);
+          srcs.push(s);
+        }
+        A.rec[key] = { g, srcs };
       }
     }
 
@@ -208,10 +234,21 @@
         let lvl = CC.bedBase + s.stakes * CC.bedStakes + (s.late && s.close ? CC.bedLateClose : 0) + A.excite * CC.bedExcite;
         if (!s.playing) lvl *= CC.bedNotPlaying;
         A.crowdLevel += (lvl - A.crowdLevel) * Math.min(1, dt * CC.bedFollow);
+        // the recorded bed once the crowd pack is ready: the murmur, and the cheer as the level climbs
+        const RC = CC.rec;
+        if (!A.rec && RC.use !== false && Assets && Assets.takes && Assets.has('crowd', RC.murmur.name)) startRecBed(mx.ctx);
+        let synthK = 1;
+        if (A.rec) {
+          A.recIn = Math.min(1, A.recIn + dt / RC.fadeIn);
+          const x = U.clamp((A.crowdLevel - RC.cheerFrom) / (RC.cheerFull - RC.cheerFrom), 0, 1);
+          if (A.rec.murmur) A.rec.murmur.g.gain.setTargetAtTime(A.recIn * A.crowdLevel * RC.murmur.level * (1 - (1 - RC.murmurUnder) * x), t, CC.bedTc);
+          if (A.rec.cheer) A.rec.cheer.g.gain.setTargetAtTime(A.recIn * A.crowdLevel * RC.cheer.level * x, t, CC.bedTc);
+          synthK = 1 - (1 - RC.synthWithRec) * A.recIn;
+        }
         const [w1, w2] = CC.bedWobble;
         for (const L of A.bed) {
           const wob = 1 + Math.sin(t * (0.21 + L.f / 9000) + L.f) * w1 + Math.sin(t * 0.07 + L.f * 0.3) * w2;
-          L.g.gain.setTargetAtTime(L.base * A.crowdLevel * wob, t, CC.bedTc);
+          L.g.gain.setTargetAtTime(L.base * A.crowdLevel * wob * synthK, t, CC.bedTc);
         }
         // DE-FENSE claps when the home team defends in close / big games (a timer until Trial 4)
         const H = C.chant;
@@ -229,6 +266,7 @@
         A.destroyed = true;
         offs.forEach((f) => f()); offs.length = 0;
         if (A.bed) for (const L of A.bed) { try { L.s.stop(); } catch (e) { /* ignore */ } }
+        if (A.rec) for (const k of Object.keys(A.rec)) for (const s of A.rec[k].srcs) { try { s.stop(); } catch (e) { /* ignore */ } }
       },
     };
     // try right away (the click on "Watch Live" usually counts as the user gesture)

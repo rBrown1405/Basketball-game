@@ -1,7 +1,8 @@
 /* Pro BBALL Coach: the court's sounds, made from small physical models (PBC.CourtSynth), Trial 2 of the audio
  * gauntlet. No free sound library could be reached to build this, so every sound here is made by this project (its
- * license is the game's own); a recorded pack (assets/audio/court, CC0 or CC BY, see tools/audio/README.md) takes
- * over any sound it has, through the same path.
+ * license is the game's own); a recorded pack (assets/audio/court, licenses in its LICENSES.md, see
+ * tools/audio/README.md) takes over any sound it has, through the same path: now the dribbles (and the loose ball's
+ * bounces), the swish (and the net off the rim), the glass and the pass.
  *
  * What each sound is made of (the numbers are in PBC.AudioConfig.courtSynth):
  *   the ball     a thump as it meets the floor, then its pressurised air cavity rings in the modes of a sphere, and
@@ -19,7 +20,8 @@
  * Variation: every sound has a fixed set of takes (AudioConfig.court.takes; each take is its own draw of every random
  * part of the model, the same every game, like a set of recordings), a hit picks a take that is not the last one
  * played, then gets a small random change of pitch and level (court.jitter) and its own physics: how hard, how high,
- * where on the floor, how far from the camera. A pack's recordings of a sound are its takes instead. */
+ * where on the floor, how far from the camera. A pack's recordings of a sound are its takes instead (take i of n
+ * recordings: recording i % n, changed a little when there are fewer than the takes: court.rec.variants). */
 (function () {
   'use strict';
   const PBC = window.PBC;
@@ -455,16 +457,40 @@
       if (W.snapAmp > 0) burst(V, ctx, dest, 'white', 'bandpass', Sw.snapHz * lerp(0.85, 1.15, u()), Sw.snapQ, pk * W.snapAmp * (snap ? 1 : 0.6), Sw.snapTau, t + lerp(Sw.snapAt[0], Sw.snapAt[1], u()), 0.001);
     }
 
-    /** a pack's recording as a take: its pitch and level (and a tight dribble's tail cut shorter) */
-    function sampleHit(V, ctx, buf, p) {
+    // ------------------------------------------------------------ recordings
+    /** a sound's recordings (its bank's, its own, or the ones it borrows: court.rec[name].from) and how they play */
+    function recordings(bankName, name) {
+      const Assets = PBC.AudioAssets, RC = CC.rec || {};
+      if (!Assets || !Assets.takes || RC.use === false) return null;
+      const cfg = RC[bankName] || RC[name] || {};
+      const bufs = Assets.takes('court', bankName) || (bankName !== name ? Assets.takes('court', name) : null) || (cfg.from ? Assets.takes('court', cfg.from) : null);
+      return bufs ? { bufs, cfg } : null;
+    }
+    /** a recording as a take: its pitch, level (the hit ^ curve) and tone, the floor under it, and a tight
+     *  dribble's tail cut shorter. how: { gain, curve, pitch, shelf (dB), lp (Hz) } */
+    function sampleHit(V, ctx, buf, p, how) {
+      const RC = CC.rec, S = p.surf || {}, F = CC.floor;
       const s = ctx.createBufferSource(), g = ctx.createGain();
       s.buffer = buf;
-      s.playbackRate.value = p.pm;
-      const lv = p.lm * Math.max(0.05, Math.min(1.3, p.e == null ? 1 : p.e));
+      const rate = p.pm * how.pitch * (S.pitch || 1);
+      s.playbackRate.value = rate;
+      let lv = p.lm * how.gain * Math.pow(Math.max(0.05, Math.min(1.3, p.e == null ? 1 : p.e)), how.curve);
+      if (p.tight != null) lv *= Math.pow(10, lerp(RC.tightDb[0], RC.tightDb[1], clamp01(p.tight)) / 20);
       g.gain.value = lv; g.gain.setValueAtTime(lv, V.t0);
-      if (p.tight != null) g.gain.setTargetAtTime(0, V.t0 + lerp(0.12, 0.05, clamp01(p.tight)), 0.03);
-      s.connect(g); g.connect(V.out);
-      const stop = V.t0 + buf.duration / p.pm + 0.02;
+      if (p.tight != null) g.gain.setTargetAtTime(0, V.t0 + lerp(RC.tightCut[0], RC.tightCut[1], clamp01(p.tight)), 0.03);
+      // its tone: the take's shelf and the floor's slap (brighter paint, soft courtside), a dead spot's dull ball
+      const shelf = (how.shelf || 0) + (S.click && S.click !== 1 ? 20 * Math.log10(S.click) * RC.clickShelf : 0);
+      let lp = how.lp || 0;
+      if (S.zone === 'dead' && S.ring < 1) {
+        const q = clamp01((1 - S.ring) / (1 - F.deadRing));
+        const dl = 20000 * Math.pow(RC.deadLpHz / 20000, q);
+        lp = lp ? Math.min(lp, dl) : dl;
+      }
+      let tail = s;
+      if (Math.abs(shelf) > 0.1) { const f = ctx.createBiquadFilter(); f.type = 'highshelf'; f.frequency.value = RC.shelfHz; f.gain.value = shelf; tail.connect(f); tail = f; }
+      if (lp > 0 && lp < 19000) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; f.Q.value = 0.707; tail.connect(f); tail = f; }
+      tail.connect(g); g.connect(V.out);
+      const stop = V.t0 + buf.duration / rate + 0.02;
       s.start(V.t0); s.stop(stop);
       V.src(s, stop);
     }
@@ -487,15 +513,22 @@
       q.lm = (p.fixed ? 1 : Math.pow(10, ((R.random() * 2 - 1) * J.gainDb) / 20)) * (p.level == null ? 1 : p.level);
       q.u = cursor(bank(bankName).takes[ti]);
       q.e = p.e == null ? 1 : p.e;
-      const Assets = PBC.AudioAssets;
-      const buf = Assets ? (Assets.get('court', bankName) || (p.variant ? Assets.get('court', name) : null)) : null;
+      // a recording when the pack has one: take ti is recording ti % n, changed by variant floor(ti / n)
+      const rec = recordings(bankName, name);
+      let buf = null, how = null, ri = 0, vi = 0;
+      if (rec) {
+        const n = rec.bufs.length, VT = CC.rec.variants, c = rec.cfg;
+        ri = ti % n; vi = Math.floor(ti / n) % VT.length;
+        buf = rec.bufs[ri];
+        how = { gain: c.gain == null ? 1 : c.gain, curve: c.curve == null ? 1 : c.curve, pitch: (c.pitch || 1) * VT[vi][0], shelf: VT[vi][1], lp: c.lp || 0 };
+      }
       const opts = Object.assign({}, o || {});
-      opts.tag = (p.variant ? p.variant + ' ' : '') + (buf ? 'rec' : 'take ' + (ti + 1));
+      opts.tag = (p.variant ? p.variant + ' ' : '') + (buf ? 'rec ' + (ri + 1) + (vi ? '/' + vi : '') : 'take ' + (ti + 1));
       fixedNoise = !!p.fixed;
       let vo;
-      try { vo = mx.play(name, q.e, buf ? (V) => sampleHit(V, mx.ctx, buf, q) : (V) => recipe(V, mx.ctx, q), opts); } finally { fixedNoise = false; }
-      // (what this hit was, for the tests: the take, and the pitch and level it got on top)
-      if (vo) vo.meta = { bank: bankName, take: ti + 1, pitch: q.pm, level: q.lm, rec: !!buf };
+      try { vo = mx.play(name, q.e, buf ? (V) => sampleHit(V, mx.ctx, buf, q, how) : (V) => recipe(V, mx.ctx, q), opts); } finally { fixedNoise = false; }
+      // (what this hit was, for the tests: the take, and the pitch and level it got on top; a recording's number)
+      if (vo) vo.meta = { bank: bankName, take: ti + 1, pitch: q.pm, level: q.lm, rec: !!buf, file: buf ? ri + 1 : 0, variant: vi };
       return vo;
     }
 

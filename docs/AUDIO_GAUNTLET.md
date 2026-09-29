@@ -786,3 +786,142 @@ Everything Trial 1 proved, rerun on the final code, merged with the animation se
 - **Still to come** (not this trial): the crowd bed (Trial 3), chants that follow the game (Trial 4), the booth's new
   voices (Trial 7) and set calls on time (Trial 8), the whole mix's loudness (Trial 9). Recorded sound packs (CC0) can
   replace any of the modelled sounds through the packer when a library can be reached.
+
+## Between Trials 2 and 3: the recorded sounds
+
+The court's modelled sounds were built because no sound library could be reached from here. Then the owner found
+recordings online and brought them in: a ball dribbling, a net swish, a crowd at a game, three sounds generated with
+ElevenLabs (the ball on the backboard, a net swoosh, a pass) and a crossover beat. They now play in the game where they
+fit, and the crowd recording is the crowd bed's base now, ahead of Trial 3 (asked for: "use the crowd now"). Nothing
+the animation session owns was touched.
+
+### Where they come from, and their licenses
+
+| Download | From | License | In the game as |
+|---|---|---|---|
+| "basketball" (12 bounces and a blip) | Pixabay, uploaded by freesound_community (basketball-99685) | Pixabay Content License | `dribble_01` to `_12`, also the loose ball's `bounce` |
+| "basketball net swish sound" (8 swishes) | Pixabay, freesound_community (basketball-net-swish-sound-40170) | Pixabay Content License | `swish_01` to `_08`, also the `net` off the rim |
+| "fans at basketball game crowd" (112 s) | Pixabay, freesound_community (fans-at-basketball-game-crowd-5859) | Pixabay Content License | the crowd bed's loops `bed.murmur` and `bed.cheer` |
+| "Swoosh of a basketball net, satisfying and crisp" | ElevenLabs Sound Effects, free, without an account | non-commercial only, credit "elevenlabs.io" | `swish_09` |
+| "Sound of a basketball hitting the backboard, echoing impact" | ElevenLabs, the same | the same | `board_01` |
+| "Sound of a basketball being passed, quick whoosh through the air" | ElevenLabs, the same | the same | `pass_01`, `pass_02` |
+| "crossover" (phantasticbeats) | Pixabay music | Pixabay Content License | not used: it is music, kept for the arena's music (Trial 5) |
+
+- **Pixabay's license**: free, commercial use allowed, no credit needed; the sound may be edited and used in a game, but
+  not handed on as the file itself. So the downloads are not in the repository: `tools/audio/cut.js` makes the game's
+  edited takes from them, following `cuts.json` in each folder (anyone with the downloads can make them again).
+- **ElevenLabs' free plan** (the owner made these without signing in): its help centre says content made on a free plan
+  or without an account may be published with "elevenlabs.io" (or "11.ai") credited, and may not be used for any
+  commercial purpose. The rows in `assets/audio/court/LICENSES.md` credit it; the packer lets them in only with that
+  credit, lists them every time it packs, and the pack carries the list (`nonCommercial`). **Before the game is ever
+  sold these four files must be replaced** (or made again on a paid plan, whose license is commercial).
+- Every file's row (its download, the time of the hit in it, the author, the license) is in the folder's `LICENSES.md`.
+
+### What was built
+
+- **Cutting** (`tools/audio/cut.js`): a hit is found by its onset (the first sample near it to reach a share of its
+  peak), cut from 3 to 5 ms before it, faded in over that and out over its last 0.1 to 0.3 s, a highpass under the
+  ball's thump (35 to 60 Hz) takes out the room's rumble, and it is levelled on its body, every take the same level,
+  so the game's physics decide how loud a hit is, not how near the microphone was. 16-bit mono WAV at 48 kHz: an MP3
+  starts late by its encoder's delay, and a dribble must land on the frame. The dribbles file has 13 onsets: 12
+  bounces and a blip, left out. The swish file's last swish is cut short of a click after it. The backboard's long echo
+  is trimmed to 0.6 s. 24 takes, 757 KB.
+- **The crowd's loops**: the recording is 112 s of one microphone (mono) with a loud cheering crowd at the start, a quiet
+  murmur between, and things that must not come round every loop: a horn or whistle (72 s), people shouting, a chant
+  with claps (29 to 44 s), a ball being dribbled (77 to 86 s), a squeak (47.6 s). The murmur is made of the clean
+  stretches (44.5 to 47.4, 48.2 to 54, 66 to 71.8 and 92.4 to 102.4 s), the cheer of two (0.5 to 16.5 and 55.5 to
+  64.8 s), each levelled by a slow gain (its swells stay, its drift goes), crossfaded into the next and its end into its
+  start: loops of exactly 20 and 22 s. Each file carries a quarter second of its own end before the loop and of its
+  start after it, and the game loops the middle, so whatever delay an MP3 decoder adds only moves where the loop
+  starts. Mono MP3, 64 kbps at 24 kHz, 345 KB for both (lamejs, needed only to cut).
+- **The packer** (`tools/audio/pack.js`) accepts the Pixabay Content License, and ElevenLabs' free plan with its credit
+  (listed as non-commercial). The packs load in file-name order now (`js/audio/assets.js`): take 3 is always the same
+  recording, and `takes()` hands a sound's recordings to the court.
+- **The court plays them** (`js/audio/courtsynth.js`, `AudioConfig.court.rec`). A sound still has 12 takes, the shuffled
+  round robin and the jitter: take i of a sound with n recordings is recording i % n, changed a little when there are
+  fewer than 12 (a variant: pitch x 0.925 to 1.075 and a high shelf of up to 3 dB), so the glass's one recording is 12
+  takes, the pass's two are 6 each, the nine swishes are 12 with three of them changed. A sound can borrow another's:
+  the loose ball's bounce plays the dribbles, and the make off the rim plays the swishes softer, slower and duller
+  (6 dB down, pitch 0.94, a 4.2 kHz lowpass) after the modelled rim. The hit's physics set the level (x hit ^ curve:
+  1 for the ball, the net and the glass, 1.3 for the pass, so a slow pass is only a breath). A tight dribble's tail is
+  cut sooner and it is 1.75 dB quieter than an open one (the model's high dribble rang longer and louder). The floor
+  still counts: its field's level and pitch, the paint's slap and the seats' as a high shelf, a dead spot's dull ball as
+  a lowpass (900 Hz at its heart), the seats' muffle, and the camera's placement as before. A recording is 2 to 4 Web
+  Audio nodes a hit where a model built 20 to 180.
+- **Levels**: each recording's gain puts it where the modelled sound was with the same physics, by loudness as the ear
+  hears it (the BS.1770 K weighting over 0.4 s from the hit, 24 hits on each side):
+
+  | Sound (physics) | Modelled | Recorded |
+  |---|---|---|
+  | dribble (0.3 / 0.7 / 1.1) | -38.9 / -32.0 / -28.0 | -39.3 / -32.0 / -28.0 |
+  | dribble low and quick / high (0.8) | -32.8 / -29.3 | -32.2 / -29.4 |
+  | bounce (0.2 / 0.7 / 1.1) | -40.6 / -30.9 / -27.0 | -41.7 / -30.9 / -26.9 |
+  | swish | -31.2 | -31.0 |
+  | net, off the rim | -36.6 | -36.4 |
+  | glass (0.4 / 0.9) | -34.3 / -27.5 | -34.4 / -27.4 |
+  | pass (slow / fast / hardest) | -57.4 / -52.6 / -50.0 | -60.1 / -53.0 / -49.8 |
+
+- **The crowd bed** (`js/ui/arenaaudio.js`, `AudioConfig.crowd.rec`): once the crowd pack is ready (in the game's first
+  second) the murmur fades in under everything, and the cheering crowd comes in as the crowd's level climbs (from 0.25,
+  all of it from 0.6: the stakes, a close game late, a home team's run), the murmur easing to half under it. Each loop
+  plays twice, half a loop apart and panned apart (the recording is mono): a wide crowd (the two speakers correlate
+  0.56, the synthesized bed 0.97), 20 and 22 s before either comes round. The synthesized bed stays under it at 0.35 of its
+  level for the arena's low rumble. Until the pack is ready, or with none, the synthesized bed is the bed. Its loudness
+  (K-weighted) is within 0.9 dB of the synthesized bed's at the crowd's quietest, a late close game, the playoffs and
+  its loudest (-43.4, -38.4, -35.3 and -29.3 dB against -43.3, -37.8, -34.5 and -30.2 dB).
+- **A burst at the start of the bed**, found listening to the new clip: the synthesized layers started at their full
+  gain and took a second to settle to the crowd's level, about 10 dB over it. They start at it now.
+- **Tests**: every Trial 2 test plays the recordings where the game would (the offline ones load the pack first);
+  `variety.js --synth 1` and `rec.use = false` switch them off; `ab.js` compares the bed by its loudness (K-weighted:
+  the recording's spectrum differs by design); `recab.js` is new: each sound modelled then recorded through the mixer,
+  then the crowd bed both ways, one clip to listen to. `cut.js` checks every loop as a browser decodes it (at 48 and
+  44.1 kHz): the lead-in must match the loop's end where it wraps (0.991 and 0.995 for the two, 1 would be the same
+  samples; MP3 coding is the difference).
+
+New parameters: `court.rec` (which recordings, gains, curves, variants, the tight dribble's cut and level, the dead
+spot's lowpass, the floor's shelf) and `crowd.rec` (the loops, their levels, the cheer's range, the murmur under it,
+the pan, the fade in, the synthesized bed's share). New assets: 24 court takes and 2 crowd loops, licenses above.
+
+### Every Trial 2 and Trial 1 test, rerun with the recordings
+
+Results in `audit/audio2rec/` (Trial 2's own stay in `audit/audio2/`), on the code merged with the animation session's
+Trial 10 commits up to cc00417:
+
+| Test | Result | What it showed |
+|---|---|---|
+| Dribbles on the contact (`court.js`, 120 s of seed 21) | PASS | 113 of 113 dribbles scheduled within one drawn frame of the moment the contact is on screen (median 15 ms after it); their onsets at the speakers 20 ms after the scheduled start at the median, 95% within 23 ms (the model's: 17 and 30 ms; a recorded hit starts 3 ms into its take), all 99 clear of other sharp sounds within two frames of the picture; 85 squeaks (42 a minute), every one from a plant, never more than 3 in a second |
+| Never the same twice (`variety.js`) | PASS | 33 of 33 sounds ten in a row with the same physics: no two alike, no take twice running; the dribbles are recordings 2 8 7 1 9 6 3 11 12 4, the glass its one recording in ten variants (the closest two correlate 0.74), the pass its two in five each (0.95 at most); the floor and the force: see below |
+| The floor under a recorded dribble (`variety.js`) | PASS, after one fix | the field moves its level 1.8 dB, a dead spot is 2.6 dB down with its ring 5.9 dB down, the seats 6.6 dB down and muffled (the centroid from 369 to 226 Hz), a hard dribble 11.3 dB over a soft one. The first run failed the dead spot: at a 1.5 kHz lowpass the ring (0.9 to 2.5 kHz) went down less than the level; at 900 Hz it goes down 3.3 dB more |
+| Swish, rim-in, air ball (`shots.js`) | PASS | at the hoop the swish is the net alone (6.5% rim metal), the make off the rim the iron then the net (92.4%), the air ball nothing (-90.9 dB against -34.8 and -32.9). The recorded swish is darker than the model's: its energy is mostly 0.5 to 3 kHz, 0.4% in the 3 to 9 kHz band the model's filled (78%), so what now tells the swish from the rim-in is the rim's metal, 14 times as much |
+| Placement (`place.js`) | PASS | the near sideline's ends 8.9 dB and the far corners 9.6 dB to their side, the middle centred, the near sideline 2.6 dB louder and the far one 1.1 dB quieter than centre court, off the picture 16 dB to its side and 5.8 dB down, the far corners 6 dB more room and 1.8 dB less above 4 kHz than the near sideline |
+| The rarer moments (`events.js`) | PASS | 15 of 15; the loose ball bouncing out on the apron and into the seats is the recorded ball now |
+| Other ways to watch (`modes.js`) | PASS, after a fix to the test | the retro court and text mode: no court sounds, no errors, every result heard. The first run failed the replay: a body contact at 59.62 s, 0.05 s after the replay was last seen running, counted as in it by the test's 50 ms margin; the court's audio cannot decide a sound during a replay (it returns before it listens), so the test now asks at each court sound whether a replay is running: none during it (51.0 to 59.0 s), 80 after |
+| The crowd against Trial 0 (`ab.js`) | PASS | every crowd reaction within 0.09 dB; the bed's loudness 0.08 dB under the old one (its plain energy 2.7 dB under: the recording has less of the synthesized rumble) |
+| The audio never changes the game (`same.js`) | PASS | seeds 21 and 33, audio all on, all off and the arena only: the same play-by-play, box score and court |
+| The duck, voice limits, mute and solo (`duck.js`, `voices.js`, `mutesolo.js`) | PASS | as before |
+| Trial 1's listen test (`listen.js`, 150 s) | PASS | 791 sounds, never more than 8 at once, no errors; every shot's result from the court; the crowd 5.4 dB down (the bed) and 2.7 dB (reactions) while the booth talked, no surges, no chops; the mixer's own time 311 ms over the 150 s (Trial 2's: 458 ms) |
+| Audio never costs a frame (`perfsame.js`, `perf.js`) | PARTIAL, as in Trial 2 | the same seeded game frame for frame with the audio on and off: +0.51 ms a frame at 1x and +0.56 ms at 4x, inside the round-to-round spread (1.81 and 0.97 ms); the audio's own work a frame down about 40% with the recordings (1x: 0.21 ms on average and 1.1 ms at the 99th percentile, Trial 2's 0.35 and 1.8; 4x: 0.43 and 1.6, Trial 2's 0.72 and 2.6). Unpaired, headless Chromium drew 3% fewer frames with the audio on at 1x (28.9 against 29.8 a second) and 4% more at 4x (16.3 against 15.6), its software drawing's noise either way. A browser that draws with its GPU is still not measured here |
+
+### Still synthesized
+
+The rim (every part), a ball rolling round the rim, the catch, the squeaks, footsteps and landings, bodies, falls,
+rolling, the dunk, the block, the whistles, the buzzer and the horn, and the crowd's reactions (the roar, "ooh",
+groan, boos, murmur and the chant): there is no recording of them yet. A rim hit and sneaker squeaks would be the most
+useful next downloads, then a real catch, a whistle and cheers (Pixabay or CC0, or ElevenLabs on a paid plan).
+
+### What to listen for
+
+- **The clips** in `audit/audio2rec/` (headphones):
+  - `recab.webm`: each recorded sound against the modelled one it replaced, same physics: eight dribbles modelled then
+    recorded, three swishes, three nets off the rim, three hits on the glass, three fast passes, then the crowd bed at a
+    regular season's level and at a big game's, synthesized then recorded (`recab_result.txt` says where each starts).
+  - `court_60s.webm`: the first minute of the court listen test at the speakers with the recordings and the recorded
+    crowd.
+  - `swish_rimin_airball.webm`: a swish, a make off the rim, an air ball.
+  - `variety_dribble.webm`, `variety_swish.webm`, `variety_board.webm`: one sound ten times in a row with the same
+    physics.
+- **In a game**: the dribbles are real bounces, each a little different, softer or harder with the ball's speed, duller
+  on a dead spot and muffled in the seats; the swish is a real net; a make off the rim is the modelled iron and then a
+  softer brush of the net; the glass booms; a hard pass whooshes and a soft one barely breathes. Under it all a real
+  crowd murmurs, wide across the speakers, and in a close game late or in the playoffs a cheering crowd comes in; the
+  booth still pushes the crowd down while it talks.

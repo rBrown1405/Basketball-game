@@ -1,0 +1,32 @@
+Listen test: seed 21, 1x, 150 s of a live game (booth on, arena sound on), stand-in speech engine
+events on the bus: 6684 (anim.plant 5728, court.step 460, court.dribble 120, court.squeak 101, anim.catch 34, court.catch 34, anim.pass 29, court.pass 29, anim.land 22, booth.say 12, court.body 12, court.land 11, game.pass 11, court.bounce 9, game.step 8, game.advance 7, game.set 7, live.possession 7, game.shot 6, game.shotResult 6, game.inbound 6, game.score 4, game.move 4, court.rim 3, court.swish 2, game.turnover 2, court.whistle 2, game.screen 2, game.rebound 2, court.dunk 2, game.jump_ball 1, game.foul 1)
+sound requests: step play 460, dribble play 120, squeak play 101, catch play 34, pass play 29, body play 12, booth.pbp queued 11, land play 11, bounce play 9, rim play 3, swish play 2, crowd.murmur play 2, whistle play 2, dunk play 2, crowd.groan play 2, crowd.ooh play 1, booth.color queued 1, crowd.roar play 1
+
+Shots: release (game.shot) to result (game.shotResult), and what each moment played
+  2pt pullup       swish    at the net   (court) after   614 ms | at the release: booth.pbp | at the result: -
+  3pt catch_shoot  miss     at the rim   (court) after  1156 ms | at the release: booth.pbp | at the result: crowd.ooh
+  3pt catch_shoot  miss     at the rim   (court) after  1136 ms | at the release: booth.pbp | at the result: crowd.murmur
+  2pt dunk         dunk     at the net   (court) after   309 ms | at the release: - | at the result: -
+  2pt dunk         dunk     at the net   (court) after   309 ms | at the release: - | at the result: -
+  3pt catch_shoot  swish    at the net   (court) after  1321 ms | at the release: - | at the result: -
+
+Booth lines as they started (waited = time in the queue)
+  pbp   waited     0 ms  "Laurent and Dunn for the tip, and we are underway."
+  pbp   waited     0 ms  "Collins in the mid-range..."
+  pbp   waited   953 ms  "Nice shot."
+  pbp   waited  1367 ms  "They'll run drag screen."
+  pbp   waited     0 ms  "Careless pass by Dixon."
+  pbp   waited   186 ms  "Colonials into their half-court set."
+  pbp   waited     0 ms  "Kick out to Jenkins, three-point try..."
+  pbp   waited     0 ms  "Collins, catch and shoot..."
+  pbp   waited     0 ms  "Mills flushes it!"
+  color waited  1262 ms  "That's the kind of play that changes the energy in a game."
+  pbp   waited     0 ms  "Laurent rises and throws it down!"
+  pbp   waited     0 ms  "Bang!"
+
+Crowd duck (bed / reactions): while the booth talks -5.43 / -2.72 dB over 197 samples; while quiet -0.47 / -0.24 dB over 1282
+  dips below -3 dB: 8; surges (back above -1.5 dB and down again within 1.5 s): 0; chops (4+ dB down in 0.2 s from full level): 0
+
+mixer: played 791, stolen 0, refused {}, peak voices 8/48, per bus {"court":7,"players":0,"crowd":1,"arena":1,"commentary":0}; audio main-thread time in the mixer 311.1 ms in total
+recordings: listen_60s.wav (the speakers, from the click); listen_last30.wav (30.0 s from the mixer's recorder, worklet)
+page errors: 0

@@ -1,0 +1,39 @@
+   7.614    3.962             court.swish        v 1 (nothing but net) at 88.8, 25, 10 ft +0ms | swish [rec 7]→court p65 pan 0.35 +0.5dB
+   8.491    4.833             court.bounce       v 0.9 (down at 22.7 ft/s) at 88.4, 25.9 ft paint +0ms late 3ms | bounce [rec 2]→court p25 pan 0.25 +0.2dB
+  10.251    6.592             court.rim          back v 0.85 (back at 22 ft/s (0.50 ft along the shot)) at 89.2, 24.9, 10.1 ft +0ms late 3ms | rim [back take 11]→court p60 pan 0.26 +0.6dB
+  10.730    7.070             court.net          v 1 (in off the rim) at 88.8, 25, 10 ft +0ms late 3ms | net [rec 8]→court p60 pan 0.25 +0.6dB
+  11.594    7.941             court.bounce       v 0.9 (down at 22.7 ft/s) at 88.5, 26.1 ft paint +0ms | bounce [rec 6]→court p25 pan 0.24 +0.2dB
+  12.634    8.980             court.bounce       v 0.64 (down at 16.5 ft/s) at 88.2, 27.2 ft paint +0ms late 13ms | bounce [rec 9]→court p25 pan 0.23 0dB
+  13.706   10.051             court.rimroll      v 0.94 (round the rim 0.72 s) at 88.3, 25.4, 10.4 ft +0ms | rimroll [take 4]→court p58 pan 0.24 +0.5dB
+  14.602   10.948             court.net          v 1 (in off the rim) at 88.9, 24.9, 10 ft +0ms late 14ms | net [rec 9]→court p60 pan 0.26 +0.6dB
+  15.466   11.810             court.bounce       v 0.9 (down at 22.7 ft/s) at 89.5, 23.9 ft paint +0ms late 7ms | bounce [rec 3]→court p25 pan 0.26 +0.5dB
+  17.162   13.511             court.board        v 0.73 (glass at 21 ft/s) at 89.6, 25.1, 11 ft +0ms | board [rec 1/7]→court p55 pan 0.27 +0.6dB
+  17.242   13.581             court.net          v 1 (in off the rim) at 88.8, 25, 10.2 ft +0ms late 3ms | net [rec 7]→court p60 pan 0.25 +0.6dB
+  18.107   14.452             court.bounce       v 0.9 (down at 22.7 ft/s) at 88.6, 26.1 ft paint +0ms | bounce [rec 1]→court p25 pan 0.24 +0.2dB
+  19.130   15.470             court.bounce       v 0.64 (down at 16.5 ft/s) at 88.4, 27.2 ft paint +0ms | bounce [rec 10]→court p25 pan 0.23 0dB
+  21.866   18.210             court.bounce       v 1 (down at 25.1 ft/s) at 81.8, 30 ft paint +0ms | bounce [rec 8]→court p25 pan 0.11 -0.2dB
+  22.954   19.302             court.bounce       v 0.69 (down at 17.6 ft/s) at 76.5, 33.9 ft +0ms | bounce [rec 7]→court p25 pan 0.03 -0.6dB
+  24.234   20.582             court.rim          front v 0.81 (front at 21 ft/s (-0.62 ft along the shot)) at 88.1, 25.1, 10.3 ft +0ms late 14ms | rim [front take 8]→court p60 pan 0.24 +0.6dB
+  25.370   21.711             court.bounce       v 1.06 (down at 26.6 ft/s) at 81.8, 30 ft paint +0ms late 1ms | bounce [rec 12]→court p25 pan 0.11 -0.2dB
+  26.522   22.860             court.bounce       v 0.73 (down at 18.6 ft/s) at 77.9, 33 ft paint +0ms | bounce [rec 5]→court p25 pan 0.05 -0.8dB
+  27.754   24.102             court.rim          back v 0.85 (back at 22 ft/s (0.66 ft along the shot)) at 89.4, 24.9, 10.3 ft +0ms | rim [back take 4]→court p60 pan 0.27 +0.6dB
+  28.874   25.223             court.bounce       v 1.04 (down at 26.2 ft/s) at 81.8, 30 ft paint +0ms late 5ms | bounce [rec 4]→court p25 pan 0.11 -0.2dB
+  30.010   26.352             court.bounce       v 0.72 (down at 18.3 ft/s) at 77, 33.2 ft +0ms late 1ms | bounce [rec 6]→court p25 pan 0.03 -0.7dB
+  31.258   27.603             court.rim          side v 0.83 (side at 21 ft/s (0.00 ft along the shot)) at 88.9, 25.6, 10.3 ft +0ms | rim [side take 8]→court p60 pan 0.25 +0.5dB
+  32.394   28.740             court.bounce       v 1.05 (down at 26.4 ft/s) at 81.8, 30 ft paint +0ms late 8ms | bounce [rec 2]→court p25 pan 0.11 -0.2dB
+  33.530   29.832             court.bounce       v 0.72 (down at 18.5 ft/s) at 77.4, 32.7 ft paint +0ms | bounce [rec 9]→court p25 pan 0.04 -0.8dB
+  34.746   31.051             court.rim          front v 0.81 (front at 21 ft/s (-0.62 ft along the shot)) at 88.1, 25.1, 10.3 ft +0ms late 10ms | rim [front take 7]→court p60 pan 0.24 +0.6dB
+  35.178   31.480             court.rim          rattle v 0.22 (rattle at 8 ft/s) at 89.3, 24.9, 10.3 ft +0ms late 2ms | rim [rattle take 3]→court p60 pan 0.26 +0.6dB
+  35.898   32.171             court.bounce       v 0.97 (down at 24.5 ft/s) at 81.8, 30 ft paint +0ms late 12ms | bounce [rec 11]→court p25 pan 0.11 -0.2dB
+  36.954   33.231             court.bounce       v 0.67 (down at 17.2 ft/s) at 74.9, 34.6 ft +0ms | bounce [rec 10]→court p25 pan 0 -0.4dB
+  38.250   34.522             court.board        v 0.71 (glass at 21 ft/s) at 89.6, 24.8, 11.5 ft +0ms | board [rec 1/4]→court p55 pan 0.27 +0.6dB
+  39.402   35.672             court.bounce       v 1.1 (down at 27.5 ft/s) at 81.8, 30 ft paint +0ms late 16ms | bounce [rec 8]→court p25 pan 0.11 -0.2dB
+  40.570   36.841             court.bounce       v 0.76 (down at 19.3 ft/s) at 76.8, 33.3 ft +3ms | bounce [rec 1]→court p25 pan 0.03 -0.7dB
+  40.810   37.082             court.dunk         v 1 (through the rim) at 88.8, 25, 10 ft +0ms late 4ms | dunk [take 9]→court p80 pan 0.25 +0.6dB
+  41.674   37.950             court.bounce       v 0.9 (down at 22.7 ft/s) at 88.5, 25.9 ft paint +0ms | bounce [rec 12]→court p25 pan 0.24 +0.2dB
+  42.698   38.972             court.bounce       v 0.64 (down at 16.5 ft/s) at 88.5, 26.7 ft paint +0ms | bounce [rec 3]→court p25 pan 0.23 +0.1dB
+  43.530   39.802             court.bounce       v 0.51 (down at 13.3 ft/s) at 88.5, 27.4 ft paint +0ms | bounce [rec 7]→court p25 pan 0.23 0dB
+  44.346   40.620             court.block        v 1 (the blocker's hand) at 81.8, 25, 9.4 ft +0ms | block [take 7]→court p70 pan 0.12 +0.6dB
+  45.242   41.511             court.bounce       v 0.94 (down at 23.8 ft/s) at 69.8, 29 ft +0ms | bounce [rec 4]→court p25 pan -0.06 0dB
+  46.298   42.571             court.bounce       v 0.66 (down at 16.9 ft/s) at 61.3, 31.8 ft +0ms | bounce [rec 5]→court p25 pan -0.08 +0.1dB
+  47.146   43.421             court.bounce       v 0.52 (down at 13.6 ft/s) at 54.6, 34.1 ft +0ms late 3ms | bounce [rec 2]→court p25 pan -0.08 -0.4dB

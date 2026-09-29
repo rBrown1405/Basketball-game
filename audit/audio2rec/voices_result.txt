@@ -1,0 +1,39 @@
+Voice limits and priority (caps lowered on purpose; outcome of each request as the mixer logged it)
+
+roar 1 (limit 4 roars)                       crowd.roar   p70  play        (voices now 1)
+roar 2 (limit 4 roars)                       crowd.roar   p70  play        (voices now 2)
+roar 3 (limit 4 roars)                       crowd.roar   p70  play        (voices now 3)
+roar 4 (limit 4 roars)                       crowd.roar   p70  play        (voices now 4)
+roar 5 (limit 4 roars)                       crowd.roar   p70  play      took the place of crowd.roar   (voices now 4)
+squeak (p15)                                 squeak       p18  play        (voices now 1)
+dribble (p20)                                dribble      p20  play        (voices now 2)
+bounce (p25)                                 bounce       p25  play        (voices now 3)
+rim (p60): court full                        rim          p60  play      took the place of squeak   (voices now 3)
+board (p55): court full                      board        p55  play      took the place of dribble   (voices now 3)
+swish (p65): court full                      swish        p65  play      took the place of bounce   (voices now 3)
+dribble (p20): court full of higher ones     dribble      p20  bus cap     (voices now 3)
+roar 1 (p70)                                 crowd.roar   p70  play        (voices now 1)
+roar 2 (p70)                                 crowd.roar   p70  play        (voices now 2)
+roar 3 (p70)                                 crowd.roar   p70  play        (voices now 3)
+roar 4 (p70)                                 crowd.roar   p70  play        (voices now 4)
+dribble (p20): all voices taken by roars     dribble      p20  voice cap   (voices now 4)
+whistle (p90): all voices taken by roars     whistle      p90  play      took the place of crowd.roar   (voices now 4)
+horn (p95)                                   horn         p95  play      took the place of crowd.roar   (voices now 4)
+dribble                                      dribble      p20  play        (voices now 1)
+dribble 30 ms later                          dribble      p20  cooldown    (voices now 1)
+dribble at 16x                               dribble      p20  speed       (voices now 1)
+
+PASS  the 5th roar takes the oldest roar's place
+PASS  a rim hit takes the squeak's place on a full Court bus
+PASS  a board hit takes the dribble's place
+PASS  a swish takes the bounce's place
+PASS  a dribble never displaces higher sounds
+PASS  a dribble never displaces a roar
+PASS  a whistle takes a roar's place when every voice is taken
+PASS  the horn takes a roar's place
+PASS  a second dribble inside the cooldown is left out
+PASS  dribbles are left out at 16x
+
+mixer: {"played":18,"stolen":6,"suppressed":{"bus cap":1,"voice cap":1,"cooldown":1,"speed":1},"peakTotal":4,"peakBus":{"court":3,"players":0,"crowd":4,"arena":2,"commentary":0},"peakSound":{"crowd.roar":4,"squeak":1,"dribble":1,"bounce":1,"rim":1,"board":1,"swish":1,"whistle":1,"horn":1}}
+page errors: 0
+RESULT: PASS

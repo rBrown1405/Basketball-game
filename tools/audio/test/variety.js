@@ -14,11 +14,15 @@
 //  3. The floor and the force: one take of the dribble on an arena's floor as the court's audio plays it (the field's
 //     loudest and quietest wood, a painted lane, the logo, a dead spot, the apron, the courtside seats) and soft and
 //     hard on plain wood: level, thump, ring and slap against plain wood (the paint's small difference for information).
-//   node tools/audio/test/variety.js [--only dribble,rim.front] [--out audit/audio2]
+//  The court pack's recordings play where it has them (the dribble, the bounce, the swish, the net, the glass, the pass),
+//  as in the game; --synth 1 switches them off (the synthesized sounds only).
+//   node tools/audio/test/variety.js [--only dribble,rim.front] [--synth 0] [--out audit/audio2]
 'use strict';
 const fs = require('fs'), path = require('path');
 const T = require('./common.js');
-const o = T.args({ only: '', out: 'audit/audio2' });
+const o = T.args({ only: '', synth: 0, out: 'audit/audio2' });
+// in a page: the court pack decoded (or the recordings switched off with --synth 1) before anything plays
+const PACKS = async (synth) => { if (synth) PBC.AudioConfig.court.rec.use = false; else await PBC.AudioAssets.loadAll(new OfflineAudioContext(1, 1, 48000)); };
 
 // [label, sound, physics, spacing s, analysis window s]
 const SOUNDS = [
@@ -67,7 +71,8 @@ const TRIAL1 = { dribble: [-34.7, -14.7], bounce: [-34.4, -14.7], squeak: [-44.5
   const errs = []; page.on('pageerror', (e) => errs.push(e.message));
   await page.goto('file://' + path.join(o.repo, 'index.html') + '?low=1');
   await page.waitForTimeout(600);
-  const L = ['Trial 2: each court sound 10 times in a row with the same physics (offline, the exact samples)', ''];
+  await page.evaluate(PACKS, o.synth);
+  const L = [`Trial 2: each court sound 10 times in a row with the same physics (offline, the exact samples)${o.synth ? ', the synthesized sounds only' : ', the court pack\'s recordings where it has them (rec: take = recording/variant)'}`, ''];
   L.push('sound                     takes used                        pitch range   level range   top corr  least band diff  identical pairs');
   const res = [];
   for (const [label, name, phys, S, W] of list) {
@@ -175,7 +180,7 @@ const TRIAL1 = { dribble: [-34.7, -14.7], bounce: [-34.4, -14.7], squeak: [-44.5
     }, [name, phys, S, W]);
     const file = 'variety_' + label.replace(/[^a-z0-9]+/gi, '_').replace(/_+$/, '').toLowerCase() + '.wav';
     fs.writeFileSync(path.join(o.out, file), Buffer.from(r.wav, 'base64'));
-    const takes = r.meta.map((m) => (m ? m.take : '?')).join(' ');
+    const takes = (r.meta[0] && r.meta[0].rec ? 'rec ' : '') + r.meta.map((m) => (m ? (m.rec ? m.file + (m.variant ? '/' + m.variant : '') : m.take) : '?')).join(' ');
     const pr = r.meta.map((m) => (m ? m.pitch : 1)), lv = r.meta.map((m) => (m ? 20 * Math.log10(m.level) : 0));
     const repeats = r.meta.filter((m, i) => i > 0 && m && r.meta[i - 1] && m.take === r.meta[i - 1].take).length;
     const ok = r.same === 0 && repeats === 0;
@@ -191,6 +196,7 @@ const TRIAL1 = { dribble: [-34.7, -14.7], bounce: [-34.4, -14.7], squeak: [-44.5
   lv.on('pageerror', (e) => errs.push(e.message));
   await lv.goto('file://' + path.join(o.repo, 'index.html') + '?low=1');
   await lv.waitForTimeout(600);
+  await lv.evaluate(PACKS, o.synth);
   const levels = await lv.evaluate(async (list) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     PBC.AudioBus.reset(); PBC.AudioRandom.seed(987654321);
@@ -226,6 +232,7 @@ const TRIAL1 = { dribble: [-34.7, -14.7], bounce: [-34.4, -14.7], squeak: [-44.5
   fp.on('pageerror', (e) => errs.push(e.message));
   await fp.goto('file://' + path.join(o.repo, 'index.html') + '?low=1');
   await fp.waitForTimeout(600);
+  await fp.evaluate(PACKS, o.synth);
   const floor = await fp.evaluate(async () => {
     const sr = 48000, W = 0.35, S = 0.8;
     // an arena whose floor has a dead spot (a floor has none to two), its centre

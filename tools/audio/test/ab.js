@@ -5,7 +5,9 @@
 // both play exactly the same variations:
 //  - one-shots (the crowd bed off in both): mean energy and peak of N hits of every court sound and crowd reaction
 //    (since Trial 2 the court's sounds are new by design: their rows are information, the crowd's must still match)
-//  - the crowd bed once settled, then the duck while the booth talks for 3 s (depth, attack, release)
+//  - the crowd bed once settled, then the duck while the booth talks for 3 s (depth, attack, release). Since the bed is
+//    a recording (over a little of the synthesized one) its spectrum differs by design: what must match is its
+//    loudness, K-weighted as BS.1770 weights it (its plain energy is shown too)
 //   node tools/audio/test/ab.js [--rev 8baee19] [--nc 6] [--nr 4] [--out audit/audio1]
 'use strict';
 const fs = require('fs'), path = require('path'), os = require('os'), cp = require('child_process');
@@ -27,8 +29,8 @@ const oldSrc = cp.execSync(`git -C "${o.repo}" show ${o.rev}:js/ui/arenaaudio.js
 const newSrc = fs.readFileSync(path.join(o.repo, 'js/ui/arenaaudio.js'), 'utf8');
 const name = (src, n) => src.replace('PBC.ArenaAudio = { create };', `PBC.${n} = { create };`);
 const noBedOld = (src) => src.replace('      startBed();\n      return c;', '      A.bed = [];\n      return c;');
-const noBedNew = (src) => src.replace('        startBed(c);\n', '        A.bed = [];\n');
-if (noBedOld(oldSrc) === oldSrc || noBedNew(newSrc) === newSrc) throw new Error('could not switch the crowd bed off in one of the versions');
+const noBedNew = (src) => src.replace('        startBed(c);\n', '        A.bed = [];\n').replace('startRecBed(mx.ctx);', '0;');
+if (noBedOld(oldSrc) === oldSrc || noBedNew(newSrc) === newSrc || !noBedNew(newSrc).includes('A.bed = [];') || noBedNew(newSrc).includes('startRecBed(mx.ctx);')) throw new Error('could not switch the crowd bed off in one of the versions');
 fs.writeFileSync(path.join(tmp, 'old.js'), name(oldSrc, 'OldArena') + '\n' + name(noBedOld(oldSrc), 'OldArenaNoBed'));
 fs.writeFileSync(path.join(tmp, 'new.js'), name(newSrc, 'NewArena') + '\n' + name(noBedNew(newSrc), 'NewArenaNoBed'));
 function TAPM() {
@@ -60,6 +62,30 @@ function TAPM() {
       for (let i = i0; i < i1; i++) { const l = ch.L[i], r = ch.R[i]; ss += l * l + r * r; n += 2; const m = Math.max(Math.abs(l), Math.abs(r)); if (m > pk) pk = m; }
     }
     return { ms: n ? ss / n : 0, pk };
+  };
+  // the same K-weighted (BS.1770: a high shelf, then a highpass; from 0.5 s before, for the filters to settle)
+  window.__measureK = (c, t, w) => {
+    const sr = c.sampleRate, L = [], R = [];
+    let t0 = null;
+    for (const ch of c.__rec.chunks) {
+      const a = ch.t, b = a + ch.L.length / sr;
+      if (b < t - 0.5 || a > t + w) continue;
+      if (t0 == null) t0 = a;
+      for (let i = 0; i < ch.L.length; i++) { L.push(ch.L[i]); R.push(ch.R[i]); }
+    }
+    if (t0 == null) return 0;
+    const bq = (x, b0, b1, b2, a0, a1, a2) => { let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = x[i], o = (b0 * v + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = v; y2 = y1; y1 = o; x[i] = o; } };
+    const kw = (x) => {
+      let A = Math.pow(10, 3.999843853973347 / 40), w0 = 2 * Math.PI * 1681.974450955533 / sr, al = Math.sin(w0) / (2 * 0.7071752369554196), cs = Math.cos(w0);
+      bq(x, A * ((A + 1) + (A - 1) * cs + 2 * Math.sqrt(A) * al), -2 * A * ((A - 1) + (A + 1) * cs), A * ((A + 1) + (A - 1) * cs - 2 * Math.sqrt(A) * al), (A + 1) - (A - 1) * cs + 2 * Math.sqrt(A) * al, 2 * ((A - 1) - (A + 1) * cs), (A + 1) - (A - 1) * cs - 2 * Math.sqrt(A) * al);
+      w0 = 2 * Math.PI * 38.13547087602444 / sr; al = Math.sin(w0) / (2 * 0.5003270373238773); cs = Math.cos(w0);
+      bq(x, (1 + cs) / 2, -(1 + cs), (1 + cs) / 2, 1 + al, -2 * cs, 1 - al);
+    };
+    kw(L); kw(R);
+    let ss = 0, n = 0;
+    const i0 = Math.max(0, Math.floor((t - t0) * sr)), i1 = Math.min(L.length, Math.ceil((t + w - t0) * sr));
+    for (let i = i0; i < i1; i++) { ss += L[i] * L[i] + R[i] * R[i]; n += 2; }
+    return n ? ss / n : 0;
   };
 }
 async function side(browser, which) {
@@ -120,7 +146,7 @@ async function side(browser, which) {
     const lvl = (a, b) => 10 * Math.log10(Math.max(1e-12, window.__measure(c, a, b - a).ms));
     const env = [];
     for (let t = tDuck - 0.5; t < tUp + 4; t += 0.1) env.push(+lvl(t, t + 0.1).toFixed(1));
-    out.bed = { settled: lvl(t0 + 4, tDuck), ducked: lvl(tDuck + 1.5, tUp), after: lvl(tUp + 3.5, tUp + 4.4), env };
+    out.bed = { settled: lvl(t0 + 4, tDuck), settledK: 10 * Math.log10(Math.max(1e-12, window.__measureK(c, t0 + 4, tDuck - t0 - 4))), ducked: lvl(tDuck + 1.5, tUp), after: lvl(tUp + 3.5, tUp + 4.4), env };
     return out;
   }, [which, COURT, CROWD, o.nc, o.nr]);
   res.errs = errs;
@@ -145,14 +171,14 @@ const db = (ms) => 10 * Math.log10(Math.max(1e-12, ms));
   for (const k of Object.keys(A.crowd)) row(k, A.crowd[k], B.crowd[k], true);
   const worst = Math.max(...crowdDiffs.map(Math.abs));
   L.push(`largest difference among the crowd's sounds: ${worst.toFixed(2)} dB over ${crowdDiffs.length} (the court's ${diffs.length - crowdDiffs.length} are Trial 2's new sounds: information only)`, '', 'Crowd bed and the duck while the booth talks (dBFS)');
-  for (const [k, S] of [['old', A.bed], ['new', B.bed]]) L.push(`${k}: bed ${S.settled.toFixed(1)}, while the booth talks ${S.ducked.toFixed(1)} (${(S.ducked - S.settled).toFixed(1)} dB), 3.5 s after it stops ${S.after.toFixed(1)}`);
-  L.push(`bed level, new minus old: ${(B.bed.settled - A.bed.settled).toFixed(2)} dB`);
+  for (const [k, S] of [['old', A.bed], ['new', B.bed]]) L.push(`${k}: bed ${S.settled.toFixed(1)} (K-weighted ${S.settledK.toFixed(1)}), while the booth talks ${S.ducked.toFixed(1)} (${(S.ducked - S.settled).toFixed(1)} dB), 3.5 s after it stops ${S.after.toFixed(1)}`);
+  L.push(`bed loudness (K-weighted), new minus old: ${(B.bed.settledK - A.bed.settledK).toFixed(2)} dB (plain energy: ${(B.bed.settled - A.bed.settled).toFixed(2)} dB)`);
   L.push('level every 0.1 s from 0.5 s before the booth starts to 4 s after it stops (it talks from the 6th value for 3 s):');
   L.push('old ' + A.bed.env.map((x) => x.toFixed(0)).join(' '));
   L.push('new ' + B.bed.env.map((x) => x.toFixed(0)).join(' '));
   L.push(`errors: old ${A.errs.length}, new ${B.errs.length}`);
-  const pass = worst <= 1 && Math.abs(B.bed.settled - A.bed.settled) <= 1 && !A.errs.length && !B.errs.length;
-  L.push(pass ? 'RESULT: PASS (every crowd sound and the bed within 1 dB of the old code; the duck and, since Trial 2, the court differ by design)' : 'RESULT: FAIL');
+  const pass = worst <= 1 && Math.abs(B.bed.settledK - A.bed.settledK) <= 1 && !A.errs.length && !B.errs.length;
+  L.push(pass ? 'RESULT: PASS (every crowd sound and the bed\'s loudness within 1 dB of the old code; the duck, the court (Trial 2) and the bed\'s spectrum (a recording) differ by design)' : 'RESULT: FAIL');
   const txt = L.join('\n');
   fs.writeFileSync(path.join(o.out, 'ab_result.txt'), txt + '\n');
   console.log(txt);
