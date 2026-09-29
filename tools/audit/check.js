@@ -632,6 +632,9 @@ console.log('the glass and the contest (Trial 11)');
   const Sw = recs.filter(x => x.kind === 'swipe'), Xc = recs.filter(x => x.kind === 'interception');
   ok(Sw.length >= 2 && Sw.every(x => x.minFt <= T11.glSwipeFt) && Xc.length === 1 && Xc.every(x => x.gapLIn <= T11.glTakeGapIn && x.gapRIn <= T11.glTakeGapIn),
     `the steals and the reach-in go to the ball: swipes ${Sw.map(x => x.minFt).join(', ')} ft from it at their nearest, the interception's hands ${Xc.map(x => x.gapLIn + ' / ' + x.gapRIn).join('')} in off it`);
+  // (random loose balls, tools/audit/chase.js: each run down by a player already on the move, Director.runDown)
+  const CH = require('./chase'), cr = CH.run(PBC, 16), cs = CH.summary(cr);
+  ok(cs.taken === cs.balls && cs.gapIn.max <= T11.glTakeGapIn * 2, `loose balls run down (${cs.balls} random ones): every one taken by hand within 5 s (${cs.catches} caught at a bounce, ${cs.pickups} picked up; ${cs.takeS.p50} s at the median), both hands within ${cs.gapIn.max} in of it`);
 }
 
 console.log('the floor and the weight in a real game (the first minute of seed 7)');

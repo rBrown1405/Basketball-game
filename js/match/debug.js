@@ -887,9 +887,11 @@
         // (his man: the one he is boxing out (Actor._contact), else the nearest of the other side as the box-out starts)
         let m = a._contact && a._contact.with && a._contact.with.team !== a.team ? a._contact.with : null, md = m ? 0 : Infinity;
         if (!m) for (const o of pl) if (o.team !== a.team) { const d = Math.hypot(o.x - a.x, o.y - a.y); if (d < md) { md = d; m = o; } }
-        r.box.set(a, b = { a, man: md <= Tn.glBoxManFt ? m : null, t0: time, fr: [] });
+        r.box.set(a, b = { a, man: md <= Tn.glBoxManFt ? m : null, t0: time, fr: [], rim0: m && r.rim ? Math.hypot(m.x - r.rim.x, m.y - r.rim.y) : null });
       }
       if (!b.man) return;
+      // (his man gone back up the floor, glBoxLeftFt further from the rim: nobody to box out, not counted as one)
+      if (b.rim0 != null && r.rim && Math.hypot(b.man.x - r.rim.x, b.man.y - r.rim.y) > b.rim0 + Tn.glBoxLeftFt) b.left = true;
       const P = a.sk.P, Q = b.man.sk.P, rad = Tn.bodyR, D = U.DEG;
       // (the bodies: the boxer's hips, trunk and thighs against the man's)
       let gap = Infinity;
@@ -902,6 +904,7 @@
     }
     _glBoxEnd(b, r) {
       const Tn = TU(), F = b.fr, out = { id: b.a.id, man: b.man ? b.man.id : null, startS: +(b.t0 - r.t0).toFixed(3) };
+      if (b.left) out.manLeft = true;
       if (!b.man || !F.length) return out;
       const inC = (f) => f.gap <= Tn.glBoxGapFt && f.ang <= Tn.glBoxBehindDeg;
       const i0 = F.findIndex(inC);
@@ -1556,7 +1559,7 @@
       const oth = [].concat(...T.map(r => r.others || []));
       const early = (o) => o.onsetS != null && o.onsetS < Tn.glReadS && o.preCloseFt > Tn.glPreCloseFt;
       // box-outs, contests, blocks, swipes
-      const B = [].concat(...R.filter(r => r.box).map(r => r.box)).filter(b => b.man);
+      const Ball = [].concat(...R.filter(r => r.box).map(r => r.box)).filter(b => b.man), B = Ball.filter(b => !b.manLeft);
       // (a swipe at the ball: its man within glSwipeAtFt of the ball as it starts; a swipe at a man away from the ball is a foul
       // on his body, not a reach for the ball)
       const Ct = R.filter(r => r.kind === 'contest'), Bk = R.filter(r => r.kind === 'block'), Sw = R.filter(r => r.kind === 'swipe' && r.startFt <= Tn.glSwipeAtFt), Ic = R.filter(r => r.kind === 'intercept'), Xc = R.filter(r => r.kind === 'interception');
@@ -1576,7 +1579,7 @@
         floorTouch: F.filter(touch).length,
         othersNear: oth.length, othersEarly: oth.filter(early).length, othersOnsetS: M2(oth, 'onsetS', 3),
         loose: L.length, looseTaken: LT.length, loosePulled: LT.filter(r => !touch(r)).length, loosePullFt: M2(LT, 'pullFt'), looseOnsetS: M2(LT, 'onsetS', 3),
-        boxouts: B.length, boxContact: B.filter(b => b.contactS != null).length, boxContactS: M2(B, 'contactS', 3), boxHoldPct: M2(B, 'holdPct', 0),
+        boxouts: B.length, boxLetGo: Ball.length - B.length, boxContact: B.filter(b => b.contactS != null).length, boxContactS: M2(B, 'contactS', 3), boxHoldPct: M2(B, 'holdPct', 0),
         boxGapIn: M2(B, 'gapIn', 1), boxBehindDeg: M2(B, 'behindDeg', 0), boxBaseX: M2(B, 'baseX'), boxWide: B.filter(b => b.baseX >= Tn.glBoxBaseX).length,
         boxElbowX: M2(B, 'elbowX'), boxArmsOut: B.filter(b => b.elbowX >= Tn.glElbowSpan).length, boxKneeDeg: M2(B, 'kneeDeg', 0),
         contests: Ct.length, contestToward: Ct.filter(r => r.angBestDeg <= Tn.glContestDeg).length, contestAtRelease: Ct.filter(r => r.angDeg <= Tn.glContestDeg).length,

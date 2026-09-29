@@ -2137,6 +2137,23 @@
       }
       return res;
     }
+    /** fn(tRel) `lead` s before the shot's release (Trial 11): the release is the shot's own move reaching it (its release
+     *  event), not the beat's planned time; a shot held up on its way (a drive's take-off run, a slow gather, the beat waiting
+     *  on it) is waited for, up to Tune.glass.releaseWaitS past the plan (a contest's hand or a block's jump timed to the plan
+     *  came down before the ball had left the hands) */
+    whenRelease(sh, fireAt, lead, fn) {
+      const beat = this.beat, TG = M.Tune.glass;
+      const go = () => {
+        const cs = sh.clip, rv = cs && cs.clip.events ? cs.clip.events.release : null;
+        const left = rv != null && !cs.done ? (rv - cs.t) / (cs.speed || 1) : null;
+        const pending = beat && !beat.fired && this.beat === beat;
+        // (its move not started yet, the beat waiting on it: on until it has)
+        const held = left != null ? left > lead + 1 / 60 : !!(beat && beat.waitFor && !beat.waitFor());
+        if (pending && held && this.T < fireAt + TG.releaseWaitS) { this.at(this.T + 1 / 60, go, 'release wait'); return; }
+        fn(left != null && left > 0 ? this.T + left : Math.max(this.T, fireAt));
+      };
+      this.at(fireAt - lead, go, 'before the release');
+    }
     planContest(ev, sh, spot, fireAt) {
       const v = this.v;
       const df = this.A(ev.defender) || this.guardOf(sh.id) || this.nearestTo(this.def, spot.x, spot.y);
@@ -2169,23 +2186,35 @@
           if (this.T < arrive + 0.3) this.at(this.T + 0.08, chop, 'chop');
         };
         this.at(this.T + 0.15, chop, 'chop');
-        this.at(fireAt - (contest === 'tight' ? 0.22 : 0.3), () => {
+        const TGc = M.Tune.glass, nearRim = atRim && (contest !== 'open' || ev.fouled);
+        const cLead = nearRim ? TGc.wallLeadS : contest === 'tight' ? 0.22 : 0.3;
+        // (the blocker's own jump is the block, planned below: no contest move for him first, his hand up at the release point
+        // until the block's reach takes it onto the ball)
+        const blocker = ev.blocked ? (this.A(ev.blocker) || df) : null;
+        if (blocker === df) this.whenRelease(sh, fireAt, 0.22, (tRel) => df.contestBall(v.ball, tRel, { side: df.contestSide(v.ball), sh }));
+        else this.whenRelease(sh, fireAt, cLead, (tRel) => {
           if (df.isBusy()) return;
           const near = Math.hypot(df.x - spot.x, df.y - spot.y) < 5;
           // (the hand up at the ball as it goes, from the shooter's hands to its release and on: Trial 11; verticality at the rim
           // is straight up with both)
           if (atRim && near && (contest !== 'open' || ev.fouled)) {
-            df.play('wallUp', { mirror: false, facing: Math.atan2(spot.y - df.y, spot.x - df.x) });
+            df.play('wallUp', { mirror: false, facing: Math.atan2(spot.y - df.y, spot.x - df.x), fadeIn: M.Tune.glass.contestInS });
             // (straight up, both hands at the ball as it goes up by him)
-            df.contestBall(v.ball, fireAt, { both: true });
+            df.contestBall(v.ball, tRel, { both: true, sh, lead: TGc.wallLeadS });
             return;
           }
           // (the clip's high hand the one on the ball's side)
-          const side = df.contestSide(v.ball);
-          if (contest === 'tight' && near) df.play('contestJump', { mirror: side === 0, facing: Math.atan2(spot.y - df.y, spot.x - df.x) });
-          else { df.setStance('ready'); df.play('contestUp', { mirror: side === 0 }); }
-          df.contestBall(v.ball, fireAt, { side });
-        }, 'contest');
+          let side = df.contestSide(v.ball);
+          if (contest === 'tight' && near) df.play('contestJump', { mirror: side === 0, facing: Math.atan2(spot.y - df.y, spot.x - df.x), fadeIn: M.Tune.glass.contestInS });
+          else {
+            df.setStance('ready');
+            // (the closeout's hand already up: kept, not raised again from the start, and it is the one that contests)
+            const up = df.upper;
+            if (up && up.clip.name === 'contestUp' && !up.ending && up.t < 0.7) side = up.mirror ? 0 : 1;
+            else df.play('contestUp', { mirror: side === 0 });
+          }
+          df.contestBall(v.ball, tRel, { side, sh });
+        });
       }
       if (ev.blocked) {
         const bl = this.A(ev.blocker) || df;
@@ -2196,13 +2225,13 @@
           bl.moveTo(bp.x, bp.y, { by: fireAt - 0.4, speed: bl.maxSpeed, face: { x: spot.x, y: spot.y } });
           // (the move's swatting arm the one on the ball's side: it is the hand that goes onto the ball, releaseShot; up in the
           // shooter's face, a running jump over what is left of the way there, Tune.glass.travelFt at most: Trial 11)
-          this.at(fireAt - 0.2, () => {
+          this.whenRelease(sh, fireAt, 0.2, () => {
             bl.stopClip(0);
             const clip = M.Anims.get('block'), j = clip.jump, TG = M.Tune.glass;
             const gx = bp.x - bl.x, gy = bp.y - bl.y, gl = Math.hypot(gx, gy), k = gl > TG.travelFt ? TG.travelFt / gl : 1;
             bl.play('block', { x: bl.x + gx * k, y: bl.y + gy * k, facing: Math.atan2(spot.y - bl.y, spot.x - bl.x), mirror: bl.contestSide(v.ball) === 0,
               travel: gl > 0.05 ? { ta: Math.max(0, j.t0 - TG.pushS), t0: j.t0, tg: clip.events.swat, t1: j.t1 } : null, blendT: 0.2 });
-          }, 'block');
+          });
         }
       }
       if (ev.fouled) {
@@ -2307,7 +2336,8 @@
         b.flight(segsB, null);
         b.shotCue = { ev, blocked: true }; // (the result is out when the ball meets the blocker's hand)
         b.passTarget = pr && pr.actor ? pr.actor : null;
-        if (bl && bl.team === this.def) bl.reachFor(b, this.T + hit.tH - M.Tune.glass.reachEarlyS * 0.5, { hands: [bl.contestSide(b)], lead: M.Tune.glass.blockReachS, until: this.T + hit.tH + 0.05, touch: true, other: true });
+        // (the block's reach takes his hand over from the contest that put it up at the release point)
+        if (bl && bl.team === this.def) { bl._contest = null; bl.reachFor(b, this.T + hit.tH - M.Tune.glass.reachEarlyS * 0.5, { hands: [bl.contestSide(b)], lead: M.Tune.glass.blockReachS, until: this.T + hit.tH + 0.05, touch: true, other: true }); }
         if (pr) { pr.swat = bl ? bl.facing : null; this.scheduleRebounder(pr, b.time + hit.tH + T2); }
         v.arena.cheer(this.def, 0.9, 2.2);
         if (v.sound) v.sound('block', 1, b, this.A(ev.blocker));
@@ -2416,9 +2446,12 @@
       if (bl) {
         const cs = bl.clip && bl.clip.clip.name === 'block' ? bl.clip : null;
         const L = (bl.dims.ua + bl.dims.fa) * TG.contestReachK + TG.touchWristFt, bw = { x: 0, y: 0 };
-        for (let t = TG.blockMinS; t <= TG.blockMaxS + 1e-9; t += 1 / 60) {
+        // (just after the release if he is there; a blocker a step late meets it further up its way, while he is still up,
+        // Tune.glass.blockLateS: searched only to blockMaxS, his hand was aimed ~7-16 in beyond its reach, Trial 11)
+        for (let t = TG.blockMinS; t <= TG.blockLateS + 1e-9; t += 1 / 60) {
           const q = b._segPos(s, t, TMPB);
           const jz = cs ? bl._clipJumpZ(cs, cs.t + t) : 0;
+          if (t > TG.blockMaxS && (best <= 0 || (cs && jz <= 0))) break;
           // (where his body will be then: his block's own way up, its running jump; the reaching shoulder that much nearer)
           if (cs) bl.clipBodyAt(cs, cs.t + t, bw); else { bw.x = bl.x + bl.vx * t; bw.y = bl.y + bl.vy * t; }
           const gap = Math.hypot(q[0] - bw.x, q[1] - bw.y, q[2] - (TG.shoulderH * bl.H + jz)) - L - TG.shoulderInH * bl.H;
@@ -2558,8 +2591,17 @@
       onHim();
       // (there, he sits in it and holds his ground, the feet set wide; the man moving him, he goes with him: shuffling on at a
       // walk the whole time, the feet kept a walk's width, ~0.6 x the shoulders, Trial 11)
+      const mRim0 = mRim;
       const hold = () => {
         if (d.isBusy() || !pr || this.pendingRebound !== pr || pr.readT != null) return;
+        // (his man gone back up the floor, away from the glass: let go and hold his ground facing the rim, not followed out)
+        if (Math.hypot(m.x - rim.x, m.y - rim.y) > mRim0 + TG.boxLetGoFt) {
+          d._contact = null;
+          d.setStance('ready');
+          d.moveTo(d.x, d.y, { speed: 4, face: rim });
+          d.lookAt(b);
+          return;
+        }
         const q = u(), e = Math.hypot(d.x - (m.x + q[0] * cf), d.y - (m.y + q[1] * cf));
         if (e < TG.boxSettleFt && d.goal.mode === 'track') d.stop(Math.atan2(rim.y - d.y, rim.x - d.x));
         else if (e > 2 * TG.boxSettleFt && d.goal.mode !== 'track') onHim();
@@ -2734,7 +2776,16 @@
             // (the swipe with the hand on the ball's side once the ball is in his reach, onto the ball where it is as it pokes it
             // at the swipe's contact: Trial 11; swiped at a set time, a man a step or two behind the dribbler swiped at the air
             // ~2-3 ft short of it and the ball came loose anyway)
-            this.swipeAt(st, fireAt - 0.22, fireAt + M.Tune.glass.swipeWaitS, poke);
+            // (the stealer never gets to it: the dribbler loses it, off his hand toward the man coming at him, who runs it down)
+            const fumble = () => {
+              poked = true;
+              const dx = st.x - b.x, dy = st.y - b.y, ang = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.6, sp = M.Tune.glass.pokeFtps * 0.6;
+              if (b.holder === who && b.state === 'dribble') b.give(who, 'chest');
+              b.release();
+              b.loose([Math.cos(ang) * sp, Math.sin(ang) * sp, 1.5 + Math.random()]);
+              this.chaseLoose(st, who);
+            };
+            this.swipeAt(st, fireAt - 0.22, fireAt + M.Tune.glass.swipeWaitS, poke, fumble);
           };
           // (the steal is his once he has picked it up: the next play waits for that, Trial 11; it used to go on 0.9 s after the
           // poke and hand him the ball wherever it was, ~3-11 ft from his hands)
@@ -2859,13 +2910,15 @@
     }
     /** a swipe at the ball in someone's hands or dribble (Trial 11): from t0, once the ball is within his reach (Tune.glass.
      *  swipeFt, or at tMax whatever), the swipe with the hand on the ball's side, onto the ball where it is (a touch), and
-     *  onContact at the swipe's contact */
-    swipeAt(a, t0, tMax, onContact) {
+     *  onContact at the swipe's contact; still out of his reach at tMax, onMiss instead (when given) */
+    swipeAt(a, t0, tMax, onContact, onMiss) {
       const b = this.v.ball, TG = M.Tune.glass, cev = (M.Anims.get('swipe').events || {}).contact || 0.2;
       const go = () => {
         if (a.isBusy() && this.T < tMax) { this.at(this.T + 1 / 60, go, 'swipe wait'); return; }
         const d = Math.hypot(b.x - a.x, b.y - a.y);
         if (d > TG.swipeFt && this.T < tMax) { this.at(this.T + 1 / 60, go, 'swipe wait'); return; }
+        // (never in reach: no swipe at the air, it comes loose some other way)
+        if (d > TG.swipeFt * 1.5 && onMiss) { onMiss(); return; }
         const side = a.contestSide(b);
         a.play('swipe', { mirror: side === 0 });
         a.reachFor(b, this.T + cev - 0.02, { hands: [side], lead: 0.2, until: this.T + cev + 0.06, touch: true, other: true });

@@ -137,7 +137,7 @@
       // glSwipeAtFt of it as the swipe starts) goes to it when its hand comes within glSwipeFt
       glBendIn: 1, glTakeGapIn: 3, glFloorFt: 1.2, glApexS: 0.1, glJumpMinFt: 0.25, glReadS: 0.1, glPreCloseFt: 2,
       glArriveFt: 1.5, glApproachFtps: 4, glNearFt: 10, glChinFt: 0.3, glChinFrontFt: 1.2, glElbowSpan: 1.3, glChinByS: 0.45, glAfterS: 0.9,
-      glBoxManFt: 6, glBoxGapFt: 0.15, glBoxBehindDeg: 50, glBoxBaseX: 1.3, glContestFt: 6, glContestDeg: 25, glContestAfterS: 0.2, glBlockGapIn: 2, glSwipeAtFt: 10, glSwipeFt: 0.5,
+      glBoxManFt: 6, glBoxGapFt: 0.15, glBoxBehindDeg: 50, glBoxBaseX: 1.3, glBoxLeftFt: 3, glContestFt: 6, glContestDeg: 25, glContestAfterS: 0.2, glBlockGapIn: 2, glSwipeAtFt: 10, glSwipeFt: 0.5,
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -440,14 +440,18 @@
       // ground facing the rim
       boxFindS: 0.35, touchH: 0.068, boxGapFt: 0.02, boxLeanFt: 0, boxManRimFt: 14, boxReachFt: 9, boxEyesS: 0.3,
       boxSettleFt: 0.35,            // within this of his spot on the man he sits in it (the feet set wide) until the man moves him
+      boxLetGoFt: 3,                // his man this much further from the rim than as the box-out began (gone back up the floor): let go
       boxMinS: 0.4,                 // a box-out takes this long to make: a shot off the rim sooner after he has found his man (a
                                     // layup's), or a blocked one, he turns to the ball instead
       // a contest: the hand nearer the ball up at it along the line from its shoulder (coaching: the high hand on the ball's
       // side, in the shooter's sight; NBA tracking counts a closest defender within ~4-6 ft), as far as contestReachK of the
       // arm reaches and contestGapFt short of the ball at most (the hand ~0.12 heights past the wrist), up over contestLeadS
       // before the release, held contestHoldS after, down over contestDownS
-      contestReachK: 0.97, contestGapFt: 0.35, contestLeadS: 0.25, contestHoldS: 0.25, contestDownS: 0.25,
+      contestReachK: 0.97, contestGapFt: 0.35, contestLeadS: 0.25, contestHoldS: 0.25, contestDownS: 0.45,
       lateContestFt: 6, lateLeadS: 0.12, // any other defender this close as it goes up gets a hand up at it over lateLeadS
+      contestInS: 0.2,              // a contest's jump (or the wall at the rim) fades in over this (the arms coming up to it)
+      wallLeadS: 0.36,              // the wall at the rim goes up this long before the release, both arms over it
+      contestSwapS: 0.12,           // the ball gone from the shooter's hands, the hand goes from his release point onto where it went
       // a block: the blocker goes up in the shooter's face, blockFaceFt from him toward the rim (a running jump over what is
       // left of the way there), and the ball is hit where the shot's own way first comes blockInFt inside his reach (his
       // shoulders ~shoulderH x his height over the floor as he goes up, the reaching one ~shoulderInH heights nearer than the
@@ -456,6 +460,8 @@
       // surface); it goes off the way the swat goes, within blockConeDeg of the way he faces, as fast as blockSpeedK x the shot
       blockFaceFt: 2.2, blockMinS: 0.04, blockMaxS: 0.3, blockInFt: 0.3, shoulderH: 0.82, shoulderInH: 0.1, touchWristFt: 0.3, blockReachS: 0.22,
       blockConeDeg: 60, blockSpeedK: 1.1,
+      blockLateS: 0.6,              // not in his reach by blockMaxS: met further up its way while he is still up, this long at most
+      releaseWaitS: 2.5,            // a contest or a block waits for the shot's own release up to this long past the plan
       // a steal: the swipe's hand on the ball's side onto the ball where it is; poked, it squirts off the hand the way the hand
       // was going at ~pokeFtps, and he runs it down (caught or picked up by hand), the man who lost it and the nearest of his
       // side within scrambleFt after it a reaction later; not his by chaseMaxS, it is his where it is

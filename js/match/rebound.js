@@ -408,8 +408,10 @@
     };
     this.at(Math.max(this.T + 0.05, (pr.tContactT || this.T) + TG().readS), chase, 'chase the ball');
     beat.onFire = () => this.secureRebound(ev, a);
-    // (in his hands; the engine's clock still sets the earliest moment, and the beat loop's own 3 s limit the latest)
+    // (in his hands; the engine's clock still sets the earliest moment, and 4 s after it was due the latest: a carom that
+    // bounces on away takes a while to run down)
     beat.waitFor = () => !!b.holder || this.T > pr.tGrabT + 4;
+    beat.maxWait = 5;
     return Math.max(0.05, pr.tGrabT - this.T);
   };
 })();

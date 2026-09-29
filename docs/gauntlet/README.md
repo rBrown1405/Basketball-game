@@ -9,6 +9,8 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 - Dribble lab (14 dribbling scenarios, the moves included, with the game's own meters): `node tools/audit/handle.js`.
 - Pass lab (22 two-player passing scenarios, every pass kind and variation, with the game's own pass meter): `node tools/audit/pass.js`.
 - Shot lab (25 shooting scenarios: two shooters' forms, every kind of jump shot, free throw routines, layups, runners, dunks, putbacks and a tip, with the game's own shot meter): `node tools/audit/shot.js`.
+- Glass lab (15 scenarios: misses off the rim and the glass, box-outs, a long and a weak-side rebound, a miss run down off the floor, contests, blocks, a poke steal, an interception and a reach-in, with the game's own glass meter): `node tools/audit/glass.js`.
+- Loose balls (random loose balls, each run down by a player already on the move): `node tools/audit/chase.js`.
 - Tests: `node tools/audit/check.js`.
 - Tuning: every value lives in `js/match/tune.js` (`PBC.Match.Tune`).
 

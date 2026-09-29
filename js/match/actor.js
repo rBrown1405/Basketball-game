@@ -261,14 +261,37 @@
       else if (h && t < h.until && p !== h.p) return;
       this.look_ = p;
     }
-    /** a contest (Trial 11): the hand nearer the ball goes up at it, along the line from its shoulder to the ball (wherever it
-     *  is: in the shooter's hands going up to the release, then in the air), as far as the arm reaches and never onto it
-     *  (Tune.glass.contestGapFt short of it); up over Tune.glass.contestLeadS before tRel, held contestHoldS after, then
-     *  let down. o: { lead, hold, both (both hands: verticality at the rim) } */
+    /** a contest (Trial 11): the hand nearer the ball goes up at the shooter's release point (o.sh: where his shot lets the
+     *  ball go, Actor.releasePoint; without him, at the ball), along the line from its shoulder, as far as the arm reaches and
+     *  never onto it (Tune.glass.contestGapFt short of it), and stays up where the ball left his hands; up over
+     *  Tune.glass.contestLeadS before tRel, held contestHoldS after, then let down. (It used to follow the ball itself, through
+     *  the shooter's dip and push and on up after it in the air at ~25 ft/s, and the arm popped.) o: { sh, lead, hold, both
+     *  (both hands: verticality at the rim) } */
     contestBall(b, tRel, o) {
       o = o || {};
       const TG = M.Tune.glass, side = o.side != null ? o.side : this.contestSide(b);
-      this._contest = { b, t1: tRel, lead: o.lead || TG.contestLeadS, hold: o.hold != null ? o.hold : TG.contestHoldS, sides: o.both ? [0, 1] : [side] };
+      this._contest = { b, sh: o.sh || null, fr: null, t1: tRel, lead: o.lead || TG.contestLeadS, hold: o.hold != null ? o.hold : TG.contestHoldS, sides: o.both ? [0, 1] : [side] };
+    }
+    /** where the ball leaves his hands in the shot he is in: the move's ball at its release, the body where the move has it
+     *  then, up in its jump; not in a shot, over his head. out: [x, y, z] */
+    releasePoint(out) {
+      const cs = this.clip, ev = cs && cs.clip.events, H = this.H;
+      if (cs && ev && ev.release != null && cs.clip.ballKeys && cs.t <= ev.release + 1e-6) {
+        const tr = ev.release, bk = cs.clip.ballKeys;
+        const bx = (cs.mirror ? -1 : 1) * bk[0](tr) * H, by = bk[1](tr) * H, bz = bk[2](tr) * H;
+        const yaw = this._clipRoot(cs, Math.min(tr, cs.clip.dur)).yaw, r = this.clipBodyAt(cs, tr, RP2);
+        const c = Math.cos(yaw), sn = Math.sin(yaw);
+        out[0] = r.x + sn * bx + c * by; out[1] = r.y - c * bx + sn * by; out[2] = bz + this._clipJumpZ(cs, tr);
+        // (a finish reaching the ball up to the rim ends there, as far as the arm goes: heldBallPos)
+        const rc = cs.reach;
+        if (rc && rc.t1 != null) {
+          const k = tr <= rc.t0 ? 0 : tr >= rc.t1 ? 1 : U.smooth((tr - rc.t0) / Math.max(0.01, rc.t1 - rc.t0));
+          if (k > 0.001) { const tg = this._reachClamp(rc.x, rc.y, rc.z, cs.mirror ? 0 : 1, 0.1 * H, RT2); for (let i = 0; i < 3; i++) out[i] += (tg[i] - out[i]) * k; }
+        }
+        return out;
+      }
+      out[0] = this.x; out[1] = this.y; out[2] = (this.jumpZ || 0) + 1.25 * H;
+      return out;
     }
     /** the hand on the ball's side (1 the right, 0 the left): the one whose shoulder is nearer it */
     contestSide(b) {
@@ -4408,8 +4431,9 @@
           const w = U.smooth((t - (rch.t1 - rch.lead)) / rch.lead) * rch.w;
           if (w > 0.001) {
             const over = b.z > this.jumpZ + 0.95 * this.H, gn = over ? 'over' : 'hold', grip = A.GRIP[gn];
-            const dl = Math.hypot(b.x - this.x, b.y - this.y), fa = dl > 0.4 ? Math.atan2(b.y - this.y, b.x - this.x) : this.facing;
-            const c = Math.cos(fa), s = Math.sin(fa);
+            // (turned with the body, as the hold it becomes has it: turned to the ball, the hands went round it ~0.4 ft in the
+            // frame it was taken, Trial 11)
+            const fa = this.facing, c = Math.cos(fa), s = Math.sin(fa);
             const wf = this._wrFix || (this._wrFix = [new Float64Array(3), new Float64Array(3)]);
             for (const side of rch.hands) {
               const g = side ? grip.r : grip.l, ik = sk.armIK[side];
@@ -4432,10 +4456,28 @@
         if (t > ctb.t1 + ctb.hold + TG.contestDownS || !ctb.b) this._contest = null;
         else if (w > 0.001) {
           const b = ctb.b, P = sk.P, L = (this.dims.ua + this.dims.fa) * TG.contestReachK;
+          // (at the shooter's release point while he has it, held on where the ball was as it went; with no shooter, at the ball
+          // until tRel, then held there)
+          // (held where the ball went as seen from his body, which goes on with him: as he comes down from his jump the arm
+          // stays up at it instead of reaching for a spot in the air he has dropped away from)
+          let q = CT3;
+          const rx = this.x, ry = this.y, rz = this.jumpZ || 0;
+          if (ctb.fr) {
+            // (from where it was aimed onto where the ball really went, over Tune.glass.contestSwapS)
+            const u = U.smooth((t - ctb.frT) / TG.contestSwapS);
+            q[0] = rx + ctb.from[0] + (ctb.fr[0] - ctb.from[0]) * u; q[1] = ry + ctb.from[1] + (ctb.fr[1] - ctb.from[1]) * u; q[2] = rz + ctb.from[2] + (ctb.fr[2] - ctb.from[2]) * u;
+          } else if (ctb.sh && b.holder === ctb.sh) ctb.sh.releasePoint(q);
+          else if (!ctb.sh && t < ctb.t1) { q[0] = b.x; q[1] = b.y; q[2] = b.z; }
+          else {
+            ctb.fr = [b.x - rx, b.y - ry, b.z - rz]; ctb.frT = t;
+            ctb.from = ctb.last ? [ctb.last[0] - rx, ctb.last[1] - ry, ctb.last[2] - rz] : ctb.fr.slice();
+            q[0] = rx + ctb.from[0]; q[1] = ry + ctb.from[1]; q[2] = rz + ctb.from[2];
+          }
+          ctb.last = ctb.last || [0, 0, 0]; ctb.last[0] = q[0]; ctb.last[1] = q[1]; ctb.last[2] = q[2];
           for (const side of ctb.sides) {
             const ik = sk.armIK[side], so = (side ? RG.J.R_SH : RG.J.L_SH) * 3;
             if (ik.on >= w) continue;
-            const dx = b.x - P[so], dy = b.y - P[so + 1], dz = b.z - P[so + 2], dl = Math.hypot(dx, dy, dz) || 1;
+            const dx = q[0] - P[so], dy = q[1] - P[so + 1], dz = q[2] - P[so + 2], dl = Math.hypot(dx, dy, dz) || 1;
             // (the wrist on the line to the ball, the hand past it: short of the ball by contestGapFt)
             const k = U.clamp(dl - TG.contestGapFt - 0.12 * this.H, 0.5 * L, L) / dl;
             ik.on = w; src[side] = 'tgt'; ik.pole = HOLD_POLE.over; ik.fkPole = false;
@@ -4693,6 +4735,7 @@
     }
   }
   const RT = { x: 0, y: 0, yaw: 0 };
+  const RP2 = { x: 0, y: 0 }, CT3 = [0, 0, 0];
   function frac(v) { return v - Math.floor(v); }
   /** did phase go through point p while moving from a to b (b>=a, may exceed 1)? */
   function crossed(a, b, p) {

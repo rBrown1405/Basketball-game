@@ -500,7 +500,10 @@
 
   // ------------------------------------------------------------ rebounding / defense
   // rebound: load, jump, two hands up, grab at the apex, chin it on the way down (elbows out)
-  clip('rebound', {
+  {
+    // (the take eased: the ball comes out of the grab slowly and then is ripped down, instead of going from the top of the
+    // jump to ~15 ft/s down the frame it is taken, the hands with it, Trial 11)
+    const def = {
     dur: 1.25, events: { set: 0.22, grab: 0.5 },
     jump: { t0: 0.24, t1: 0.8, h: 0.24 },
     feet: [[0, 'plant'], [0.24, 'air'], [0.8, 'plant']],
@@ -517,7 +520,12 @@
       { t: 0.8, p: { rootZ: -0.08, pelPitch: 22, spFlex: 10, chFlex: 6, nkFlex: -16, both: { ShF: 50, ShA: 55, ShT: 30, ElF: 100, Pro: 10, WrF: -30, HipF: 44, HipA: 10, Knee: 62, Ank: 18 } }, ball: [0.0, 0.3, 0.74], grip: 'hold' },
       { t: 1.25, p: { base: 'holdChest', rootZ: -0.06, both: { ShA: 40 } }, ball: [0.0, 0.24, 0.7], grip: 'hold' },
     ],
-  });
+  };
+    const at = (t) => A.sampleClip(A.buildClip({ name: '_rebound', keys: def.keys }), t, new Float32Array(RG.NCH));
+    const eased = { t: 0.55, p: at(0.55), ball: [0.0, 0.16, 1.24], grip: 'over' };
+    def.keys.splice(def.keys.findIndex(k => k.t === 0.6), 0, eased);
+    clip('rebound', def);
+  }
   // closeout contest with a jump (tight contest)
   clip('contestJump', {
     dur: 0.95, events: { set: 0.18 },
@@ -546,13 +554,14 @@
     ],
   });
   // contest without leaving the floor: high hand up toward the shooter
+  // (the hand up over ~0.3 s, a quick raise: up in 0.18 s the hand went ~4.5 ft in 0.12 s, ~40 ft/s, and the arm popped, Trial 11)
   clip('contestUp', {
-    dur: 0.9, mask: 'upper',
+    dur: 0.95, mask: 'upper',
     keys: [
       { t: 0.0, p: 'defense' },
-      { t: 0.18, p: { base: 'contest' } },
-      { t: 0.65, p: { base: 'contest', rShF: 168 } },
-      { t: 0.9, p: 'defense' },
+      { t: 0.28, p: { base: 'contest' } },
+      { t: 0.7, p: { base: 'contest', rShF: 168 } },
+      { t: 0.95, p: 'defense' },
     ],
   });
   // block attempt: jump, swat arm sweeping through the ball
