@@ -312,9 +312,15 @@
     // overhead two hands: palms on the sides of the ball, wrists a little below its centre
     over: { r: [1.2, -0.5, -0.6], l: [-1.2, -0.5, -0.6] },
     right: { r: [0.4, -1.2, -0.9], l: null },
-    // the behind-the-back pass (Trial 10): the right hand on the right side of the ball behind the back, pushing it round
-    // to the left; the one-handed whip to the right: the right hand on the left side of the ball, a little behind it
-    btbPass: { r: [1.15, -0.3, -0.45], l: null },
+    // the behind-the-back pass (Trial 10): the right hand on the back and right of the ball behind the back, pushing it
+    // round to the left (on its right side the forearm came down over the top of the ball, ~2-4 in into it); the
+    // one-handed whip to the right: the right hand on the left side of the ball, a little behind it
+    btbPass: { r: [0.6, -1.2, -0.3], l: null },
+    // the outlet (Trial 10): taken up in front of the right shoulder with both hands, the right hand coming round behind
+    // it, then cocked beside the ear and thrown with the right hand behind it (under it, as a finger roll holds it, the
+    // arm folded shut on the way up and flipped)
+    outletLift: { r: [0.95, -0.95, -0.55], l: [-1.3, 0.05, -0.3] },
+    throwR: { r: [0.35, -1.3, -0.4], l: null },
     whipR: { r: [-1.0, -0.6, -0.45], l: null },
     // one hand up high (layup / finger roll / tip / cocked dunk): the ball sits on the palm and fingers, above
     // and a little ahead of the wrist

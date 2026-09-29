@@ -405,10 +405,16 @@
       gripHz: 5,                    // a hold (plain, or a catch, a pick-up, a jab): the wrist bends after the flexion that puts
                                     // the fingers on the ball on a critically damped spring this fast (Hz), and back when it
                                     // lets go...
+      gripPassHz: 20,               // ...and this fast through a pass's wind-up and push (Trial 10: at 5 Hz the bend lagged
+                                    // the pass's own quick wrist motion and the palms stood ~3 in off the ball)
       gripStepDeg: 5,               // ...that flexion found along the wrist's range in steps this fine, then halved down
       gripRefDeg: -30,              // ...a new fit taking the one nearest this (deg, bent back as a hold's is), a fit going
                                     // on the one nearest where the wrist is, unless the other is no more than
-      gripSplitDeg: 20,             // this much further from it (deg) and nearer gripRefDeg
+      gripSplitDeg: 20,             // this much further from it (deg) and nearer gripRefDeg; and a fit on a root more than
+      gripBandDeg: 50,              // this far from gripRefDeg (deg) goes over to the other root when that one is nearer it
+                                    // (Trial 10: a receiver's hand fitted at a catch out to the side kept the wrist bent
+                                    // ~60-80 deg forward, the fingers round the back of the ball and into the belly, the
+                                    // arm swivelled out of the body and ~5 in off the ball)
       moveReachK: 0.9,              // a move from hand to hand: the receiving hand goes from where it was to the catch from
                                     // the move's push on, there by this share of the way to the catch (it has the dribble
                                     // from the release; the old hand lets go over the ball's flight)...

@@ -2698,8 +2698,15 @@
         out[2] -= drop * 0.85;
         out[1] += Math.sin(lean) * 0.3 * H;
       }
+      // and it stays in front of the chest as the chest turns from the hips (a receiver running on with it, the chest still
+      // turned back to the passer: held in front of the hips, the far hand reached across past its length and its twist,
+      // ~5 in off the ball, Trial 10); the triple threat's at the hip stays with the hips
+      const yw = (this.chestYaw || 0) * (HOLD_YAW_K[this.ballHold] != null ? HOLD_YAW_K[this.ballHold] : 1);
+      if (Math.abs(yw) > 1e-4) { const cy = Math.cos(yw), sy = Math.sin(yw), x = out[0], y = out[1]; out[0] = x * cy - y * sy; out[1] = x * sy + y * cy; }
       return out;
     }
+    /** how far a held ball's grips are turned from the hips' frame, with the ball (_holdLocal) */
+    _holdYaw() { return (this.chestYaw || 0) * (HOLD_YAW_K[this.ballHold] != null ? HOLD_YAW_K[this.ballHold] : 1); }
     /** how low he dribbles (0..1): sitting down in the dribbling stance keeps the ball at the lowered hips (a speed
      *  dribble on the run comes back up), deeper still when protecting it */
     dribbleDepth() {
@@ -3433,13 +3440,18 @@
       const cr = this._carry || (this._carry = { x: 0, y: 0, z: 0, t: this.time || 0 });
       const cdt = U.clamp((this.time || 0) - cr.t, 0, 0.1); cr.t = this.time || 0;
       if (gr && (gr[0] || gr[1]) && vb && vb.holder === this && vb.state === 'held') {
+        // (the hands that hold it: a hand letting go of it, or still coming onto it, reaches from where it was and holds
+        // nothing up; counted, a one-handed pass's other hand letting go took the ball off toward where that hand was,
+        // ~4 in off a kick pass's push and ~15 in off an outlet's, and the flight then left from the push's own path,
+        // Trial 10)
         let ex = 0, ey = 0, ez = 0, n = 0;
         for (let side = 0; side < 2; side++) {
-          if (!gr[side]) continue;
-          const ik = sk.armIK[side], j = (side ? RG.J.R_WR : RG.J.L_WR) * 3;
-          ex += sk.P[j] - ik.x; ey += sk.P[j + 1] - ik.y; ez += sk.P[j + 2] - ik.z; n++;
+          const ik = sk.armIK[side], q = gr[side] ? Math.min(1, gr[side]) * U.smooth((ik.on - 0.8) / 0.2) : 0;
+          if (q <= 0) continue;
+          const j = (side ? RG.J.R_WR : RG.J.L_WR) * 3;
+          ex += (sk.P[j] - ik.x) * q; ey += (sk.P[j + 1] - ik.y) * q; ez += (sk.P[j + 2] - ik.z) * q; n += q;
         }
-        const w = U.smooth((vb.z - 0.4 * H) / (0.2 * H)) / n;
+        const w = n > 0 ? U.smooth((vb.z - 0.4 * H) / (0.2 * H)) * Math.min(1, n) / n : 0;
         // eased so a grip change or the ball rising past the hips never snaps it
         const k = 1 - Math.exp(-cdt / 0.05);
         cr.x += (ex * w - cr.x) * k; cr.y += (ey * w - cr.y) * k; cr.z += (ez * w - cr.z) * k;
@@ -3461,8 +3473,9 @@
       this._gripOnBall(dtI);
       this._cacheBody();
       this._ballOffLegs();
-      // the dribble's frame: a share of the chest's turn from the hips' (Tune.handle.trunkYawK; see localD)
-      { const R = sk.R, ch = Math.atan2(R[22], R[19]); this.dribbleYaw = M.Tune.handle.trunkYawK * U.wrapPi(ch - this.facing); }
+      // the dribble's frame: a share of the chest's turn from the hips' (Tune.handle.trunkYawK; see localD); the chest's
+      // own turn for a ball held in front of it (_holdLocal)
+      { const R = sk.R, ch = Math.atan2(R[22], R[19]); this.chestYaw = U.wrapPi(ch - this.facing); this.dribbleYaw = M.Tune.handle.trunkYawK * this.chestYaw; }
     }
     /** the dribbling hand on its spot (Trial 8): every frame of the dribble the palm is where the ball's plan puts it
      *  (on the ball through the push and the ride, on its path between), whatever moved the body after the arm was
@@ -3601,7 +3614,9 @@
       const wf = this._wrFix;
       if (!wf || !(dt > 0) || dt > 0.12) return;
       const sk = this.sk, P = sk.P, p = sk.pose, vb = this.view && this.view.ball, TH = M.Tune.handle;
-      const pr = BALL_R + M.Tune.debug.palmOffsetH * this.H, w = 2 * Math.PI * TH.gripHz;
+      // (through a pass's own quick wrist motion the bend follows faster: Tune.handle.gripPassHz)
+      const pc = this.upper && this.upper.clip.ballKeys && /^pass/.test(this.upper.clip.name);
+      const pr = BALL_R + M.Tune.debug.palmOffsetH * this.H, w = 2 * Math.PI * (pc ? TH.gripPassHz : TH.gripHz);
       for (let side = 0; side < 2; side++) {
         const f = wf[side];
         let goal = 0;
@@ -3638,6 +3653,9 @@
               ta = tb; ga = gb;
             }
             if (root != null && alt != null && f.act && Math.abs(alt - th0) < Math.abs(root - th0) + split && Math.abs(alt - REF) < Math.abs(root - REF)) root = alt;
+            // (and a hold never stays with one bent round the ball's far side while the one bent back is there,
+            // Tune.handle.gripBandDeg; the hands waiting for a pass keep theirs)
+            if (!rq && root != null && alt != null && Math.abs(root - REF) > TH.gripBandDeg * U.DEG && Math.abs(alt - REF) < Math.abs(root - REF)) root = alt;
             if (root != null) best = root;
             // (a fit on a root; the nearest miss, the palm short of the ball, is none: the hands coming up to a target short
             // of where the ball will be have none to keep to)
@@ -3654,9 +3672,9 @@
           goal = f.c0 * (1 - U.smooth(Math.min(1, this.dribble.carry / M.Tune.handle.carryWristK)));
           f.act = false;
         } else { f.c0 = null; f.act = false; }
-        // (a critically damped spring; f[1] its speed)
-        f[1] += (w * w * (goal - f[0]) - 2 * w * f[1]) * dt;
-        f[0] += f[1] * dt;
+        // (a critically damped spring, stepped exactly; f[1] its speed. Stepped as f' += a dt it blew up past ~9.5 Hz at
+        // 60 steps a second)
+        { const e0 = f[0] - goal, j = f[1] + w * e0, ex = Math.exp(-w * dt); f[0] = goal + (e0 + j * dt) * ex; f[1] = (f[1] - w * j * dt) * ex; }
         if (!goal && Math.abs(f[0]) < 1e-5 && Math.abs(f[1]) < 1e-4) f[0] = f[1] = 0;
         f[2] = 0;
       }
@@ -4256,9 +4274,14 @@
           // solved toward its animated elbow, so between key poses it keeps their shape instead of twisting)
           const mir = cs.mirror;
           // (a clip that holds the ball without throwing it, a catch or a pick-up or a jab: the fingers on the ball as in a
-          // plain hold, _gripOnBall; a shot's or a pass's wrists are its own)
-          const fit = !(cs.clip.events && cs.clip.events.release != null);
+          // plain hold, _gripOnBall; a shot's wrists are its own. A pass's too, up to the release: with its own wrists the
+          // palms stood ~1.5-2.5 in off the ball through a chest pass's push, Trial 10; the snap through is the clip's
+          // once the ball has gone)
+          const fit = !(cs.clip.events && cs.clip.events.release != null) || /^pass/.test(cs.clip.name);
           const wf = fit ? this._wrFix || (this._wrFix = [new Float64Array(3), new Float64Array(3)]) : null;
+          // (coming in over a plain hold turned with the chest, _holdLocal, the grips turn back to the hips' frame as the clip
+          // does: switched at once, a passer holding it with the chest turned to a decoy had the hands ~3 in off it, Trial 10)
+          const fy = this.facing + this._holdYaw() * (1 - U.clamp(cs.w, 0, 1)), c = Math.cos(fy), s = Math.sin(fy);
           for (let side = 0; side < 2; side++) {
             const g = mir ? (side ? gi.l : gi.r) : (side ? gi.r : gi.l), w = mir ? (side ? gi.wl : gi.wr) : (side ? gi.wr : gi.wl);
             if (!g || w <= 0.001) continue;
@@ -4278,6 +4301,8 @@
           const fk = gripName === 'hip' && this.stance === 'triple';
           const mir = this.lefty;
           const wf = this._wrFix || (this._wrFix = [new Float64Array(3), new Float64Array(3)]);
+          // (the palms on its sides as the chest has them, turned with the ball in front of it: _holdLocal)
+          const fy = this.facing + this._holdYaw(), c = Math.cos(fy), s = Math.sin(fy);
           for (let side = 0; grip && side < 2; side++) {
             const g = mir ? (side ? grip.l : grip.r) : (side ? grip.r : grip.l);
             if (!g) continue;
@@ -4294,7 +4319,15 @@
       }
       // (a hold's wrist bend that puts the fingers on the ball, easing in and out: _gripOnBall)
       const wf = this._wrFix;
-      if (wf) for (let side = 0; side < 2; side++) if (wf[side][0]) this.pose[CH[side ? 'rWrF' : 'lWrF']] += wf[side][0];
+      // (while it holds the palm on the ball the bend takes up the pose's own wrist changes, the wrist staying where the fit
+      // has it: a pass clip coming in over a hold moved the wrist the clip's way ~30 deg in 0.1 s until the spring caught up,
+      // the palms ~2.5 in off the ball, Trial 10)
+      if (wf) for (let side = 0; side < 2; side++) {
+        const f = wf[side], i = CH[side ? 'rWrF' : 'lWrF'], pw = this.pose[i];
+        if (f[2] && f.act && f.pw != null && dtI > 0 && dtI <= 0.12) f[0] -= pw - f.pw;
+        if (dtI !== 0) f.pw = f[2] ? pw : null;
+        if (f[0]) this.pose[i] += f[0];
+      }
       this._smoothArmIK();
     }
 
@@ -4410,6 +4443,8 @@
   const STAG_F = 0.1, STAG_B = 0.03;
   // holding the ball without a clip: elbows down and out (chest), out and forward (overhead), back (hip pocket)
   const HOLD_POLE = { hold: [0.62, -0.25, -0.75], over: [0.75, 0.25, -0.3], hip: [0.35, -0.8, -0.5] };
+  // how much of the chest's turn from the hips a plain hold's ball and hands follow (the triple threat's is at the hip)
+  const HOLD_YAW_K = { chest: 1, over: 1, pocket: 0.5, low: 0.5, triple: 0 };
   // stances with a ball side (the ball on the right hip / right of the chest): a lefty gets the mirror image, pose and
   // feet (the stance poses used to stay right-handed while a lefty's ball went to his left hip, so his hands missed it)
   const HANDED = { triple: 'tripleL', shotPocket: 'shotPocketL' };
