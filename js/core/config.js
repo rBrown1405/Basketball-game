@@ -290,6 +290,11 @@
       desc: 'Your big drops back to protect the rim. Great paint protection, but pull-up jumpers are wide open.',
       mods: { zone: { rim: -0.12, paint: -0.05, mid: 0.1, ab3: 0.03 }, freq: { rim: 0.9, mid: 1.18 }, needs: 'rim' },
     },
+    hedge: {
+      label: 'Hedge the Pick and Roll', icon: '🚧',
+      desc: 'The big jumps out hard above every ball screen to stop the handler, then recovers to his man. Takes away pull-ups and turn-the-corner drives; the roller and the weak side are covered by rotations. Needs mobile bigs.',
+      mods: { play: { pnr: -0.08, handoff: -0.05 }, to: 1.04, open: 0.02, fatigue: 1.05, needs: 'mobile' },
+    },
     blitz: {
       label: 'Blitz / Trap', icon: '🪤',
       desc: 'Double the ball handler on every pick-and-roll. Forces turnovers but leaves the roller and shooters open.',

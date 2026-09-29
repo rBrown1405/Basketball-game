@@ -102,3 +102,44 @@
   .bug-team .ab { font-size: 16px; }
   .lv-bottom { display: none; }
 }
+
+/* the timeout huddle (js/ui/huddle.js) and the coach's calls in the Coach tab */
+.hd { display: flex; flex-direction: column; gap: 12px; }
+.hd-top { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.hd-sc { font-size: 14px; }
+.hd-grid { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.hd-col { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
+.hd-h { font: 900 15px/1.2 var(--font-display); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.hd-n { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.hd-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.chip { border: 1px solid var(--line); background: var(--bg2); color: var(--muted); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.chip:hover { color: #fff; }
+.chip.on { background: rgba(255, 107, 26, .18); border-color: rgba(255, 107, 26, .55); color: #fff; }
+.chip.dis { opacity: .4; cursor: not-allowed; }
+.hd-plays { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; max-height: 52vh; overflow: auto; padding-right: 2px; }
+.hd-play { display: flex; gap: 8px; align-items: flex-start; text-align: left; background: var(--bg2); border: 2px solid var(--line); border-radius: 12px; padding: 6px; cursor: pointer; color: inherit; font: inherit; }
+.hd-play:hover { border-color: #3d4d70; }
+.hd-play.on { border-color: var(--accent); background: linear-gradient(180deg, rgba(255, 107, 26, .14), var(--bg2)); }
+.hd-play .pb-dia { flex: 0 0 auto; }
+.hd-pi { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hd-pn { font: 900 13.5px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .3px; }
+.hd-pt { display: flex; gap: 4px; flex-wrap: wrap; }
+.hd-staff { grid-column: 1 / -1; align-items: center; }
+.hd-staff-i { font-size: 26px; width: 44px; text-align: center; }
+.hd-inb { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 10px; }
+.hd-inb label { display: block; margin-bottom: 3px; }
+.hd-inb select { width: 100%; }
+.modal:has(.hd) .modal-f { position: sticky; bottom: 0; background: #101827; z-index: 2; }
+.hd-schemes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; }
+.hd-scheme { text-align: left; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 6px 9px; color: var(--muted); font-weight: 700; font-size: 12.5px; cursor: pointer; }
+.hd-scheme:hover { color: #fff; }
+.hd-scheme.on { border-color: var(--accent); color: #fff; background: rgba(255, 107, 26, .14); }
+.hd-covs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.hd-line .cp-row { font-size: 12px; }
+.lv-calls { background: rgba(255, 255, 255, .035); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; }
+.lv-call { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.lv-call .tiny { margin-left: auto; }
+@media (max-width: 1000px) {
+  .hd-grid { grid-template-columns: minmax(0, 1fr); }
+  .hd-plays { max-height: none; }
+}

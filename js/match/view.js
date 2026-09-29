@@ -136,10 +136,19 @@
       U.safe(() => { this.court = new M.Court(this.ctx, this.opts); }, this, 'court atmosphere');
       if (this.arena.setAtmosphere) this.arena.setAtmosphere(this.atm);
     }
-    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk' */
-    sound(name, v) {
+    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk',
+     *  'block'; at: where it happens (the ball or an actor: x, y, z), who: the actor making it */
+    sound(name, v, at, who) {
       if (!this.onSound || this.replay) return;
-      try { this.onSound(name, v == null ? 1 : v); } catch (e) { /* audio must never break the view */ }
+      try { this.onSound(name, v == null ? 1 : v, at || null, who || null); } catch (e) { /* audio must never break the view */ }
+    }
+    /** what else the audio listens to (the host hands it to the audio event bus): 'plant' (a foot lands in a stride or
+     *  a step: a = the actor, d = the foot), 'land' (a foot back down from a jump), 'catch' and 'pass' (the ball:
+     *  d = {from}), 'shotResult' (the ball reached the rim, the glass, the net or the blocker's hand: d = {ev, contact,
+     *  x, y, z}). Callers check onCue first, so nothing is built when nobody listens; nothing goes out in a replay */
+    cue(type, a, d) {
+      if (!this.onCue || this.replay) return;
+      try { this.onCue(type, a, d); } catch (e) { /* audio must never break the view */ }
     }
     setDefScheme(team, scheme) {
       if (team !== 0 && team !== 1) return;
@@ -847,6 +856,9 @@
         if (pix) for (const pp of people) this.drawPixelShadow(g, cam, pp.sk);
         else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, pp.alpha < 1 ? pp.alpha : 1);
         b.drawShadow(g, cam);
+        // the called play's paths on the floor, under the players (playdraw.js)
+        const pp0 = this.opts.playPaths;
+        if (pp0 && pp0 !== 'off' && !rp && M.PlayDraw) U.safe(() => M.PlayDraw.floor(g, cam, this, pp0), this, 'play paths');
         // depth-sorted drawables
         const items = this.items; items.length = 0;
         const heldBy = !rp && (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : null;
@@ -901,7 +913,19 @@
         mg.drawImage(this._pix, 0, 0, this._pix.width * k, this._pix.height * k);
         mg.imageSmoothingEnabled = true;
       }
-      // debug overlays on the final picture (full resolution, also in pixel mode)
+      // the play overlay's numbers and card (playdraw.js), at full resolution
+      if (this.opts.playPaths && this.opts.playPaths !== 'off' && !rp && M.PlayDraw) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => M.PlayDraw.top(mg, this.cam, this, this.opts.playPaths), this, 'play paths');
+      }
+      // the coach's debug overlay (debugdraw.js), at full resolution
+      if (this.opts.debug && !rp && M.DebugDraw) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => M.DebugDraw.draw(mg, this.cam, this, this.opts.debug), this, 'coach debug overlay');
+      }
+      // the animation debug tools (Shift+D) on the final picture, on top of everything (full resolution, also in pixel mode)
       if (dbg) {
         const mg = this.g;
         mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);

@@ -213,15 +213,20 @@
           <td class="num">${T.fgm}-${T.fga} <span class="dim">${U.pct3(T.fgm, T.fga)}</span></td><td class="num">${T.tpm}-${T.tpa}</td><td class="num">${T.ftm}-${T.fta}</td><td class="num">${T.pf}</td><td></td></tr>
         </tbody></table></div></div>`;
     };
-    return `<div class="box-score-h">
+    // (tabs: the box score, and the plays each team ran: js/ui/playstats.js)
+    const plays = !!(box.plays && UI.boxPlaysHtml);
+    const tab = plays && UI._bxTab === 'plays' ? 'plays' : 'box';
+    return `<div class="bx"><div class="box-score-h">
         <div class="vs-team">${UI.teamBadge(th[1], 58)}<div class="nm">${U.esc(th[1].name)}</div></div>
         <div class="center"><div class="sc">${box.as} <span class="dim">–</span> ${box.hs}</div><div class="small muted up">${box.final === false ? 'Live' : 'Final'}${box.ot ? ' / ' + (box.ot > 1 ? box.ot : '') + 'OT' : ''}${box.playoff ? ' · Playoffs' : ''}</div></div>
         <div class="vs-team">${UI.teamBadge(th[0], 58)}<div class="nm">${U.esc(th[0].name)}</div></div>
       </div>
       <table class="tbl compact qtbl" style="margin-top:14px"><thead><tr><th style="text-align:left">Team</th>${qHead}<th>T</th></tr></thead><tbody>
         ${[1, 0].map(i => `<tr><td style="text-align:left" class="bold">${th[i].abbr}</td>${Array.from({ length: periods }, (_, q) => `<td>${box.q[i][q] != null ? box.q[i][q] : '-'}</td>`).join('')}<td class="bold">${i ? box.as : box.hs}</td></tr>`).join('')}</tbody></table>
-      ${teamTable(box.teams[1], 1)}${teamTable(box.teams[0], 0)}
-      ${box.pbp && box.pbp.length && !opts.noPbp ? `<div class="card flat" style="margin-top:12px"><div class="card-h"><h3>Play-by-play</h3></div><div class="pbp-list">${UI.pbpHtml(S, box.pbp.slice().reverse(), box)}</div></div>` : ''}`;
+      ${plays ? `<div class="tabs bx-tabs" style="margin-top:12px"><button class="tab ${tab === 'box' ? 'active' : ''}" data-bx-tab="box">Box score</button><button class="tab ${tab === 'plays' ? 'active' : ''}" data-bx-tab="plays">Plays</button></div>` : ''}
+      <div data-bx-panel="box" ${tab === 'box' ? '' : 'hidden'}>${teamTable(box.teams[1], 1)}${teamTable(box.teams[0], 0)}
+      ${box.pbp && box.pbp.length && !opts.noPbp ? `<div class="card flat" style="margin-top:12px"><div class="card-h"><h3>Play-by-play</h3></div><div class="pbp-list">${UI.pbpHtml(S, box.pbp.slice().reverse(), box)}</div></div>` : ''}</div>
+      ${plays ? `<div data-bx-panel="plays" ${tab === 'plays' ? '' : 'hidden'}>${UI.boxPlaysHtml(S, box)}</div>` : ''}</div>`;
   };
 
   UI.pbpHtml = function (S, lines, box) {
@@ -268,6 +273,7 @@
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Franchise history</h3></div><div class="card-b flush">${t.history.length ? `<table class="tbl compact"><thead><tr><th>Season</th><th class="num">W-L</th><th>Result</th></tr></thead><tbody>
               ${t.history.slice().reverse().map(h => `<tr><td>${U.seasonLabel(h.season)}</td><td class="num">${h.w}-${h.l}</td><td>${h.champ ? '🏆 ' : ''}${U.esc(h.result)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">History begins after this season.</div>'}</div></div>
+            ${UI.teamPlaysCardHtml ? UI.teamPlaysCardHtml(S, tid) : ''}
             ${franchiseRecordsHtml(S, tid)}
           </div>
         </div></div>`;

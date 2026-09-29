@@ -1,2 +1,3 @@
 tools/human/cache/
 tools/mocap/cache/
+audit/**/games.json

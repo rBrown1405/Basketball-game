@@ -84,6 +84,8 @@
       }
       Stats.checkTeamGameRecord(S, T, O, box);
     }
+    // the plays each team ran and its defense, into the season's play numbers (js/core/playstats.js)
+    if (PBC.PlayStats) PBC.PlayStats.addBox(S, box);
   };
 
   // ---------------------------------------------------------------------------

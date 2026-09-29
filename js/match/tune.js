@@ -356,6 +356,10 @@
       inoutFakeDeg: 12,             // ...the shoulders turned toward the other hand up to this much, selling the crossover (deg)
       hesiTopH: 0.08,               // a hesitation's bounce comes up this much higher (H) into a hand riding it up...
       hesiPeriodS: 0.8,             // ...slower, this long (s: the hang, the body rising, eyes up)...
+      // a move in a combo (Ball.dribbleCombo, one after another from hand to hand): its bounce this long (s); a crossover as
+      // quick as one on its own (0.36), under the legs and behind the back a little longer, the ball going round the body
+      // standing; one not listed (a hesitation, an in and out) as on its own
+      comboPeriodS: { cross: 0.36, btl: 0.44, btb: 0.44 },
       burstLow: 0.55, burstK: 0.75, // ...and the bounce after it is this low (0 hip, 1 knee) and this much quicker: the burst
       behindCatchH: -0.04,          // behind the back and between the legs, the other hand takes the ball this far ahead of the
                                     // hips (H; behind them), beside the hip it comes up by
@@ -446,6 +450,8 @@
       // (clear of the floor), and the heel comes down over downS when the turn is done
       // (a moving body turning over a planted foot pivots it past gaitFreeDeg off its heading, standing past standFreeDeg)
       pivot: { pitchDeg: 14, turnAtDeg: 6, startDeg: 1.5, doneDeg: 0.4, upS: 0.07, downS: 0.1, gaitFreeDeg: 18, standFreeDeg: 14,
+        // (in a move, a clip: its own steps and pivots place the feet, and a foot is let go this far off the hips first)
+        clipFreeDeg: 30,
         accel: 300 },               // (the turn's angular acceleration, rad/s^2: a pivot reaches its top rate in ~0.05 s)
       // going forward, a landing foot points this much toward the way he is going rather than the way his hips face
       toesFollowTravel: 0.8,

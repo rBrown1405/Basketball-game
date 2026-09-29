@@ -107,6 +107,7 @@
       this.dr = null; // dribble state
       this.hidden = false;
       this.inHoop = null; // hoop reference when passing through the rim zone
+      this.shotCue = null; // a missed shot waiting for its first contact (the audio hears the result then)
       this.time = 0;
       this._pt = { x: 0, y: 0, s: 0, d: 0 };
       this._tmp = new Float64Array(3);
@@ -117,6 +118,8 @@
 
     // ------------------------------------------------------------ control
     give(actor, hold) {
+      // (a ball in the air or loose arriving in someone's hands: a catch, for the audio)
+      if (actor && (this.state === 'flight' || this.state === 'loose') && this.view && this.view.onCue) this.view.cue('catch', actor, { from: this.state, x: this.x, y: this.y, z: this.z });
       if (this.holder && this.holder !== actor) { this.holder.hasBall = false; this.holder.dribble = null; }
       this.holder = actor;
       this.state = actor ? 'held' : 'dead';
@@ -189,15 +192,45 @@
     dribbleMove(type, o) {
       const d = this.dr;
       if (!d) return;
+      // (a move asked for on its own replaces what is left of a combo)
+      d.combo = null; d.comboDone = null;
+      this._queueMove(d, type, o);
+    }
+    /** a move into the dribble: after the one waiting for its beat if there is one (a combination), or at once if
+     *  `urgent` (getting the ball away from a reach: it goes at the next bounce, not waiting for a footfall) */
+    _queueMove(d, type, o) {
       // (an in and out and a hesitation keep the ball in the same hand)
-      const same = type === 'inout' || type === 'hesi', TH = M.Tune.handle;
-      const mv = { type, same, onDone: o && o.onDone, period: (o && o.period) || (type === 'hesi' ? TH.hesiPeriodS : type === 'inout' ? TH.inoutPeriodS : 0.36) };
+      const same = type === 'inout' || type === 'hesi', TH = M.Tune.handle, urgent = !!(o && o.urgent);
+      const mv = { type, same, urgent, onDone: o && o.onDone, period: (o && o.period) || (type === 'hesi' ? TH.hesiPeriodS : type === 'inout' ? TH.inoutPeriodS : 0.36) };
       // (one waiting for its beat already: this one goes after it, a combination, Trial 8; it used to replace it, the move
-      // asked for first never made. The hand it goes to is set as it becomes the next one)
-      if (d.pendingMove && !d.pendingMove.spin) { d.nextMove = mv; return; }
+      // asked for first never made. The hand it goes to is set as it becomes the next one. An urgent one goes first)
+      if (d.pendingMove && !d.pendingMove.spin && !urgent) { d.nextMove = mv; return; }
+      if (urgent) d.nextMove = null;
       mv.toHand = same ? d.hand : 1 - d.hand;
       d.pendingMove = mv;
     }
+    /**
+     * a combo: dribble moves back to back, each from the hand the one before left the ball in (crossovers, between
+     * the legs, behind the back, a hesitation that keeps it in the same hand). list: types or {type, period};
+     * o.onDone(ball) when the last one is done (the moment to go). A move asked for meanwhile replaces the rest
+     */
+    dribbleCombo(list, o) {
+      const d = this.dr;
+      if (!d || !list || !list.length) return;
+      d.combo = list.map((m) => typeof m === 'string' ? { type: m } : m);
+      d.comboDone = (o && o.onDone) || null;
+      this._comboNext(d);
+    }
+    _comboNext(d) {
+      if (this.dr !== d) return;
+      const m = d.combo && d.combo.shift();
+      if (!m) { d.combo = null; const cb = d.comboDone; d.comboDone = null; if (cb) U.safe(() => cb(this), null, 'combo'); return; }
+      // (through the same queue as a single move: the hand it goes to, its beat on the feet, Trial 8)
+      // (one bounce per move, Tune.handle.comboPeriodS; a hesitation hangs as long as one on its own, Tune.handle.hesiPeriodS)
+      this._queueMove(d, m.type, { period: m.period || M.Tune.handle.comboPeriodS[m.type], onDone: () => this._comboNext(d) });
+    }
+    /** is a combo (or a single move) under way or waiting to go? */
+    working() { const d = this.dr; return !!(d && (d.move || d.pendingMove || d.nextMove || (d.combo && d.combo.length))); }
     /**
      * the spin move's pull: the dribbling hand takes the ball as it comes up and keeps it on top, pulled back tight
      * to the hip while the body turns (it goes around with him); after `hold` s it is pushed down and crosses to the
@@ -212,6 +245,7 @@
     /** flight through the given list of waypoints builder: returns the segment list */
     flight(segs, onEnd) {
       this.release();
+      this.shotCue = null;
       this.state = 'flight';
       this.segs = segs; this.segI = 0; this.onEnd = onEnd || null;
       this.dr = null;
@@ -244,7 +278,9 @@
       // backspin off the fingers
       if (!segs[0].w) segs[0].w = spinAlong(p1[0] - p0[0], p1[1] - p0[1], -sp / R * 0.3);
       segs[segs.length - 1].target = o.target || null; // function returning live target [x,y,z]
+      const passer = this.holder;
       this.flight(segs, o.onArrive);
+      if (this.view && this.view.onCue) this.view.cue('pass', passer, { x: p0[0], y: p0[1], z: p0[2], dur, bounce: !!o.bounce });
     }
     /**
      * Bounce pass with a real floor bounce: the floor contact time is found so that after the bounce (restitution
@@ -632,15 +668,22 @@
     _enterSeg(s) {
       const v = this.view;
       if (s.w) { this.spin[0] = s.w[0]; this.spin[1] = s.w[1]; this.spin[2] = s.w[2]; }
-      if (s.bounce && !s.roll) { this.squash = U.clamp(Math.abs(this.vz) / 20, 0.2, 1); this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1)); }
+      if (s.bounce && !s.roll) { this.squash = U.clamp(Math.abs(this.vz) / 20, 0.2, 1); this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1), this); }
       if (s.rim && this.shotHoop) {
         // (the rim rings and the net jumps as hard as the ball came in: a flat line drive clangs, a soft touch ticks)
         const hit = s.soft ? 0.4 : U.clamp(Math.hypot(this.vx, this.vy, this.vz) / 22, 0.55, 1.6);
         this.shotHoop.hitRim(hit); this.onRim && U.safe(() => this.onRim(this), null, 'onRim');
         if (!s.w && !s.orbit) this.spin[2] += (Math.random() - 0.5) * 20;
-        if (v && v.sound) v.sound('rim', s.soft ? 0.5 : U.clamp(hit, 0.6, 1));
+        if (v && v.sound) v.sound('rim', s.soft ? 0.5 : U.clamp(hit, 0.6, 1), this);
       }
-      if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); if (v && v.sound) v.sound('board', 1); }
+      if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); if (v && v.sound) v.sound('board', 1, this); }
+      // a missed shot's first contact (the rim, the glass, the blocker's hand, or the ball going by on an air ball):
+      // that is when the result is out (the choreographer set shotCue; a make is reported with its score)
+      if (this.shotCue) {
+        const c = this.shotCue;
+        this.shotCue = null;
+        if (v && v.onCue) v.cue('shotResult', null, { ev: c.ev, contact: s.rim ? 'rim' : s.board ? 'board' : c.blocked ? 'hand' : 'air', x: s.p0[0], y: s.p0[1], z: s.p0[2] });
+      }
     }
     _fireSeg(s) {
       if (s.fired) return;
@@ -648,7 +691,7 @@
       if (s.score) {
         // (a swish whips the net up hard, a make off the rim gives it a lighter snap)
         if (this.shotHoop) this.shotHoop.swish(s.swish ? 1.3 : 0.6);
-        if (this.view && this.view.sound) this.view.sound(s.swish ? 'swish' : 'net', 1);
+        if (this.view && this.view.sound) this.view.sound(s.swish ? 'swish' : 'net', 1, this);
         const cb = this.onScore; this.onScore = null;
         if (cb) U.safe(() => cb(this), null, 'onScore');
       }
@@ -713,7 +756,7 @@
         if (!d.pendingMove && !d.move && d.nextMove) { const nm = d.nextMove; d.nextMove = null; nm.toHand = nm.same ? d.hand : 1 - d.hand; d.pendingMove = nm; }
         d.planned = false;
       }
-      if (!d.planned && d.pendingMove && !d.move && !(d.pull && d.pull.on) && this._moveOnBeat(d, a)) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = true; }
+      if (!d.planned && d.pendingMove && !d.move && !(d.pull && d.pull.on) && (d.pendingMove.urgent || this._moveOnBeat(d, a))) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = true; }
       if (!d.planned) {
         if (d.plan) d.plan.hang = null;
         this._planBounce(d, a); d.planned = true;
@@ -855,7 +898,7 @@
         }
         this.x = wp[0]; this.y = wp[1]; this.z = wp[2];
       }
-      if (u0 < uB && d.u >= uB) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1)); }
+      if (u0 < uB && d.u >= uB) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1), this, a); }
       // forward roll spin
       this.setSpinAlong(a.vx || 0.01, a.vy || 0, -(a.speed + 3) / R * 0.4);
       // --- the dribbling hand (wrist IK target + wrist angle); the other hand takes over on a crossover

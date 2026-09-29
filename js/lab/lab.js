@@ -245,6 +245,49 @@
     c.b.give(c.a, 'chest'); c.a.setStance('triple');
     c.at(0.6, () => { c.a.setStance('dribble'); c.b.dribble(c.a); go(c, 60, 12); });
   });
+  // moves in place, sizing up a defender who stays in front of the ball: he slides toward the hand it goes to a
+  // beat after it gets there, and a combo ends in a drive past him (the moves chain from hand to hand)
+  const faceUp = (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble'); c.a.setFace(c.f0);
+    c.d.place(c.x0 + c.fx * 5.2, c.y0 + c.fy * 5.2, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    c.mir = null;
+  };
+  const mirror = (c, t) => {
+    const dr = c.b.dr;
+    if (!dr || c.drove) return;
+    const side = (dr.move && dr.moveStarted && dr.move.type !== 'hesi' ? dr.move.toHand : dr.hand) ? 1 : -1;
+    if (!c.mir) c.mir = { side, t: -9 };
+    if (side !== c.mir.side) { c.mir.side = side; c.mir.t = t + 0.18; }
+    if (c.mir.t > 0 && t >= c.mir.t) {
+      c.mir.t = -9;
+      c.d.moveTo(c.x0 + c.fx * 5.2 + c.rx * side * 0.8, c.y0 + c.fy * 5.2 + c.ry * side * 0.8, { speed: 9, stance: 'defense' });
+      c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    }
+  };
+  // the drive off the last move: past the defender on the ball's side, low, then at the basket; he turns and chases
+  const drive = (c) => {
+    const side = c.b.dr && c.b.dr.hand ? 1 : -1;
+    c.drove = true;
+    c.a.moveTo(c.x0 + c.fx * 34 + c.rx * side * 3.2, c.y0 + c.fy * 34 + c.ry * side * 3.2, { speed: 19, face: 'move', stance: 'dribble' });
+    c.at(c.T + 0.28, () => c.d.moveTo(c.x0 + c.fx * 30 + c.rx * side * 1.2, c.y0 + c.fy * 30 + c.ry * side * 1.2, { speed: 17, face: 'move', stance: 'ready' }));
+  };
+  add('Dribbling', 'crossIn', 'Crossovers in place', 4.4, (c) => {
+    faceUp(c); c.at(0.7, () => c.b.dribbleCombo(['cross', 'cross', 'cross', 'cross']));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'btlIn', 'Between the legs in place', 4.6, (c) => {
+    faceUp(c); c.at(0.7, () => c.b.dribbleCombo(['btl', 'btl', 'btl', 'btl']));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'btbIn', 'Behind the back in place', 4.2, (c) => {
+    faceUp(c); c.at(0.7, () => c.b.dribbleCombo(['btb', 'btb', 'btb']));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'hesiIn', 'Hesitation, then go', 3.6, (c) => {
+    faceUp(c); c.at(0.9, () => c.b.dribbleCombo(['hesi'], { onDone: () => { c.T = c.b.time; drive(c); } }));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'combo', 'Combo: crossover, crossover, behind the back, between the legs twice, hesitation, drive', 6.4, (c) => {
+    faceUp(c);
+    c.at(0.7, () => c.b.dribbleCombo(['cross', 'cross', 'btb', 'btl', 'btl', 'hesi'], { onDone: () => { c.T = c.b.time; drive(c); } }));
+  }, { two: true, tick: mirror });
   add('Ball', 'triple', 'Triple threat', 5, (c) => { c.b.give(c.a, 'triple'); c.a.setStance('triple'); });
   // contact: the body reacting to other bodies (the lab has no collisions of its own, so the pushes are applied here)
   add('Contact', 'reach', 'Reach for a steal (the dribbler protects)', 3.2, (c) => {

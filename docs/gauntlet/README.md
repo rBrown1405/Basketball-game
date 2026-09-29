@@ -19,3 +19,9 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 | 4 The Weight | PASS | [TRIAL_04_WEIGHT.md](TRIAL_04_WEIGHT.md) |
 | 5 The Gaits | PASS (live-game slide transitions and forced steps carried to Trial 6) | [TRIAL_05_GAITS.md](TRIAL_05_GAITS.md) |
 | 8 The Handle | PASS in the lab (live-game contacts off the ball and the ball in a body carried to Trials 6, 7, 10 and 13) | [TRIAL_08_HANDLE.md](TRIAL_08_HANDLE.md) |
+
+Merges:
+
+| Merged | Result | Notes |
+|---|---|---|
+| The gameplay AI and audio branch (`claude/awesome-einstein-v9bn0y`: the half-court AI, called plays, play tracking, the audio gauntlet's Trials 0 and 1, dribble moves in place and combos) | every earlier trial's checks pass; the headless audits now load the new AI | [MERGE_GAMEPLAY_AUDIO.md](MERGE_GAMEPLAY_AUDIO.md) |

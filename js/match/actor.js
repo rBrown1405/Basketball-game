@@ -321,7 +321,11 @@
      *  little, look up to sell it, then explode with the ball pushed out in front) */
     hesitate() {
       const b = this.view && this.view.ball;
-      if (b && b.state === 'dribble' && b.dr && b.dr.actor === this && !b.dr.move && !b.dr.pendingMove) b.dribbleMove('hesi');
+      if (b && b.state === 'dribble' && b.dr && b.dr.actor === this && !b.dr.move && !b.dr.pendingMove) {
+        b.dribbleMove('hesi');
+        // (the clip raises the body: the pose a combo's hesitation rises with stays out of it)
+        if (b.dr.pendingMove) b.dr.pendingMove.withClip = true;
+      }
       return this.play('hesi');
     }
     /** in the middle of throwing the ball (an upper-body pass clip before it ends): not a time to start dribbling it
@@ -345,12 +349,23 @@
       if (s > 6.5 && !lean && (air || !this.clip)) this._stumble = { nx, ny, k: U.smooth((s - 6) / 6), t: air ? null : this.time + 0.06 };
     }
     /** a defender reaching for the ball: he protects it, the near shoulder turned into the reach and the ball pulled
-     *  away to the far side and down (a dribble drops toward the knees), the head up to see the reach; ~0.6 s */
+     *  away to the far side and down (a dribble drops toward the knees), the head up to see the reach; ~0.6 s.
+     *  Dribbling, the off shoulder turns into the reach instead and the off arm comes up as a bar against it */
     protectBall(fx, fy, delay) {
       if (!this.hasBall) return;
       const rel = U.wrapPi(Math.atan2(fy - this.y, fx - this.x) - this.facing);
+      let t = this.time + (delay || 0);
+      // dribbling, a reach at the ball side takes the ball away from it first: a quick crossover to the other hand,
+      // between the legs when he is close in front (the legs guard it), so the other arm is between him and the ball
+      // (an off arm can't bar a reach on the far side of the body)
+      const b = this.view && this.view.ball, d = b && b.dr && b.dr.actor === this ? b.dr : null;
+      if (d && !d.move && !d.pendingMove && Math.abs(rel) < 2.2 && (d.hand ? rel < 0.15 : rel > -0.15)) {
+        const dist = Math.hypot(fx - this.x, fy - this.y);
+        b.dribbleMove(dist < 5.5 && Math.abs(rel) < 0.6 ? 'btl' : 'cross', { period: 0.3, urgent: true });
+        t += 0.12;
+      }
       // (a reach from behind gets the body turned, not the ball swung round in front)
-      this._protect = { t: this.time + (delay || 0), sgn: rel >= 0 ? 1 : -1, k: 1 - 0.6 * U.smooth((Math.abs(rel) - 2.2) / 0.6) };
+      this._protect = { t, sgn: rel >= 0 ? 1 : -1, k: 1 - 0.6 * U.smooth((Math.abs(rel) - 2.2) / 0.6), fx, fy, rel };
     }
     _protectK() {
       const pr = this._protect;
@@ -684,6 +699,7 @@
         this._locomote(dt);
       }
       this._contactSteps();
+      this._moveSteps();
       if (this.stanceBlend < 1) this.stanceBlend = Math.min(1, this.stanceBlend + dt / 0.28);
       if (this.aim_) {
         const a = this.aim_;
@@ -701,6 +717,27 @@
       this.stillT = (!this.clip && this.speed < 0.6) ? (this.stillT || 0) + dt : 0;
     }
 
+    /** dribble moves standing (sizing a man up): between the legs, the foot opposite the hand the ball leaves steps
+     *  forward as the ball goes under it (right to left, the left foot), so a run of them scissors the feet; the
+     *  stagger is held while the moves go on and let go after (the stance steps the feet back square) */
+    _moveSteps() {
+      const b = this.view && this.view.ball, d = b && b.dr && b.dr.actor === this ? b.dr : null;
+      const mv = d && d.move && d.moveStarted ? d.move : null;
+      if (mv && mv !== this._mvSeen) {
+        this._mvSeen = mv;
+        if (mv.type === 'btl' && !this.clip && this.speed < 2.5) {
+          const lead = d.hand ? 0 : 1, f = this.feet[lead], o = this.feet[1 - lead];
+          this._stag = { lead, until: this.time + mv.period + 0.9 };
+          if (f.state === 'plant' && o.state === 'plant') {
+            const H = this.H, st = stanceOf(this, this.stance), c = Math.cos(this.facing), s = Math.sin(this.facing), so = lead ? st.R : st.L;
+            const tx = this.x + s * so[0] * H + c * (so[1] + STAG_F) * H, ty = this.y - c * so[0] * H + s * (so[1] + STAG_F) * H;
+            this._sepTarget(f, tx, ty, TD);
+            this._beginStep(f, TD[0], TD[1], this.facing + (lead ? -1 : 1) * st.yaw * D, Math.min(0.2, mv.period * 0.45), 0.03);
+          }
+        }
+      }
+      if (this._stag && (this.time > this._stag.until || this.speed > 4 || this.clip)) this._stag = null;
+    }
     /** steps forced by contact: the lunge of a reach (the front foot toward the ball, standing) and the step that
      *  catches the balance after a hard bump (the foot furthest the way he was pushed goes further that way) */
     _contactSteps() {
@@ -1452,6 +1489,7 @@
             f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = gp.landPitch; f.hs = f.pitch < 0; f.fs = f.pitch > 0;
             f.sw = 0; f.tPlant = this.time; f.liftRel = null;
             this._plantHere(f);
+            if (this.view && this.view.onCue) this.view.cue('plant', this, f);
           }
           const rel = frac(this.phase - cph);
           // (a foot put down by a quick step in the stride too: Trial 3, left pointing where the body faced when the step
@@ -1721,6 +1759,7 @@
       f.pitch = U.clamp(Math.asin(U.clamp((P[jh + 2] - P[jb + 2]) / L, -1, 1)), 0, 40 * D);
       f.lz = U.clamp(P[jb + 2], 0, 0.8); f.lp = 0; f.lpV = 0;
       f.land = true; f.landKeep = false; f.state = 'plant'; f.tPlant = this.time; f.sw = 0; f.pax = null;
+      if (this.view && this.view.onCue) this.view.cue('land', this, f);
     }
     _settleLanding(f, dt) {
       if (!f.land) return;
@@ -1830,10 +1869,13 @@
       if (this.feet[0].state === 'swing' || this.feet[1].state === 'swing') return;
       // error-driven stepping
       let worst = null, worstE = 0;
+      const stag = this._stag;
       for (const f of this.feet) {
         const o = f.side ? st.R : st.L;
-        const ix = this.x + rx * o[0] * H + c * o[1] * H;
-        const iy = this.y + ry * o[0] * H + s * o[1] * H;
+        // (a stagger held for moves between the legs: the lead foot forward, the other a little back)
+        const of = o[1] + (stag ? (stag.lead === f.side ? STAG_F : -STAG_B) : 0);
+        const ix = this.x + rx * o[0] * H + c * of * H;
+        const iy = this.y + ry * o[0] * H + s * of * H;
         const iyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
         const de = Math.hypot(f.x - ix, f.y - iy) / H;
         const ye = Math.abs(U.wrapPi(f.yaw - iyaw));
@@ -1929,7 +1971,10 @@
       // (the toes dip in the air in proportion to the step: a small stance step keeps the foot nearly level, or its
       // toes scraped along ~1 in off the floor)
       f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * Math.min(0.18, 1.5 * f.h / this.H);
-      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; this._plantHere(f); }
+      if (f.s >= 1) {
+        f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; this._plantHere(f);
+        if (this.view && this.view.onCue) this.view.cue('plant', this, f);
+      }
     }
     /** a foot in the air comes down where the leg really put it: the spot moves by how far the ankle was from its path at
      *  the last solve (a leg out of reach, a soft leg trailing, the floor lifting the foot), and whatever height is left
@@ -2175,6 +2220,18 @@
             e.acc += U.wrapPi(this.facing - e.prev); e.prev = this.facing;
             // (spinning on the ball of the foot: the heel comes up off the floor as it turns)
             if (f.state === 'plant') { f.pitch = Math.max(f.pitch, 22 * D * U.smooth((cs.t - q.t0) / 0.06)); this._pivotFoot(f, e.yaw + e.acc, dt, 40); }
+          }
+        }
+        // any other planted foot the move turns the hips away from pivots on its ball past Tune.floor.pivot.clipFreeDeg,
+        // as a standing turn's does (a pull-up turned to the rim out of a run, a wall-up turned to the shooter: the foot
+        // stayed pointed the old way, up to ~90 deg off the hips, and the knee caved in ~25-45 deg over it)
+        const pvNow = (pv && cs.t >= pv.t0 && cs.t <= pv.t1) || (pvs && pvs.some(q => cs.t >= q.t0 && cs.t <= q.t1));
+        if (!pvNow) {
+          const pz = M.Tune.floor.pivot.clipFreeDeg * D;
+          for (const f of this.feet) {
+            if (f.state !== 'plant') continue;
+            const ye = U.wrapPi(this.facing + (f.side ? -1 : 1) * 10 * D - f.yaw);
+            if (Math.abs(ye) > pz || f.pvOn) this._pivotFoot(f, Math.abs(ye) > pz ? f.yaw + Math.sign(ye) * (Math.abs(ye) - pz) : f.yaw, dt, 13);
           }
         }
       }
@@ -2659,7 +2716,7 @@
       // the hands and the ball moved: the body stood still over a ball going side to side)
       const dr = this.dribble && this.dribble.ball && this.dribble.ball.dr;
       if (dr && dr.actor === this && dr.move && dr.moveStarted && (!this._xo || this._xo.mv !== dr.move)) {
-        this._xo = { mv: dr.move, t: this.time, dur: Math.max(0.2, dr.move.period || 0.36), from: dr.hand === 1 ? 1 : -1, k: dr.move.type === 'cross' ? 1 : 0.7 };
+        this._xo = { mv: dr.move, t: this.time, dur: Math.max(0.2, dr.move.period || 0.36), from: dr.hand === 1 ? 1 : -1, k: dr.move.type === 'cross' ? 1 : dr.move.type === 'hesi' ? 0 : 0.7 };
       }
       const xo = this._xo;
       if (xo) {
@@ -2674,6 +2731,27 @@
           p[CH.pelRoll] += 4 * D * side; p[CH.spLat] += 7 * D * side; p[CH.chLat] += 4 * D * side;
           p[CH.nkLat] -= 7 * D * side; p[CH.hdLat] -= 3 * D * side;
           p[CH.pelPitch] += 5 * D * dip; p[CH.spFlex] += 4 * D * dip;
+        }
+      }
+      // the moves standing, sizing a man up: between the legs the weight goes forward onto the front foot as the ball
+      // goes under it; behind the back the shoulders turn with the arm that wraps it round (that shoulder back); a
+      // hesitation comes up out of the stance, trunk up and eyes up at the rim as if to shoot, and hangs there
+      if (dr && dr.actor === this && dr.move && dr.moveStarted && !this.clip) {
+        // (standing only: the weight goes onto the front foot as far as _moveSteps steps it forward, which it does
+        // below 2.5 ft/s; walking, with the feet square, the hips forward over them took the ball through a thigh. The
+        // shoulders' turn behind the back too: on the move it put a hand or elbow pop back into Trial 8's walking move)
+        const mu = U.clamp(dr.u || 0, 0, 1), still = 1 - U.smooth((this.speed - 1.5) / 1), ty = dr.move.type;
+        if (ty === 'btl') {
+          const e = Math.sin(Math.PI * mu) * still;
+          p[CH.rootY] += 0.08 * e; p[CH.rootZ] -= 0.035 * e; p[CH.pelPitch] += 5 * D * e; p[CH.spFlex] += 3 * D * e;
+        } else if (ty === 'btb') {
+          const e = Math.sin(Math.PI * mu) * still, tw = -(dr.hand ? 1 : -1) * 16 * D * e;
+          p[CH.chTwist] += tw * 0.6; p[CH.spTwist] += tw * 0.4; p[CH.spFlex] += 4 * D * e;
+        } else if (ty === 'hesi' && !dr.move.withClip) {
+          // (a hesitation from hesitate() rises with the 'hesi' clip, Trial 8: this one is for a hesitation in a combo)
+          const e = U.smooth(mu / 0.35) * (1 - U.smooth((mu - 0.8) / 0.2));
+          p[CH.rootZ] += 0.07 * e; p[CH.pelPitch] -= 10 * D * e; p[CH.spFlex] -= 5 * D * e; p[CH.chFlex] -= 3 * D * e;
+          p[CH.nkFlex] -= 6 * D * e; p[CH.hdFlex] -= 3 * D * e;
         }
       }
       // knocked down (charge)
@@ -2715,13 +2793,23 @@
           p[CH.lShF] -= 25 * D * e; p[CH.lShA] += 15 * D * e;
         }
       }
-      // protecting the ball from a reach: the near shoulder turned into it, leaning away, a little lower, eyes on it
+      // protecting the ball from a reach: the near shoulder turned into it, leaning away, a little lower, eyes on it.
+      // Dribbling, it is the off shoulder that goes into the reach: the body turns side-on so it is between the reach
+      // and the ball (up to ~45 deg, over the planted feet), the off arm comes up as a bar (the arm targets) and the
+      // eyes stay on the reach
       const pk = this._protectK();
       if (pk > 0.001) {
-        const sg = this._protect.sgn;
-        p[CH.chTwist] -= sg * 18 * D * pk; p[CH.spTwist] -= sg * 10 * D * pk; p[CH.pelTwist] -= sg * 6 * D * pk;
-        p[CH.spLat] += sg * 5 * D * pk; p[CH.rootZ] -= 0.025 * pk;
-        p[CH.nkTwist] += sg * 16 * D * pk; p[CH.hdTwist] += sg * 6 * D * pk;
+        const pr = this._protect, sg = pr.sgn;
+        if (this.dribble && pr.rel != null) {
+          const offS = this.dribble.hand ? 1 : -1, tw = U.clamp(U.wrapPi(pr.rel - offS * Math.PI / 2), -0.8, 0.8) * pk;
+          p[CH.pelTwist] += tw * 0.3; p[CH.spTwist] += tw * 0.3; p[CH.chTwist] += tw * 0.4;
+          p[CH.spLat] -= offS * 5 * D * pk; p[CH.rootZ] -= 0.03 * pk; p[CH.pelPitch] += 4 * D * pk;
+          p[CH.nkTwist] -= tw * 0.45; p[CH.hdTwist] -= tw * 0.25;
+        } else {
+          p[CH.chTwist] -= sg * 18 * D * pk; p[CH.spTwist] -= sg * 10 * D * pk; p[CH.pelTwist] -= sg * 6 * D * pk;
+          p[CH.spLat] += sg * 5 * D * pk; p[CH.rootZ] -= 0.025 * pk;
+          p[CH.nkTwist] += sg * 16 * D * pk; p[CH.hdTwist] += sg * 6 * D * pk;
+        }
       }
       // 6. procedural overlays (dribble arm etc.) handled in IK stage
     }
@@ -3700,6 +3788,25 @@
           const v = base + (g - base) * wG;
           pp[CH[off + c]] = U.lerp(pp[CH[off + c]], c === 'Fing' ? v : v * D, wOff);
         }
+        // a reach at the ball: the off arm comes up as a bar against it, reaching out toward the reaching hand with
+        // a slight bend at the elbow, the forearm angled down across the way to the ball, palm out (it shields; it
+        // does not push him away, which is a foul). The better the handler, the more of it. (Not while that hand reaches
+        // for a move's catch, rAct: the bar took it off the ball on the way)
+        const pkB = this._protectK();
+        if (pkB > 0.001 && this._protect.fx != null && !(rAct > 0.001 && rh === 1 - hand)) {
+          const pr = this._protect, offH = 1 - hand, oS = offH ? 1 : -1, L = this.dims.ua + this.dims.fa;
+          const sh = this.local(oS * this.dims.shX, 0.02 * H, 0.8 * H, RT3);
+          const dx = pr.fx - sh[0], dy = pr.fy - sh[1], dl = Math.hypot(dx, dy) || 1, reach = Math.min(0.72 * L, Math.max(0.3 * L, dl - 1.2));
+          const ikO = sk.armIK[offH], wB = pkB * wAll * (0.6 + 0.4 * this.rHandle);
+          if (wB > ikO.on) {
+            // (at the height the reach comes in, about his waist as he sits in the dribble)
+            const drop = Math.max(0, -pp[CH.rootZ] - 0.03) * H;
+            ikO.on = wB; ikO.x = sh[0] + dx / dl * reach; ikO.y = sh[1] + dy / dl * reach; ikO.z = this.jumpZ + 0.5 * H - drop * 0.9;
+            ikO.pole = BAR_POLE; ikO.fkPole = false; src[offH] = 'bar';
+          }
+          pp[CH[off + 'Pro']] = U.lerp(pp[CH[off + 'Pro']], 95 * D, pkB); pp[CH[off + 'WrF']] = U.lerp(pp[CH[off + 'WrF']], -28 * D, pkB);
+          pp[CH[off + 'WrD']] = U.lerp(pp[CH[off + 'WrD']], 0, pkB); pp[CH[off + 'Fing']] = U.lerp(pp[CH[off + 'Fing']], 0.1, pkB);
+        }
         if (rAct > 0.001) {
           const ikR = sk.armIK[rh], rp = rh ? 'r' : 'l';
           ikR.on = Math.max(ikR.on, rAct); ikR.x = rv.x; ikR.y = rv.y; ikR.z = rv.z; ikR.pole = DRIB_POLE; ikR.soft = M.Tune.handle.softIk; src[rh] = 'drib';
@@ -3944,6 +4051,10 @@
   const DRIB_STANCES = new Set(['dribble', 'postUp', 'triple']);
   // dribbling elbow swivel: behind the elbow with a small outward bias (x = outward, y = forward, z = up)
   const DRIB_POLE = [0.28, -0.85, -0.45];
+  // the off arm's bar against a reach: the elbow down and a little out
+  const BAR_POLE = [0.45, -0.1, -0.9];
+  // the stagger for moves between the legs standing (H): the lead foot this far forward, the other this far back
+  const STAG_F = 0.1, STAG_B = 0.03;
   // holding the ball without a clip: elbows down and out (chest), out and forward (overhead), back (hip pocket)
   const HOLD_POLE = { hold: [0.62, -0.25, -0.75], over: [0.75, 0.25, -0.3], hip: [0.35, -0.8, -0.5] };
   // stances with a ball side (the ball on the right hip / right of the chest): a lefty gets the mirror image, pose and
@@ -3993,6 +4104,11 @@
   // forearm up with the palm to a defender in front, the arm out to the side for one on the off-hand side, and a
   // loose carry in front when nobody is close
   const GUARD_CH = ['ShF', 'ShA', 'ShT', 'ElF', 'Pro', 'WrF', 'WrD', 'Fing'];
+  // a defender close: the forearm up in front of the chest as a bar, the palm toward the defender. (A lower bar, the
+  // forearm across at [30, 20, 10, 58, 125, -20, -5] / [24, 46, -30, 62, 125, -22, 5], was fitted to a shallower
+  // stance; in the Trial 8 stance, hips lower and trunk further over, it held the hand at ~0.29 H, knee height, below
+  // the hips: these hold it at ~0.59 H, chest height in the stance. A reach at the ball still takes the arm across, see
+  // BAR_POLE)
   const GUARD_FRONT = [79, 8.5, 12, 110, 166, -26.5, -9, 0.15];
   const GUARD_SIDE = [40, 44, -49, 107, 166, -30.5, 5, 0.15];
   const GUARD_CARRY = [25, 21, 0, 93.5, 69, -1.5, 10.5, 0.25];

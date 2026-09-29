@@ -169,7 +169,9 @@
       flash(i) { const el = $('bb-sc' + i); if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } },
       onPossession(P) {
         B.possN++;
-        if (P.setName && P.play !== 'transition' && Math.random() < 0.55) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">${esc(P.setName)}</span>`, P.off, 2.8);
+        const called = P.userCall && PBC.Playbook && PBC.Playbook.get(P.userCall);
+        if (called) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">📋 ${esc(called.name.toUpperCase())}</span>`, P.off, 3.2);
+        else if (P.setName && P.play !== 'transition' && Math.random() < 0.55) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">${esc(P.setName)}</span>`, P.off, 2.8);
         else if (P.play === 'transition' && Math.random() < 0.25) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">FAST BREAK</span>`, P.off, 2);
       },
       onEvent(ev, P, sc) {

@@ -78,7 +78,7 @@
       // only the most recent few games keep their full play-by-play (save size)
       S.pbpKeep = (S.pbpKeep || []).filter(id => S.boxes[id]);
       S.pbpKeep.push(sg.gid);
-      while (S.pbpKeep.length > 4) { const old = S.pbpKeep.shift(); if (S.boxes[old]) delete S.boxes[old].pbp; }
+      while (S.pbpKeep.length > 4) { const old = S.pbpKeep.shift(); if (S.boxes[old]) { delete S.boxes[old].pbp; delete S.boxes[old].plog; } }
       if (PBC.Coach) PBC.Coach.recordGame(S, sg, box);
       Season.userGameNews(S, sg, box);
     }
@@ -427,6 +427,8 @@
       const res = PBC.League.playoffResult(S, t.id);
       t.history.push({ season: S.season, w: r.w, l: r.l, result: res.label, round: res.round, champ: !!res.champ, seed: P && P.seeds[t.id] ? P.seeds[t.id].seed : null });
     }
+    // each team's play numbers for the season, into its history (js/core/playstats.js)
+    if (PBC.PlayStats) PBC.PlayStats.archive(S);
     // player rating history snapshot
     for (const p of Object.values(S.players)) {
       if (p.tid >= 0 || p.tid === -1) p.hist.push({ season: S.season, ovr: p.ovr, pot: p.pot, tid: p.tid, age: p.age });
