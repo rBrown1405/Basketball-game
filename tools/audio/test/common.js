@@ -29,10 +29,12 @@ function launch(o) {
   return chromium.launch(Object.assign({ args: ['--autoplay-policy=no-user-gesture-required'] }, exe ? { executablePath: exe } : {}));
 }
 
-/** in the page: a new league from the seed, its first user game in the Live view with these settings */
-async function openGame(page, repo, seed, settings, query) {
+/** in the page: a new league from the seed, its first user game in the Live view with these settings (before: a
+ *  function run in the page first, e.g. to change PBC.AudioConfig before the game's audio is made) */
+async function openGame(page, repo, seed, settings, query, before) {
   await page.goto('file://' + path.join(repo, 'index.html') + (query == null ? '?low=1' : query));
   await page.waitForTimeout(700);
+  if (before) await page.evaluate(before);
   await page.evaluate(([seed, settings]) => {
     // (with FIXED: the page's random numbers start from the same place whatever ran while the page loaded)
     if (window.__reseed) window.__reseed(424242);

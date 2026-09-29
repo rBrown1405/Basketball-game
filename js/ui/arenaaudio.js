@@ -1,19 +1,17 @@
 /* Pro BBALL Coach — arena audio for live games (PBC.ArenaAudio).
- * The crowd and the court: a living crowd bed that swells with close games and playoff stakes, cheers / groans /
- * "ooohs" / boos, rhythmic DE-FENSE claps, dribbles, sneaker squeaks, swishes, rim clanks, backboard thuds, dunks,
- * the ref's pea whistle and the horn. Everything is synthesized with Web Audio until recordings replace it (a sound
- * pack loaded by js/audio/assets.js takes over a sound when it has it).
- * It listens on the audio event bus (js/audio/bus.js): court.* sounds as the court makes them, game.* events for the
- * crowd's reactions (a miss or a block only once the ball gets there: game.shotResult), live.final for the horn.
- * Every sound goes through the mixer (js/audio/mixer.js) on its bus: court sounds on Court, the whistle and the horn
- * on Arena, the crowd on Crowd. Every number is in PBC.AudioConfig. */
+ * The crowd: a living crowd bed that swells with close games and playoff stakes, cheers / groans / "ooohs" / boos,
+ * rhythmic DE-FENSE claps. Everything is synthesized with Web Audio until recordings replace it (a sound pack loaded by
+ * js/audio/assets.js takes over a sound when it has it).
+ * It listens on the audio event bus (js/audio/bus.js): game.* events for the crowd's reactions (a miss or a block only
+ * once the ball gets there: game.shotResult), live.final for the horn and the last roar.
+ * The court's sounds (the ball, the sneakers, the bodies, the rim, the net, the whistle, the shot clock and the horn)
+ * are js/audio/court.js and courtsynth.js since Trial 2; play(name) here still plays one (the tests use it).
+ * Every sound goes through the mixer (js/audio/mixer.js) on its bus: the crowd on Crowd. Every number is in
+ * PBC.AudioConfig. */
 (function () {
   'use strict';
   const PBC = window.PBC;
   const U = PBC.U;
-
-  // where each sound's recordings would be in the packs (js/audio/packs/<folder>.js)
-  const PACK = { dribble: 'court', bounce: 'court', squeak: 'court', rim: 'court', board: 'court', swish: 'court', net: 'court', dunk: 'court', block: 'court', whistle: 'arena', horn: 'arena' };
 
   function create(host) {
     const S = host.S;
@@ -22,7 +20,7 @@
     const R = PBC.AudioRandom, Bus = PBC.AudioBus, Assets = PBC.AudioAssets;
     const mx = host.mx;
     const A = {
-      enabled: st.arenaSound !== false, crowdLevel: 0.2, excite: 0, chantT: 0, squeakT: 1.5,
+      enabled: st.arenaSound !== false, crowdLevel: 0.2, excite: 0, chantT: 0,
       noise: null, pink: null, bed: null, destroyed: false,
     };
     const HOME = 0;
@@ -113,78 +111,6 @@
       s.start(V.t0); s.stop(stop);
       V.src(s, stop);
     }
-    const SFX = {
-      dribble(V, v) { // floor thump + slap
-        const D = SY.dribble;
-        tone(V, 'sine', D.hz, D.peak * v, D.a, D.hold, D.rel, D.hzEnd);
-        noiseHit(V, 'bandpass', D.clickHz, D.clickQ, D.clickPeak * v, D.clickA, D.clickHold, D.clickRel);
-      },
-      bounce(V, v) {
-        const D = SY.bounce;
-        tone(V, 'sine', D.hz, D.peak * v, D.a, D.hold, D.rel, D.hzEnd);
-        noiseHit(V, 'bandpass', D.clickHz, D.clickQ, D.clickPeak * v, D.clickA, D.clickHold, D.clickRel);
-      },
-      squeak(V, v) {
-        const D = SY.squeak, f = D.hzMin + R.random() * D.hzRand;
-        const o = tone(V, 'sine', f, D.peak * v, D.a, D.holdMin + R.random() * D.holdRand, D.rel, f * (D.glideMin + R.random() * D.glideRand));
-        const lfo = mx.ctx.createOscillator(), lg = mx.ctx.createGain();
-        lfo.frequency.value = D.wobbleHzMin + R.random() * D.wobbleHzRand; lg.gain.value = D.wobbleDepth; lfo.connect(lg); lg.connect(o.frequency);
-        lfo.start(V.t0); lfo.stop(V.t0 + D.length);
-        V.src(lfo, V.t0 + D.length);
-      },
-      rim(V, v) { // metallic clank: inharmonic partials
-        const D = SY.rim;
-        for (const [f, k] of D.partials) tone(V, 'sine', f * (1 - D.detune + R.random() * 2 * D.detune), D.peak * k * v, D.a, D.hold, D.relMin + R.random() * D.relRand);
-        noiseHit(V, 'highpass', D.tickHz, D.tickQ, D.tickPeak * v, D.tickA, D.tickHold, D.tickRel);
-      },
-      board(V, v) {
-        const D = SY.board;
-        tone(V, 'sine', D.hz, D.peak * v, D.a, D.hold, D.rel, D.hzEnd);
-        noiseHit(V, 'bandpass', D.thudHz, D.thudQ, D.thudPeak * v, D.thudA, D.thudHold, D.thudRel);
-      },
-      swish(V, v) {
-        const D = SY.swish;
-        noiseHit(V, 'bandpass', D.hz, D.q, D.peak * v, D.a, D.hold, D.rel, D.hzEnd);
-        noiseHit(V, 'highpass', D.airHz, D.airQ, D.airPeak * v, D.airA, D.airHold, D.airRel);
-      },
-      net(V, v) {
-        const D = SY.net;
-        noiseHit(V, 'bandpass', D.hz, D.q, D.peak * v, D.a, D.hold, D.rel, D.hzEnd);
-        SFX.rim(V, D.rim * v);
-      },
-      dunk(V, v) {
-        const D = SY.dunk;
-        SFX.rim(V, D.rim * v); SFX.board(V, D.board * v);
-        tone(V, 'sine', D.boomHz, D.boomPeak * v, D.boomA, D.boomHold, D.boomRel, D.boomHzEnd);
-      },
-      block(V, v) {
-        const D = SY.block;
-        tone(V, 'sine', D.hz, D.peak * v, D.a, D.hold, D.rel, D.hzEnd);
-        noiseHit(V, 'bandpass', D.slapHz, D.slapQ, D.slapPeak * v, D.slapA, D.slapHold, D.slapRel);
-      },
-      whistle(V, v) { // pea whistle trill
-        const D = SY.whistle, c = mx.ctx, t0 = V.t0, dur = D.lenMin + R.random() * D.lenRand;
-        const o1 = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), am = c.createOscillator(), amg = c.createGain();
-        o1.type = 'sine'; o2.type = 'sine'; o1.frequency.value = D.hzMin + R.random() * D.hzRand; o2.frequency.value = o1.frequency.value * D.detune;
-        am.frequency.value = D.trillHzMin + R.random() * D.trillHzRand; amg.gain.value = D.trillDepth;
-        am.connect(amg); amg.connect(g.gain);
-        o1.connect(g); o2.connect(g); g.connect(V.out);
-        const pk = D.peak * v;
-        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(pk, t0 + D.a); g.gain.setValueAtTime(pk, t0 + dur - D.rel); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        for (const o of [o1, o2, am]) { o.start(t0); o.stop(t0 + dur + 0.05); V.src(o, t0 + dur + 0.05); }
-      },
-      horn(V, v) { // arena horn
-        const D = SY.horn, c = mx.ctx, t0 = V.t0;
-        for (const [f, k] of D.partials) {
-          const o = c.createOscillator(), g = c.createGain(), flt = c.createBiquadFilter();
-          o.type = 'sawtooth'; o.frequency.value = f; flt.type = 'lowpass'; flt.frequency.value = D.cutoff;
-          o.connect(flt); flt.connect(g); g.connect(V.out);
-          env(g, t0, D.a, D.peak * k * v, D.hold, D.rel);
-          const stop = t0 + D.a + D.hold + D.rel + 0.1;
-          o.start(t0); o.stop(stop); V.src(o, stop);
-        }
-      },
-    };
     function clap(V, v, dt) { const D = SY.clap; noiseHit(V, 'bandpass', D.hzMin + R.random() * D.hzRand, D.q, D.peak * v, D.a, D.hold, D.rel, null, dt); }
     // crowd reactions: a swell of band-limited noise shaped like a roar, an "ooh", a groan or boos
     const CROWD = {
@@ -196,13 +122,12 @@
     };
 
     // ------------------------------------------------------------ playing
-    /** a court or arena sound (a pack's recording when there is one, else the synthesized one) */
+    /** a court sound (js/audio/courtsynth.js; the tests and the voice checks play them from here) */
+    let synth = null;
     function playSfx(name, v, o) {
-      if (!ensure()) return null;
-      const f = SFX[name];
-      if (!f) return null;
-      const buf = Assets && PACK[name] ? Assets.get(PACK[name], name) : null;
-      return mx.play(name, v == null ? 1 : v, buf ? (V, vv) => sample(V, buf, vv) : f, o);
+      if (!ensure() || !PBC.CourtSynth) return null;
+      if (!synth) synth = PBC.CourtSynth.create(mx);
+      return synth.play(name, { e: v == null ? 1 : v }, o);
     }
     /** a crowd reaction: amt is its size (crowd.react), grown by the playoff stakes */
     function crowd(kind, amt, o) {
@@ -233,7 +158,6 @@
     }
 
     // ------------------------------------------------------------ what the arena hears
-    offs.push(Bus.on('court.*', (ev) => playSfx(ev.type.slice(6), ev.v)));
     offs.push(Bus.on('game.score', (ev) => {
       const e = ev.e, sh = e.shotEvent || {};
       const big = sh.kind === 'dunk' || sh.kind === 'alley' || e.pts === 3 || sh.andOne;
@@ -261,7 +185,7 @@
     offs.push(Bus.on('game.timeout', () => crowd('murmur', RE.timeout)));
     offs.push(Bus.on('live.final', (ev) => {
       if (!ensure()) return;
-      playSfx('horn', 1, { force: true });
+      if (host.court) host.court.finalHorn(); else playSfx('horn', 1, { force: true });
       if (ev.winner === HOME) { crowd('roar', RE.finalWin, { force: true }); crowd('roar', RE.finalWin2, { force: true, when: mx.now() + RE.finalWin2Delay }); A.excite = CC.exciteFinalWin; }
       else crowd('groan', RE.finalLoss, { force: true });
     }));
@@ -270,7 +194,7 @@
     const api = {
       get muted() { return !A.enabled; },
       unlock() { if (A.enabled) ensure(); mx.unlock(); },
-      /** a court sound by name (what the court's court.* events play) */
+      /** a court sound by name, now, unplaced (tests) */
       play(name, v) { return playSfx(name, v); },
       crowd, chant, testTone,
       update(dt, s) {
@@ -292,14 +216,6 @@
         if (s.playing && s.off === 1 && A.chantT <= 0 && (s.close || s.stakes > H.stakesMin) && host.speed() <= H.maxSpeed) {
           if (R.chance(H.chance + s.stakes * H.chanceStakes)) Bus.emit('timer.chant', {}, () => chant());
           A.chantT = H.gapMin + R.random() * H.gapRand;
-        }
-        // sneaker squeaks during live play (a timer until Trial 2 ties them to the foot plants)
-        const Q = C.squeak;
-        A.squeakT -= dt * (s.playing ? Math.min(Q.speedCap, s.speed) : 0);
-        if (A.squeakT <= 0) {
-          const v = Q.volMin + R.random() * Q.volRand;
-          Bus.emit('timer.squeak', { v }, () => playSfx('squeak', v));
-          A.squeakT = Q.gapMin + R.random() * Q.gapRand;
         }
       },
       setEnabled(b) { A.enabled = !!b; mx.setSfx(A.enabled); if (b) api.unlock(); },

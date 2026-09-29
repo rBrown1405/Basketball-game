@@ -43,19 +43,20 @@
     if (t === 'game.milestone') return `${nm(ev.pid)} ${ev.pts} pts`;
     if (t === 'game.clutch') return `clutch time Q${ev.period} ${r1(ev.clock)}s`;
     if (t.startsWith('game.')) return [e.player != null ? nm(e.player) : '', e.team != null ? tm(e.team) : '', e.kind || ''].filter(Boolean).join(' ');
-    if (t.startsWith('court.')) return `v ${r2(ev.v)}${ev.pid != null ? ' ' + nm(ev.pid) : ''}${ev.x != null ? ` at ${r1(ev.x)}, ${r1(ev.y)}${ev.z != null ? ', ' + r1(ev.z) : ''} ft` : ''}`;
+    // a court sound: what kind, what made it, where, the floor there, and when it was put on screen (dly: scheduled that
+    // many ms ahead, late: the contact had been on screen that long)
+    if (t.startsWith('court.')) return `${ev.kind ? ev.kind + ' ' : ''}v ${r2(ev.v)}${ev.pid != null ? ' ' + nm(ev.pid) : ''}${ev.src ? ' (' + ev.src + ')' : ''}${ev.tight != null ? ' tight ' + r2(ev.tight) : ''}${ev.x != null ? ` at ${r1(ev.x)}, ${r1(ev.y)}${ev.z ? ', ' + r1(ev.z) : ''} ft` : ''}${ev.floor && ev.floor !== 'wood' ? ' ' + ev.floor : ''}${ev.dly != null ? ' +' + ev.dly + 'ms' : ''}${ev.late ? ' late ' + ev.late + 'ms' : ''}`;
     if (t === 'anim.plant' || t === 'anim.land') return `${ev.ref ? 'ref' : nm(ev.pid)} ${ev.foot} ${ev.mode || ''} speed ${r1(ev.speed)} brake ${r1(ev.brake)} turn ${r1(ev.turn)}`;
     if (t.startsWith('anim.')) return `${nm(ev.pid)}${ev.from ? ' from ' + ev.from : ''}${ev.dur ? ' ' + r2(ev.dur) + ' s' : ''}${ev.bounce ? ' bounce' : ''}`;
     if (t === 'live.possession') return ev.P ? `${tm(ev.P.off)} ball, ${ev.P.play || ''}` : '';
     if (t === 'live.final') return `${tm(ev.winner)} win`;
     if (t === 'live.speed') return ev.speed + 'x';
     if (t === 'live.pause') return ev.paused ? 'paused' : 'playing';
-    if (t === 'timer.squeak') return `v ${r2(ev.v)}`;
     if (t === 'booth.say') return `${ev.who}: "${ev.text}" (${ev.voice}, waited ${ev.waitedMs} ms)`;
     return '';
   }
   const played = (s) => s.s === 'play' || s.s === 'queued';
-  function soundText(s) { return `${s.n}→${s.b} p${s.p}${s.s === 'play' ? '' : s.s === 'queued' ? ' queued' : ' ✗ ' + s.s}${s.stole ? ' (took ' + s.stole + ')' : ''}${s.at ? ' +' + s.at + 'ms' : ''}`; }
+  function soundText(s) { return `${s.n}${s.tag ? ' [' + s.tag + ']' : ''}→${s.b} p${s.p}${s.pl ? ' pan ' + s.pl[0] + ' ' + (s.pl[1] > 0 ? '+' : '') + s.pl[1] + 'dB' : ''}${s.s === 'play' ? '' : s.s === 'queued' ? ' queued' : ' ✗ ' + s.s}${s.stole ? ' (took ' + s.stole + ')' : ''}${s.at ? ' +' + s.at + 'ms' : ''}`; }
   /** one line per event: real time (s since load), audio time, game clock, type, description, sounds */
   function format(list) {
     return list.map((ev) => {

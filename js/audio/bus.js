@@ -6,10 +6,13 @@
  *            game.shotResult when the ball reaches the rim, the net or the blocker's hand; game.score; ...) and the
  *            moments worked out from them (js/audio/tracker.js: game.run, game.leadChange, game.tie,
  *            game.milestone, game.clutch)
- *   court.*  the court's sounds as they happen (dribble, bounce, rim, board, swish, net, dunk, block, whistle, horn)
- *   anim.*   the bodies: foot plants, jump landings, catches, pass releases (logged only: Trial 2 gives them sounds)
+ *   court.*  the court's sounds (js/audio/court.js): dribble, bounce, squeak, step, land, catch, pass, body, fall,
+ *            roll, rimroll, rim, board, swish, net, dunk, block, whistle, buzzer, horn; each with what made it, where it
+ *            is, the game time of its contact (gt) and how far ahead it was scheduled to be heard as it shows (dly)
+ *   anim.*   the bodies: foot plants, jump landings, catches, pass releases (the court's audio hears all of them and
+ *            decides the squeaks, footsteps and slaps; logged here when the console or a trace asks)
  *   live.*   the broadcast around the game: intro, possession start, quarter break, replay, crunch time, final
- *   timer.*  sounds still run by a timer instead of the game (the sneaker squeaks until Trial 2, the chant until 4)
+ *   timer.*  sounds still run by a timer instead of the game (the chant until Trial 4)
  *   booth.*  the booth: booth.say when a line starts (the event that queued it lists it among its sounds)
  * Subscribe with on('game.score', fn), on('game.*', fn) or on('*', fn). The sounds an event plays are written into
  * it (ev.sounds, by the mixer: each with its bus and priority, or why it did not play), so the debug console and the
@@ -95,6 +98,8 @@
     /** record every event from now (anim.* too unless opts.anim === false) until traceStop(), which returns them */
     traceStart(opts) { trace = []; traceAnim = !(opts && opts.anim === false); },
     traceStop() { const t = trace || []; trace = null; return t; },
+    /** the trace so far, without stopping it */
+    tracePeek() { return trace ? trace.slice() : []; },
     tracing() { return !!trace; },
     /** a new game: no subscribers carried over, an empty log */
     reset(size) {

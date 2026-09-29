@@ -17,13 +17,14 @@
   const dbToGain = (db) => Math.pow(10, db / 20);
   const gainToDb = (g) => (g > 1e-7 ? 20 * Math.log10(g) : -140);
 
-  // the recorder tap: keeps the last N frames of its input in the audio thread, hands them over on 'dump'
+  // the recorder tap: keeps the last N frames of its input in the audio thread, hands them over on 'dump' with the
+  // audio clock's frame just after the last one (so every recorded sample has its exact time on the context's clock)
   const REC_WORKLET = `class PbcRecTap extends AudioWorkletProcessor {
-  constructor(o) { super(); const n = o.processorOptions.frames; this.n = n; this.L = new Float32Array(n); this.R = new Float32Array(n); this.w = 0; this.filled = 0;
+  constructor(o) { super(); const n = o.processorOptions.frames; this.n = n; this.L = new Float32Array(n); this.R = new Float32Array(n); this.w = 0; this.filled = 0; this.end = 0;
     this.port.onmessage = (e) => { if (e.data !== 'dump') return; const f = this.filled, L = new Float32Array(f), R = new Float32Array(f); let j = (this.w - f + this.n) % this.n;
-      for (let i = 0; i < f; i++) { L[i] = this.L[j]; R[i] = this.R[j]; j = (j + 1) % this.n; } this.port.postMessage({ L, R }, [L.buffer, R.buffer]); }; }
+      for (let i = 0; i < f; i++) { L[i] = this.L[j]; R[i] = this.R[j]; j = (j + 1) % this.n; } this.port.postMessage({ L, R, end: this.end }, [L.buffer, R.buffer]); }; }
   process(inputs) { const inp = inputs[0]; if (!inp || !inp.length) return true; const l = inp[0], r = inp[1] || inp[0], n = l.length;
-    for (let i = 0; i < n; i++) { this.L[this.w] = l[i]; this.R[this.w] = r[i]; this.w = (this.w + 1) % this.n; } this.filled = Math.min(this.n, this.filled + n); return true; }
+    for (let i = 0; i < n; i++) { this.L[this.w] = l[i]; this.R[this.w] = r[i]; this.w = (this.w + 1) % this.n; } this.filled = Math.min(this.n, this.filled + n); this.end = currentFrame + n; return true; }
 }
 registerProcessor('pbc-rec-tap', PbcRecTap);`;
 
@@ -88,6 +89,12 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
         B.shots.connect(B.duckShots); B.duckShots.connect(B.fade);
         B.fade.connect(B.gate);
         B.gate.connect(M.masterIn); B.gate.connect(B.send); B.send.connect(M.verbIn); B.gate.connect(B.an);
+        // a placed sound's own extra reverb (the further from the camera, the more room): through the bus's level
+        // and its mute / solo gate like everything else on the bus
+        B.wetIn = c.createGain();
+        B.wetFade = c.createGain(); B.wetFade.gain.value = cfg.gain;
+        B.wetGate = c.createGain(); B.wetGate.gain.value = 1;
+        B.wetIn.connect(B.wetFade); B.wetFade.connect(B.wetGate); B.wetGate.connect(M.verbIn);
         M.buses[name] = B;
         M.stats.peakBus[name] = 0;
       }
@@ -96,7 +103,7 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       // a quiet spell started from wherever the duck had been left (and the console read a stale duck)
       if (c.createConstantSource) {
         M.keep = c.createConstantSource(); M.keep.offset.value = 0;
-        for (const name of BUSES) { M.keep.connect(M.buses[name].input); M.keep.connect(M.buses[name].shots); }
+        for (const name of BUSES) { M.keep.connect(M.buses[name].input); M.keep.connect(M.buses[name].shots); M.keep.connect(M.buses[name].wetIn); }
         M.keep.start();
       }
       M.buf = new Float32Array(2048);
@@ -106,12 +113,22 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       if (PBC.AudioAssets) PBC.AudioAssets.loadAll(c).catch(() => {});
       return c;
     }
+    // the arena's impulse: noise under the decay envelope, darker as it decays (an arena's air and seats take the high
+    // end first: a one-pole lowpass gliding from reverb.hzStart to reverb.hzEnd), each 10 ms brought back to the
+    // noise's own level so the envelope, and so the reverb's level and length, is what it was (Trial 2)
     function impulse(c, secs, decay, fadeIn) {
-      const R = PBC.AudioRandom.random;
-      const n = Math.floor(c.sampleRate * secs), buf = c.createBuffer(2, n, c.sampleRate);
+      const R = PBC.AudioRandom.random, RV = C.reverb, sr = c.sampleRate;
+      const n = Math.floor(sr * secs), buf = c.createBuffer(2, n, sr), blk = Math.floor(sr * 0.01);
       for (let ch = 0; ch < 2; ch++) {
         const d = buf.getChannelData(ch);
-        for (let i = 0; i < n; i++) d[i] = (R() * 2 - 1) * Math.pow(1 - i / n, decay) * (i < fadeIn ? i / fadeIn : 1);
+        let y = 0;
+        for (let b0 = 0; b0 < n; b0 += blk) {
+          const b1 = Math.min(n, b0 + blk), f = RV.hzStart * Math.pow(RV.hzEnd / RV.hzStart, b0 / n), a = 1 - Math.exp(-2 * Math.PI * f / sr);
+          let ei = 0, eo = 0;
+          for (let i = b0; i < b1; i++) { const w = R() * 2 - 1; y += a * (w - y); d[i] = y; ei += w * w; eo += y * y; }
+          const k = eo > 0 ? Math.sqrt(ei / eo) : 1;
+          for (let i = b0; i < b1; i++) d[i] *= k * Math.pow(1 - i / n, decay) * (i < fadeIn ? i / fadeIn : 1);
+        }
       }
       return buf;
     }
@@ -136,9 +153,11 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
         const on = audible(name);
         if (on === B.gateOn && !now) continue;
         B.gateOn = on;
-        B.gate.gain.cancelScheduledValues(t);
-        if (now) B.gate.gain.value = on ? 1 : 0;
-        else B.gate.gain.setTargetAtTime(on ? 1 : 0, t, C.muteRampTc);
+        for (const g of [B.gate.gain, B.wetGate.gain]) {
+          g.cancelScheduledValues(t);
+          if (now) g.value = on ? 1 : 0;
+          else g.setTargetAtTime(on ? 1 : 0, t, C.muteRampTc);
+        }
       }
     }
 
@@ -164,6 +183,23 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       M.dying.push(v);
       M.stats.stolen++;
     }
+    /** end a playing voice early with a short fade (a ball rolling on the floor that somebody picks up) */
+    function stop(v, fade) {
+      if (!v || v.stolen || !M.ctx) return false;
+      const now = M.ctx.currentTime;
+      if (v.end < now) return false;
+      const f = Math.max(0.005, fade == null ? 0.04 : fade);
+      const i = M.voices.indexOf(v);
+      if (i >= 0) { M.voices.splice(i, 1); M.buses[v.bus].n--; }
+      v.stolen = true;
+      const at = Math.max(now, v.t0);
+      try { const g = v.out.gain; g.cancelScheduledValues(at); g.setValueAtTime(g.value, at); g.linearRampToValueAtTime(0, at + f); } catch (e) { /* ignore */ }
+      for (const s of v.srcs) { try { s.stop(at + f + 0.01); } catch (e) { /* not started or already stopped */ } }
+      v.end = at + f + 0.01;
+      M.dying.push(v);
+      M.stats.stopped = (M.stats.stopped || 0) + 1;
+      return true;
+    }
     /** the lowest-priority voice (the oldest of those) in the list, if its priority is below prio */
     function victim(list, prio) {
       let best = null;
@@ -180,7 +216,8 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
      * play a one-shot sound. name: a key of AudioConfig.sounds (its bus, priority, cooldown, limit); v: its level
      * (0..1+); build(voice, v): the recipe, which adds its nodes into voice.out from voice.t0 and registers its sources
      * with voice.src(node, stopTime). o: { when (audio time to start), bus (another bus, for test tones), level
-     * (a crowd reaction's size: big ones lift the duck), force (plays while paused: the final horn) }
+     * (a crowd reaction's size: big ones lift the duck), force (plays while paused: the final horn), place (where it
+     * is from the camera, js/audio/court.js: { pan -1..1, db, lp (Hz), wet (extra reverb send) }) }
      */
     function play(name, v, build, o) {
       const t00 = performance.now();
@@ -188,6 +225,7 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       const sc = C.sounds[name] || { bus: 'court', prio: 50, cooldownMs: 0, max: 4 };
       const busName = o.bus || sc.bus;
       const rec = { n: name, b: busName, p: sc.prio, s: 'play', v: Math.round((v == null ? 1 : v) * 100) / 100 };
+      if (o.tag) rec.tag = o.tag;
       try {
         const c = M.ctx;
         if (!c || M.destroyed || c.state !== 'running') return refuse(rec, 'no audio');
@@ -220,8 +258,21 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
         M.lastPlay[name] = tNow;
         const t0 = Math.max(now, o.when || 0) + 0.005;
         const out = c.createGain();
-        out.connect(B.shots);
         const voice = new Voice(M, M.nextId++, name, busName, sc.prio, t0, out);
+        // where it is: its distance level on out, then the air (a lowpass) and the pan, and its own extra reverb
+        let tail = out;
+        const P = o.place;
+        if (P) {
+          // (a mono sound through the panner is 3 dB down on each side in the middle, the equal-power law: given back
+          // here, so a placed sound in the middle of the picture is as loud as it was unplaced)
+          out.gain.value = dbToGain((P.db || 0) + (c.createStereoPanner ? 3.01 : 0));
+          // (a lowpass's Q is in dB in Web Audio: -3.01 is the flat Butterworth, no bump under the cutoff)
+          if (P.lp && P.lp < 19000) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = P.lp; f.Q.value = -3.01; tail.connect(f); tail = f; }
+          if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, P.pan || 0)); tail.connect(p); tail = p; }
+          if (P.wet > 0.001) { const w = c.createGain(); w.gain.value = P.wet; tail.connect(w); w.connect(B.wetIn); }
+          rec.pl = [Math.round((P.pan || 0) * 100) / 100, Math.round((P.db || 0) * 10) / 10];
+        }
+        tail.connect(B.shots);
         try { build(voice, v == null ? 1 : v); } catch (e) { try { out.disconnect(); } catch (e2) { /* ignore */ } console.error('audio recipe ' + name, e); return refuse(rec, 'error'); }
         M.voices.push(voice); B.n++;
         M.stats.played++;
@@ -286,7 +337,8 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
           const f = r.filled, l = new Float32Array(f), rr = new Float32Array(f);
           let j = (r.w - f + frames) % frames;
           for (let i = 0; i < f; i++) { l[i] = L[j]; rr[i] = R[j]; j = (j + 1) % frames; }
-          return Promise.resolve({ L: l, R: rr });
+          // (on the main thread the last block's time is only known roughly: now)
+          return Promise.resolve({ L: l, R: rr, end: Math.round(c.currentTime * c.sampleRate) });
         };
         M.out.connect(sp); sp.connect(sink);
         M.rec = r;
@@ -332,6 +384,7 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       /** the input of a bus, for continuous sources (the crowd bed) and the booth's premium voices */
       input(name) { ensure(); return M.buses[name] ? M.buses[name].input : null; },
       play,
+      stop,
       audible,
       /** the booth is talking (true) or done (false): ducks the crowd */
       speaking(on) {
@@ -356,7 +409,7 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       setSpeed(s) { M.speed = +s || 1; },
       speed() { return M.speed; },
       // debug console: fader (0..1.5 of the bus's level), mute, solo
-      setFader(name, g) { const B = M.buses[name]; if (!B) return; B.fader = Math.max(0, Math.min(1.5, +g)); B.fade.gain.setTargetAtTime(B.cfg.gain * B.fader, M.ctx.currentTime, C.muteRampTc); },
+      setFader(name, g) { const B = M.buses[name]; if (!B) return; B.fader = Math.max(0, Math.min(1.5, +g)); for (const n of [B.fade, B.wetFade]) n.gain.setTargetAtTime(B.cfg.gain * B.fader, M.ctx.currentTime, C.muteRampTc); },
       mute(name, on) { const B = M.buses[name]; if (!B) return; B.mute = on == null ? !B.mute : !!on; applyGates(); },
       solo(name, on) { const B = M.buses[name]; if (!B) return; B.solo = on == null ? !B.solo : !!on; applyGates(); },
       clearSolo() { for (const n of BUSES) if (M.buses[n]) M.buses[n].solo = false; applyGates(); },
@@ -380,11 +433,17 @@ registerProcessor('pbc-rec-tap', PbcRecTap);`;
       cpuMs() { return M.cpu; },
       /** the last `secs` (default all, up to recorderSeconds) of the master as a 16-bit stereo WAV */
       saveWav(secs) {
+        return api.recording(secs).then((d) => (d ? { wav: wav(d.L, d.R, d.sampleRate), seconds: d.L.length / d.sampleRate, sampleRate: d.sampleRate, kind: d.kind, start: d.start } : null));
+      },
+      /** the last `secs` of the master as samples, with the audio time of the first one (start): the tests line
+       *  sounds up against what was scheduled with it */
+      recording(secs) {
         if (!M.rec) return Promise.resolve(null);
         return M.rec.dump().then((d) => {
           let L = d.L, R = d.R;
-          if (secs && L.length > secs * M.ctx.sampleRate) { const k = L.length - Math.floor(secs * M.ctx.sampleRate); L = L.subarray(k); R = R.subarray(k); }
-          return { wav: wav(L, R, M.ctx.sampleRate), seconds: L.length / M.ctx.sampleRate, sampleRate: M.ctx.sampleRate, kind: M.rec.kind };
+          const sr = M.ctx.sampleRate;
+          if (secs && L.length > secs * sr) { const k = L.length - Math.floor(secs * sr); L = L.subarray(k); R = R.subarray(k); }
+          return { L, R, sampleRate: sr, start: (d.end - L.length) / sr, kind: M.rec.kind };
         });
       },
       recorderKind() { return M.rec ? M.rec.kind : null; },

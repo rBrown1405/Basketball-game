@@ -1,0 +1,21 @@
+   5.323    2.052             court.whistle      foul v 1 #ref2 (foul) at 30.4, -2.5, 6.2 ft +0ms late 7ms | whistle [foul take 6]→arena p90 pan -0.42 +2.8dB
+   6.936    3.660             court.whistle      charge v 1 #ref3 (charge) at 58.2, 52.4, 6.2 ft +0ms late 2ms | whistle [charge take 10]→arena p90 pan 0.16 -1.5dB
+   8.535    5.262             court.whistle      violation v 1 #ref1 (violation) at 47, 20, 6.2 ft +0ms late 2ms | whistle [violation take 9]→arena p90 pan 0 +1dB
+  10.135    6.861             court.whistle      out v 1 #ref2 (out) at 37.2, -2.4, 6.2 ft +0ms late 2ms | whistle [out take 7]→arena p90 pan -0.25 +3dB
+  11.735    8.461             court.buzzer       v 1 (shot clock, game clock 8.4) at 90.5, 25, 13.3 ft +0ms late 2ms | buzzer [take 3]→arena p92 pan 0.8 -4.4dB
+  13.543   10.272             court.horn         v 1 (end of the period) +0ms late 10ms | horn [take 3]→arena p95 pan 0 0dB
+  18.342   15.073             court.horn         v 1 (end of the game) | horn [take 12]→arena p95 pan 0 0dB
+  20.663   17.392             court.body         bump v 0.9 Laurent (bump, charge) at 39.7, 20, 4 ft +0ms late 1ms | body [bump take 1]→court p30 pan -0.14 +0.9dB
+  21.050   17.772             court.fall         v 1 Laurent (down on the floor) at 38.2, 20 ft +0ms late 5ms | fall [take 1]→court p55 pan -0.16 +0.7dB
+  23.254   19.981             court.body         post v 0.7 Payton (post, backing down) at 29.1, 25, 4 ft +0ms | body [post take 10]→court p30 pan -0.32 +0.3dB
+  24.382   21.104             court.step         v 0.55 Laurent (jab step) at 40.3, 19.9 ft +0ms late 9ms | step [take 2]→court p10 pan -0.12 +0.7dB
+  25.944   22.671             court.bounce       v 0.57 (down at 14.7 ft/s) at 40.6, -2.2 ft apron +0ms | bounce [take 5]→court p25 pan -0.08 +2.6dB
+  26.710   23.432             court.bounce       v 0.46 (down at 12.3 ft/s) at 41.2, -7.6 ft courtside +0ms late 2ms | bounce [take 9]→court p25 pan -0.01 -2.8dB
+  27.334   24.062             court.bounce       v 0.38 (down at 10.3 ft/s) at 41.7, -12.1 ft courtside +2ms | bounce [take 2]→court p25 pan 0.01 -3.3dB
+  27.894   24.622             court.bounce       v 0.31 (down at 8.6 ft/s) at 42.1, -15.9 ft courtside +0ms late 9ms | bounce [take 7]→court p25 pan 0.01 -3.4dB
+  28.343   25.072             court.bounce       v 0.26 (down at 7.3 ft/s) at 42.5, -19.1 ft courtside +0ms late 5ms | bounce [take 1]→court p25 pan 0.01 -2.5dB
+  28.727   25.452             court.bounce       v 0.21 (down at 6.1 ft/s) at 42.8, -21.8 ft courtside +0ms late 10ms | bounce [take 8]→court p25 pan 0.01 -2.2dB
+  29.046   25.771             court.bounce       v 0.17 (down at 5.1 ft/s) at 43, -24.1 ft courtside +0ms late 12ms | bounce [take 4]→court p25 pan 0.02 -2.9dB
+  29.305   26.032             court.bounce       v 0.13 (down at 4.3 ft/s) at 43.2, -26 ft courtside +0ms late 1ms | bounce [take 12]→court p25 pan 0.02 -3.6dB
+  29.527   26.250             court.bounce       v 0.11 (down at 3.6 ft/s) at 43.4, -27.5 ft courtside +0ms | bounce [take 11]→court p25 pan 0.02 -3.9dB
+  29.719   26.442             court.roll         v 0.51 (rolling at 7.1 ft/s for 3.2 s) at 43.5, -28.9 ft +0ms late 3ms | roll [take 12]→court p12 pan 0.02 +3dB

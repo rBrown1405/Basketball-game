@@ -206,7 +206,7 @@
     window.removeEventListener('resize', LG.onResize);
     document.removeEventListener('keydown', LG.onKey);
     if (LG.ro) { try { LG.ro.disconnect(); } catch (e) { /* ignore */ } }
-    for (const k of ['bc', 'cm', 'au', 'at', 'mx']) if (LG[k] && LG[k].destroy) { try { LG[k].destroy(); } catch (e) { console.error(e); } }
+    for (const k of ['bc', 'cm', 'ca', 'au', 'at', 'mx']) if (LG[k] && LG[k].destroy) { try { LG[k].destroy(); } catch (e) { console.error(e); } }
     if (PBC.AudioDebug) { try { PBC.AudioDebug.detach(); } catch (e) { console.error(e); } }
     if (PBC.AudioBus) PBC.AudioBus.reset();
     if (LG.view && LG.view.destroy) { try { LG.view.destroy(); } catch (e) { console.error(e); } }
@@ -289,6 +289,7 @@
     try { if (PBC.AudioMixer) { LG.mx = PBC.AudioMixer.create({ volume: S.settings.volume == null ? 0.7 : S.settings.volume, sfxOn: S.settings.arenaSound !== false }); LG.mx.setSpeed(LG.speed); host.mx = LG.mx; } } catch (e) { console.error('mixer', e); }
     try { if (PBC.AudioTracker && Bus) LG.at = PBC.AudioTracker.create(host); } catch (e) { console.error('audio tracker', e); }
     try { if (PBC.ArenaAudio && LG.mx) { LG.au = PBC.ArenaAudio.create(host); host.au = LG.au; } } catch (e) { console.error('audio', e); }
+    try { if (PBC.CourtAudio && PBC.CourtSynth && LG.mx) { LG.ca = PBC.CourtAudio.create(Object.assign({}, host, { view: () => (LG ? LG.view : null) })); host.court = LG.ca; } } catch (e) { console.error('court audio', e); }
     try { if (PBC.Broadcast) { LG.bc = PBC.Broadcast.create(host); host.bc = LG.bc; } } catch (e) { console.error('broadcast', e); }
     try { if (PBC.Commentary) { LG.cm = PBC.Commentary.create(host); host.cm = LG.cm; } } catch (e) { console.error('commentary', e); }
     if (PBC.AudioDebug && LG.mx) PBC.AudioDebug.attach({ mx: LG.mx, au: LG.au, at: LG.at, root, host, button: root.querySelector('#btn-audio') });
@@ -622,6 +623,7 @@
         if (LG.view) { LG.clockShow = LG.view.clock(); LG.scShow = LG.view.shotClock ? LG.view.shotClock() : LG.scShow; }
         renderBug();
         if (LG.bc) LG.bc.update(dtReal, bugState());
+        if (LG.ca) LG.ca.frame(dtReal);
         if (LG.au) LG.au.update(dtReal, audioState());
         if (LG.at) LG.at.update(dtGame);
         if (LG.mx) LG.mx.update();
@@ -766,25 +768,18 @@
     if (!PBC.AudioBus || !LG) return;
     try { PBC.AudioBus.emit('live.' + type, data || {}); } catch (e) { console.error('audio', e); }
   }
-  /** a court sound as it happens → court.<name>, with where it happened and who made it (the arena audio plays it) */
+  /** a court sound as it happens: the court's audio (js/audio/court.js) decides it, places it and plays it when that
+   *  moment is on screen (court.<name> on the bus) */
   function courtSound(name, v, at, who) {
-    if (!LG || !PBC.AudioBus) return;
-    PBC.AudioBus.emit('court.' + name, { v, x: at ? at.x : null, y: at ? at.y : null, z: at ? at.z : null, pid: who ? who.id : null, team: who ? who.team : null });
+    if (!LG || !LG.ca) return;
+    LG.ca.sound(name, v, at, who);
   }
   /** the court's other cues: a shot's result reaching the rim (→ the tracker's game.shotResult), and the bodies:
-   *  foot plants, jump landings, catches and pass releases (→ anim.*; built only when someone listens) */
+   *  foot plants, jump landings, catches and pass releases (→ the court's audio, which also logs them as anim.*) */
   function viewCue(type, a, d) {
-    if (!LG || !PBC.AudioBus) return;
+    if (!LG) return;
     if (type === 'shotResult') { if (LG.at && d && d.ev) LG.at.shotResult(d.ev, { contact: d.contact, result: d.result, x: d.x, y: d.y, z: d.z, sc: LG.dispScore }); return; }
-    const Bus = PBC.AudioBus, t = 'anim.' + type;
-    if (!Bus.wants(t)) return;
-    if (type === 'plant' || type === 'land') {
-      // the body's speed, how hard it is braking and how hard it is turning (ft/s, ft/s² of the smoothed acceleration)
-      const sp = a.speed || 0;
-      let brake = 0, turn = 0;
-      if (sp > 0.3) { const ux = a.vx / sp, uy = a.vy / sp, ax = a.axF || 0, ay = a.ayF || 0; brake = Math.max(0, -(ax * ux + ay * uy)); turn = Math.abs(ax * uy - ay * ux); }
-      Bus.emit(t, { pid: a.id, team: a.team, ref: a.kind === 'ref', foot: d.side ? 'R' : 'L', x: d.x, y: d.y, speed: sp, brake, turn, mode: d.mode || null });
-    } else Bus.emit(t, { pid: a ? a.id : null, team: a ? a.team : null, x: d.x, y: d.y, z: d.z, from: d.from || null, dur: d.dur, bounce: d.bounce });
+    if (LG.ca) LG.ca.cue(type, a, d);
   }
   function toggleAudioConsole() {
     if (!LG || !PBC.AudioDebug) return;

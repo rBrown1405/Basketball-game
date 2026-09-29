@@ -1,0 +1,17 @@
+Trial 2: the court's rarer moments, made happen through its own calls and clips (a court of its own, the audio as in a game)
+
+whistle: a foul                                OK  whistle foul
+whistle: a charge                              OK  whistle charge
+whistle: a travel                              OK  whistle violation
+whistle: out of bounds                         OK  whistle out
+shot clock runs out                            OK  buzzer
+end of the period                              OK  horn
+end of the game, 0.6 s after                   OK  nothing
+end of the game on its own                     OK  horn
+a player takes a charge: down he goes          OK  body bump, fall
+a post-up bump                                 OK  body post
+a jab step                                     OK  step
+a loose ball bounces out of bounds and rolls   OK  bounce (apron), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), bounce (courtside), roll
+
+errors: 0
+RESULT: PASS
