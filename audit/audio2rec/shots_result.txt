@@ -3,21 +3,21 @@ Trial 2: the ball at the hoop, shot by shot (forced results from one spot, the c
 shot                         at the hoop (0.4 s from the ball getting there)       court sounds (s from the release; kind)
                              level dB   rim metal   net 3-9 kHz
 swish                          -34.8      6.5%      0.4%     swish 1.08, bounce 1.95
-in off the rim                 -32.9     92.4%      0.3%     rim back 1.09, net 1.57, bounce 2.44, bounce 3.47
-rolls round the rim and in     -39.6     69.7%      1.4%     rimroll 1.05, net 1.94, bounce 2.81
-off the glass and in           -32.5     11.2%      3.6%     board 1.00, net 1.07, bounce 1.94, bounce 2.96
-air ball                       -90.9      5.6%      0.2%     bounce 2.20, bounce 3.29
-front iron miss                -27.9     92.0%      0.1%     rim front 1.05, bounce 2.20, bounce 3.36
-back iron miss                 -34.0     88.5%      0.2%     rim back 1.09, bounce 2.20, bounce 3.34
+in off the rim                 -33.3     91.5%      0.3%     rim back 1.09, net 1.57, bounce 2.44, bounce 3.47
+rolls round the rim and in     -41.2     69.6%      1.4%     rimroll 1.05, net 1.92, bounce 2.79
+off the glass and in           -32.5     12.3%      3.5%     board 1.00, net 1.07, bounce 1.94, bounce 2.96
+air ball                       -91.2      5.7%      0.2%     bounce 2.20, bounce 3.30
+front iron miss                -27.7     92.5%      0.1%     rim front 1.05, bounce 2.20, bounce 3.36
+back iron miss                 -34.0     88.6%      0.2%     rim back 1.09, bounce 2.20, bounce 3.34
 side of the rim miss           -31.8     87.1%      0.2%     rim side 1.07, bounce 2.20, bounce 3.35
 rattle and out                 -27.5     89.5%      0.1%     rim front 1.05, rim rattle 1.49, bounce 2.20, bounce 3.27
-off the glass, no good         -34.6      8.0%      9.7%     board 1.06, bounce 2.20, bounce 3.40
-dunk                           -24.7     71.1%     10.2%     dunk 0.12, bounce 0.99, bounce 2.02, bounce 2.84
-block                          -40.2     11.9%      0.6%     block 0.16, bounce 1.06, bounce 2.11, bounce 2.96
+off the glass, no good         -34.7      8.0%      9.8%     board 1.05, bounce 2.20, bounce 3.42
+dunk                           -24.8     70.8%     10.6%     dunk 0.12, bounce 0.99, bounce 2.02, bounce 2.84
+block                          -40.2     11.9%      0.7%     block 0.16, bounce 1.06, bounce 2.11, bounce 2.96
 
 swish: at the hoop only the net (swish), rim metal 6.5%: OK
-rim-in: the rim then the net (rim back, net), rim metal 92.4%: OK
-air ball: nothing at the hoop (nothing), level there -90.9 dB against -34.8 (swish) and -32.9 (rim-in): OK
-measured apart: rim-in has 14.3x the swish's rim metal, the swish 1.4x the rim-in's share of net noise: OK
+rim-in: the rim then the net (rim back, net), rim metal 91.5%: OK
+air ball: nothing at the hoop (nothing), level there -91.2 dB against -34.8 (swish) and -33.3 (rim-in): OK
+measured apart: rim-in has 14.2x the swish's rim metal, the swish 1.3x the rim-in's share of net noise: OK
 errors: 0
 RESULT: PASS
