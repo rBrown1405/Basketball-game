@@ -316,6 +316,12 @@
       slideRadK: 0.08,               // (the palm's distance from the ball's centre gets to the dribble's in this share of the carry)
       aheadFt: 0.15,                // the ball stays this far ahead of the shoulder whose hand has it, or more (ft)...
       aheadSoftFt: 0.05,            // ...a smooth floor, this soft (ft)
+      sideHz: 4,                    // the shoulders' turn toward the ball side goes over to the other side on a crossover on a
+                                    // critically damped spring this quick (Hz)
+      stayBehindFt: 0.25,           // a ball coming up to be caught further than this behind the dribbling shoulder (ft)...
+      stayTwistPerFt: 40,           // ...turns the chest back toward it this much per foot past that (deg/ft)...
+      stayTwistDeg: 35,             // ...up to this (deg)...
+      stayHz: 3,                    // ...on a critically damped spring this quick (Hz), held through the push
       trunkYawK: 0.7,               // the dribble's frame turns with this share of the chest's own turn from the hips (the ball
                                     // goes with the shoulder dribbling it when the trunk leads a turn or squares up to a pass)
       upperOutS: 0.15,              // an upper-body clip about holding the ball (a catch, a pass not made) fades over this once
@@ -469,6 +475,8 @@
       swingPullFtps: 6,             // a swinging foot out of reach is pulled in toward the hip no faster than this (ft/s)
       swingFixIters: 8,             // tries at lifting a swinging foot clear of the floor in one step...
       swingFixGain: 1.5,            // ...each lifting it this many times its depth
+      swingMinClearFt: 0.08,        // every swinging foot's lowest point clears the floor by this at mid-swing (ft, ~1 in;
+                                    // sin^2 over the swing); people clear it by ~1.3 cm at the lowest point of a swing
     },
 
     // ---------------------------------------------------------------- body segment masses (center of mass)

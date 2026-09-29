@@ -522,6 +522,27 @@ console.log('the handle (Trial 8)');
   ok(plain.every(r => r.air.jolts === 0), `the ball in the air never jolted across the floor dribbling (${plain.length} scenarios, ${plain.reduce((p, r) => p + r.air.frames, 0)} frames, worst ${Math.max(...plain.map(r => r.air.worstFtps2))} ft/s^2)`);
   const mv8 = rows.filter(r => /three|retreat/.test(r.name)), mvJ = mv8.reduce((p, r) => p + r.air.jolts, 0), mvF = mv8.reduce((p, r) => p + r.air.frames, 0);
   ok(mvJ <= 0.08 * mvF, `the moves' ball in the air jolted in no more than 8% of its frames (${mvJ} of ${mvF}: ${mv8.map(r => r.name.replace(/ \(.*$/, '') + ' ' + r.air.jolts).join(', ')}; still open, Trial 7)`);
+  // the dribble lays its plans where the body will be as the ball comes down and up (Actor.predictFrame): a body turning to
+  // face a new way is predicted turning as _faceStep turns it (kept facing the way it faced, a ball planned for a body
+  // turning ~200 deg/s came up where it no longer was, the hand up to ~10 in off it in games)
+  {
+    const cases = [[0, 45, 0.02, 'stand'], [0, -50, 0.05, 'stand'], [5, 60, 0.05, 'defense'], [5, 60, 0.15, 'defense']], errs = [], unt = [];
+    for (const [spd, turnDeg, after, stance] of cases) {
+      const { W: W8, a: a8 } = H8.world(PBC, [{ team: 0 }]), A8 = a8[0];
+      A8.place(47, 25, 0); A8.setStance(stance); A8.solve();
+      let t8 = 0;
+      const step8 = () => { t8 += 1 / 60; W8.time = t8; A8.update(1 / 60, t8); A8.solve(); };
+      if (spd > 0) A8.moveTo(A8.x, A8.y + 200, { speed: spd });
+      while (t8 < 1 - 1e-9) step8();
+      const want = A8.facing + turnDeg * U.DEG;
+      A8.setFace(() => want);
+      while (t8 < 1 + after - 1e-9) step8();
+      const f0 = A8.facing, pf = A8.predictFrame(0.3, {}).facing, tEnd = t8 + 0.3;
+      while (t8 < tEnd - 1e-9) step8();
+      errs.push(Math.abs(U.wrapPi(pf - A8.facing)) / U.DEG); unt.push(Math.abs(U.wrapPi(f0 - A8.facing)) / U.DEG);
+    }
+    ok(Math.max(...errs) <= 0.5, `a body turning, where the dribble plans it will face 0.3 s on: off by at most ${Math.max(...errs).toFixed(2)} deg in ${cases.length} turns standing and sliding (kept as it faced: ${Math.min(...unt).toFixed(0)} to ${Math.max(...unt).toFixed(0)} deg off)`);
+  }
 }
 
 console.log('the floor and the weight in a real game (the first minute of seed 7)');

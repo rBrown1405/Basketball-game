@@ -6,6 +6,7 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 - Tools: Shift+D in `match_test.html` or the live game.
 - Headless scorecard: `node tools/audit/quarter.js --seed 7`.
 - Gait lab (every gait on four bodies, blind naming, the scripted changes of gait): `node tools/audit/gaits.js`.
+- Dribble lab (14 dribbling scenarios, the moves included, with the game's own meters): `node tools/audit/handle.js`.
 - Tests: `node tools/audit/check.js`.
 - Tuning: every value lives in `js/match/tune.js` (`PBC.Match.Tune`).
 
@@ -17,3 +18,4 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 | 3 The Floor | PASS | [TRIAL_03_FLOOR.md](TRIAL_03_FLOOR.md) |
 | 4 The Weight | PASS | [TRIAL_04_WEIGHT.md](TRIAL_04_WEIGHT.md) |
 | 5 The Gaits | PASS (live-game slide transitions and forced steps carried to Trial 6) | [TRIAL_05_GAITS.md](TRIAL_05_GAITS.md) |
+| 8 The Handle | PASS in the lab (live-game contacts off the ball and the ball in a body carried to Trials 6, 7, 10 and 13) | [TRIAL_08_HANDLE.md](TRIAL_08_HANDLE.md) |

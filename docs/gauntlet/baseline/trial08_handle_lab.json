@@ -13,9 +13,9 @@
   "catchIn": {
    "n": 9,
    "p50": 0,
-   "p90": 0,
-   "p99": 0,
-   "max": 0
+   "p90": 0.01,
+   "p99": 0.01,
+   "max": 0.01
   },
   "offBy": [],
   "ballThroughFrames": 0,
@@ -82,7 +82,7 @@
   "air": {
    "frames": 160,
    "jolts": 0,
-   "worstFtps2": 37.2,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {},
@@ -94,7 +94,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 37.2,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {
@@ -109,8 +109,8 @@
   "contactsOff": 0,
   "contactMaxIn": {
    "n": 14,
-   "p50": 0.01,
-   "p90": 0.02,
+   "p50": 0,
+   "p90": 0.01,
    "p99": 0.02,
    "max": 0.02
   },
@@ -186,7 +186,7 @@
   "air": {
    "frames": 156,
    "jolts": 0,
-   "worstFtps2": 120.1,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {
@@ -203,7 +203,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 120.1,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {
@@ -295,7 +295,7 @@
   "air": {
    "frames": 186,
    "jolts": 0,
-   "worstFtps2": 64.8,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {},
@@ -307,7 +307,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 64.8,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {
@@ -330,9 +330,9 @@
   "catchIn": {
    "n": 10,
    "p50": 0,
-   "p90": 0.01,
-   "p99": 0.01,
-   "max": 0.01
+   "p90": 0,
+   "p99": 0,
+   "max": 0
   },
   "offBy": [],
   "ballThroughFrames": 0,
@@ -399,7 +399,7 @@
   "air": {
    "frames": 188,
    "jolts": 0,
-   "worstFtps2": 46.9,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {},
@@ -411,7 +411,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 46.9,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {
@@ -503,7 +503,7 @@
   "air": {
    "frames": 185,
    "jolts": 0,
-   "worstFtps2": 47.1,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {},
@@ -515,7 +515,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 47.1,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {
@@ -607,7 +607,7 @@
   "air": {
    "frames": 190,
    "jolts": 0,
-   "worstFtps2": 65.9,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {},
@@ -619,7 +619,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 65.9,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {
@@ -635,9 +635,9 @@
   "contactMaxIn": {
    "n": 9,
    "p50": 0,
-   "p90": 0.03,
-   "p99": 0.03,
-   "max": 0.03
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
   },
   "catchIn": {
    "n": 9,
@@ -710,16 +710,16 @@
   "pressedFrames": 0,
   "air": {
    "frames": 146,
-   "jolts": 9,
-   "worstFtps2": 2772.9,
+   "jolts": 6,
+   "worstFtps2": 3092,
    "by": [
-    [
-     "cross up",
-     5
-    ],
     [
      "cross down",
      4
+    ],
+    [
+     "cross up",
+     2
     ]
    ]
   },
@@ -732,13 +732,13 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 2772.9,
-   "over150": 9
+   "worstFtps2": 3092,
+   "over150": 6
   },
   "restitution": {
    "n": 9,
    "meanE": 0.81,
-   "worstOff": 0.036
+   "worstOff": 0.037
   }
  },
  {
@@ -823,16 +823,16 @@
   "pressedFrames": 0,
   "air": {
    "frames": 142,
-   "jolts": 19,
-   "worstFtps2": 3005,
+   "jolts": 21,
+   "worstFtps2": 3008.2,
    "by": [
     [
      "btl up",
-     16
+     15
     ],
     [
      "btl down",
-     3
+     6
     ]
    ]
   },
@@ -845,8 +845,8 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 3005,
-   "over150": 19
+   "worstFtps2": 3008.2,
+   "over150": 21
   },
   "restitution": {
    "n": 9,
@@ -937,7 +937,7 @@
   "air": {
    "frames": 142,
    "jolts": 4,
-   "worstFtps2": 885.5,
+   "worstFtps2": 885.4,
    "by": [
     [
      "btb down",
@@ -954,13 +954,13 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 885.5,
+   "worstFtps2": 885.4,
    "over150": 4
   },
   "restitution": {
    "n": 9,
    "meanE": 0.815,
-   "worstOff": 0.033
+   "worstOff": 0.032
   }
  },
  {
@@ -1046,7 +1046,7 @@
   "air": {
    "frames": 144,
    "jolts": 1,
-   "worstFtps2": 187,
+   "worstFtps2": 193.6,
    "by": [
     [
      "inout up",
@@ -1063,7 +1063,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 187,
+   "worstFtps2": 193.6,
    "over150": 1
   },
   "restitution": {
@@ -1078,7 +1078,7 @@
   "contactsOff": 0,
   "contactMaxIn": {
    "n": 7,
-   "p50": 0,
+   "p50": 0.01,
    "p90": 0.02,
    "p99": 0.02,
    "max": 0.02
@@ -1091,14 +1091,9 @@
    "max": 0
   },
   "offBy": [],
-  "ballThroughFrames": 1,
-  "ballThroughBy": [
-   [
-    "dribble own foot",
-    1
-   ]
-  ],
-  "ballThroughWorstIn": 0.33,
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
   "bounces": 6,
   "rhythm": {
    "withInsideStepPct": 50,
@@ -1129,7 +1124,7 @@
    "still": null,
    "open": null,
    "pressed": null,
-   "moving": 2.61
+   "moving": 2.5
   },
   "topIn": {
    "open": {
@@ -1158,17 +1153,21 @@
   "offArmUpPct": 0,
   "pressedFrames": 0,
   "air": {
-   "frames": 85,
-   "jolts": 17,
-   "worstFtps2": 3204,
+   "frames": 84,
+   "jolts": 29,
+   "worstFtps2": 1784.3,
    "by": [
     [
      "dribble up",
-     11
+     16
+    ],
+    [
+     "dribble down",
+     8
     ],
     [
      "cross up",
-     4
+     3
     ],
     [
      "cross down",
@@ -1179,26 +1178,24 @@
   "pops": {
    "R_TOE": 8,
    "R_KN": 5,
-   "R_HD": 2,
-   "R_EL": 1,
    "L_TOE": 5,
    "L_KN": 4,
    "L_EL": 2
   },
-  "armPops": 5,
-  "allPops": 27,
+  "armPops": 2,
+  "allPops": 24,
   "gravity": {
-   "frames": 85,
+   "frames": 84,
    "worstOffFtps2": 0,
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 3204,
-   "over150": 17
+   "worstFtps2": 1784.3,
+   "over150": 29
   },
   "restitution": {
    "n": 6,
-   "meanE": 0.793,
+   "meanE": 0.788,
    "worstOff": 0.029
   }
  },
@@ -1216,9 +1213,9 @@
   "catchIn": {
    "n": 6,
    "p50": 0,
-   "p90": 0.01,
-   "p99": 0.01,
-   "max": 0.01
+   "p90": 0,
+   "p99": 0,
+   "max": 0
   },
   "offBy": [],
   "ballThroughFrames": 0,
@@ -1285,7 +1282,7 @@
   "air": {
    "frames": 94,
    "jolts": 0,
-   "worstFtps2": 51.9,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {},
@@ -1297,7 +1294,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 51.9,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {
@@ -1312,7 +1309,7 @@
   "contactsOff": 0,
   "contactMaxIn": {
    "n": 6,
-   "p50": 0.01,
+   "p50": 0,
    "p90": 0.02,
    "p99": 0.02,
    "max": 0.02
@@ -1320,9 +1317,9 @@
   "catchIn": {
    "n": 7,
    "p50": 0,
-   "p90": 0,
-   "p99": 0,
-   "max": 0
+   "p90": 0.01,
+   "p99": 0.01,
+   "max": 0.01
   },
   "offBy": [],
   "ballThroughFrames": 0,
@@ -1388,14 +1385,9 @@
   "pressedFrames": 70,
   "air": {
    "frames": 85,
-   "jolts": 3,
-   "worstFtps2": 233.2,
-   "by": [
-    [
-     "dribble down",
-     3
-    ]
-   ]
+   "jolts": 0,
+   "worstFtps2": 140,
+   "by": []
   },
   "pops": {
    "R_TOE": 5,
@@ -1411,8 +1403,8 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 233.2,
-   "over150": 3
+   "worstFtps2": 140,
+   "over150": 0
   },
   "restitution": {
    "n": 6,
@@ -1503,7 +1495,7 @@
   "air": {
    "frames": 63,
    "jolts": 0,
-   "worstFtps2": 39.5,
+   "worstFtps2": 0,
    "by": []
   },
   "pops": {},
@@ -1515,7 +1507,7 @@
    "meanFtps2": -32.17
   },
   "airAccel": {
-   "worstFtps2": 39.5,
+   "worstFtps2": 0,
    "over150": 0
   },
   "restitution": {

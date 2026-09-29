@@ -596,8 +596,27 @@
       if (cs && cs.clip.rootKeys && !cs.done) {
         const r = this._clipRoot(cs, Math.min(cs.t + dt * cs.speed, cs.clip.dur));
         out.x = r.x; out.y = r.y; out.facing = r.yaw;
-      } else { out.x = this.x + this.vx * dt; out.y = this.y + this.vy * dt; out.facing = this.facing; }
+      } else { out.x = this.x + this.vx * dt; out.y = this.y + this.vy * dt; out.facing = this._faceAhead(dt); }
       return out;
+    }
+    /** where the body will face dt s on, turning as _faceStep turns it: from the turn it has on, building up and braking
+     *  to the facing wanted (Trial 8: the dribble planned the ball as if the body kept facing the way it faced, and turning
+     *  at ~200 deg/s it had turned 60-80 deg more by the catch: the hand missed the ball in 16% of contact frames turning
+     *  faster than 150 deg/s, up to ~10 in, against 2% turning slowly) */
+    _faceAhead(dt) {
+      if (!(dt > 0) || this._wantFace == null || this.clip || (this.time || 0) - (this._wantT == null ? -9 : this._wantT) > 0.05) return this.facing;
+      const want = this._wantFace, rate = this._turnRate || 10, alpha = Math.min(this.turnAcc * (this.paceK || 1), M.Tune.weight.turnAccelMax);
+      if (!(alpha > 0)) return this.facing;
+      const h = M.Tune.clock.step, n = Math.min(90, Math.ceil(dt / h - 1e-9));
+      let f = this.facing, w = this.faceW || 0;
+      for (let i = 0; i < n; i++) {
+        const st = Math.min(h, dt - i * h), dA = U.wrapPi(want - f);
+        if (Math.abs(dA) < 2e-3 && Math.abs(w) < alpha * st) return want;
+        const wDes = Math.sign(dA) * Math.min(rate, Math.sqrt(2 * alpha * 0.85 * Math.abs(dA)));
+        w += U.clamp(wDes - w, -alpha * st, alpha * st);
+        f += w * st;
+      }
+      return f;
     }
     /**
      * Square the upper body to a point for a moment (a pass: the chest and arms go at the receiver while the feet
@@ -3020,7 +3039,7 @@
       }
       p[CH.rootZ] = (rootZ - this.dims.hipH) / H;
       // arms: ball / explicit targets
-      this._armTargets();
+      this._armTargets(dtI);
       // pose channels that jump between frames (stance and clip switches, dribble arm poses, look-at flips) glide
       this._inTorso.apply(p, dtI);
       this._inSpine.apply(p, dtI);
@@ -3385,9 +3404,13 @@
         // Tune.weight.hipDropMissFt)
         const miss = this._dropCap || capHit ? Math.min(G.missFt, M.Tune.weight.hipDropMissFt) : G.missFt;
         if (!past(pre) && !(reach && Math.hypot(P[an] - ik.x, P[an + 1] - ik.y, P[an + 2] - ik.z) > miss)) continue;
-        const sgn = side ? 1 : -1, w = 0.1 * H;
-        this._sepTarget(f, this.x + this.vx * 0.15 + s * sgn * w + c * this.dims.ball, this.y + this.vy * 0.15 - c * sgn * w + s * this.dims.ball, TD);
-        this._beginStep(f, TD[0], TD[1], this.facing - sgn * 7 * D, 0.16, 0.04);
+        // (aimed where the body will face as it lands, and kept on it in the air as the stride's own recovery steps are,
+        // f.trk: aimed where it faced as it left, turning at ~200 deg/s, the foot came down 50-80 deg pigeon-toed, the hip
+        // at once past its range, and it stepped again 0-2 frames after landing, a step with no stance; Trial 8)
+        const sgn = side ? 1 : -1, w = 0.1 * H, fe = this.faceIn(0.16), ce = Math.cos(fe), se = Math.sin(fe);
+        this._sepTarget(f, this.x + this.vx * 0.15 + se * sgn * w + ce * this.dims.ball, this.y + this.vy * 0.15 - ce * sgn * w + se * this.dims.ball, TD);
+        this._beginStep(f, TD[0], TD[1], fe - sgn * 7 * D, 0.16, 0.04);
+        f.trk = { reach: 0, lat: sgn * w };
         ik.soft = true; ik.softK = 0; ik.softW = 0.02;
         sk._leg(side);
         // (the step goes on from where the held leg put the foot)
@@ -3421,12 +3444,17 @@
         if (fc.x || fc.y || fc.z) { ik.x = tx + fc.x; ik.y = ty + fc.y; ik.z = tz + fc.z; sk._leg(side); }
         const an = (side ? J.R_AN : J.L_AN) * 3, h = (side ? J.R_HIP : J.L_HIP) * 3;
         const lowZ = () => Math.min(P[(side ? J.R_HEEL : J.L_HEEL) * 3 + 2], P[(side ? J.R_BALL : J.L_BALL) * 3 + 2], P[(side ? J.R_TOE : J.L_TOE) * 3 + 2]);
+        // (and clear of it by Tune.floor.swingMinClearFt at mid-swing, sin^2 over the swing so nothing jumps at the lift or
+        // the landing: a small slow step, its toes hanging down from a low ankle, cleared the floor by 0.2 to 0.7 in and
+        // read as a foot dragged; people clear it by ~1.3 cm at the lowest point of a swing and far more early in it)
+        const prog = f.state === 'swing' ? (f.mode === 'step' ? f.s : f.sw) : null;
+        const clr = prog != null && prog > 0 && prog < 1 ? M.Tune.floor.swingMinClearFt * Math.pow(Math.sin(Math.PI * prog), 2) : 0;
         // (the pull's rate cap gives way when it would leave the foot in the floor: the hips going down fast into a
         // box-out over a leg reaching nearly straight for its landing left a foot ~1 in through it for a frame, Trial 5)
         for (let pass = 0; pass < 2; pass++) {
           if (pass === 1) { if (!(lowZ() < -0.004)) break; fc.bx = null; }
           for (let it = 0; it < M.Tune.floor.swingFixIters; it++) {
-            const z = lowZ();
+            const z = lowZ() - clr;
             if (z >= -0.002) break;
             // lift by the depth (a little over: an ankle at the end of its range tips the toes down as the knee folds to
             // lift it, and gives some of the lift back); and where the leg could not put the ankle where it was asked (out
@@ -3600,7 +3628,7 @@
       return Math.hypot(dx, dy, dz);
     }
 
-    _armTargets() {
+    _armTargets(dtI) {
       const sk = this.sk, H = this.H;
       const grip = this._grip || (this._grip = [0, 0]);
       grip[0] = grip[1] = 0;
@@ -3694,7 +3722,40 @@
         const spD = U.smooth((this.speed - 10) / 8) * wAll;
         if (spD > 0.001) { pp[CH.pelPitch] += 7 * D * spD; pp[CH.spFlex] += 5 * D * spD; pp[CH.nkFlex] -= 7 * D * spD; pp[CH.hdFlex] -= 3 * D * spD; }
         // shoulders turn a little toward the ball side; the dribbling shoulder dips as the push goes down
-        pp[CH.chTwist] += (hand ? -1 : 1) * 5 * D * wAll;
+        // (from side to side on a critically damped spring, Tune.handle.sideHz: switched at a crossover's release, the chest
+        // twist jumped 10 deg in a frame, Trial 8)
+        {
+          const sdS = this._dribSide || (this._dribSide = [hand ? -1 : 1, 0]), goal = hand ? -1 : 1;
+          if (dtI > 0 && dtI < 0.12) { const w = 2 * Math.PI * M.Tune.handle.sideHz; sdS[1] += (w * w * (goal - sdS[0]) - 2 * w * sdS[1]) * dtI; sdS[0] += sdS[1] * dtI; }
+          else if (!(dtI >= 0) || dtI >= 0.12) { sdS[0] = goal; sdS[1] = 0; }
+          pp[CH.chTwist] += sdS[0] * 5 * D * wAll;
+        }
+        // (and stay with the ball, Trial 8: a body that turned away from it while it was down, the facing wanted changing
+        // under it, had it come up behind the dribbling shoulder past the arm's reach back (the shoulder at the end of its
+        // range), the hand up to ~10 in off it; the chest turns back toward where it will be caught as it comes up,
+        // Tune.handle.stayTwistDeg at most, on a critically damped spring, and eases back as the hand brings it forward.
+        // Only while it is in the air, where it stays put across the floor: in the hand it goes with the dribble's frame,
+        // which turns with the chest and took it further back than the shoulder, the twist growing on itself until the
+        // arm snapped straight. Not on a move that takes it behind the body on purpose)
+        {
+          const TH = M.Tune.handle, st = this._stayTw || (this._stayTw = [0, 0]), vd = vb.dr;
+          const mvT = vd && vd.move && vd.moveStarted ? vd.move.type : null, fq = vd && vd.fl && vd.plan && vd.fl.serial === vd.plan.serial ? vd.fl.q : null;
+          let goal = 0;
+          if (mvT !== 'btb' && mvT !== 'btl' && vd && vd.actor === this && d.ph === 'up' && fq) {
+            const so = (hand ? RG.J.R_SH : RG.J.L_SH) * 3, P = sk.P, c = Math.cos(this.facing), s = Math.sin(this.facing);
+            // (only for a catch well behind the shoulder, Tune.handle.stayBehindFt: a control dribble keeps it back and in on
+            // purpose, a few inches behind, and there the twist put the push at the end of the arm's reach)
+            const behind = -((fq[0] - P[so]) * c + (fq[1] - P[so + 1]) * s) - TH.stayBehindFt;
+            if (behind > 0) goal = Math.min(TH.stayTwistDeg, TH.stayTwistPerFt * behind) * D;
+          }
+          // (held through the push and its follow-through: turning back under an arm pushing the ball down at the end of its
+          // reach, a retreat's elbow snapped straight; it eases out as the hand brings the ball up and forward)
+          if (d.ph === 'push' || d.ph === 'down') goal = st[0];
+          if (dtI > 0 && dtI < 0.12) { const w = 2 * Math.PI * TH.stayHz; st[1] += (w * w * (goal - st[0]) - 2 * w * st[1]) * dtI; st[0] += st[1] * dtI; }
+          else if (!(dtI >= 0) || dtI >= 0.12) { st[0] = goal; st[1] = 0; }
+          const tw = (hand ? -1 : 1) * st[0] * wAll;
+          pp[CH.chTwist] += 0.6 * tw; pp[CH.spTwist] += 0.4 * tw;
+        }
         // an in and out's fake: shoulders and head toward the other hand as if crossing over (Trial 8)
         if (d.fake) {
           const fk = d.fake * wAll * M.Tune.handle.inoutFakeDeg * D, sg = hand ? 1 : -1;
