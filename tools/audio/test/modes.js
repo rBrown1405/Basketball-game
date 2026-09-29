@@ -3,7 +3,9 @@
 // off): the retro court and play-by-play only (the court's audio listens to the broadcast court: neither makes court
 // sounds, and neither may make an error), every shot's result still heard (from the retro court's own ball, with the
 // text in text mode), and the broadcast court with instant replays (no court sound while a replay runs, the court's
-// sounds again after it).
+// sounds again after it). Whether a replay was running is taken as each court sound is decided (its bus event), not
+// from the replay's span sampled every 50 ms: a sound in the first live frame after a replay fell inside the span's
+// 50 ms margin and was counted as in it.
 //   node tools/audio/test/modes.js [--seed 21] [--secs 70] [--speed 2] [--out audit/audio2]
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -28,9 +30,12 @@ const MODES = [
     await page.mouse.click(400, 400);
     await page.evaluate(() => {
       PBC.AudioDebug.traceStart({ anim: false });
-      // whether a replay is on the screen, on the audio clock, every 50 ms
+      // whether a replay is on the screen, on the audio clock, every 50 ms (its span, for the report)
       window.__rp = [];
       setInterval(() => { const LG = PBC.UI._liveDebug.state(), v = LG && LG.view; if (LG && LG.mx) window.__rp.push([LG.mx.now(), !!(v && v.replay)]); }, 50);
+      // and at each court sound as it is decided: was a replay running?
+      window.__crp = [];
+      PBC.AudioBus.on('court.*', (ev) => { const LG = PBC.UI._liveDebug.state(), v = LG && LG.view; window.__crp.push([ev.at, ev.type, !!(v && v.replay)]); });
     });
     await page.waitForTimeout(o.secs * 1000);
     const r = await page.evaluate(() => {
@@ -41,7 +46,7 @@ const MODES = [
       const spans = []; let cur = null;
       for (const [t, on] of window.__rp) { if (on && !cur) cur = [t, t]; else if (on) cur[1] = t; else if (cur) { spans.push(cur); cur = null; } }
       if (cur) spans.push(cur);
-      const inReplay = court.filter((e) => spans.some(([a, b]) => e.at >= a && e.at <= b + 0.05));
+      const inReplay = window.__crp.filter((x) => x[2]).map(([at, type]) => ({ at, type }));
       const after = spans.length ? court.filter((e) => e.at > spans[spans.length - 1][1] + 0.05).length : 0;
       const kinds = {}; for (const e of court) kinds[e.type.slice(6)] = (kinds[e.type.slice(6)] || 0) + 1;
       return { view: LG && LG.view ? LG.view.constructor.name : 'none (text)', court: court.length, kinds, results, spans: spans.map(([a, b]) => [+a.toFixed(2), +b.toFixed(2)]), inReplay: inReplay.map((e) => e.type + ' at ' + e.at.toFixed(2)), after, played: LG && LG.mx ? LG.mx.stats().played : 0, poss: LG && LG.g ? LG.g.possN : null };

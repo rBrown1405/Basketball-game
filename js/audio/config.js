@@ -101,6 +101,22 @@
       bedFollow: 2,              // how fast the bed follows its target (1/s)
       bedTc: 0.25,               // the bed layers' gain time constant (s)
       bedWobble: [0.12, 0.08],   // slow random-looking level movement of each layer
+      // the recorded bed (assets/audio/crowd: fans at a game, looped by tools/audio/cut.js): a murmur always under the
+      // game and a cheering crowd that comes in as the crowd's level climbs (the stakes, a close game late, a run).
+      // Each loop plays twice, half a loop apart, panned apart (the recording is mono): a wide crowd, one loop long
+      // before it comes round. loopS and rollS are the file's own (assets/audio/crowd/cuts.json). While it plays the
+      // synthesized bed stays under it at synthWithRec; until the pack is ready (or with none) the synthesized bed is
+      // the bed, as before.
+      rec: {
+        use: true,                 // false: the synthesized bed only (for comparing)
+        murmur: { name: 'bed.murmur', loopS: 20, rollS: 0.25, level: 0.56 },
+        cheer: { name: 'bed.cheer', loopS: 22, rollS: 0.25, level: 0.56 },
+        cheerFrom: 0.25, cheerFull: 0.6,   // the cheer's share: none at this crowd level, all of it from this one
+        murmurUnder: 0.5,          // the murmur under a full cheer (x its level)
+        pan: 0.7,                  // the two copies of a loop panned this far apart
+        fadeIn: 2,                 // s: the recording comes in (and the synthesized bed makes way) over this long
+        synthWithRec: 0.35,        // the synthesized bed's share of its level while the recording plays
+      },
       exciteMax: 1.4, exciteDecay: 0.35,   // excitement (0..max) and how fast it fades (per s)
       exciteHomeScore: 0.25, exciteHomeBig: 0.5, exciteHomeBlock: 0.35, exciteFinalWin: 1.4,
       levelStakes: 0.35,         // a reaction's size grows with playoff stakes: x (0.8 + stakes x this)
@@ -221,10 +237,31 @@
       },
       buzzer: { z: 13.3 },
       hornFinalS: 4,             // a game-end horn this soon after the period horn is the same horn
-      // sounds a pack can hold instead of the synthesized ones (assets/audio/court/<name>_01.ogg ...)
-      takes: 12,                 // how many synthesized takes each sound has (fixed per sound, like recorded takes)
+      // sounds a pack can hold instead of the synthesized ones (assets/audio/court/<name>_01.wav ...)
+      takes: 12,                 // how many takes each sound has (fixed per sound: synthesized, or from its recordings)
       noRepeat: 9,               // a take is not played again until this many others have (a shuffled round robin)
       jitter: { pitch: 0.025, gainDb: 1.5 },   // every hit: a little change of pitch and level on top of its take
+      // the recordings (assets/audio/court, licenses in its LICENSES.md) and how each plays: from (another sound's
+      // recordings, when it has none of its own), gain (its level against the synthesized sound's), curve (level x
+      // hit ^ curve: the physics), pitch and lp (a lowpass, Hz) for good. Take i of a sound with n recordings is
+      // recording i % n changed by variant floor(i / n): [pitch x, high shelf dB at shelfHz]
+      rec: {
+        use: true,               // false: the synthesized sounds only (for comparing)
+        // (each gain puts the recording where the synthesized sound was, same physics: equal loudness, BS.1770's
+        // K weighting over 0.4 s from the hit, averaged over 24 hits; the curves follow the models' own, ~1)
+        dribble: { gain: 0.6, curve: 1 },
+        bounce: { from: 'dribble', gain: 0.68, curve: 1 },
+        swish: { gain: 0.28, curve: 1 },
+        net: { from: 'swish', gain: 0.14, curve: 1, pitch: 0.94, lp: 4200 },  // off the rim: softer, slower, duller
+        board: { gain: 0.38, curve: 1 },
+        pass: { gain: 0.085, curve: 1.3 },   // a slow pass only a breath (the synthesized one has no whoosh below 34 ft/s)
+        variants: [[1, 0], [0.955, -2], [1.05, 1.5], [0.925, -3], [1.075, 2], [0.97, 1], [1.03, -1.5], [0.94, 0.5], [1.06, -0.5], [0.985, -3], [1.015, 2.5], [0.96, 3]],
+        shelfHz: 2500,
+        tightCut: [0.12, 0.05],  // a dribble's tail cut this soon after the hit (s), open .. tight
+        tightDb: [1.75, -1.75],  // and its level (dB), open .. tight: the model's high dribble rings longer and louder
+        deadLpHz: 900,           // a dead spot dulls the ball: its ring and slap under a lowpass (a recording has no ring or thump to change)
+        clickShelf: 1,           // the floor's slap (brighter paint, soft courtside) as a high shelf, dB per dB of it
+      },
     },
     // the models the court's sounds are made from (js/audio/courtsynth.js): frequencies in Hz, times in s, levels
     // linear. Each take draws its own share of every random range once (fixed), each hit adds the jitter above.

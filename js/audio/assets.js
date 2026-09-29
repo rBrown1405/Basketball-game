@@ -5,8 +5,9 @@
  * index.html (a file:// page, where fetch and XMLHttpRequest are blocked) loads them the way it loads the 3D body
  * data. js/audio/packs/index.js lists the packs that exist.
  * A pack loads the first time a live game's audio starts; a file's sound name is its name without the take number
- * (rim_01.wav and rim_02.wav are two takes of "rim"), and get() never hands out the same take twice in a row. Until a
- * pack has loaded and decoded, or when it has no such sound, get() returns null and the synthesized sound plays. */
+ * (rim_01.wav and rim_02.wav are two takes of "rim"), its takes in the order of their file names; get() never hands
+ * out the same take twice in a row, takes() hands out all of them (the court's sounds pick their own). Until a pack
+ * has loaded and decoded, or when it has no such sound, both return null and the synthesized sound plays. */
 (function () {
   'use strict';
   const PBC = window.PBC = window.PBC || {};
@@ -19,6 +20,7 @@
     const p = packs[folder] || (packs[folder] = { state: 'loading', sounds: {}, last: {} });
     p.files = (data && data.files) || {};
     p.license = data && data.license;
+    p.nonCommercial = (data && data.nonCommercial) || [];   // (files not for any commercial purpose: see the license)
     p.state = 'loaded';
     if (p.onload) p.onload();
   };
@@ -30,12 +32,17 @@
     return u.buffer;
   }
   function decode(ctx, p) {
-    const jobs = Object.keys(p.files).map((f) => new Promise((res) => {
+    // (decoded in parallel, kept in file-name order: take 3 is always the same recording)
+    const files = Object.keys(p.files).sort(), bufs = new Array(files.length);
+    const jobs = files.map((f, i) => new Promise((res) => {
       let ab;
       try { ab = b64ToBuffer(p.files[f]); } catch (e) { res(); return; }
-      ctx.decodeAudioData(ab, (buf) => { const n = nameOf(f); (p.sounds[n] || (p.sounds[n] = [])).push(buf); res(); }, () => { console.warn('audio pack: cannot decode ' + f); res(); });
+      ctx.decodeAudioData(ab, (buf) => { bufs[i] = buf; res(); }, () => { console.warn('audio pack: cannot decode ' + f); res(); });
     }));
-    return Promise.all(jobs).then(() => { p.state = 'ready'; p.files = null; });
+    return Promise.all(jobs).then(() => {
+      files.forEach((f, i) => { if (bufs[i]) { const n = nameOf(f); (p.sounds[n] || (p.sounds[n] = [])).push(bufs[i]); } });
+      p.state = 'ready'; p.files = null;
+    });
   }
 
   const Assets = {
@@ -74,10 +81,15 @@
       p.last[name] = i;
       return takes[i];
     },
+    /** every take of this sound, in file-name order, or null */
+    takes(folder, name) {
+      const p = packs[folder];
+      return p && p.state === 'ready' && p.sounds[name] && p.sounds[name].length ? p.sounds[name] : null;
+    },
     has(folder, name) { const p = packs[folder]; return !!(p && p.state === 'ready' && p.sounds[name] && p.sounds[name].length); },
     status() {
       const o = {};
-      for (const f of Object.keys(packs)) { const p = packs[f]; o[f] = { state: p.state, sounds: Object.keys(p.sounds).map((n) => n + ' x' + p.sounds[n].length) }; }
+      for (const f of Object.keys(packs)) { const p = packs[f]; o[f] = { state: p.state, sounds: Object.keys(p.sounds).map((n) => n + ' x' + p.sounds[n].length), nonCommercial: p.nonCommercial || [] }; }
       return o;
     },
   };

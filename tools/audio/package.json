@@ -1,0 +1,8 @@
+{
+  "name": "pbc-audio-tools",
+  "private": true,
+  "description": "Build-time tools for the game's sound packs (tools/audio/cut.js encodes long loops as MP3). The game itself needs none of this.",
+  "devDependencies": {
+    "@breezystack/lamejs": "1.2.7"
+  }
+}
