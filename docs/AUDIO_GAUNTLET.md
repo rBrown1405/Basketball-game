@@ -740,9 +740,11 @@ Everything Trial 1 proved, rerun on the final code, merged with the animation se
 - **Trial 1's list for Trial 2** is done: the squeaks come from the feet (no `timer.squeak` anywhere in the logs), the
   block sounds at the blocker's hand and its deflection makes no floor sound.
 - **The animation branch's court is untouched**: this trial changed `js/audio/`, `js/ui/arenaaudio.js`, the hookup
-  lines in `js/ui/live.js` and two script tags in `index.html`, nothing else; the animation gauntlet's own checks
-  (`tools/audit/check.js`): 116 of 116, on the code merged with the animation session's latest work (its Trial 10
-  commits).
+  lines in `js/ui/live.js` and two script tags in `index.html`, nothing else. The animation session kept pushing to
+  this branch while these tests ran; the results above are on the code merged with its Trial 10 commits up to
+  fe46b85, and after merging its two later ones (9502760, 9684b47) the court listen test (119 of 119 dribbles within
+  a frame, 32 squeaks a minute, no errors) and the events test (15 of 15) passed again, as did the animation
+  gauntlet's own checks (`tools/audit/check.js`: 127 of 127, its new ones included).
 - **Other ways to watch**: `modes.js` (seed 21 at 2x, 70 s each, the arena's sound on): the retro court and
   play-by-play only make no court sounds and no errors, and every shot's result is still heard (the retro court's 13
   from its own ball, text mode's 8 with the text); on the broadcast court an instant replay (52 to 60 s) had no court
