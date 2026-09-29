@@ -52,6 +52,16 @@
   };
   const CONTEST_LOGIT = { rim: [0.3, 0, -0.34], paint: [0.3, 0, -0.34], mid: [0.3, 0, -0.36], c3: [0.34, 0, -0.44], ab3: [0.34, 0, -0.44] };
   const SKILL_K = { rim: 0.2, paint: 0.17, mid: 0.16, c3: 0.16, ab3: 0.16 };
+  // Openness: a look is open only when the shooter earned it against the man guarding him. How each kind of look is
+  // created: beating him off the dribble (handle, burst, change of direction), getting open without the ball
+  // (moving, reading the defense, a passer who finds him), sealing or out-muscling him inside. Ratings are taken
+  // as distances from the league average (league means of the generated players) so an average matchup changes
+  // nothing and the league's open / contested / tight mix stays where it was.
+  const R_AVG = { handle: 59, speed: 68, agility: 64, shotIQ: 65, perD: 59, helpD: 62.5, intD: 54, strength: 61, post: 46, vision: 60, pass: 60 };
+  const dv = (c, k) => ((c && c.r && c.r[k]) != null ? c.r[k] : R_AVG[k]) - R_AVG[k];
+  const OPEN_K = 0.07;       // contest shift per rating-SD of edge (≈ ±20 % open looks, ∓20 % tight ones per SD)
+  // the average edge of each kind over a league season (subtracted, so only a real mismatch moves the needle)
+  const OPEN_MEAN = { dribble: 0.49, catch: 0.18, inside: -0.56, drive: 0.11 };
   const DEF_K = { rim: 0.1, paint: 0.1, mid: 0.07, c3: 0.07, ab3: 0.07 };
   const KIND_LOGIT = { dunk: 1.45, alley: 1.05, layup: 0, reverse: -0.12, tip: -0.35, floater: -0.05, hook: 0.02, jumper: 0.03, pullup: -0.05, stepback: -0.1, fadeaway: -0.12, catch_shoot: 0.05, heave: -4 };
   const BLOCK_BASE = { rim: 0.085, paint: 0.07, mid: 0.022, c3: 0.01, ab3: 0.012 };
@@ -1072,7 +1082,7 @@
       cKey = gim.contestKey || 'iso';
       passKind = assister ? (z === 'rim' ? 'bounce' : 'kick') : null;
       branch = 'gim';
-      return { branch, shooter, assister, zone: z, kind: gim.kind || chooseKind(ctx, z, hint, shooter, false), cKey, passKind };
+      return { branch, shooter, assister, zone: z, kind: gim.kind || chooseKind(ctx, z, hint, shooter, false), cKey, passKind, hint };
     }
     switch (info.play) {
       case 'pnr':
@@ -1126,12 +1136,21 @@
       base = { ab3: 75, c3: 25 }; hint = assister ? 'catch' : 'offDribble'; cKey = assister ? 'kick' : 'pnr_handler';
       if (assister === shooter) assister = null;
     }
-    const zone = mode === 'lastShot' && ctx.heave ? 'ab3' : chooseZone(ctx, shooter, base, hint);
+    let zb = base;
+    if ((hint === 'iso' || hint === 'offDribble') && !force3 && mode !== 'lastShot') {
+      // off the dribble a handler who can beat his man gets to the basket (and one who can't settles for jumpers)
+      const e = openEdge(ctx, { hint, kind: 'pullup' }, shooter, matchupDefender(ctx.D, shooter)) - OPEN_MEAN.drive;
+      if (Sim.edgeLog) Sim.edgeLog.push(['drive', e + OPEN_MEAN.drive]);
+      zb = Object.assign({}, base);
+      if (zb.rim) zb.rim *= Math.exp(U.clamp(e, -2, 2) * 0.16);
+      if (zb.paint) zb.paint *= Math.exp(U.clamp(e, -2, 2) * 0.06);
+    }
+    const zone = mode === 'lastShot' && ctx.heave ? 'ab3' : chooseZone(ctx, shooter, zb, hint);
     let kind = chooseKind(ctx, zone, hint, shooter, lob);
     if (zone === 'rim' && kind !== 'alley' && lob) lob = false;
     if (kind === 'alley' && !assister) kind = 'dunk';
     if (mode === 'lastShot') cKey = 'lastShot';
-    return { branch, shooter, assister, zone, kind, cKey, passKind, lob };
+    return { branch, shooter, assister, zone, kind, cKey, passKind, lob, hint };
   }
 
   // ---- narrative events before the shot (for the live view) ----
@@ -1225,7 +1244,38 @@
   }
 
   // ---- shot resolution ----
-  function contestLevel(ctx, cKey, plan) {
+  /** how the look was created: 'dribble' (off the bounce), 'catch' (without the ball), 'inside' (post, roll, cut) */
+  function lookKind(plan) {
+    const h = plan.hint;
+    if (h === 'iso' || h === 'offDribble' || h === 'transition') return 'dribble';
+    if (h === 'catch') return 'catch';
+    return 'inside';
+  }
+  /**
+   * The shooter's edge over his defender, in rating standard deviations (~12 points), + = he gets himself open.
+   * Beating a man off the dribble takes handle, burst and shiftiness against the defender's on-ball defense and
+   * feet; a step-back or fadeaway makes its own space. Off the ball it is movement and feel (and the passer's eyes)
+   * against the defender's awareness and help. Inside it is strength and post craft against interior defense.
+   */
+  function openEdge(ctx, plan, sh, d) {
+    const k = lookKind(plan);
+    let off, def;
+    if (k === 'dribble') {
+      off = dv(sh, 'handle') * 0.4 + dv(sh, 'speed') * 0.25 + dv(sh, 'agility') * 0.2 + dv(sh, 'shotIQ') * 0.15;
+      def = dv(d, 'perD') * 0.6 + dv(d, 'agility') * 0.25 + dv(d, 'speed') * 0.15;
+      if (plan.kind === 'stepback' || plan.kind === 'fadeaway') off += 4 + dv(sh, 'handle') * 0.15;
+    } else if (k === 'catch') {
+      const ps = plan.assister;
+      off = dv(sh, 'shotIQ') * 0.45 + dv(sh, 'speed') * 0.25 + dv(sh, 'agility') * 0.1 + (ps ? dv(ps, 'vision') * 0.2 : dv(sh, 'shotIQ') * 0.2);
+      def = dv(d, 'helpD') * 0.5 + dv(d, 'perD') * 0.3 + dv(d, 'speed') * 0.2;
+    } else {
+      off = dv(sh, 'strength') * 0.4 + dv(sh, 'post') * 0.25 + dv(sh, 'speed') * 0.2 + dv(sh, 'shotIQ') * 0.15;
+      def = dv(d, 'intD') * 0.5 + dv(d, 'strength') * 0.35 + dv(d, 'helpD') * 0.15;
+    }
+    return U.clamp((off - def) / 12, -2.5, 2.5);
+  }
+
+  function contestLevel(ctx, cKey, plan, sh, d) {
     const O = ctx.O, D = ctx.D;
     const w = (CONTEST[cKey] || CONTEST.iso).slice();
     let open = (C.OFFENSES[O.strat.off].mods.open || 0) + (C.DEFENSES[D.strat.def].mods.open || 0) + C.PRESSURE[D.strat.pressure].open;
@@ -1235,6 +1285,13 @@
     // defensive intensity slider, playoff effort, gamblers getting beaten
     const g = ctx.g;
     open += -g.sl.contest - 0.035 * Math.min(1.5, g.intensity) + 0.03 * avgDev(D, 'gamble');
+    // the man guarding him: open looks come from beating him, not from the defense wandering off
+    if (sh && d && cKey !== 'lastShot') {
+      const e = openEdge(ctx, plan, sh, d);
+      plan.edge = e;
+      if (Sim.edgeLog) Sim.edgeLog.push([lookKind(plan), e]);
+      open += (e - OPEN_MEAN[lookKind(plan)]) * OPEN_K;
+    }
     w[0] *= 1 + open * 3; w[2] *= 1 - open * 3;
     const i = U.pickW([0, 1, 2], w.map(x => Math.max(0.5, x)));
     return ['open', 'contested', 'tight'][i];
@@ -1281,6 +1338,8 @@
     x -= (dSkill - 64) / 10 * DEF_K[zone];
     if (zone === 'rim' || zone === 'paint') x -= (avgOn(D, 'helpD') - 64) / 10 * 0.07;
     x += CONTEST_LOGIT[zone][['open', 'contested', 'tight'].indexOf(contest)];
+    // tough-shot makers: a smart, skilled scorer loses less to a hand in his face (and a poor one more)
+    if (contest === 'tight') x += U.clamp((r.shotIQ - 65) / 10 * 0.04 + (skill - 70) / 10 * 0.03, -0.12, 0.14);
     x += KIND_LOGIT[kind] || 0;
     if (ctx.transition && ctx.segN <= 1 && zone === 'rim') x += 0.12;
     const scLeft = ctx.scStart + ctx.scLen - ctx.t;
@@ -1354,8 +1413,8 @@
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play; ctx.P.setName = info.setName || ''; }
     if (!forcePlan) playEvents(ctx, info, plan, tShot);
     ctx.t = tShot;
-    const contest = kind === 'heave' ? 'tight' : contestLevel(ctx, plan.cKey, plan);
     const d = shotDefender(ctx, sh, zone);
+    const contest = kind === 'heave' ? 'tight' : contestLevel(ctx, plan.cKey, plan, sh, d);
     const loc = locFor(ctx, zone, kind);
     if (kind === 'heave') {
       const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
@@ -1366,6 +1425,8 @@
       type: 'shot', t: U.round(ctx.t, 2), team: O.idx, shooter: sh.id, pts, zone, kind, x: loc.x, y: loc.y, dist: loc.d,
       contest, defender: d.id, assist: plan.assister ? plan.assister.id : null, made: undefined, blocked: false, blocker: null,
       fouled: false, fouler: null, andOne: false, pending: false,
+      // how he got the look (for the live view and the broadcast): beat his man, got open, or a tough shot over him
+      created: contest === 'open' ? (lookKind(plan) === 'dribble' ? 'beat' : lookKind(plan) === 'catch' ? 'open' : 'inside') : contest === 'tight' ? 'tough' : null,
     };
     const pending = { plan, sh, d, zone, kind, contest, info, pts, loc };
     if (ctx.P.gim && !ctx.gimShotDone) {
