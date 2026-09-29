@@ -62,6 +62,18 @@
     [J.L_WR, J.L_HD, 'hand', 'L hand'], [J.R_WR, J.R_HD, 'hand', 'R hand'],
   ];
   const HB = { depth: 0, seg: '' };
+  const PT3 = new Float64Array(3);
+  /** how deep a ball is inside a body's hands and forearms (the catch, Trial 10); forearms only: noHands */
+  function ballInArms(a, x, y, z, r, rad, noHands) {
+    const P = a.sk.P, H = a.H;
+    let d = 0;
+    for (let i = BODY_SEGS.length - 4; i < BODY_SEGS.length; i++) {
+      const sg = BODY_SEGS[i];
+      if (noHands && sg[2] === 'hand') continue;
+      d = Math.max(d, r + rad[sg[2]] * H - segDist(P, sg[0], sg[1], x, y, z));
+    }
+    return d;
+  }
   /** how deep a ball (centre x, y, z, radius r) is inside a body's capsules; skip: 1 the left hand, 2 the right, 3 both */
   function ballInBody(a, x, y, z, r, rad, skip) {
     const P = a.sk.P, H = a.H;
@@ -158,6 +170,8 @@
           interval: { still: [], moving: [], open: [], pressed: [] }, topIn: { open: [], pressed: [], moving: [] },
           drib: 0, eyeOn: 0, eyeDownDeg: [], press: 0, offUp: 0,
           air: { frames: 0, jolts: 0, worst: 0, worstAt: '', by: {}, p: [] } },
+        // the pass and the catch (Trial 10), see _pass
+        ps: { recs: [], cur: null, hb: [], prevSt: null, prevHolder: null, pg: null },
       };
     }
     tracker(a) {
@@ -205,6 +219,7 @@
       }
       this._pairs(list);
       this._handle(list, ball, s.time || 0);
+      this._pass(ball, s.time || 0, dt);
       for (const a of list) { const t = this.tr.get(a); if (t) t.ballState = ball ? ball.state : null; }
     }
     /** the handle (Trial 8), once a frame: the ball through anyone's body or the floor, and the dribbler's hand on the
@@ -332,6 +347,94 @@
           if (P[oj + 2] > 0.45 * a.H && toD > 0.3) HD.offUp++;
         }
       }
+    }
+    /** the pass and the catch (Trial 10), once a frame: each pass from its release to the catch and 0.3 s after. How long
+     *  before the ball got there the receiver's hands were set where they caught it (about the body) and the eyes were on
+     *  it; the palms' gap to the ball at the catch; the ball in his hands or forearms; how hard it stopped (a catch absorbs
+     *  it, a teleport stops it dead in a frame); how far the flight was bent off its own ballistic path (steered at him);
+     *  the passer's hands on the ball through the throw and the ball's jolt as it left them */
+    _pass(ball, time, dt) {
+      if (!ball) return;
+      const S = this.S, P = S.ps, Tn = TU(), R = M.Ball.R;
+      const st = ball.state;
+      const hb = P.hb;
+      hb.push({ t: time, x: ball.x, y: ball.y, z: ball.z, st });
+      if (hb.length > 3) hb.shift();
+      const acc3 = () => {
+        if (hb.length < 3) return null;
+        const d1 = hb[1].t - hb[0].t, d2 = hb[2].t - hb[1].t;
+        if (!(d1 > 1e-6 && d2 > 1e-6)) return null;
+        const ax = 2 * ((hb[2].x - hb[1].x) / d2 - (hb[1].x - hb[0].x) / d1) / (d1 + d2), ay = 2 * ((hb[2].y - hb[1].y) / d2 - (hb[1].y - hb[0].y) / d1) / (d1 + d2), az = 2 * ((hb[2].z - hb[1].z) / d2 - (hb[1].z - hb[0].z) / d1) / (d1 + d2);
+        return Math.hypot(ax, ay, az);
+      };
+      // the holder's hands on the ball through a throw (the hand meter's pass gap, the largest either way since he last got it)
+      const h0 = ball.holder;
+      if (st === 'held' && h0) {
+        const t = this.tr.get(h0);
+        if (!P.pg || P.pg.who !== h0) P.pg = { who: h0, max: 0, n: 0 };
+        if (t && t.gapKind === 'pass' && t.gap != null) { P.pg.max = Math.max(P.pg.max, Math.abs(t.gap)); P.pg.n++; }
+      }
+      let cur = P.cur;
+      // a pass leaves the hands: in flight to a receiver, a moment ago in someone else's
+      // (a pass: not a shot or a block, whose rebounder the ball's passTarget also names)
+      if (!cur && st === 'flight' && ball.passTarget && ball.isPass !== false && P.prevSt && P.prevSt !== 'flight' && P.prevHolder && P.prevHolder !== ball.passTarget) {
+        const g = P.pg && P.pg.who === P.prevHolder && P.pg.n ? P.pg.max : null;
+        cur = P.cur = { from: P.prevHolder, to: ball.passTarget, t0: time, tEnd: ball.flightEnd ? ball.flightEnd() : null, kind: ball.passKind || '',
+          fr: [], bent: 0, thru: 0, thruWorst: 0, passGapIn: g, releaseFtps2: acc3(), tc: null, stop: 0, thruAfter: 0 };
+      }
+      if (cur) {
+        const a = cur.to, Pa = a.sk && a.sk.P;
+        // (the palms about the body's centre in the world's axes: hands held still out toward the ball are set while the body
+        // turns under them, a runner opening up to it; hands swinging, or reaching for it late, are not)
+        const palm = (j) => [Pa[j * 3] - a.x, Pa[j * 3 + 1] - a.y, Pa[j * 3 + 2]];
+        if (cur.tc == null && st === 'flight' && ball.passTarget === a) {
+          // the flight against its own ballistic path
+          const sg = ball.segs && ball.segs[ball.segI];
+          if (sg && ball._segPos) { const q = ball._segPos(sg, ball.time, PT3); cur.bent = Math.max(cur.bent, Math.hypot(ball.x - q[0], ball.y - q[1], ball.z - Math.max(R * 0.85, q[2])) * IN); }
+          if (Pa) {
+            // his palms in his own frame, his face on the ball, and the ball in his hands or forearms
+            const Rm = a.sk.R, hj = J.HC * 3, fx = Rm[37], fy = Rm[40], fz = Rm[43];
+            const bx = ball.x - Pa[hj], by = ball.y - Pa[hj + 1], bz = ball.z - Pa[hj + 2], bl = Math.hypot(bx, by, bz) || 1, fl = Math.hypot(fx, fy, fz) || 1;
+            const eye = Math.acos(U.clamp((fx * bx + fy * by + fz * bz) / (bl * fl), -1, 1)) / U.DEG;
+            cur.fr.push({ t: time, l: palm(J.L_HD), r: palm(J.R_HD), eye });
+            const pen = ballInArms(a, ball.x, ball.y, ball.z, R, Tn.bodyR);
+            if (pen * IN > Tn.ballBodyTolIn) { cur.thru++; cur.thruWorst = Math.max(cur.thruWorst, pen * IN); }
+          }
+        } else if (cur.tc == null) {
+          if ((st === 'held' || st === 'dribble') && ball.holder === a && Pa) {
+            // the catch: where his palms are now against where they were, and the ball against them
+            cur.tc = time;
+            const lc = palm(J.L_HD), rc = palm(J.R_HD), set = Tn.passSetFt;
+            let tSet = time, tEye = time;
+            for (let i = cur.fr.length - 1; i >= 0; i--) {
+              const f = cur.fr[i];
+              if (Math.hypot(f.l[0] - lc[0], f.l[1] - lc[1], f.l[2] - lc[2]) > set || Math.hypot(f.r[0] - rc[0], f.r[1] - rc[1], f.r[2] - rc[2]) > set) break;
+              tSet = f.t;
+            }
+            for (let i = cur.fr.length - 1; i >= 0; i--) { const f = cur.fr[i]; if (f.eye > Tn.passEyeDeg) break; tEye = f.t; }
+            cur.setS = time - tSet; cur.eyeS = time - tEye;
+            const pal = Tn.palmOffsetH * a.H, gp = (j) => (Math.hypot(Pa[j * 3] - ball.x, Pa[j * 3 + 1] - ball.y, Pa[j * 3 + 2] - ball.z) - R - pal) * IN;
+            const gl = gp(J.L_HD), gr = gp(J.R_HD);
+            cur.gapNearIn = Math.min(Math.abs(gl), Math.abs(gr)); cur.gapFarIn = Math.max(Math.abs(gl), Math.abs(gr));
+            cur.fr = null;
+          } else { this._passEnd(cur, false); P.cur = null; cur = null; }
+        }
+        if (cur && cur.tc != null) {
+          // after the catch: how hard the ball stops, and the ball in his forearms while he pulls it in
+          const ac = acc3();
+          if (ac != null && time - cur.tc <= 2 * dt + 1e-6) cur.stop = Math.max(cur.stop, ac);
+          if (Pa && ball.holder === a) { const pen = ballInArms(a, ball.x, ball.y, ball.z, R, Tn.bodyR, true); if (pen * IN > Tn.ballBodyTolIn) { cur.thruAfter++; cur.afterWorst = Math.max(cur.afterWorst || 0, pen * IN); } }
+          if (time - cur.tc >= Tn.passAfterS - 1e-6 || ball.holder !== a) { this._passEnd(cur, true); P.cur = null; }
+        }
+      }
+      P.prevSt = st; P.prevHolder = ball.holder;
+    }
+    _passEnd(cur, caught) {
+      const rec = { caught, kind: cur.kind, t0: +cur.t0.toFixed(3), flightS: cur.tEnd != null ? +(cur.tEnd - cur.t0).toFixed(3) : null, bentIn: +cur.bent.toFixed(2),
+        thruFrames: cur.thru, thruWorstIn: +cur.thruWorst.toFixed(2), passGapIn: cur.passGapIn == null ? null : +cur.passGapIn.toFixed(2),
+        releaseFtps2: cur.releaseFtps2 == null ? null : Math.round(cur.releaseFtps2), from: cur.from && cur.from.id, to: cur.to && cur.to.id };
+      if (caught) Object.assign(rec, { setS: +cur.setS.toFixed(3), eyeS: +cur.eyeS.toFixed(3), gapNearIn: +cur.gapNearIn.toFixed(2), gapFarIn: +cur.gapFarIn.toFixed(2), stopFtps2: Math.round(cur.stop), thruAfterFrames: cur.thruAfter, thruAfterWorstIn: +(cur.afterWorst || 0).toFixed(2) });
+      this.S.ps.recs.push(rec);
     }
     _hdEnd(h) {
       const HD = this.S.hd;
@@ -816,6 +919,26 @@
       b.hs += hs; b.hss += hs * hs;
       b.elb += (q[CH.lElF] + q[CH.rElF]) * 0.5;
     }
+    /** the Trial 10 pass and catch scorecard (see _pass) */
+    passSummary() {
+      const Tn = TU(), R = this.S.ps.recs, C = R.filter(r => r.caught);
+      const col = (L, k) => L.map(r => r[k]).filter(v => v != null);
+      const byKind = {};
+      for (const r of R) { const k = r.kind || '?'; byKind[k] = (byKind[k] || 0) + 1; }
+      return {
+        passes: R.length, caught: C.length, byKind,
+        // (how long before the ball got there his hands were set where he caught it, and his eyes on it; 0 or less: late)
+        handsSetS: summ(col(C, 'setS'), 3), handsLate: C.filter(r => r.setS <= 1e-6).length,
+        eyesOnS: summ(col(C, 'eyeS'), 3), eyesLate: C.filter(r => r.eyeS <= 1e-6).length,
+        gapNearIn: summ(col(C, 'gapNearIn'), 2), gapFarIn: summ(col(C, 'gapFarIn'), 2), gapOff: C.filter(r => r.gapFarIn > Tn.handleGapIn).length,
+        thruHandsFrames: R.reduce((p, r) => p + r.thruFrames, 0), thruHandsPasses: R.filter(r => r.thruFrames > 0).length, thruWorstIn: +Math.max(0, ...col(R, 'thruWorstIn')).toFixed(2),
+        thruForearmsAfterFrames: C.reduce((p, r) => p + (r.thruAfterFrames || 0), 0),
+        stopFtps2: summ(col(C, 'stopFtps2'), 0), stoppedDead: C.filter(r => r.stopFtps2 > Tn.passStopFtps2).length,
+        bentIn: summ(col(R, 'bentIn'), 2), bent: R.filter(r => r.bentIn > Tn.passBentIn).length,
+        passerGapIn: summ(col(R, 'passGapIn'), 2), passerOff: R.filter(r => r.passGapIn != null && r.passGapIn > Tn.handleGapIn).length,
+        releaseFtps2: summ(col(R, 'releaseFtps2'), 0), releaseJolts: R.filter(r => r.releaseFtps2 != null && r.releaseFtps2 > Tn.passStopFtps2).length,
+      };
+    }
     /** the Trial 8 handle scorecard */
     handleSummary() {
       const HD = this.S.hd, Tn = TU(), top = (o, n) => Object.entries(o).sort((p, q) => q[1] - p[1]).slice(0, n || 10);
@@ -959,6 +1082,7 @@
         weight: this.weightSummary(),
         gait: this.gaitSummary(),
         handle: this.handleSummary(),
+        pass: this.passSummary(),
       };
     }
     /** the Trial 2 body scorecard */

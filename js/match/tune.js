@@ -101,6 +101,12 @@
       handleEyeDeg: 20,             // a dribbler whose face points within this of the ball is looking at it (deg)
       airJoltFtps2: 150,            // a dribbled ball in the air speeding up across the floor more than this was shoved (ft/s^2;
                                     // a 0.5 in step in one frame's motion at 60 fps)
+      // the pass and the catch (Trial 10): a receiver's hands are set once both palms are within passSetFt of where they
+      // catch the ball (about the body's centre, in the world's axes) and stay there, the eyes on it within passEyeDeg; a
+      // flight is bent when the
+      // ball is more than passBentIn off its own ballistic path; the ball stops dead at a catch (a teleport, no absorb) when
+      // it slows faster than passStopFtps2 in a frame, and a catch is watched this long after (passAfterS)
+      passSetFt: 0.5, passEyeDeg: 30, passBentIn: 1, passStopFtps2: 1500, passAfterS: 0.3,
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -198,6 +204,64 @@
       softRad: 0.25,                // eased into that end over its last ~14 deg
       leadS: 0.03,                  // lag on the wanted turn (s): the turn starts with no jolt
       omega: 14,                    // spring rate (1/s)
+      // a target with a height (the ball in the air): the head tips up or down to it through the neck and head, from
+      // where the face points in the pose, this share of the way, as far as maxPitchRad, on the same spring (Trial 10:
+      // level, the eyes lost a ball coming in low or high over its last few feet)
+      pitchK: 1, maxPitchRad: 0.75,
+    },
+
+    // ---------------------------------------------------------------- the pass and the catch (Trial 10)
+    // (coaching: show a target with both hands up in front of the chest, fingers up and thumbs together; meet the pass,
+    // stepping to it; look it into the hands; soft hands: the elbows give and bring it into the chest)
+    pass: {
+      catchFwdH: 0.3,               // the hands meet the ball this far out in front of the body (H): the arms out...
+      catchZH: 0.72,                // ...at chest height (H); a bounce pass is taken lower, a lob higher:
+      catchZBounceH: 0.5, catchZLobH: 0.98,
+      targetS: 0.22,                // once the pass is coming the hands come up as a target over this long (s)...
+      targetW: 0.75,                // ...this far (the arms' IK weight; the rest of the arm keeps the stance's shape)
+      setBeforeS: 0.22,             // with the ball in the air they are where they will catch it this long before it
+      fullS: 0.12,                  // arrives (s), all the way out within fullS of its release (s)...
+      catchSideDeg: 50,             // running on through the catch, a ball from behind is taken out to the side, no further
+      runOnFtps: 6,                 // round than this from the run (deg); a runner: faster than runOnFtps (ft/s)
+      holdSideDeg: 100,             // the hands waiting for it never further round than this from the way the body faces
+                                    // (deg; with the chest turned toward it, Tune.pass.chestTurnDeg)
+      meetS: 0.12,                  // ...and over the last this-long (s) go onto the ball's own path, where it really comes
+      // variations (Trial 10), for a passer with the flair: his handle from flairFrom (none) to flairTo (all of it)
+      flairFrom: 60, flairTo: 95,
+      btbP: 0.3,                    // behind the back to a man on his left (70 to 160 deg round), at most this often
+      whipP: 0.25, whipKickP: 0.2,  // a one-handed whip out to a man on his right (40 to 120 deg): kicks this much more often
+      noLookP: 0.12,                // a no-look pass
+      fakeP: 0.12,                  // a pass fake first (x 0.5 to 1.5 with the flair), when there is time
+      fakeBiteFt: 1.2,              // the defenders nearest where it is faked to jump this far toward the lane
+      runThroughFtps: 14,           // a receiver who has to run to the catch spot faster than this (ft/s) runs on through it,
+      runThroughS: 0.6,             // this long past it (s), and takes it on the run instead of stopping and turning there
+      holdFt: 2,                    // with the ball in the air to him a receiver takes no order to go further than this from
+                                    // where it was thrown to him (ft): it waits for the catch
+      catchBodyS: 0.06,             // sent somewhere else after the pass was planned (his goal moved more than catchReplanFt,
+      catchReplanFt: 0.3,           // ft), where the body will be at the catch is taken again each step and eased onto over
+                                    // about catchBodyS (s, the time constant)
+      chestTurnDeg: 35,             // a ball from the side: the chest turns toward it as far as this (deg)
+      meetStepFt: 0.9,              // standing, a step toward the ball as it comes (ft), from the moment it leaves the
+      meetEarlyS: 0.08,             // passer's hands, down this long before it arrives (s), for a pass in the air at least
+      minFlightS: 0.34,             // minFlightS (s)
+      meetLowK: 0.75,               // stepping in to meet it he stays down in his stance: the walk's torso takes this much
+                                    // less of it (a walk at a meet step's pace stood him up ~0.3 ft, the shoulders back,
+                                    // and the hands held at the catch point tipped down ~40 deg as the ball came)
+      meetLowS: 0.12,               // ...eased in and out over about this long (s, the time constant)
+      pushS: 0.07,                  // the throw: the arms bring the ball up to its launch speed over this long before the
+                                    // release (s), the pass planned as the push starts (a pass clip's own push event first)
+      stepFt: 0.9,                  // standing, the passer steps this far toward the target as the arms extend (ft), for
+      stepKinds: { chest: 1, bounce: 1, overhead: 1, entry: 1, swing: 1, outlet: 1, lob: 1 }, // these kinds
+      catchKeep: 0.5,               // the catch: the ball keeps this share of its speed into the hands as it hits them (they
+      catchKeepAway: 0.15,          // take up the rest and give with it); going on away from the chest (caught on the run
+                                    // from behind), this share...
+      absorbOmega: 18,              // ...and goes on into the chest on a critically damped spring at least this
+                                    // quick (1/s); quicker as it comes in faster, so it never goes on past the hold
+      absorbMaxOmega: 60,
+      absorbClipOmega: 32,          // ...and a throw or a move started out of it takes up what is left at least this quick
+      afterS: 0.2,                  // after the catch the hands' catching shape gives way to the hold over this long (s)
+      eyeLeadS: 0.15,               // the eyes on the ball this far ahead along its flight (s): the head's own spring lags
+                                    // about as much
     },
 
     // ---------------------------------------------------------------- planted hip guard (Trial 2)
@@ -342,6 +406,9 @@
                                     // the fingers on the ball on a critically damped spring this fast (Hz), and back when it
                                     // lets go...
       gripStepDeg: 5,               // ...that flexion found along the wrist's range in steps this fine, then halved down
+      gripRefDeg: -30,              // ...a new fit taking the one nearest this (deg, bent back as a hold's is), a fit going
+                                    // on the one nearest where the wrist is, unless the other is no more than
+      gripSplitDeg: 20,             // this much further from it (deg) and nearer gripRefDeg
       moveReachK: 0.9,              // a move from hand to hand: the receiving hand goes from where it was to the catch from
                                     // the move's push on, there by this share of the way to the catch (it has the dribble
                                     // from the release; the old hand lets go over the ball's flight)...

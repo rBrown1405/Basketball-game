@@ -302,12 +302,20 @@
     overW: { r: [0.9, -0.6, -0.5], l: [-0.9, -0.6, -0.5] },
     overR: { r: [0.9, -0.8, -0.3], l: [-0.9, -0.8, -0.3] },
     hold: { r: [1.35, -0.45, -0.25], l: [-1.35, -0.45, -0.25] },
+    // the catch (Trial 10): the hands behind the ball and round its sides as it comes, the palms facing it; forward is the
+    // way the ball comes from. Above the waist the thumbs behind it, near each other; below it the little fingers
+    catch: { r: [1.1, -0.8, -0.3], l: [-1.1, -0.8, -0.3] },
+    catchLow: { r: [0.9, -0.7, -0.8], l: [-0.9, -0.7, -0.8] },
     // (triple threat, fitted with the triple pose's arms: right hand behind and over the top, left on the front-left)
     hip: { r: [0.347, -1.217, 0.55], l: [-1.296, 0.054, -0.532] },
     hipL: { r: [1.296, 0.054, -0.532], l: [-0.347, -1.217, 0.55] },
     // overhead two hands: palms on the sides of the ball, wrists a little below its centre
     over: { r: [1.2, -0.5, -0.6], l: [-1.2, -0.5, -0.6] },
     right: { r: [0.4, -1.2, -0.9], l: null },
+    // the behind-the-back pass (Trial 10): the right hand on the right side of the ball behind the back, pushing it round
+    // to the left; the one-handed whip to the right: the right hand on the left side of the ball, a little behind it
+    btbPass: { r: [1.15, -0.3, -0.45], l: null },
+    whipR: { r: [-1.0, -0.6, -0.45], l: null },
     // one hand up high (layup / finger roll / tip / cocked dunk): the ball sits on the palm and fingers, above
     // and a little ahead of the wrist
     rightTop: { r: [0.25, -0.55, -1.15], l: null },
@@ -537,7 +545,7 @@
   // the elbows in; step in, the arms extend at chest height and the forearms turn in as the wrists snap through:
   // the finish is thumbs down, palms out, fingers at the receiver
   clip('passChest', {
-    dur: 0.62, mask: 'upper', events: { release: 0.26 },
+    dur: 0.62, mask: 'upper', events: { push: 0.12, release: 0.26 },
     keys: [
       { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
       { t: 0.14, p: { base: 'holdChest', pelPitch: 12, spFlex: 2, chFlex: -2, nkFlex: -8, both: { ShF: -5.5, ShA: -0.5, ShT: 28, ElF: 130.5, Pro: 129.5, WrF: -48, WrD: 15, Fing: 0.1 } }, ball: [0.0, 0.16, 0.68], grip: 'passW' },

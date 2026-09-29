@@ -385,30 +385,152 @@
       if (b.state === 'dribble') b.give(from, 'chest');
       from.setFace(tgt); from.aimAt(tgt, this.T + rel + 0.2);
       from.play('passPush', { speed: 1 });
+      this.passSoon(from, to, 'chest', dur, clip, this.T, this.T + rel, null);
       this.at(this.T + rel, () => { if (b.holder === from) this.passBall(from, to, 'chest', dur, onCatch); else if (b.holder !== to && !(b.state === 'flight' && b.passTarget === to)) this.giveBall(to, 'chest'); }, 'quick throw');
       return rel;
     }
-    passBall(from, to, kind, dur, onCatch, aim) {
+    /** a variation on a pass (Trial 10), for a passer with the flair for it (his handle, 60 to 95): behind the back to a man
+     *  on his left, a one-handed whip out to a man on his right (a kick to the corner), a no-look (the eyes on someone
+     *  else, a teammate the other way or the rim); and a pass fake first when there is time. Chosen by a hash of the
+     *  passer and the time, so the game's own dice are not touched. Returns { name, clip, side (thrown out to the side, no
+     *  turn to it), decoy, fake (the point faked to), fakeS } */
+    passVariant(from, to, kind, cs, extra) {
+      const TP = M.Tune.pass, out = { name: null, clip: null, side: false, decoy: null, fake: null, fakeS: 0 };
+      if (!from || from.lefty || from.kind !== 'player') return out;
+      const flair = U.clamp((this.rating(from.id, 'handle', 60) - TP.flairFrom) / (TP.flairTo - TP.flairFrom), 0, 1);
+      const rnd = (k) => { const x = Math.sin((from.uid || 1) * 12.9898 + this.T * 78.233 + k * 37.719) * 43758.5453; return x - Math.floor(x); };
+      const rel = U.wrapPi(Math.atan2(cs.y - from.y, cs.x - from.x) - from.facing) / U.DEG, d = Math.hypot(cs.x - from.x, cs.y - from.y);
+      const flat = kind === 'chest' || kind === 'kick' || kind === 'swing' || kind === 'bounce';
+      if (flat && d > 6 && d < 26 && rel > 70 && rel < 160 && rnd(1) < TP.btbP * flair) { out.name = 'btb'; out.clip = 'passBehindBack'; out.side = true; }
+      else if ((kind === 'kick' || kind === 'chest') && d > 8 && rel < -40 && rel > -120 && rnd(2) < (kind === 'kick' ? TP.whipKickP : 0) + TP.whipP * flair) { out.name = 'whip'; out.clip = 'passWhip'; out.side = true; }
+      // (someone to look at instead: the teammate most the other way, else the rim)
+      const decoy = () => {
+        let best = null, bd = 60;
+        for (const id of (this.v.onCourt && this.v.onCourt[from.team]) || []) {
+          const m = this.A(id); if (!m || m === from || m === to) continue;
+          const a = Math.abs(U.wrapPi(Math.atan2(m.y - from.y, m.x - from.x) - Math.atan2(cs.y - from.y, cs.x - from.x))) / U.DEG;
+          if (a > bd) { bd = a; best = m; }
+        }
+        return best ? { x: best.x, y: best.y } : { x: this.rim.x, y: this.rim.y };
+      };
+      if (!out.name && kind !== 'lob' && kind !== 'alley' && kind !== 'outlet' && kind !== 'entry' && rnd(3) < TP.noLookP * flair) { out.name = 'nolook'; out.decoy = decoy(); }
+      // (a pass fake first: time for it before the turn, the ball in his hands or soon to be, not driving)
+      const fk = M.Anims.get('passFake');
+      if (fk && from.speed < 6 && (extra || 0) < 0.5 && kind !== 'alley' && rnd(4) < TP.fakeP * (0.5 + flair)) { out.fake = decoy(); out.fakeS = fk.dur + 0.08; }
+      return out;
+    }
+    /** a pass fake at t (Trial 10): picked up if he is dribbling, squared up and eyes to the point faked to (p), the ball
+     *  pushed out toward it and pulled back in (clip passFake); the defenders nearest that way lean to it */
+    passFakeAt(from, p, t, extra) {
+      const v = this.v;
+      if (t < this.T + (extra || 0) + 0.15) return;
+      this.at(t - 0.25, () => { if (v.ball.holder === from && v.ball.state === 'dribble') v.ball.gatherSoon(from, 'chest'); }, 'fake gather');
+      this.at(t, () => {
+        const b = v.ball;
+        if (b.holder !== from || b.state !== 'held' || from.isBusy()) return;
+        from.aimAt(p, this.T + 0.3); from.lookAt(p, { hold: 0.4 });
+        from.play('passFake', { speed: 1 });
+        this.at(this.T + 0.4, () => { if (from.look_ === p) from.lookAt(null, { hold: 1e-6 }); }, 'fake eyes');
+        // (the defender of the man it sells a pass to, or the passer's own, jumps toward the lane)
+        for (const d of v.onCourt && v.onCourt[this.def] ? this.defActors() : []) {
+          if (!d || d.isBusy() || Math.hypot(d.x - p.x, d.y - p.y) > 9) continue;
+          const dx = from.x - d.x, dy = from.y - d.y, dl = Math.hypot(dx, dy) || 1, st = M.Tune.pass.fakeBiteFt;
+          if (this.dtask) this.dtask[d.id] = { until: this.T + 0.55 };
+          d.moveTo(d.x + dx / dl * st, d.y + dy / dl * st, { speed: 12, face: { x: from.x, y: from.y } });
+        }
+      }, 'pass fake');
+    }
+    /** the receiver to the catch spot, there as the ball gets there (tCatch). A long run to it, an outlet up the floor, runs
+     *  on through it (Tune.pass.runThroughFtps): caught on the run, going on past the spot, the hands out to the side of the
+     *  run and the eyes back over the shoulder (Trial 10: stopped dead on the spot and turned to the passer as the ball
+     *  came, a man at ~28 ft/s swung round ~180 deg in its last 0.15 s with his hands held out behind him). Returns true
+     *  when he runs on through it (he is not then turned to the passer) */
+    toCatchSpot(from, to, cs, kind, tCatch) {
+      const TP = M.Tune.pass, d0 = Math.hypot(to.x - cs.x, to.y - cs.y), vNeed = d0 / Math.max(0.3, tCatch - this.T);
+      if (d0 > 1 && vNeed > TP.runThroughFtps && kind !== 'alley') {
+        const ux = (cs.x - to.x) / d0, uy = (cs.y - to.y) / d0, go = Math.min(vNeed, to.maxSpeed) * TP.runThroughS;
+        const ep = this.clampCourt({ x: cs.x + ux * go, y: cs.y + uy * go }, 2);
+        to.moveTo(ep.x, ep.y, { by: tCatch + TP.runThroughS, speed: to.maxSpeed, face: 'move' });
+        return true;
+      }
+      to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move', pace: 5.5 });
+      return false;
+    }
+    /** a pass thrown out of a pass clip started at tStart, released at tRel (Trial 10): the receiver sees it coming (his
+     *  hands up as a target, the eyes on the passer) and the throw is planned as the clip's push starts (planThrow) */
+    passSoon(from, to, kind, flight, clip, tStart, tRel, aim) {
+      if (to && to.expectPass) to.expectPass(from, { kind });
+      const e = clip && clip.events, tp = e && e.push != null && e.release != null && e.release > e.push ? tStart + e.push : tRel - M.Tune.pass.pushS;
+      this.at(Math.max(this.T, tp), () => { if (this.v.ball.holder === from) this.planThrow(from, to, kind, flight, aim || null, tRel); }, 'pass push');
+    }
+    /** the passer steps into the pass (Trial 10, coaching: step toward the target as the arms extend): standing, a step
+     *  toward the catch spot landing at the release for the two-handed passes and the outlet; else he stays where he is */
+    stepInto(from, cs, kind, fireAt) {
+      const TP = M.Tune.pass, dx = cs.x - from.x, dy = cs.y - from.y, dl = Math.hypot(dx, dy) || 1;
+      if (from.speed < 2 && !from.isBusy() && TP.stepKinds[kind] && dl > 6) from.moveTo(from.x + dx / dl * TP.stepFt, from.y + dy / dl * TP.stepFt, { speed: 5, by: fireAt, face: { x: cs.x, y: cs.y } });
+      else from.moveTo(from.x, from.y, { speed: 3 });
+    }
+    /** where a pass will be caught (Trial 10): the receiver standing for it steps to meet it from now (a step toward the
+     *  ball, down just before it gets there), and the body goes where the steering takes it, run ahead (Actor.predictSteer;
+     *  a body in a move without root motion: along its move, catchLead); the ball is taken out in front of the body toward
+     *  where it comes from (fx, fy), at the pass's height, to the side for one from behind a man running on. `lead`: how
+     *  long from now the catch is. Returns the catch point */
+    catchFor(from, to, kind, lead, fx, fy, aim) {
+      const TP = M.Tune.pass, g = to.goal;
+      const meet = !to.isBusy() && to.speed < 1.5 && lead >= TP.minFlightS && (!g || g.mode === 'idle' || Math.hypot(g.x - to.x, g.y - to.y) < 0.6);
+      if (meet) {
+        const dx = fx - to.x, dy = fy - to.y, dl = Math.hypot(dx, dy) || 1;
+        to.moveTo(to.x + dx / dl * TP.meetStepFt, to.y + dy / dl * TP.meetStepFt, { speed: 6, by: this.T + lead - TP.meetEarlyS, face: { x: from.x, y: from.y, passer: true } });
+      }
+      const C = to.isBusy() && !(to.clip && to.clip.clip.rootKeys) ? (() => { const ld = this.catchLead(to, lead, aim); return { x: to.x + ld[0], y: to.y + ld[1] }; })() : to.predictSteer(lead, {});
+      const p = to.catchPoint(C.x, C.y, fx, fy, kind, [0, 0, 0], C.runOn ? Math.atan2(C.vy, C.vx) : null);
+      // (and where his body will be then: the hands wait at the catch point about it, Actor._rcHands; and where he was
+      // going as it was planned, so a change of plan can be told)
+      p.runOn = !!C.runOn; p.cx = C.x; p.cy = C.y;
+      const g1 = to.goal; p.g = g1 ? { mode: g1.mode, x: g1.x, y: g1.y } : null;
+      return p;
+    }
+    /** a pass planned as the passer's arms start the push (Trial 10): where the receiver will take it, the flight to there
+     *  from where the push lets it go at tRel, and so the ball's path through the push onto that flight (Actor.heldBallPos,
+     *  the passer's _throw); passBall at the release throws it on this plan. Null when the passer is not in a pass clip */
+    planThrow(from, to, kind, dur, aim, tRel) {
       const b = this.v.ball;
-      const tgt = () => { const p = to.heldBallPos(TMPA); return [p[0], p[1], p[2]]; };
+      const up = from.upper, cl = up && up.clip, rel = cl && cl.events && cl.events.release;
+      if (b.holder !== from || b.state !== 'held' || rel == null || !cl.ballKeys) return null;
+      const lead = Math.max(0, tRel - this.T);
+      const pRel = from.ballAtRelease(Math.min(cl.dur, up.t + lead * (up.speed || 1)), lead, [0, 0, 0]);
+      const P = this.catchFor(from, to, kind, lead + dur, pRel[0], pRel[1], aim);
+      const segs = b.planPass(pRel, P, dur, { bounce: kind === 'bounce' || kind === 'entry', t0: tRel });
+      // (from where the ball is and how fast it goes as of the ball's own clock: planned between steps, that is the step
+      // before, and started from there at this step the ball stood still for a frame, ~1200 ft/s^2 into the push)
+      const behind = (pRel[0] - from.x) * Math.cos(from.facing) + (pRel[1] - from.y) * Math.sin(from.facing) < 0;
+      from._throw = { to, kind, tp: Math.min(this.T, b.time), tRel, pRel, segs, P, p0: [b.x, b.y, b.z], v0: [b.vx || 0, b.vy || 0, b.vz || 0], behind };
+      return from._throw;
+    }
+    passBall(from, to, kind, dur, onCatch, aim, o) {
+      const b = this.v.ball;
       if (b.holder !== from) b.give(from, 'chest');
-      const p1 = tgt();
-      // lead the receiver: aim where he will be at the catch
-      const ld = this.catchLead(to, dur, aim);
-      p1[0] += ld[0]; p1[1] += ld[1];
-      b.pass(p1, dur, { bounce: kind === 'bounce' || kind === 'entry', lob: kind === 'lob' || kind === 'alley', flat: kind === 'outlet' || kind === 'overhead', target: tgt, onArrive: () => {
+      // where the receiver's hands will take it, the ball flying there on its own (Trial 10: ballistic with drag; it used
+      // to be steered onto his hands over its last two thirds, bent ~1 ft even to a man standing still): planned as the
+      // push began (planThrow), else now
+      const th = from._throw && from._throw.to === to && Math.abs(from._throw.tRel - this.T) < 0.05 ? from._throw : null;
+      from._throw = null;
+      const p1 = th ? th.P : this.catchFor(from, to, kind, dur, b.x, b.y, aim);
+      const rel = [b.x, b.y];
+      // (thrown on the plan's own step, its flight as planned; a step or two off it (a beat fired late, another throw's plan),
+      // a flight from where the ball is now to the same catch point at the same time: started as planned, the ball jumped
+      // on to the release point and waited there for the plan's time, ~60 ft/s then 0, Trial 10)
+      const onPlan = th && Math.abs(th.tRel - this.T) < 0.5 * M.Tune.clock.step;
+      const dur1 = th && !onPlan ? Math.max(0.1, th.segs[th.segs.length - 1].t1 - this.T) : dur;
+      b.pass(p1, dur1, { bounce: kind === 'bounce' || kind === 'entry', lob: kind === 'lob' || kind === 'alley', flat: kind === 'outlet' || kind === 'overhead', kind: (o && o.variant) || kind, segs: onPlan ? th.segs : null, onArrive: () => {
         if (to.isBusy() && to.clip && to.clip.clip.name === 'alley') { b.give(to); if (onCatch) onCatch(); return; }
-        b.give(to, 'chest');
-        to.lookAt(null);
+        b.give(to, 'chest', { absorb: true });
+        to.lookAt(null, { hold: 1e-6 });
         if (onCatch) onCatch();
         this.afterCatch(to);
       } });
       b.passTarget = to;
-      to.lookAt({ x: from.x, y: from.y });
-      if (!to.isBusy()) {
-        const t0 = this.T + dur - 0.22;
-        this.at(t0, () => { if (!to.isBusy() && b.passTarget === to) to.play('catch', { mirror: false }); }, 'catch');
-      }
+      to.receive(b, { from, kind, tEnd: b.flightEnd(), P: p1, C: p1.cx != null ? [p1.cx, p1.cy] : null, g: p1.g || null, rel, runOn: !!p1.runOn });
     }
 
     /** how far the receiver gets before the catch (ft): to the catch spot the planner sent him to (`aim`), else along
@@ -1085,8 +1207,13 @@
         by.ballHold = 'chest';
         const dur = Math.max(0.35, Math.hypot(to.x - by.x, to.y - by.y) / 30);
         by.aimAt(to, this.T + 0.4);
-        by.play(baseline ? 'passChest' : 'passInbound', { t0: 0.24, fadeIn: 0.05 });
-        this.passBall(by, to, 'chest', dur, () => { to.ballHold = 'chest'; });
+        // (thrown from its push on, Trial 10: the clip used to start at its release and the ball left that frame, from
+        // wherever the hold had it, with the receiver not looking)
+        const cn = baseline ? 'passChest' : 'passInbound', ic = M.Anims.get(cn), ie = ic && ic.events;
+        const t0 = ie && ie.push != null ? ie.push : 0.24, lead = ie && ie.release != null ? Math.max(0, ie.release - t0) : 0.02;
+        by.play(cn, { t0, fadeIn: 0.05 });
+        this.passSoon(by, to, 'chest', dur, ic, this.T - t0, this.T + lead, null);
+        this.at(this.T + lead, () => { if (b.holder === by) this.passBall(by, to, 'chest', dur, () => { to.ballHold = 'chest'; }); }, 'inbound throw');
         by.setStance('ready');
         this.at(this.T + 0.5, () => { const r = this.role[by.id]; if (r) { r.until = 0; r.spot = this.spotPt(r.spotName || 'wingN'); } }, 'inbounder in');
         this.sc0 = Math.max(this.sc0 - (this.g - this.scT), 14) > 23.9 ? 24 : this.sc0; // shot clock starts when touched
@@ -1351,6 +1478,8 @@
         // receiver curls toward the big, arriving at the handoff moment
         const side = to.y < hoSpot.y ? -1 : 1;
         to.moveTo(hoSpot.x + this.dir * 1.2, hoSpot.y + side * 2.2, { by: fireAt, speed: 16, face: 'move', pace: 6 });
+        // (coming off it he shows his hands for the toss, Trial 10)
+        this.at(Math.max(this.T, fireAt - 0.4), () => { if (to.expectPass && v.ball.holder === from) to.expectPass(from, { kind: 'chest' }); }, 'handoff target');
       };
       beat.onFire = () => {
         // short toss
@@ -1518,10 +1647,12 @@
       if (!from || !to || from === to) return 0.2;
       const extra = this.ensureBall(from, true);
       const kind = ev.kind || 'chest';
-      const clipName = PASS_CLIP[kind] || 'passChest';
+      const cs = this.catchSpotFor(ev, to);
+      // (a variation on it, Trial 10: behind the back, a one-handed whip, a no-look; and a pass fake first)
+      const vr = this.passVariant(from, to, kind, cs, extra);
+      const clipName = vr.clip || PASS_CLIP[kind] || 'passChest';
       const clip = M.Anims.get(clipName);
       const windup = clip ? clip.events.release : 0.26;
-      const cs = this.catchSpotFor(ev, to);
       const dist = Math.hypot(cs.x - from.x, cs.y - from.y);
       const flight = U.clamp(dist / (PASS_SPEED[kind] || 36) + (kind === 'lob' || kind === 'alley' ? 0.35 : 0), 0.25, 1.6);
       const tMove = Math.hypot(to.x - cs.x, to.y - cs.y) / (to.maxSpeed * 0.8);
@@ -1541,6 +1672,7 @@
           } else rf.until = fireAt + 0.3;
         }
         const d0 = Math.hypot(to.x - cs.x, to.y - cs.y);
+        let runThrough = false;
         if (tCatch - this.T > 2.2 && d0 < 10 && !to.isBusy() && kind !== 'alley') {
           // get open instead of waiting on the spot: move freely around the catch spot, then a v-cut
           // (sink toward the rim, or step out if already close to it) and pop to the catch spot on time
@@ -1555,10 +1687,9 @@
             if (!to.isBusy() && v.ball.holder !== to) to.moveTo(px, py, { by: tPop, speed: 13, face: 'move', stance: 'ready' });
           }, 'v-cut in');
           this.at(tPop, () => { if (v.ball.holder !== to) to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move' }); }, 'v-cut out');
-        } else {
-          to.moveTo(cs.x, cs.y, { by: tCatch, speed: to.maxSpeed, face: 'move', pace: 5.5 });
-        }
-        this.at(fireAt + flight - 0.45, () => to.setFace({ x: from.x, y: from.y, passer: true }), 'face passer');
+        } else runThrough = this.toCatchSpot(from, to, cs, kind, tCatch);
+        if (!runThrough) this.at(fireAt + flight - 0.45, () => to.setFace({ x: from.x, y: from.y, passer: true }), 'face passer');
+        else if (rt) rt.until = Math.max(rt.until || 0, tCatch + M.Tune.pass.runThroughS);
         // driving into the pass: a jump stop first, both feet down and the ball chinned, squared up to the catch spot
         // in the air (a drive and kick thrown out of a stop instead of on the run)
         this.at(Math.max(this.T + extra, fireAt - windup - 0.46), () => {
@@ -1571,17 +1702,34 @@
         this.at(Math.max(this.T + extra * 0.5, fireAt - windup - 0.45), () => {
           // (a face-up pivot still going is cut short: he turns to the pass instead)
           if (v.ball.holder === from && from.clip && from.clip.clip.name === 'pivot') from.stopClip(0.1);
+          // (the receiver sees it coming: the hands up as a target, the eyes on the passer, Trial 10)
+          to.expectPass(from, { kind });
+          // (dribbling into the pass: he picks it up the next time it comes up into his hand, Trial 10)
+          if (v.ball.holder === from && v.ball.state === 'dribble') v.ball.gatherSoon(from, 'chest');
+          // (a no-look: the eyes somewhere else through the throw, Trial 10)
+          if (vr.name === 'nolook' && vr.decoy) {
+            from.lookAt(vr.decoy, { hold: fireAt + 0.25 - this.T });
+            this.at(fireAt + 0.25, () => { if (from.look_ === vr.decoy) from.lookAt(null, { hold: 1e-6 }); }, 'no-look eyes');
+          }
           if (v.ball.holder !== from || (from.isBusy() && !(from.clip && from.clip.ending))) return;
-          from.setFace({ x: cs.x, y: cs.y }); from.aimAt(cs, fireAt + 0.2);
+          // (behind the back and the whip go out to the side: he does not turn to it)
+          if (!vr.side) { from.setFace({ x: cs.x, y: cs.y }); from.aimAt(cs, fireAt + 0.2); }
         }, 'pass turn');
-        this.at(Math.max(this.T + extra, fireAt - windup - 0.02), () => {
+        if (vr.fake) this.passFakeAt(from, vr.fake, fireAt - windup - 0.45 - vr.fakeS, extra);
+        this.at(Math.max(this.T + extra, fireAt - windup - PASS_CLIP_LEAD), () => {
           const b = v.ball;
           if (b.holder !== from) return;
           if (b.state === 'dribble') b.give(from, 'chest');
-          from.setFace({ x: cs.x, y: cs.y }); from.aimAt(cs, fireAt + 0.2);
+          if (!vr.side) { from.setFace({ x: cs.x, y: cs.y }); from.aimAt(cs, fireAt + 0.2); }
           from.play(clipName, { speed: 1 });
-          from.moveTo(from.x, from.y, { speed: 3 });
+          if (!vr.side) this.stepInto(from, cs, kind, fireAt);
         }, 'pass windup');
+        // (the pass planned as the push starts: the ball's path through the push onto its flight, Trial 10)
+        this.at(Math.max(this.T + extra, fireAt - Director.pushLead(clip)), () => {
+          if (v.ball.holder !== from) return;
+          this.planThrow(from, to, kind, flight, Math.hypot(to.x - cs.x, to.y - cs.y) <= Math.max(1.5, to.maxSpeed * 0.85 * flight) ? cs : null, fireAt);
+        }, 'pass push');
+        // (the inbound's and the swing's throws are planned the same way: passSoon)
         // defender of the receiver: deny/recover, or anticipate the closeout if a shot follows
         const d = this.guardOf(to.id);
         if (d) this.dtask[d.id] = null;
@@ -1608,7 +1756,7 @@
           if (afterNext && afterNext.type === 'shot' && (afterNext.kind === 'catch_shoot' || afterNext.kind === 'jumper')) to.ballHold = 'pocket';
           else if (afterNext && (afterNext.type === 'move' || (afterNext.type === 'shot' && !RIM_SHOTS[afterNext.kind]))) { b.dribble(to); }
           else to.ballHold = 'chest';
-        }, Math.hypot(to.x - cs.x, to.y - cs.y) <= Math.max(1.5, to.maxSpeed * 0.85 * flight) ? cs : null); // (aimed at the catch spot he is running to)
+        }, Math.hypot(to.x - cs.x, to.y - cs.y) <= Math.max(1.5, to.maxSpeed * 0.85 * flight) ? cs : null, vr.name ? { variant: vr.name } : null); // (aimed at the catch spot he is running to)
         from.setFace('move');
         const rf = this.role[from.id]; if (rf) { rf.until = this.T + 0.6; }
         v.camHint = null;
@@ -2821,4 +2969,13 @@
   const GP = { x: 0, y: 0, vx: 0, vy: 0 };
 
   M.Director = Director;
+  // (the pass kinds' clips and speeds, for the pass lab: tools/audit/pass.js stages a pass as p_pass does)
+  Director.PASS_CLIP = PASS_CLIP; Director.PASS_SPEED = PASS_SPEED;
+  /** how long before the release (fireAt) a pass clip's push starts (s): the arms taking the ball forward out of the
+   *  windup, from the clip's push event (Trial 10), else Tune.pass.pushS. (The clip starts PASS_CLIP_LEAD before the
+   *  windup: p_pass's 'pass windup'; planned without it, the ball was ~0.03 s into the push, already going at ~20 ft/s,
+   *  and the path from there to the release point too short for that: it slowed to ~9 ft/s and sped up again) */
+  const PASS_CLIP_LEAD = 0.02;
+  Director.PASS_CLIP_LEAD = PASS_CLIP_LEAD;
+  Director.pushLead = (clip) => { const e = clip && clip.events; return e && e.push != null && e.release != null && e.release > e.push ? e.release - e.push + PASS_CLIP_LEAD : M.Tune.pass.pushS; };
 })();

@@ -504,6 +504,8 @@
     from.holdBallUntil = T + delay + windup + 0.1;
     if (delay > 0) this.at(T + delay, () => { if (this.swing === sw && b.holder === from && !from.isBusy()) { if (b.state === 'dribble') b.give(from, 'chest'); from.play(PASS_CLIPS[kind], { speed: 1 }); } }, 'swing throw');
     else from.play(PASS_CLIPS[kind], { speed: 1 });
+    // (the receiver sees it coming, and the throw is planned as the push starts, Trial 10)
+    if (this.passSoon) this.passSoon(from, to, kind, flight, clip, T + delay, T + delay + windup, toward);
     sw.state = 'windup';
     this.at(T + delay + windup, () => {
       if (this.swing !== sw) return;
