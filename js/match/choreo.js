@@ -556,7 +556,9 @@
       // they were going, and pulled up over a foot left ~80 deg off the hips)
       if (a.faceMode === 'point' && a.facePoint && a.facePoint.passer && (b.state === 'dribble' || a.speed > 4.5)) a.setFace('move');
       this.at(this.T + 0.14, () => {
-        if (b.holder !== a || b.state !== 'held' || a.isBusy()) return;
+        // (nor one about to dribble, the dribble waiting for the catch to be secured, Ball.dribble: faced up into the
+        // triple threat first, the ball was still sliding to the hip as the first push began, Trial 10)
+        if (b.holder !== a || b.state !== 'held' || a.isBusy() || (b._dribSoon && b._dribSoon.actor === a)) return;
         const bt = this.beat, ev = bt && !bt.fired ? bt.ev : null;
         if (ev && (ev.shooter === a.id || ev.from === a.id || ev.player === a.id) && bt.fireAt - this.T < 1.5) return;
         const nx = this.nextFor(a.id);

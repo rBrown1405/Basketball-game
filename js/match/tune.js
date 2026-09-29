@@ -260,6 +260,9 @@
       absorbMaxOmega: 60,
       absorbClipOmega: 32,          // ...and a throw or a move started out of it takes up what is left at least this quick
       afterS: 0.2,                  // after the catch the hands' catching shape gives way to the hold over this long (s)
+      secureS: 0.18,                // a dribble asked for as a pass is caught starts this long after the catch (s), from the
+                                    // hold the catch gave into (next frame, the first push missed the ball in half the
+                                    // catches on the move)
       eyeLeadS: 0.15,               // the eyes on the ball this far ahead along its flight (s): the head's own spring lags
                                     // about as much
     },

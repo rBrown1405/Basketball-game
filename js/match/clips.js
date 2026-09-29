@@ -485,9 +485,9 @@
     keys: [
       { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
       { t: 0.1, p: { base: 'holdChest', chTwist: -10, spTwist: -5, nkTwist: 10, rShF: 80, rShA: 30, rShT: 10, rElF: 120, rPro: 80, rWrF: -40, lShF: 80, lShA: 10, lShT: 30, lElF: 110 }, ball: [0.11, 0.26, 0.84], grip: 'outletLift' },
-      { t: 0.2, p: { base: 'holdChest', chTwist: -24, spTwist: -12, nkTwist: 24, rShF: 105, rShA: 45, rShT: -20, rElF: 115, rPro: 90, rWrF: -40, lShF: 45, lShA: 25, lElF: 70 }, ball: [0.18, 0.11, 0.935], grip: 'throwR' },
-      { t: 0.26, p: { base: 'holdChest', chTwist: -28, spTwist: -14, nkTwist: 28, rShF: 108, rShA: 48, rShT: -24, rElF: 118, rPro: 90, rWrF: -44, lShF: 40, lShA: 28, lElF: 65 }, ball: [0.16, 0.08, 0.94], grip: 'throwR' },
-      { t: 0.36, p: { base: 'holdChest', chTwist: 20, spTwist: 10, nkTwist: -10, rShF: 130, rShA: 25, rShT: 10, rElF: 50, rPro: 150, rWrF: 40, lShF: 40, lShA: 30, lElF: 60 }, ball: [0.086, 0.454, 0.946], grip: 'throwR' },
+      { t: 0.2, p: { base: 'holdChest', chTwist: -24, spTwist: -12, nkTwist: 24, rShF: 105, rShA: 45, rShT: -20, rElF: 115, rPro: 90, rWrF: -40, lShF: 45, lShA: 25, lElF: 70 }, ball: [0.19, 0.09, 0.9], grip: 'throwR' },
+      { t: 0.26, p: { base: 'holdChest', chTwist: -28, spTwist: -14, nkTwist: 28, rShF: 108, rShA: 48, rShT: -24, rElF: 118, rPro: 90, rWrF: -44, lShF: 40, lShA: 28, lElF: 65 }, ball: [0.18, 0.06, 0.905], grip: 'throwR' },
+      { t: 0.36, p: { base: 'holdChest', chTwist: 20, spTwist: 10, nkTwist: -10, rShF: 130, rShA: 25, rShT: 10, rElF: 50, rPro: 150, rWrF: 40, lShF: 40, lShA: 30, lElF: 60 }, ball: [0.086, 0.45, 0.93], grip: 'throwR' },
       { t: 0.52, p: { base: 'holdChest', chTwist: 22, spTwist: 10, nkTwist: -10, rShF: 112, rShA: 20, rShT: 10, rElF: 18, rPro: 160, rWrF: 45, lShF: 35, lShA: 30, lElF: 55 } },
       { t: 0.8, p: 'ready' },
     ],

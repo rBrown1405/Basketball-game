@@ -134,6 +134,7 @@
         // rest as it hits them, and give with it), into the hold on a critically damped spring, quick enough that it never
         // goes on past the hold into the chest (it used to stop dead in the hands and ease from there: a stop from ~35 ft/s
         // in one frame; going on at all of its speed, the hands waiting still for it jumped to it in a frame)
+        if (o && o.absorb) actor._caughtAt = this.time;
         if (o && o.absorb && isFinite(this.vx) && isFinite(jump)) {
           const T = M.Tune.pass, ox = this.x - p[0], oy = this.y - p[1], oz = this.z - p[2], ol = Math.hypot(ox, oy, oz);
           const rvx = this.vx - (actor.vx || 0), rvy = this.vy - (actor.vy || 0), rvz = this.vz || 0;
@@ -180,6 +181,19 @@
     /** start (or continue) dribbling with hand 0/1 */
     dribble(actor, hand, o) {
       o = o || {};
+      // (a pass just caught is secured first, Tune.pass.secureS: the catch gives, the hands taking it in toward the chest,
+      // and the dribble goes from that hold; started on the next frame, the dribbling hand was still out at the catch spot
+      // and reached for its spot ~5-10 in behind it through the first push, and over half of the first pushes after a
+      // catch on the move missed the ball in games, Trial 10. A move asked for meanwhile goes with it)
+      if (this.holder === actor && this.state === 'held' && actor._caughtAt != null && !o.now) {
+        const at = actor._caughtAt + M.Tune.pass.secureS;
+        if (this.time < at - 1e-6) {
+          const ds = this._dribSoon;
+          this._dribSoon = { actor, hand, o, at, moves: ds && ds.actor === actor ? ds.moves : [] };
+          return;
+        }
+      }
+      this._dribSoon = null;
       if (this.holder !== actor) this.give(actor);
       actor.hasBall = true;
       const prev = this.dr && this.dr.actor === actor ? this.dr : null;
@@ -222,7 +236,7 @@
     /** perform a dribble move: crossover / between the legs / behind the back (switches hands) */
     dribbleMove(type, o) {
       const d = this.dr;
-      if (!d) return;
+      if (!d) { if (this._dribSoon) this._dribSoon.moves.push([type, o]); return; }
       // (a move asked for on its own replaces what is left of a combo)
       d.combo = null; d.comboDone = null;
       this._queueMove(d, type, o);
@@ -643,6 +657,16 @@
     // ------------------------------------------------------------ update
     update(dt, now) {
       this.time = now != null ? now : this.time + dt;
+      // (a dribble asked for as a pass was caught, started once the catch is secured: dribble)
+      const ds = this._dribSoon;
+      if (ds) {
+        if (this.state !== 'held' || this.holder !== ds.actor || (ds.actor.throwing && ds.actor.throwing())) this._dribSoon = null;
+        else if (this.time >= ds.at - 1e-6) {
+          this._dribSoon = null;
+          this.dribble(ds.actor, ds.hand, Object.assign({}, ds.o, { now: true }));
+          for (const m of ds.moves) this.dribbleMove(m[0], m[1]);
+        }
+      }
       const px = this.x, py = this.y, pz = this.z;
       if (this.state === 'held' && this.holder) {
         const p = this.holder.heldBallPos(this._tmp);

@@ -326,6 +326,20 @@
   add('Ball', 'pocket', 'Shot pocket hold', 4, (c) => { c.b.give(c.a, 'pocket'); c.a.setStance('shotPocket'); });
   add('Ball', 'chest', 'Chest hold', 4, (c) => { c.b.give(c.a, 'chest'); c.a.setStance('holdChest'); });
 
+  // two players passing (Trial 10): every pass of the pass audit (tools/audit/pass.js), staged as the choreographer stages
+  // one and thrown and caught by the game's own code (js/match/passlab.js); the camera follows the passer
+  if (M.PassLab && M.Director) {
+    for (const s of M.PassLab.scenarios()) {
+      const words = s.name.charAt(0).toUpperCase() + s.name.slice(1);
+      add('Passing (two players)', 'pass:' + s.id, words, s.T + 0.8, (c) => {
+        const PL = M.PassLab, pc = { M, p: c.a, r: c.d, b: c.b, at: c.at, D: PL.director(c.W, c.now, c.at) };
+        pc.stage = (from, to, o) => PL.stagePass(pc, from, to, o);
+        pc.hold = (who) => { who.ballHold = 'chest'; const hp = who.heldBallPos([0, 0, 0]); c.b.x = hp[0]; c.b.y = hp[1]; c.b.z = hp[2]; c.b.give(who, 'chest'); };
+        s.setup(pc);
+      }, { two: true });
+    }
+  }
+
   // every clip in the library, grouped
   const GROUPS = {
     Shooting: ['jumpshot', 'jumpshot2', 'pullup', 'stepback', 'fadeaway', 'freethrow', 'floater', 'hook', 'postFadeL', 'postFadeR'],
@@ -450,6 +464,8 @@
       b.x = x0 + 3; b.y = y0; b.z = 0.39;
       const ctx = { W, a, b, f0, fx: Math.cos(f0), fy: Math.sin(f0), rx: Math.sin(f0), ry: -Math.cos(f0), x0, y0, ev: [] };
       if (sc.two) { ctx.d = W.add(makeLook(ls, 1), 1); }
+      // (the scenario's clock, for a scenario that schedules on it: the two-player passes' Director)
+      ctx.now = () => this.simT;
       ctx.at = (t, fn) => { ctx.ev.push({ t, fn }); ctx.ev.sort((p, q) => p.t - q.t); };
       this.world = W; this.ctx = ctx; this.sc = sc;
       this.simT = 0; this.sub = 0; this.frame = 0;
