@@ -57,8 +57,8 @@
 
   // ------------------------------------------------------------ passes in the air
   /** remember where a pass is going and when it gets there: the defense moves on the pass, not on the catch */
-  P.passBall = function (from, to, kind, dur, onCatch, aim) {
-    const r = base.passBall.call(this, from, to, kind, dur, onCatch, aim);
+  P.passBall = function (from, to, kind, dur, onCatch, aim, o) {
+    const r = base.passBall.call(this, from, to, kind, dur, onCatch, aim, o);
     const b = this.v.ball;
     if (b.state === 'flight' && b.segs) {
       const e = b.posAt(b.flightEnd(), TMP);

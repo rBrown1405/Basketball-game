@@ -117,7 +117,7 @@
     }
 
     // ------------------------------------------------------------ control
-    give(actor, hold) {
+    give(actor, hold, o) {
       // (a ball in the air or loose arriving in someone's hands: a catch, for the audio)
       if (actor && (this.state === 'flight' || this.state === 'loose') && this.view && this.view.onCue) this.view.cue('catch', actor, { from: this.state, x: this.x, y: this.y, z: this.z });
       if (this.holder && this.holder !== actor) { this.holder.hasBall = false; this.holder.dribble = null; }
@@ -130,10 +130,24 @@
         actor._holdS = null; // a new hold starts where it belongs (the toss below covers the distance)
         const p = actor.heldBallPos(this._tmp);
         const jump = Math.hypot(p[0] - this.x, p[1] - this.y, p[2] - this.z);
-        // never pop: a far hand-over becomes a short toss into the hands, a near one a quick slide into them
-        // (a ball gathered on its way up from the floor, the pick-up of a dribble, rises straight into the hands at
-        // bounce speed; only a hand-over across the floor gets the lobbed arc)
-        if (jump > 1.2 && isFinite(jump)) {
+        // a catch (Trial 10): the ball goes on at part of the speed it came in with (Tune.pass.catchKeep: the hands take the
+        // rest as it hits them, and give with it), into the hold on a critically damped spring, quick enough that it never
+        // goes on past the hold into the chest (it used to stop dead in the hands and ease from there: a stop from ~35 ft/s
+        // in one frame; going on at all of its speed, the hands waiting still for it jumped to it in a frame)
+        if (o && o.absorb && isFinite(this.vx) && isFinite(jump)) {
+          const T = M.Tune.pass, ox = this.x - p[0], oy = this.y - p[1], oz = this.z - p[2], ol = Math.hypot(ox, oy, oz);
+          const rvx = this.vx - (actor.vx || 0), rvy = this.vy - (actor.vy || 0), rvz = this.vz || 0;
+          // (a ball going on away from the chest, caught on the run from behind: the hands take nearly all of it, Tune.pass.
+          // catchKeepAway; kept at half, it went on ~1 ft past the catch before it came back in, ~2600 ft/s^2)
+          const k = ol > 1e-3 && rvx * ox + rvy * oy + rvz * oz > 0 ? T.catchKeepAway : T.catchKeep;
+          const vx = rvx * k, vy = rvy * k, vz = rvz * k;
+          const into = ol > 1e-3 ? -(vx * ox + vy * oy + vz * oz) / ol : 0;
+          const w = U.clamp(ol > 0.05 ? 1.05 * into / ol : T.absorbMaxOmega, T.absorbOmega, T.absorbMaxOmega);
+          this.blend = { absorb: true, ox, oy, oz, vx, vy, vz, w, t: 0 };
+        } else if (jump > 1.2 && isFinite(jump)) {
+          // never pop: a far hand-over becomes a short toss into the hands, a near one a quick slide into them
+          // (a ball gathered on its way up from the floor, the pick-up of a dribble, rises straight into the hands at
+          // bounce speed; only a hand-over across the floor gets the lobbed arc)
           const rising = p[2] > this.z + 0.4 && Math.hypot(p[0] - this.x, p[1] - this.y) < 3;
           this.blend = rising ? { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 22, 0.1, 0.24), arc: 0 } : { x: this.x, y: this.y, z: this.z, t: 0, dur: U.clamp(jump / 16, 0.26, 0.55), arc: 1 };
         }
@@ -141,6 +155,23 @@
         else { this.blend = null; this.x = p[0]; this.y = p[1]; this.z = p[2]; }
       }
       this.spin[0] = this.spin[1] = this.spin[2] = 0;
+    }
+    /** end the dribble into a hold the next time the ball comes up into the hand (Trial 10: a pass off the dribble; picked
+     *  up wherever it was as the pass began, a ball on its way to the floor was lifted into the hands at ~28 ft/s through
+     *  the windup). Taken at once if it is in the hand now; cb once it is held */
+    gatherSoon(actor, hold, cb) {
+      if (this.state !== 'dribble' || !this.dr || this.dr.actor !== actor) return false;
+      this.dr.gather = { actor, hold, cb: cb || null };
+      this._gatherNow();
+      return true;
+    }
+    /** the gather asked for, once the ball is in the hand (its ride up to the top, no move under way) */
+    _gatherNow() {
+      const d = this.dr, g = d && d.gather;
+      if (!g || !d.plan || !(d.u >= d.plan.uC) || (d.move && d.moveStarted)) return;
+      d.gather = null;
+      this.give(g.actor, g.hold);
+      if (g.cb) U.safe(g.cb, null, 'gather');
     }
     release() {
       if (this.holder) { this.holder.hasBall = false; this.holder.dribble = null; }
@@ -247,6 +278,8 @@
       this.release();
       this.shotCue = null;
       this.state = 'flight';
+      // (a pass, pass(), or anything else in the air: a shot, a block, a deflection, whose rebounder is its passTarget)
+      this.isPass = false;
       this.segs = segs; this.segI = 0; this.onEnd = onEnd || null;
       this.dr = null;
       this.flightStart = this.time;
@@ -258,9 +291,30 @@
       o = o || {};
       const t0 = this.time;
       const p0 = [this.x, this.y, this.z];
+      let segs;
+      if (o.segs && o.segs.length) {
+        // (a pass planned as the push began, Director.planThrow: the flight as planned, from the release point the push takes
+        // the ball to (Actor.heldBallPos) at its release time. Not moved onto where the ball is now: thrown between steps,
+        // the ball's clock is still at the step before, the push a frame short of the release, and moved there the whole
+        // flight came up ~3.5 in short of the hands waiting for it)
+        segs = o.segs;
+      } else segs = this.planPass(p0, p1, dur, { bounce: o.bounce, t0 });
+      segs[segs.length - 1].target = o.target || null; // function returning live target [x,y,z]
+      const passer = this.holder;
+      this.passKind = o.kind || (o.bounce ? 'bounce' : 'chest');
+      this.flight(segs, o.onArrive);
+      this.isPass = true;
+      if (this.view && this.view.onCue) this.view.cue('pass', passer, { x: p0[0], y: p0[1], z: p0[2], dur, bounce: !!o.bounce });
+    }
+    /** a pass's flight from p0 to p1 in dur, starting at o.t0: a bounce pass off the floor (o.bounce), else a ballistic
+     *  flight with drag; with the backspin off the fingers. Returns the segments */
+    planPass(p0, p1, dur, o) {
+      o = o || {};
+      const t0 = o.t0 != null ? o.t0 : this.time;
+      p0 = [p0[0], p0[1], p0[2]];
       const segs = [];
       const sp = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / dur;
-      const bp = o.bounce ? this._bouncePass(p0, p1, dur) : null;
+      const bp = o.bounce ? this._bouncePass(p0, p1, dur, t0) : null;
       if (bp) segs.push(bp[0], bp[1]);
       else if (o.bounce) {
         // (no real bounce fits: floor contact ~2/3 of the way)
@@ -277,10 +331,7 @@
       }
       // backspin off the fingers
       if (!segs[0].w) segs[0].w = spinAlong(p1[0] - p0[0], p1[1] - p0[1], -sp / R * 0.3);
-      segs[segs.length - 1].target = o.target || null; // function returning live target [x,y,z]
-      const passer = this.holder;
-      this.flight(segs, o.onArrive);
-      if (this.view && this.view.onCue) this.view.cue('pass', passer, { x: p0[0], y: p0[1], z: p0[2], dur, bounce: !!o.bounce });
+      return segs;
     }
     /**
      * Bounce pass with a real floor bounce: the floor contact time is found so that after the bounce (restitution
@@ -288,7 +339,8 @@
      * the flight when two fit), and the release speed so that it still covers the distance after the bounce takes
      * some of its speed. Returns the two segments, or null when none fits.
      */
-    _bouncePass(p0, p1, dur) {
+    _bouncePass(p0, p1, dur, t0) {
+      if (t0 == null) t0 = this.time;
       const D = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
       if (D < 3 || dur < 0.3 || p0[2] < R) return null;
       const ux = (p1[0] - p0[0]) / D, uy = (p1[1] - p0[1]) / D;
@@ -324,8 +376,8 @@
       }
       const vh = 0.5 * (lo + hi), a = after(vh);
       const pb = [p0[0] + ux * vh * t1, p0[1] + uy * vh * t1, R];
-      const s1 = seg(this.time, p0, [ux * vh, uy * vh, r.v0z], t1); s1.w = spinAlong(ux, uy, -vh / R * 0.3);
-      const s2 = seg(this.time + t1, pb, a.v, t2); s2.bounce = true; s2.w = a.w;
+      const s1 = seg(t0, p0, [ux * vh, uy * vh, r.v0z], t1); s1.w = spinAlong(ux, uy, -vh / R * 0.3);
+      const s2 = seg(t0 + t1, pb, a.v, t2); s2.bounce = true; s2.w = a.w;
       return [s1, s2];
     }
     /** backspin/forward roll about the horizontal axis perpendicular to travel */
@@ -595,7 +647,28 @@
       if (this.state === 'held' && this.holder) {
         const p = this.holder.heldBallPos(this._tmp);
         const bl = this.blend;
-        if (bl) {
+        if (bl && bl.absorb) {
+          // (the catch's give, see give: x(t) = (x0 + (v0 + w x0) t) e^-wt on each axis, from where it was caught)
+          // (a throw or a move started out of it, a clip with its own ball path: the give is taken up quicker, from where it
+          // has got to, Tune.pass.absorbClipOmega; at its own pace the ball was still ~0.5 ft out when the next pass began,
+          // and the arms, set for the ball at the chest, went ~1 in into it)
+          const hc = this.holder, cs = hc.upper && hc.upper.clip.ballKeys ? hc.upper : hc.clip && hc.clip.clip.ballKeys ? hc.clip : null, wq = M.Tune.pass.absorbClipOmega;
+          if (cs && bl.w < wq) {
+            const e0 = Math.exp(-bl.w * bl.t), k0 = bl.t, ax = ['x', 'y', 'z'];
+            for (const q of ax) {
+              const o = bl['o' + q], v = bl['v' + q];
+              bl['o' + q] = (o + (v + bl.w * o) * k0) * e0;
+              bl['v' + q] = (v - bl.w * (v + bl.w * o) * k0) * e0;
+            }
+            bl.t = 0; bl.w = wq;
+          }
+          bl.t += dt;
+          const e = Math.exp(-bl.w * bl.t), k = bl.t;
+          this.x = p[0] + (bl.ox + (bl.vx + bl.w * bl.ox) * k) * e;
+          this.y = p[1] + (bl.oy + (bl.vy + bl.w * bl.oy) * k) * e;
+          this.z = p[2] + (bl.oz + (bl.vz + bl.w * bl.oz) * k) * e;
+          if (bl.t * bl.w > 9) this.blend = null;
+        } else if (bl) {
           bl.t += dt;
           const u = U.clamp(bl.t / bl.dur, 0, 1), e = U.smooth(u);
           this.x = U.lerp(bl.x, p[0], e); this.y = U.lerp(bl.y, p[1], e);
@@ -604,6 +677,7 @@
         } else { this.x = p[0]; this.y = p[1]; this.z = p[2]; }
       } else if (this.state === 'dribble' && this.dr) {
         this._dribble(dt);
+        if (this.dr && this.dr.gather) this._gatherNow();
         const bl = this.blend;
         if (bl && bl.drib) {
           bl.t += dt;

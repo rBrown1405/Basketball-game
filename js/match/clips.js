@@ -391,7 +391,9 @@
   });
 
   // ------------------------------------------------------------ passing / catching
-  const passBase = (name, dur, rel, keys, extra) => clip(name, Object.assign({ dur, mask: 'upper', events: { release: rel }, keys }, extra || {}));
+  // (push: where the arms start taking the ball forward out of the windup, the ball at its furthest back or lowest; the
+  // pass is planned there and the ball's path from there to the release brought up to the flight's launch speed, Trial 10)
+  const passBase = (name, dur, rel, keys, push) => clip(name, { dur, mask: 'upper', events: push != null ? { push, release: rel } : { release: rel }, keys });
   // (the pass arms are fitted to the rig like the chest pass: thumbs behind the ball, forearms turning in through
   // the release to thumbs down, palms out)
   passBase('passBounce', 0.62, 0.26, [
@@ -400,36 +402,93 @@
     { t: 0.26, p: { pelPitch: 24, spFlex: 16, chFlex: 8, nkFlex: -16, both: { ShF: 41, ShA: 5, ShT: 29, ElF: 87.5, Pro: 141, WrF: -70, WrD: 13.5, Fing: 0.08 } }, ball: [0.0, 0.3, 0.55], grip: 'passRB' },
     { t: 0.44, p: { pelPitch: 20, spFlex: 12, chFlex: 6, nkFlex: -14, both: { ShF: 87, ShA: 5.5, ShT: 80, ElF: 22, Pro: 166, WrF: -5, WrD: -15, Fing: 0.1 } } },
     { t: 0.62, p: 'ready' },
-  ]);
+  ], 0.12);
+  // (the ball goes up in front of the face, not through it: straight from the chest to over the head it went through
+  // the head, pushed out below the chin and then over the brow, ~1.4 ft in one frame, and the arms flipped over the top
+  // after it, Trial 10) (held over the forehead, not the crown, and let go at the forehead's height: from over the crown
+  // the chest leaning into the throw left the ball behind the shoulders, the arms past their range, ~1-5 in off it, and
+  // a release lower than the hold bent the push down into the forearms)
   passBase('passOverhead', 0.7, 0.3, [
     { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
-    { t: 0.16, p: { pelPitch: 2, spFlex: -6, chFlex: -6, nkFlex: -8, both: { ShF: 143, ShA: -4, ShT: 19, ElF: 56.5, Pro: 114, WrF: -27, WrD: -15, Fing: 0.1 } }, ball: [0.0, 0.02, 1.14], grip: 'overW' },
-    { t: 0.3, p: { pelPitch: 12, spFlex: 8, chFlex: 4, nkFlex: -10, both: { ShF: 128, ShA: -12, ShT: 6, ElF: 73.5, Pro: 148.5, WrF: -15, WrD: -4, Fing: 0.08 } }, ball: [0.0, 0.3, 1.02], grip: 'overR' },
+    { t: 0.08, p: { pelPitch: 6, spFlex: -2, chFlex: -2, nkFlex: -6, both: { ShF: 100, ShA: 4, ShT: 26, ElF: 92, Pro: 112, WrF: -30, WrD: -12, Fing: 0.1 } }, ball: [0.0, 0.21, 0.93], grip: 'overW' },
+    { t: 0.16, p: { pelPitch: 2, spFlex: -6, chFlex: -6, nkFlex: -8, both: { ShF: 143, ShA: -4, ShT: 19, ElF: 56.5, Pro: 114, WrF: -27, WrD: -15, Fing: 0.1 } }, ball: [0.0, 0.14, 1.06], grip: 'overW' },
+    { t: 0.3, p: { pelPitch: 12, spFlex: 8, chFlex: 4, nkFlex: -10, both: { ShF: 128, ShA: -12, ShT: 6, ElF: 73.5, Pro: 148.5, WrF: -15, WrD: -4, Fing: 0.08 } }, ball: [0.0, 0.3, 1.03], grip: 'overR' },
     { t: 0.5, p: { pelPitch: 10, spFlex: 6, nkFlex: -10, both: { ShF: 126, ShA: 5.5, ShT: 47, ElF: 34, Pro: 166, WrF: 39, WrD: -0.5, Fing: 0.1 } } },
     { t: 0.7, p: 'ready' },
-  ]);
+  ], 0.16);
   // one-hand push pass off the dribble (kick-out / swing)
+  // (from the two-handed hold a pass off the dribble is gathered into, as the others: it started at the right hip, and the
+  // ball went down there from the chest and back up through the push, slowing to ~6 ft/s half way, Trial 10)
   passBase('passPush', 0.5, 0.18, [
-    { t: 0, p: { base: 'ready', rShF: 40, rShA: 20, rElF: 90, rPro: 30 }, ball: [0.14, 0.16, 0.5], grip: 'right' },
-    { t: 0.1, p: { base: 'ready', spTwist: 10, chTwist: 10, rShF: 45, rShA: 30, rShT: 30, rElF: 110, rPro: 0, rWrF: -50 }, ball: [0.12, 0.08, 0.62], grip: 'right' },
+    { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
+    { t: 0.09, p: { base: 'ready', spTwist: 10, chTwist: 10, rShF: 45, rShA: 30, rShT: 30, rElF: 110, rPro: 0, rWrF: -50 }, ball: [0.06, 0.25, 0.6], grip: 'right' },
     { t: 0.18, p: { base: 'ready', spTwist: -8, chTwist: -10, rShF: 80, rShA: 12, rShT: 40, rElF: 12, rPro: 150, rWrF: 30, rFing: 0.1 }, ball: [0.1, 0.36, 0.72], grip: 'right' },
     { t: 0.34, p: { base: 'ready', spTwist: -6, chTwist: -8, rShF: 84, rShA: 8, rShT: 60, rElF: 8, rPro: 166, rWrF: 40, rWrD: -10, rFing: 0.12 } },
     { t: 0.5, p: 'ready' },
-  ]);
-  passBase('passLob', 0.72, 0.32, [
+  ], 0.09);
+  // behind the back (right hand, out to the left; Trial 10): gathered to the right hip, carried round behind the back and
+  // let go past the spine going left, the chest turned a little right throughout and the eyes front; the push is only the
+  // last of it, round the back (a push from the hip went straight through the body), at the small of the back (at the
+  // hips it was out of the arm's reach, the hand ~1 ft off it). (The chest turning back left through the release brought
+  // the right shoulder forward, and the ball behind the back and low at the hip were past the arm's length, the ball
+  // carried ~1.5 in off its path; up at the small of the back the arm bends, the elbow behind, and reaches it)
+  passBase('passBehindBack', 0.72, 0.3, [
     { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
-    { t: 0.16, p: { base: 'holdChest', pelPitch: 18, spFlex: 8, both: { ShF: 30, ShA: 26, ElF: 110, WrF: -40 } }, ball: [0.0, 0.12, 0.55], grip: 'hold' },
-    { t: 0.32, p: { pelPitch: 2, spFlex: -6, chFlex: -6, nkFlex: -22, both: { ShF: 140, ShA: 8, ShT: 20, ElF: 20, Pro: 130, WrF: 10, Fing: 0.1 } }, ball: [0.0, 0.2, 1.12], grip: 'over' },
-    { t: 0.52, p: { pelPitch: 4, spFlex: -2, nkFlex: -20, both: { ShF: 132, ShA: 10, ShT: 30, ElF: 18, Pro: 150, WrF: 40 } } },
+    { t: 0.12, p: { base: 'ready', chTwist: -14, spTwist: -6, rShF: 10, rShA: 25, rShT: 20, rElF: 70, rPro: 40, rWrF: -30, lShF: 30, lShA: 25, lElF: 70 }, ball: [0.2, 0.06, 0.56], grip: 'right' },
+    { t: 0.21, p: { base: 'ready', chTwist: -16, spTwist: -7, rShF: -25, rShA: 22, rShT: 55, rElF: 70, rPro: 50, rWrF: -10, lShF: 28, lShA: 30, lElF: 65 }, ball: [0.16, -0.04, 0.61], grip: 'btbPass' },
+    { t: 0.3, p: { base: 'ready', chTwist: -12, spTwist: -5, rShF: -40, rShA: 18, rShT: 75, rElF: 60, rPro: 60, rWrF: 20, lShF: 25, lShA: 35, lElF: 60 }, ball: [-0.04, -0.1, 0.6], grip: 'btbPass' },
+    { t: 0.46, p: { base: 'ready', chTwist: -6, rShF: -40, rShA: 25, rShT: 75, rElF: 25, rPro: 70, rWrF: 35, lShF: 20, lShA: 30, lElF: 50 } },
     { t: 0.72, p: 'ready' },
-  ]);
-  // baseball-style outlet (right hand)
-  clip('passOutlet', {
-    dur: 0.8, mask: 'upper', events: { release: 0.36 },
+  ], 0.21);
+  // a one-handed whip (right hand, out to the right: a kick to the corner; Trial 10): the ball taken across in front with
+  // the right hand on its inside, the arm whipped out and the wrist snapped through, the chest staying front
+  passBase('passWhip', 0.5, 0.18, [
+    { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
+    { t: 0.07, p: { base: 'ready', chTwist: 14, spTwist: 7, rShF: 50, rShA: 10, rShT: 30, rElF: 100, rPro: 60, rWrF: -40, lShF: 30, lShA: 20, lElF: 80 }, ball: [0.0, 0.2, 0.65], grip: 'whipR' },
+    { t: 0.18, p: { base: 'ready', chTwist: -14, spTwist: -7, rShF: 70, rShA: 45, rShT: 10, rElF: 20, rPro: 120, rWrF: 30, lShF: 20, lShA: 20, lElF: 70 }, ball: [0.26, 0.28, 0.66], grip: 'whipR' },
+    { t: 0.32, p: { base: 'ready', chTwist: -18, rShF: 65, rShA: 60, rShT: 0, rElF: 10, rPro: 150, rWrF: 45, lShF: 20, lShA: 20, lElF: 70 } },
+    { t: 0.5, p: 'ready' },
+  ], 0.07);
+  // the pass fake (Trial 10): the ball pushed out toward the fake as a chest pass starts, the eyes and chest with it, and
+  // pulled back in; the feet stay
+  clip('passFake', {
+    dur: 0.52, mask: 'upper', events: { fake: 0.17 },
     keys: [
       { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
-      { t: 0.18, p: { base: 'holdChest', chTwist: 30, spTwist: 15, nkTwist: -30, rShF: 60, rShA: 80, rShT: -40, rElF: 90, rPro: 90, rWrF: -40, lShF: 70, lShA: 30, lElF: 60 }, ball: [0.22, -0.1, 1.0], grip: 'rightTop' },
-      { t: 0.36, p: { base: 'holdChest', chTwist: -20, spTwist: -10, nkTwist: 10, rShF: 120, rShA: 30, rShT: 10, rElF: 10, rPro: 150, rWrF: 40, lShF: 40, lShA: 30, lElF: 60 }, ball: [0.1, 0.38, 1.0], grip: 'rightTop' },
+      { t: 0.17, p: { pelPitch: 14, spFlex: 6, chFlex: 2, nkFlex: -10, both: { ShF: 28, ShA: -2, ShT: 24, ElF: 100, Pro: 145, WrF: -40, WrD: 0, Fing: 0.1 } }, ball: [0.0, 0.25, 0.69], grip: 'passW' },
+      { t: 0.36, p: { base: 'holdChest', pelPitch: 8 }, ball: [0.0, 0.17, 0.66], grip: 'hold' },
+      { t: 0.52, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
+    ],
+  });
+  // (the lob: dipped to the waist, brought out in front of the chest with the arms reaching, then pushed up and out over
+  // the head. Straight up from the dip close in front of the chest, the hands passed the shoulders ~0.2 H off them, the
+  // elbows shut and the shoulders past their twist, the hands ~3.5 in off the ball, Trial 10)
+  passBase('passLob', 0.72, 0.32, [
+    { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
+    { t: 0.14, p: { base: 'holdChest', pelPitch: 18, spFlex: 8, both: { ShF: 30, ShA: 26, ElF: 110, WrF: -40 } }, ball: [0.0, 0.14, 0.56], grip: 'hold' },
+    { t: 0.23, p: { base: 'holdChest', pelPitch: 12, spFlex: 4, nkFlex: -10, both: { ShF: 75, ShA: 16, ShT: 10, ElF: 70, Pro: 110, WrF: -30 } }, ball: [0.0, 0.28, 0.8], grip: 'hold' },
+    { t: 0.32, p: { pelPitch: 2, spFlex: -6, chFlex: -6, nkFlex: -22, both: { ShF: 140, ShA: 8, ShT: 20, ElF: 20, Pro: 130, WrF: 10, Fing: 0.1 } }, ball: [0.0, 0.28, 1.04], grip: 'over' },
+    { t: 0.52, p: { pelPitch: 4, spFlex: -2, nkFlex: -20, both: { ShF: 132, ShA: 10, ShT: 30, ElF: 18, Pro: 150, WrF: 40 } } },
+    { t: 0.72, p: 'ready' },
+  ], 0.23);
+  // baseball-style outlet (right hand): the ball taken up in front of the right shoulder with both hands, cocked beside the
+  // right ear with the right hand behind it (the chest turned right, the elbow out at the shoulder's height, the forearm
+  // up) over ~0.26 s, then thrown through quickly as the chest turns back left, released in front of the face with the
+  // elbow still bent (Trial 10: cocked out wide behind the head, the arm's reach could not follow it there, the
+  // shoulder's two solutions flipped and the arm went straight out, the ball ~2 ft off its path; a long slow push could
+  // not bring it to ~44 ft/s without first slowing it; and the chest turned the wrong way, left, bringing the right
+  // shoulder forward past the ball: the arm reached back past its length, and the release key's straight arm left the
+  // elbow no way to point, the shoulder flipping ~120 deg in a frame. The keys' balls are where the key poses' own hands
+  // hold it, fitted by FK)
+  clip('passOutlet', {
+    dur: 0.8, mask: 'upper', events: { push: 0.26, release: 0.36 },
+    keys: [
+      { t: 0, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
+      { t: 0.1, p: { base: 'holdChest', chTwist: -10, spTwist: -5, nkTwist: 10, rShF: 80, rShA: 30, rShT: 10, rElF: 120, rPro: 80, rWrF: -40, lShF: 80, lShA: 10, lShT: 30, lElF: 110 }, ball: [0.11, 0.26, 0.84], grip: 'outletLift' },
+      { t: 0.2, p: { base: 'holdChest', chTwist: -24, spTwist: -12, nkTwist: 24, rShF: 105, rShA: 45, rShT: -20, rElF: 115, rPro: 90, rWrF: -40, lShF: 45, lShA: 25, lElF: 70 }, ball: [0.18, 0.11, 0.935], grip: 'throwR' },
+      { t: 0.26, p: { base: 'holdChest', chTwist: -28, spTwist: -14, nkTwist: 28, rShF: 108, rShA: 48, rShT: -24, rElF: 118, rPro: 90, rWrF: -44, lShF: 40, lShA: 28, lElF: 65 }, ball: [0.16, 0.08, 0.94], grip: 'throwR' },
+      { t: 0.36, p: { base: 'holdChest', chTwist: 20, spTwist: 10, nkTwist: -10, rShF: 130, rShA: 25, rShT: 10, rElF: 50, rPro: 150, rWrF: 40, lShF: 40, lShA: 30, lElF: 60 }, ball: [0.086, 0.454, 0.946], grip: 'throwR' },
+      { t: 0.52, p: { base: 'holdChest', chTwist: 22, spTwist: 10, nkTwist: -10, rShF: 112, rShA: 20, rShT: 10, rElF: 18, rPro: 160, rWrF: 45, lShF: 35, lShA: 30, lElF: 55 } },
       { t: 0.8, p: 'ready' },
     ],
   });
@@ -440,7 +499,7 @@
     { t: 0.26, p: { pelPitch: 10, spFlex: 8, chFlex: 4, nkFlex: -10, both: { ShF: 128, ShA: -12, ShT: 6, ElF: 60, Pro: 148.5, WrF: -10, WrD: -4, Fing: 0.1 } }, ball: [0.0, 0.3, 0.98], grip: 'overR' },
     { t: 0.44, p: { pelPitch: 8, spFlex: 6, nkFlex: -10, both: { ShF: 124, ShA: 5, ShT: 47, ElF: 30, Pro: 166, WrF: 39, Fing: 0.1 } } },
     { t: 0.62, p: 'ready' },
-  ]);
+  ], 0.12);
   // catch: hands present a target, absorb the ball into the chest
   clip('catch', {
     dur: 0.5, mask: 'upper', events: { catch: 0.18 },
