@@ -457,8 +457,15 @@
       const L1 = d.ua, L2 = d.fa;
       let dist = Math.sqrt(Dx * Dx + Dy * Dy + Dz * Dz);
       const dmax = (L1 + L2) * 0.9995, dmin = Math.abs(L1 - L2) + 0.25 * L2;
-      const dd = U.clamp(dist, dmin, dmax);
-      if (this.limHits && dist > dmax + 0.03) this.limHits[CH[pre + 'ElF']] = 2;
+      let dd = U.clamp(dist, dmin, dmax);
+      if (ik.soft > 0) {
+        // soft IK (Trial 8; A. Nicholls' soft IK, as in Unreal's Control Rig): within ik.soft of the arm's length from
+        // full reach the wrist comes on ever slower, toward straight but never there, so a target going out past the
+        // reach eases the elbow straight instead of snapping it the last ~40 deg in a frame (the elbow's angle against
+        // the reach goes vertical at straight: the dribble's follow-through past a release made with the arm long)
+        const sl = ik.soft * (L1 + L2), ds = dmax - sl;
+        if (dist > ds) dd = dmax - sl * Math.exp(-(dist - ds) / sl);
+      } else if (this.limHits && dist > dmax + 0.03) this.limHits[CH[pre + 'ElF']] = 2;
       const cosE = U.clamp((dd * dd - L1 * L1 - L2 * L2) / (2 * L1 * L2), -1, 1);
       const e = Math.acos(cosE);
       const sc = dist > 1e-6 ? dd / dist : 1;

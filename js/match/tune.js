@@ -99,6 +99,8 @@
       handleOpenFt: 9,              // ...and none this close is open
       handleSyncS: 0.067,           // a moving dribble's bounce within this of the inside foot landing is in rhythm (s)
       handleEyeDeg: 20,             // a dribbler whose face points within this of the ball is looking at it (deg)
+      airJoltFtps2: 150,            // a dribbled ball in the air speeding up across the floor more than this was shoved (ft/s^2;
+                                    // a 0.5 in step in one frame's motion at 60 fps)
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -311,7 +313,7 @@
       stepMaxFt: 0.25,              // the most the wrist target moves in one step (ft)
       tanW: 0.3,                    // on the ball, the palm's miss across the ball's surface counts this much against its
                                     // miss off the surface (1): where the spot is out of reach it lands on the ball near it
-      slideRadK: 0.3,               // (the palm's distance from the ball's centre gets to the dribble's in this share of the carry)
+      slideRadK: 0.08,               // (the palm's distance from the ball's centre gets to the dribble's in this share of the carry)
       aheadFt: 0.15,                // the ball stays this far ahead of the shoulder whose hand has it, or more (ft)...
       aheadSoftFt: 0.05,            // ...a smooth floor, this soft (ft)
       trunkYawK: 0.7,               // the dribble's frame turns with this share of the chest's own turn from the hips (the ball
@@ -322,11 +324,13 @@
                                     // of the carry (its forearm dipped into the ball bending back slower)
       offLetGoK: 0.6,               // out of the hands, the other hand has let go of the ball by this share of the carry...
       offClearFt: 0.08,             // ...its palm this far off the ball's surface or more while it does (ft)
+      carryWrF: -8,                 // carried out of the hands, the dribbling wrist is this bent back (deg) at first, then cocks
+                                    // to the push's start as the carry ends
       carryFtps: 10,                // out of the hands the ball is first carried to where the push starts at about this speed
       carryMinS: 0.2, carryMaxS: 0.45, // (ft/s), in this long at least and at most (s): the body sinks into its stance meanwhile
       pushHFtps: 9,                 // the push carries the ball across the floor (from its start to the release, against the
                                     // body) no faster than this on average (ft/s)
-      reachK: 0.93,                 // the push's end and the catch are planned within this share of the arm's straight reach
+      reachK: 0.9,                 // the push's end and the catch are planned within this share of the arm's straight reach
                                     // from its shoulder (the wrist bent at the release takes some of it)
       gripHz: 5,                    // a hold (plain, or a catch, a pick-up, a jab): the wrist bends after the flexion that puts
                                     // the fingers on the ball on a critically damped spring this fast (Hz), and back when it
@@ -338,9 +342,38 @@
       moveActK: 0.35,               // ...its IK weight all there by this share of that way
       followS: 0.045,               // the old hand after a move's release goes on at its speed there, slowing with this time
                                     // constant (s: it covers speed x this), as its weight goes over the ball's flight
+      followMaxFt: 0.3,             // ...carried on no further than this in all (ft): a hand stops a few inches past the release
+      inoutInK: 0.3, inoutCatchK: 0.45, // an in and out bounces this share of the way out from the middle (the hips' line at 0)
+                                    // and is taken back at this share, then ridden out (coaching: toward the middle as if
+                                    // crossing over, the hand rolled round to the inside of the ball, pushed back out)
+      inoutPeriodS: 0.4,            // ...its bounce this long (s)...
+      inoutFakeDeg: 12,             // ...the shoulders turned toward the other hand up to this much, selling the crossover (deg)
+      hesiTopH: 0.08,               // a hesitation's bounce comes up this much higher (H) into a hand riding it up...
+      hesiPeriodS: 0.8,             // ...slower, this long (s: the hang, the body rising, eyes up)...
+      burstLow: 0.55, burstK: 0.75, // ...and the bounce after it is this low (0 hip, 1 knee) and this much quicker: the burst
+      behindCatchH: -0.04,          // behind the back and between the legs, the other hand takes the ball this far ahead of the
+                                    // hips (H; behind them), beside the hip it comes up by
+      clearSpotFt: 0.45,            // moving, the bounce and the catch spots move up to this (ft) to keep the ball's path clear
+      clearMarginFt: 0.03,          // ...of his legs as they will be, by this much (ft) past touching...
+      catchMoveFtps: 6,             // ...the catch spot moving no faster than this while the other hand goes to it (ft/s)
+      avoidAheadS: 0.1,             // in the air, the ball eases round where his legs will be this far ahead (s)...
+      avoidHz: 9,                   // ...on a critically damped spring this quick (Hz)...
+      avoidAccel: 140,              // ...its acceleration across the floor no more than this (ft/s^2; under the 150 a 0.5 in
+                                    // jolt in a frame reads as)
+      hangMaxS: 0.3,                // moving, a move whose bounce its period cannot put on the footfall waits at the top with
+                                    // the hand on the ball for the rest, up to this (s): a hesitation's hang
+      retreatFt: 5, retreatFtps: 9, // a retreat dribble goes this far back (ft) this fast (ft/s): two or three dribbles...
+      retreatTurnDeg: 55,           // ...turned this far side-on, the dribbling shoulder away from the man on him (deg)...
+      retreatLow: 0.6,              // ...the ball this low (0 hip, 1 knee), beside the back knee
+      fingSpread: 0.04, fingSnap: 0.24, fingRest: 0.1, // the dribbling fingers' curl (0 open, 1 fist): spread to take the
+                                    // ball, snapped down through the push with the wrist, easing off after the release
+      moveSyncK: 0.4,               // moving, a move's period is stretched or shortened by up to this share to put its bounce
+                                    // on a footfall
       dribWS: 0.05,                 // a dribbling arm's IK weight moves at most a whole in this long (s; other arms 0.12 s)
       xfS: 0.14,                    // an arm changing task (a grip into the dribble, one grip to another) crossfades over
                                     // this (s); a hand going from a grip into the dribble slides over the ball in it
+      softIk: 0.06,                 // soft IK on a dribbling arm: within this share of its length from straight the wrist comes on
+                                    // ever slower (A. Nicholls), so a hand target past the reach eases the elbow straight, no snap
       // the dribble's rhythm: each cycle is solved at real gravity (the push and the ball's speed into the hand) to take
       // the period asked of it
       periodOpenS: 0.66,            // standing with nobody on him: ~1.5 bounces a second (measured control dribbling
@@ -350,13 +383,15 @@
                                     // second (ft)
       pressLow: 0.5,                // how far down a fully pressured dribble goes (0 at the hip, 1 at the knee)
       pressS: 0.25,                 // the pressure eases in and out on a spring with this time constant (s)
+      pressBackK: 0.7,              // fully pressured, not running, the ball this share of the protect pull back beside the hip...
+      pressInK: 0.04,               // ...and in toward the body by this (H per unit of it): the control dribble
       vcMin: 2.5, vcMax: 16,        // the ball's speed into the hand at the catch, the range the timing is solved in (ft/s)
       vRelMin: 3,                   // the hand always pushes: the release speed never under this (ft/s)
       vcComfort: 10,                // moving: a bounce every n steps, the fewest n that keep the catch under this (ft/s)
-      syncGain: 0.7,                // moving: a bounce off the inside foot's landing by e s makes the next cycle this much of
+      syncGain: 0.85,                // moving: a bounce off the inside foot's landing by e s makes the next cycle this much of
                                     // e shorter (or longer), so the bounces come with the inside step (coaching: the ball and
                                     // the inside foot hit the floor together)...
-      syncMaxK: 0.25,               // ...never by more than this share of the cycle
+      syncMaxK: 0.35,               // ...never by more than this share of the cycle
     },
 
     // ---------------------------------------------------------------- the gaits (Trial 5)

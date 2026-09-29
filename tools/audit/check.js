@@ -465,6 +465,65 @@ console.log('the gaits (Trial 5)');
   ok(x && x.crossAt.some(t => t >= 2.5 && t <= 3.2), `beaten on a slide, he opens up with a crossover step: the trail foot crosses over in front of the lead one at ${x ? x.crossAt.filter(t => t >= 2.5 && t <= 3.2).join(', ') : '-'} s (the man goes by at 2.5 s), then he runs`);
 }
 
+console.log('the handle (Trial 8)');
+{
+  // the ball-through-a-body meter: a ball set a known depth into his right thigh reads that depth, clear of him none
+  const P8 = a.sk.P, h0 = J.R_HIP * 3, k0 = J.R_KN * 3, H = a.H, Rb = M.Ball.R, rTh = M.Tune.debug.bodyR.thigh * H;
+  const mx = (P8[h0] + P8[k0]) / 2, my = (P8[h0 + 1] + P8[k0 + 1]) / 2, mz = (P8[h0 + 2] + P8[k0 + 2]) / 2;
+  const fx = Math.cos(a.facing), fy = Math.sin(a.facing);
+  const put = (depthIn) => { const d = rTh + Rb - depthIn / 12; return { x: mx + fx * d, y: my + fy * d, z: mz, state: 'loose', holder: null, rot: new Float64Array(9), hidden: false }; };
+  const HD = meters.S.hd, f0 = HD.throughFrames;
+  meters._handle([a], put(2), world.time);
+  near(HD.throughFrames - f0, 1, 0, 'a ball 2.00 in into his thigh: one frame through a body');
+  near(HD.throughWorst, 2, 0.05, 'a ball 2.00 in into his thigh: reads');
+  ok(Object.keys(HD.throughBy).some(k => k.endsWith('thigh')), 'a ball in his thigh: reads the thigh');
+  const f1 = HD.throughFrames;
+  meters._handle([a], put(-1), world.time);
+  ok(HD.throughFrames === f1, 'a ball 1 in clear of his thigh: nothing');
+  // the ball-in-the-air jolt meter: a dribbled ball falling across the floor at a steady 6 ft/s, then a step of 1 in (300
+  // ft/s^2 in a 60 Hz frame) and one of 0.25 in (75 ft/s^2)
+  {
+    const A8 = HD.air, fake = { dribble: { ph: 'down' }, id: 'k' }, bl = { state: 'dribble', dr: { actor: fake, move: null }, x: 0, y: 0, z: 2 };
+    const feed = (xs) => { A8.p.length = 0; xs.forEach((x, i) => { bl.x = x; meters._handle([], bl, 100 + i / 60); }); };
+    const j0 = A8.jolts, n0 = A8.frames;
+    feed([0, 0.1, 0.2]);
+    ok(A8.frames === n0 + 1 && A8.jolts === j0, 'a ball falling at a steady speed across the floor: no jolt');
+    feed([0, 0.1, 0.2 + 1 / 12]);
+    ok(A8.jolts === j0 + 1, 'a 1 in step in its path (300 ft/s^2): one jolt');
+    feed([0, 0.1, 0.2 + 0.25 / 12]);
+    ok(A8.jolts === j0 + 1, 'a 0.25 in step (75 ft/s^2): none');
+    A8.p.length = 0;
+  }
+  // the dribble in the Lab's kind of world, every scenario measured by the game's own meters (tools/audit/handle.js)
+  const H8 = require('./handle');
+  const rows = H8.scenarios().map(sc => H8.run(PBC, sc)), byName = (s) => rows.find(r => r.name.startsWith(s));
+  const spin = byName('spin'), notSpin = rows.filter(r => r !== spin);
+  ok(rows.every(r => r.contactsOff === 0), `the hand on the ball at every contact in ${rows.length} scenarios: ${rows.reduce((p, r) => p + r.contacts, 0)} contacts, none off by over 0.25 in (worst ${Math.max(...rows.map(r => r.contactMaxIn.max)).toFixed(2)} in)`);
+  const thru = notSpin.filter(r => r.ballThroughFrames > 0);
+  ok(!thru.length, `the ball through nobody in ${notSpin.length} scenarios: dribbling, the moves, the hesitation, the retreat, out of the hands` + (thru.length ? ` (${thru.map(r => r.name + ': ' + r.ballThroughFrames + ' frames ' + JSON.stringify(r.ballThroughBy)).join('; ')})` : ''));
+  ok(spin.ballThroughFrames <= 2 && (spin.ballThroughWorstIn || 0) <= 1.5, `the spin move (its footwork is Trial 7's): the ball through a leg at most 2 frames, 1.5 in (${spin.ballThroughFrames} frames, ${spin.ballThroughWorstIn || 0} in)`);
+  ok(rows.every(r => r.gravity.worstOffFtps2 != null && r.gravity.worstOffFtps2 <= 1 && Math.abs(r.gravity.meanFtps2 + U.G) <= 0.1), `the ball between hand and floor falls at g, ${U.G} ft/s^2, in every scenario (worst off ${Math.max(...rows.map(r => r.gravity.worstOffFtps2))})`);
+  ok(rows.every(r => r.restitution && r.restitution.worstOff <= 0.05), `every bounce off the floor at FIBA's restitution for its speed, within 0.05 (worst ${Math.max(...rows.map(r => r.restitution.worstOff))})`);
+  const open = byName('dribble in place, open'), pressed = byName('dribble in place, a defender');
+  ok(open.bouncesPerS.open >= 1.3 && open.bouncesPerS.open <= 1.7 && pressed.bouncesPerS.pressed >= 2.0 && pressed.bouncesPerS.pressed <= 2.6, `standing: ${open.bouncesPerS.open} bounces a second open, ${pressed.bouncesPerS.pressed} with a man up on him (the trial: 1.5 to 2.5)`);
+  ok(pressed.topIn.pressed.p50 < open.topIn.open.p50 - 1, `lower with a man on him: the top of the bounce at ${pressed.topIn.pressed.p50} in against ${open.topIn.open.p50} in open`);
+  const moving = ['dribble walking', 'dribble jogging', 'dribble running', 'speed dribble'].map(byName);
+  ok(moving.every(r => r.rhythm.withInsideStepPct >= 85), `moving, the bounce with the inside foot's landing (within ${M.Tune.debug.handleSyncS} s): ${moving.map(r => r.rhythm.withInsideStepPct + '%').join(', ')} walking, jogging, running, sprinting`);
+  const moves = rows.filter(r => r.rhythm.movesWithStepPct != null);
+  ok(moves.length >= 5 && moves.every(r => r.rhythm.movesWithStepPct === 100), `every move's bounce on a footfall: ${moves.map(r => r.name.replace(/ \(.*$/, '') + ' ' + r.rhythm.movesWithStepPct + '%').join(', ')}`);
+  ok(rows.every(r => r.eyesOnBallPct <= 5), `eyes up: looking at the ball in at most ${Math.max(...rows.map(r => r.eyesOnBallPct))}% of dribbling frames`);
+  const guarded = [pressed, byName('retreat')];
+  ok(guarded.every(r => r.offArmUpPct >= 85), `the off arm up between the ball and the man on him: ${guarded.map(r => r.offArmUpPct + '%').join(', ')} of those frames`);
+  const popped = notSpin.filter(r => r.armPops > 0);
+  ok(!popped.length, `no hand or elbow pops in ${notSpin.length} scenarios` + (popped.length ? ` (${popped.map(r => r.name + ': ' + JSON.stringify(r.pops)).join('; ')})` : ''));
+  // the ball in the air: dribbling, never shoved across the floor; the moves, a guard on what is still open (their footwork,
+  // a wide plant or a lunge for the ball to go through, is Trial 7's)
+  const plain = ['dribble in place', 'dribble walking', 'dribble jogging', 'dribble running', 'speed dribble', 'hesitation', 'catch and go'].map(k => rows.filter(r => r.name.startsWith(k))).flat();
+  ok(plain.every(r => r.air.jolts === 0), `the ball in the air never jolted across the floor dribbling (${plain.length} scenarios, ${plain.reduce((p, r) => p + r.air.frames, 0)} frames, worst ${Math.max(...plain.map(r => r.air.worstFtps2))} ft/s^2)`);
+  const mv8 = rows.filter(r => /three|retreat/.test(r.name)), mvJ = mv8.reduce((p, r) => p + r.air.jolts, 0), mvF = mv8.reduce((p, r) => p + r.air.frames, 0);
+  ok(mvJ <= 0.08 * mvF, `the moves' ball in the air jolted in no more than 8% of its frames (${mvJ} of ${mvF}: ${mv8.map(r => r.name.replace(/ \(.*$/, '') + ' ' + r.air.jolts).join(', ')}; still open, Trial 7)`);
+}
+
 console.log('the floor and the weight in a real game (the first minute of seed 7)');
 {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'quarter.js'), '--seed', '7', '--frames', '3600'], { encoding: 'utf8', maxBuffer: 1 << 26 });

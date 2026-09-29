@@ -1286,7 +1286,7 @@
           a.moveTo(a.x + s * side * 4 + c * 5, a.y - c * side * 4 + s * 5, { speed: 15, face: this.rim, stance: 'dribble' });
           if (d) { this.dtask[d.id] = { until: this.T + 0.5 }; d.moveTo(d.x - s * side * 1.5, d.y + c * side * 1.5, { speed: 8, stance: 'defense' }); }
         } else if (mv === 'hesi') {
-          a.play('hesi');
+          a.hesitate();
           a.moveTo(a.x + (this.rim.x - a.x) * 0.25, a.y + (this.rim.y - a.y) * 0.25, { speed: 17, face: 'move', stance: 'dribble' });
         } else if (mv === 'drive') {
           if (b.holder === a && b.state !== 'dribble') b.dribble(a);

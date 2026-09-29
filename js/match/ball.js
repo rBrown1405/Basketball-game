@@ -189,7 +189,14 @@
     dribbleMove(type, o) {
       const d = this.dr;
       if (!d) return;
-      d.pendingMove = { type, toHand: 1 - d.hand, onDone: o && o.onDone, period: (o && o.period) || 0.36 };
+      // (an in and out and a hesitation keep the ball in the same hand)
+      const same = type === 'inout' || type === 'hesi', TH = M.Tune.handle;
+      const mv = { type, same, onDone: o && o.onDone, period: (o && o.period) || (type === 'hesi' ? TH.hesiPeriodS : type === 'inout' ? TH.inoutPeriodS : 0.36) };
+      // (one waiting for its beat already: this one goes after it, a combination, Trial 8; it used to replace it, the move
+      // asked for first never made. The hand it goes to is set as it becomes the next one)
+      if (d.pendingMove && !d.pendingMove.spin) { d.nextMove = mv; return; }
+      mv.toHand = same ? d.hand : 1 - d.hand;
+      d.pendingMove = mv;
     }
     /**
      * the spin move's pull: the dribbling hand takes the ball as it comes up and keeps it on top, pulled back tight
@@ -672,15 +679,18 @@
           if (pu.on) d.u = Math.max(d.u, 0.999);
         }
       }
-      if (d.pendingMove && d.u < 0.08) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = false; }
+      // (a move asked for starts where a cycle is planned, its start: taken on a frame or two into a push, the push already
+      // begun was planned again from there, and with a hang at the top the ball went back up to it, Trial 8)
       if (d.move && !d.moveStarted && d.u < 0.1) { d.moveStarted = true; d.planned = false; }
       const period = d.T || (d.move && d.moveStarted ? d.move.period : d.period);
       d.curPeriod = period;
       const u0 = d.u;
-      // (the carry out of the hands takes its own time first; the cycle waits at its start)
+      // (the carry out of the hands takes its own time first, and a hang at the top its own; the cycle waits at its start)
       const cr0 = d.planned && d.plan && d.plan.carry && d.plan.carry.t < d.plan.carry.dur ? d.plan.carry : null;
+      const hg0 = !cr0 && d.planned && d.plan && d.plan.hang && d.plan.hang.t < d.plan.hang.dur ? d.plan.hang : null;
       let adv = dt;
       if (cr0) { adv = Math.max(0, cr0.t + dt - cr0.dur); cr0.t = Math.min(cr0.dur, cr0.t + dt); }
+      else if (hg0) { adv = Math.max(0, hg0.t + dt - hg0.dur); hg0.t = Math.min(hg0.dur, hg0.t + dt); }
       d.u += adv / period;
       if (d.pull && d.pull.on) {
         // held at the top of the ride, the hand on top, drawn back beside the hip
@@ -692,23 +702,42 @@
         pl0.qty = U.lerp(q.q0[1], -0.02 * H, e);
       }
       if (d.u >= 1) {
-        d.u -= 1;
+        d.u -= 1; d.cycle = (d.cycle || 0) + 1;
         if (d.move && d.moveStarted) {
           d.hand = d.move.toHand;
+          if (d.move.type === 'hesi') d.burst = true;
           const cb = d.move.onDone; d.move = null;
           if (cb) U.safe(cb, null, 'dribble move');
         }
+        // (a move asked for while one waited: its turn)
+        if (!d.pendingMove && !d.move && d.nextMove) { const nm = d.nextMove; d.nextMove = null; nm.toHand = nm.same ? d.hand : 1 - d.hand; d.pendingMove = nm; }
         d.planned = false;
       }
+      if (!d.planned && d.pendingMove && !d.move && !(d.pull && d.pull.on) && this._moveOnBeat(d, a)) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = true; }
       if (!d.planned) {
+        if (d.plan) d.plan.hang = null;
         this._planBounce(d, a); d.planned = true;
         if (d.plan.carry) { d.u = 0; d.plan.carry.t = Math.min(dt, d.plan.carry.dur); }
+        else if (d.plan.hang) {
+          // (a hang: held at the top for its time, counted from the cycle's start, the push after it)
+          const hg = d.plan.hang, T0 = d.T || period;
+          hg.t = Math.max(0, d.u) * T0; d.u = 0;
+          if (hg.t >= hg.dur) { d.u = (hg.t - hg.dur) / T0; hg.t = hg.dur; }
+        }
       }
       const pl = d.plan;
       const u = d.u;
       const cr = pl.carry && pl.carry.t < pl.carry.dur ? pl.carry : null;
       const moving = d.move && d.moveStarted;
       const endHand = moving ? d.move.toHand : d.hand;
+      // moving, where it bounces is chosen again every frame while the hand still pushes it, and where it is caught while
+      // it falls, against where his legs will be as it goes by (_clearPath): neither shows until the ball leaves the
+      // hand or comes off the floor (Trial 8: planned once at the cycle's start and the legs not looked at, a move's
+      // path went through a shin and the ball was shoved out of it in the air, up to a foot in a frame)
+      if (a.gaitOn && a.speed > 2 && a.legsAt && !cr && !(moving && d.move.spin)) {
+        if (u < pl.uP) this._clearPath(d, a, pl, u, true);
+        else if (u < pl.uB) this._clearPath(d, a, pl, u, false);
+      }
       // --- ball, body-local (x toward the dribble hand side of the body, y forward, z up; feet)
       let lx, ly, lz, ph, s;
       const uP = pl.uP, uB = pl.uB, uC = pl.uC;
@@ -733,17 +762,32 @@
         const k0 = (pl.top - pl.rel) / Math.max(0.01, pl.top - R);
         const k = U.lerp(k0, 1, s), kk = (k - k0) / Math.max(1e-3, 1 - k0);
         lx = U.lerp(pl.rx, pl.cx, kk); ly = U.lerp(pl.ry, pl.cy, kk);
+        if (!(moving && d.move.spin)) { const q = this._airW(d, a, pl, true, s, u, TW2); lx = q[0]; ly = q[1]; }
       } else if (u < uC) {
         ph = 'up'; s = (u - uB) / (uC - uB);
         const t = s * pl.tU;
         lz = Math.min(pl.ctop, R + pl.vUp * t - 0.5 * pl.g * t * t);
         lx = U.lerp(pl.cx, pl.qx, s); ly = U.lerp(pl.cy, pl.qy, s);
+        if (!(moving && d.move.spin)) { const q = this._airW(d, a, pl, false, s, u, TW2); lx = q[0]; ly = q[1]; }
       } else {
         ph = 'ride'; s = (u - uC) / (1 - uC);
         lz = pl.ctop - (pl.ctop - pl.ccatch) * (1 - s) * (1 - s);
-        lx = U.lerp(pl.qx, pl.qtx, s); ly = U.lerp(pl.qy, pl.qty, s);
+        // (from where it was caught: where the ball is as the hand takes it, in the frame then, eased from the hand's own
+        // standstill there to the top: at a steady speed from the first frame the hand jumped to it, ~10 ft/s when a retreat
+        // had moved the top back beside the hip, Trial 8)
+        if (pl.qxA == null) {
+          const f = a.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f), rx = this.x - a.x, ry = this.y - a.y;
+          pl.qxA = (rx * sf - ry * cf) * pl.side; pl.qyA = rx * cf + ry * sf;
+        }
+        const es = U.smooth(s);
+        lx = U.lerp(pl.qxA, pl.qtx, es); ly = U.lerp(pl.qyA, pl.qty, es);
       }
       const sd = pl.side; // +1: right hand side of the body
+      // (in the air, eased round where his legs are about to be, Trial 8: _airAvoid)
+      if ((ph === 'down' || ph === 'up') && a.legsAt && !(moving && d.move.spin)) {
+        const av = this._airAvoid(d, a, pl, u, dt), f = a.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f);
+        lx += (av[0] * sf - av[1] * cf) * sd; ly += av[0] * cf + av[1] * sf;
+      } else if (d.av) { d.av.x = d.av.y = d.av.vx = d.av.vy = 0; }
       // the ball never gets behind the shoulder whose hand has it (Trial 8: leaning into a start, or the trunk turned to a
       // pass, the shoulder went past a ball planned in the hips' frame and the arm was at the end of its reach back):
       // a smooth floor under its forward, Tune.handle.aheadFt ahead of that shoulder (none on a move behind the back or
@@ -751,7 +795,10 @@
       const TH = M.Tune.handle, beh = moving && (d.move.type === 'btb' || d.move.type === 'btl') && ph !== 'ride';
       const shA = !beh && a.armReach ? a.armReach(ph === 'push' || ph === 'down' ? d.hand : endHand, AR)[1] + TH.aheadFt : null;
       const fwd = (y) => shA == null ? y : y + TH.aheadSoftFt * Math.log1p(Math.exp((shA - y) / TH.aheadSoftFt));
-      ly = fwd(ly);
+      // (behind the back and between the legs the other hand takes it behind the hip: the floor comes in over the ride
+      // that brings it forward, Trial 8; all at once, the ball and the hand jumped ~0.8 ft forward at the catch)
+      const behRide = moving && (d.move.type === 'btb' || d.move.type === 'btl') && ph === 'ride';
+      ly = behRide ? U.lerp(ly, fwd(ly), U.smooth(s)) : fwd(ly);
       // the spin's crossover: once out of the hand the ball is on its own, so the bounce spot stays put on the floor
       // (where the body will be facing when it lands) while he turns, and it comes up to wherever the new hand is
       const anchored = moving && d.move.spin && (ph === 'down' || ph === 'up');
@@ -766,29 +813,35 @@
           const k0 = (pl.top - pl.rel) / Math.max(0.01, pl.top - R), k = U.lerp(k0, 1, s), kk = (k - k0) / Math.max(1e-3, 1 - k0);
           this.x = U.lerp(an.x0, an.bx, kk); this.y = U.lerp(an.y0, an.by, kk);
         } else {
-          const cq = a.local(sd * pl.qx, pl.qy, 0, TB);
+          const cq = (a.localD || a.local).call(a, sd * pl.qx, pl.qy, 0, TB);
           this.x = U.lerp(an.bx, cq[0], s); this.y = U.lerp(an.by, cq[1], s);
         }
         this.z = lz + a.jumpZ;
+        // (and out of his legs as he turns round it, Trial 8: it stayed put while his shins came through it)
+        const f = a.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f), rx = this.x - a.x, ry = this.y - a.y, lb = TL;
+        lb[0] = rx * sf - ry * cf; lb[1] = rx * cf + ry * sf; lb[2] = lz;
+        if (a.clearBall(lb, R, true, a.dribbleYaw || 0, true) > 1e-6) { this.x = a.x + sf * lb[0] + cf * lb[1]; this.y = a.y - cf * lb[0] + sf * lb[1]; }
       } else {
         // never through the dribbler himself (a knee coming through, a crossover in front of the shins): the ball
         // keeps out of his legs and trunk, except going between the legs on purpose, and the hand meets it where it is
         const lb = TL;
         lb[0] = sd * lx; lb[1] = ly; lb[2] = lz;
-        if (a.clearBall(lb, R, !(moving && d.move.type === 'btl'), a.dribbleYaw || 0) > 1e-6) { lx = lb[0] * sd; ly = lb[1]; lz = Math.max(R, lb[2]); }
+        if (a.clearBall(lb, R, true, a.dribbleYaw || 0, ph === 'down' || ph === 'up') > 1e-6) { lx = lb[0] * sd; ly = lb[1]; lz = Math.max(R, lb[2]); }
         let wp = (a.localD || a.local).call(a, sd * lx, ly, lz, TB);
         // and out of everyone else's, across the floor (a defender up on him, a screener), the hand going with it
         const acts = this.view && this.view.actors;
         if (acts) {
-          let wx = wp[0], wy = wp[1], moved = false;
+          // (in the air across the floor only, keeping its fall; in the hand any way out)
+          const flat = ph === 'down' || ph === 'up';
+          let wx = wp[0], wy = wp[1], wz = wp[2], moved = false;
           for (const id in acts) {
             const o = acts[id];
             if (!o || o === a || o.hidden || o.kind !== 'player' || !o.clearBallOf || Math.abs(o.x - wx) > 4 || Math.abs(o.y - wy) > 4) continue;
-            if (o.clearBallOf(wx, wy, wp[2], R, TO2) > 1e-6) { wx = TO2[0]; wy = TO2[1]; moved = true; }
+            if (o.clearBallOf(wx, wy, wz, R, TO2, flat) > 1e-6) { wx = TO2[0]; wy = TO2[1]; wz = TO2[2]; moved = true; }
           }
           if (moved) {
             const f = a.facing + (a.dribbleYaw || 0), c = Math.cos(f), sn = Math.sin(f), dx = wx - wp[0], dy = wy - wp[1];
-            lx += (dx * sn - dy * c) * sd; ly += dx * c + dy * sn;
+            lx += (dx * sn - dy * c) * sd; ly += dx * c + dy * sn; lz = Math.max(R, lz + wz - wp[2]);
             wp = (a.localD || a.local).call(a, sd * lx, ly, lz, TB);
           }
         }
@@ -801,28 +854,42 @@
       const pr = R + 0.01 * H;
       const handOn = (bx, by, bz, handSign, o) => {
         // palm (finger pads) on the top-back-outside of the ball; the actor corrects its wrist so the hand
-        // lands exactly here (bx is the signed body-local x of the ball centre)
-        o.x = bx + handSign * 0.3 * pr; o.y = by - 0.28 * pr; o.z = bz + 0.91 * pr;
+        // lands exactly here (bx is the signed body-local x of the ball centre); handSign between -1 and 1 (a palm
+        // rolling over the top), the spot kept on the ball's surface
+        const hx = handSign * 0.3, k = pr / Math.sqrt(hx * hx + 0.28 * 0.28 + 0.91 * 0.91);
+        o.x = bx + hx * k; o.y = by - 0.28 * k; o.z = bz + 0.91 * k;
         return o;
       };
       const hd = a.dribble && a.dribble.ball === this ? a.dribble : (a.dribble = { ball: this, w: 1 });
       hd.ball = this; hd.w = 1; hd.u = u; hd.ph = ph; hd.s = s; hd.carry = cr ? cr.t / cr.dur : null;
+      // (an in and out's fake with the shoulders, toward the hand it is not going to: up through the push, gone by the catch)
+      hd.fake = pl.inout && ph !== 'ride' ? Math.sin(Math.PI * Math.min(1, u / Math.max(0.01, pl.uC))) : 0;
+      hd.hesi = d.move && d.move.type === 'hesi' ? 1 : 0;
       const ACT = HO1, RCV = HO2;
       let wr; // wrist flexion (deg; + = flexed / fingers down, - = cocked back)
+      // the fingers (curl 0 open .. 1 fist): spread to take the ball as it comes up, snapping down with the wrist through the
+      // push, easing off after the release (Tune.handle.fingSpread, fingSnap, fingRest)
+      const THf = M.Tune.handle;
+      let fing;
       if (ph === 'push') {
         handOn(sd * lx, ly, lz, sd, ACT);
-        wr = U.lerp(-32, 26, U.smooth(s));
+        // (carried out of the hands the wrist is near straight, cocking back as the carry ends: fully cocked with the palm
+        // rolling over the top, the forearm angled down into the ball, Trial 8)
+        wr = cr ? U.lerp(THf.carryWrF, -32, U.smooth(cr.t / cr.dur)) : U.lerp(-32, 26, U.smooth(s));
+        fing = U.lerp(THf.fingSpread, THf.fingSnap, U.smooth(s));
         hd.hand = d.hand; hd.act = 1;
       } else if (ph === 'ride') {
-        handOn(sd * lx, ly, lz, pl.rside, ACT);
+        // (in and out: the palm from the inside of the ball, where it took it, back over the top as it rides it out)
+        handOn(sd * lx, ly, lz, pl.inout ? pl.rside * U.lerp(-1, 1, U.smooth(s)) : pl.rside, ACT);
         wr = U.lerp(-18, -34, U.smooth(s));
+        fing = THf.fingSpread;
         hd.hand = endHand; hd.act = 1;
       } else {
         // free flight: the hand follows through a little, then waits low and rises to meet the ball
         const f = (u - uP) / (uC - uP);
         const rel = handOn(sd * pl.rx, fwd(pl.ry), pl.rel, sd, RCV);
         const rx0 = rel.x, ry0 = rel.y, rz0 = rel.z;
-        const cat = handOn(sd * pl.qx, fwd(pl.qy), pl.ccatch, pl.rside, ACT);
+        const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], fwd(cq[1]), pl.ccatch, pl.inout ? -pl.rside : pl.rside, ACT);
         if (moving && d.move.toHand !== d.hand) {
           // crossover / between the legs / behind the back: from the release the new hand has the dribble, on its way to
           // the catch since the push (_moveHands), and the old hand follows through and lets go (hd.aux)
@@ -835,10 +902,14 @@
           hd.hand = d.hand; hd.act = 1;
         }
         wr = f < 0.3 ? U.lerp(26, 8, f / 0.3) : U.lerp(8, -18, U.smooth((f - 0.3) / 0.7));
-        if (moving && d.move.toHand !== d.hand) { wr = -18; hd.act = 1; }
+        fing = f < 0.3 ? U.lerp(THf.fingSnap, THf.fingRest, U.smooth(f / 0.3)) : U.lerp(THf.fingRest, THf.fingSpread, U.smooth((f - 0.3) / 0.7));
+        if (moving && d.move.toHand !== d.hand) { wr = -18; fing = THf.fingSpread; hd.act = 1; }
       }
       const w = (a.localD || a.local).call(a, ACT.x, ACT.y, ACT.z, TC);
-      hd.wx = w[0]; hd.wy = w[1]; hd.wz = w[2]; hd.wrF = wr; hd.palm = 1;
+      // (in the ball's flight the hand's path goes round it, not through it: a hand waiting for a crossover's catch was
+      // in its way as it fell, Trial 8)
+      if (ph === 'down' || ph === 'up') keepOff(w, this, pr + M.Tune.handle.offClearFt);
+      hd.wx = w[0]; hd.wy = w[1]; hd.wz = w[2]; hd.wrF = wr; hd.fing = fing; hd.palm = 1;
       // a move from hand to hand, the other hand (hd.aux, Trial 8): before the release the receiving hand reaching for
       // the catch on the path it then keeps as the dribbling hand; after it the old hand following through and letting
       // go over the ball's flight (they used to trade the dribble halfway through the flight, each in ~0.08 s)
@@ -849,9 +920,10 @@
           // (where the pushing palm is, frame by frame, for its follow-through from the release)
           const mv = d.move, hp = a.handLocal ? a.handLocal(d.hand, TD) : null;
           if (hp) mv.hp = [hp[0], hp[1], hp[2]];
-          const cat = handOn(sd * pl.qx, fwd(pl.qy), pl.ccatch, pl.rside, HO3);
+          const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], fwd(cq[1]), pl.ccatch, pl.rside, HO3);
           this._moveHand(d, pl, a, u, uC, cat, HO4);
           const wq = (a.localD || a.local).call(a, HO4.x, HO4.y, HO4.z, TD);
+          keepOff(wq, this, pr + M.Tune.handle.offClearFt);
           aux.hand = endHand; aux.act = HO4.act; aux.wrF = -18;
           aux.x = wq[0]; aux.y = wq[1]; aux.z = wq[2];
         } else {
@@ -864,8 +936,12 @@
             const hq = mv.hp || hp, iv = 1 / Math.max(1e-3, dt);
             mv.rel0 = [hp[0], hp[1], hp[2], (hp[0] - hq[0]) * iv, (hp[1] - hq[1]) * iv, (hp[2] - hq[2]) * iv, (u - uP) * (d.curPeriod || 0.4) - dt];
           }
-          const r0 = mv.rel0, tr = (u - uP) * (d.curPeriod || 0.4) - r0[6], k = TH.followS * (1 - Math.exp(-tr / TH.followS));
+          // (its speed at the release carried on no further than Tune.handle.followMaxFt in all: a crossover's push ends at
+          // 30-40 ft/s, and carried ~1.5 ft on the arm went past its reach and straightened in a frame, Trial 8)
+          const r0 = mv.rel0, tr = (u - uP) * (d.curPeriod || 0.4) - r0[6], vr = Math.hypot(r0[3], r0[4], r0[5]);
+          const k = TH.followS * (1 - Math.exp(-tr / TH.followS)) * Math.min(1, TH.followMaxFt / Math.max(1e-6, vr * TH.followS));
           const wq = (a.localD || a.local).call(a, r0[0] + r0[3] * k, r0[1] + r0[4] * k, r0[2] + r0[5] * k - 0.04 * H * U.smooth(f), TD);
+          keepOff(wq, this, pr + M.Tune.handle.offClearFt);
           aux.hand = d.hand; aux.act = 1 - U.smooth(f); aux.wrF = U.lerp(26, 8, U.smooth(f));
           aux.x = wq[0]; aux.y = wq[1]; aux.z = wq[2];
         }
@@ -887,6 +963,24 @@
       }
       if (!aux) hd.aux = null;
     }
+    /** whether a pending move starts with this bounce (Trial 8): standing, at once; moving, when a footfall comes within
+     *  reach of its bounce (a move's period stretched or shortened by Tune.handle.moveSyncK), else it waits a bounce, once */
+    _moveOnBeat(d, a) {
+      const pm = d.pendingMove;
+      if (!(a.gaitOn && a.speed > 2) || pm.waited != null && d.cycle - pm.waited >= (footOf(d, pm) != null ? 2 : 1)) return true;
+      const TH = M.Tune.handle, sps = a.gaitDbg && a.gaitDbg.sps > 0 ? a.gaitDbg.sps : M.Anims.stepsPerSec(a.speed, a.H), stepT = 1 / sps;
+      // (a move's bounce comes ~0.45 of its period after its push starts; behind the back and between the legs, with one
+      // foot's landing (footOf), which comes every other step)
+      const ft = footOf(d, pm), span = ft != null ? 2 * stepT : stepT;
+      const fr = (v) => v - Math.floor(v), P0 = pm.period || 0.36;
+      const tL = ft != null ? fr((ft ? 0 : 0.5) - (a.phase || 0)) * span : fr(-2 * (a.phase || 0)) * stepT;
+      // (and a footfall later than that by up to a hang at the top, Tune.handle.hangMaxS, the push waiting for it; not the
+      // spin's crossover, whose pull held it at the top already)
+      const lo = 0.45 * P0 * (1 - TH.moveSyncK), hi = 0.45 * P0 * (1 + TH.moveSyncK) + (pm.spin ? 0 : TH.hangMaxS);
+      if ((tL >= lo && tL <= hi) || (tL + span >= lo && tL + span <= hi)) return true;
+      if (pm.waited == null) pm.waited = d.cycle;
+      return false;
+    }
     /** a move from hand to hand, the receiving hand (Trial 8): from where it was when the move's push began (its spot
      *  on the other side, body frame) to the catch, eased over the push and the flight so it is there
      *  Tune.handle.moveReachK of the way to the catch; its IK weight all there by moveActK of that way. o (body frame,
@@ -904,17 +998,185 @@
       o.act = U.smooth(Math.min(1, u / (uR * TH.moveActK)));
       return o;
     }
+    /** the ball in the air goes on its own across the floor, not with his trunk (Trial 8: planned in the dribble's frame,
+     *  which turns with the chest, a crossover's turn of the shoulders, ~20 deg in four frames, swung the ball in the air
+     *  with it): falling, straight from where the hand let it go to its bounce spot where the body will be then (fixed at
+     *  the release); rising, straight from where it bounced to its catch spot where the body will be as it gets there.
+     *  Returns the spot in the dribble's frame now (x in the hand's side convention, like lx), into o */
+    _airW(d, a, pl, down, s, u, o) {
+      const T = d.curPeriod || d.T || 0.6, yawD = a.dribbleYaw || 0, sd = pl.side;
+      let fl = d.fl;
+      if (!fl || fl.serial !== pl.serial) fl = d.fl = { serial: pl.serial, r: null, b: null, q: null };
+      const at = (lx, ly, dt, out) => {
+        const pf = dt > 0 ? a.predictFrame(dt, PF) : null, x0 = pf ? pf.x : a.x, y0 = pf ? pf.y : a.y, f = (pf ? pf.facing : a.facing) + yawD;
+        const cf = Math.cos(f), sf = Math.sin(f), x = sd * lx;
+        out[0] = x0 + sf * x + cf * ly; out[1] = y0 - cf * x + sf * ly;
+        return out;
+      };
+      let wx, wy;
+      if (down) {
+        if (!fl.r) fl.r = at(pl.rx, pl.ry, 0, [0, 0]);
+        if (!fl.b) fl.b = at(pl.cx, pl.cy, Math.max(0, (pl.uB - u) * T), [0, 0]);
+        wx = U.lerp(fl.r[0], fl.b[0], s); wy = U.lerp(fl.r[1], fl.b[1], s);
+      } else {
+        // (and where it comes up to is fixed there too, where the hand was to be then: the hand goes to it, not it to the
+        // hand; aimed again every frame, a body speeding up into a retreat bent the ball in the air)
+        if (!fl.b) fl.b = [this.x, this.y];
+        if (!fl.q) fl.q = at(pl.qx, pl.qy, Math.max(0, (pl.uC - u) * T), [0, 0]);
+        wx = U.lerp(fl.b[0], fl.q[0], s); wy = U.lerp(fl.b[1], fl.q[1], s);
+      }
+      const f = a.facing + yawD, cf = Math.cos(f), sf = Math.sin(f), rx = wx - a.x, ry = wy - a.y;
+      o[0] = (rx * sf - ry * cf) * sd; o[1] = rx * cf + ry * sf;
+      return o;
+    }
+    /** where the ball is caught, in the dribble's frame as it will be then (x in the hand's side convention; the hand's
+     *  target, which goes with the body): fixed across the floor from the bounce on (_airW), the plan's spot before it
+     *  (in the frame now, it ran ahead of the hand by how far the body goes before the catch, ~0.7 ft running). Into o */
+    _catchLocal(d, a, pl, o) {
+      const fl = d.fl;
+      if (fl && fl.serial === pl.serial && fl.q) {
+        const T = d.curPeriod || d.T || 0.6, dt = Math.max(0, (pl.uC - d.u) * T), pf = dt > 0 ? a.predictFrame(dt, PF) : null;
+        const x0 = pf ? pf.x : a.x, y0 = pf ? pf.y : a.y, f = (pf ? pf.facing : a.facing) + (a.dribbleYaw || 0);
+        const cf = Math.cos(f), sf = Math.sin(f), rx = fl.q[0] - x0, ry = fl.q[1] - y0;
+        o[0] = (rx * sf - ry * cf) * pl.side; o[1] = rx * cf + ry * sf;
+      } else { o[0] = pl.qx; o[1] = pl.qy; }
+      return o;
+    }
+    /** the ball in the air eased round his legs (Trial 8): looking ahead along the rest of its flight (_airW's straight
+     *  path across the floor, its fall or rise) against where his legs will be (Actor.legsAt), the push across the floor
+     *  that would keep it clear the most it will need soonest (Tune.handle.avoidAheadS) is where an offset goes, on a
+     *  critically damped spring (avoidHz) whose acceleration is capped (avoidAccel): shoved out of a shin only in the
+     *  frame it got there, a move's ball went through it or jumped. Gone by the last of the rise, the hand there to take
+     *  it. World offset [x, y] into AVO */
+    _airAvoid(d, a, pl, u, dt) {
+      const TH = M.Tune.handle, H = a.H, T = d.curPeriod || d.T || 0.6, av = d.av || (d.av = { x: 0, y: 0, vx: 0, vy: 0 });
+      const fl = d.fl, rTh = 0.044 * H, rSh = 0.032 * H, rFt = 0.02 * H, mg = TH.clearMarginFt + R;
+      let tx = 0, ty = 0, need = 0;
+      const nA = Math.max(1, Math.round(TH.avoidAheadS * 60));
+      for (let k = 1; k <= nA && fl && fl.b; k++) {
+        const dtk = k / 60, uu = u + dtk / T;
+        if (uu >= pl.uC - 0.3 * (pl.uC - pl.uB)) break;
+        // (the ball's spot then: straight across the floor, its height from its fall or rise)
+        let bx, by, bz;
+        if (uu < pl.uB) {
+          if (!fl.r) break;
+          const s = U.clamp((uu - pl.uP) / Math.max(1e-6, pl.uB - pl.uP), 0, 1), t = s * pl.tD;
+          bx = U.lerp(fl.r[0], fl.b[0], s); by = U.lerp(fl.r[1], fl.b[1], s); bz = Math.max(R, pl.rel - pl.vRel * t - 0.5 * pl.g * t * t);
+        } else {
+          const s = U.clamp((uu - pl.uB) / Math.max(1e-6, pl.uC - pl.uB), 0, 1), t = s * pl.tU;
+          const pf = a.predictFrame(Math.max(0, (pl.uC - u) * T), PF), f = pf.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f), x = pl.side * pl.qx;
+          bx = U.lerp(fl.b[0], pf.x + sf * x + cf * pl.qy, s); by = U.lerp(fl.b[1], pf.y - cf * x + sf * pl.qy, s); bz = Math.min(pl.ctop, R + pl.vUp * t - 0.5 * pl.g * t * t);
+        }
+        bx += av.x; by += av.y;
+        const L = AV_L;
+        a.legsAt(dtk, L);
+        // (the push across the floor out of each thigh, shin and foot it would be in)
+        let px = 0, py = 0;
+        for (let side = 0; side < 2; side++) {
+          const o = side * 15;
+          for (let q = 0; q < 4; q++) {
+            const i = o + q * 3, j = i + 3, rr = (q === 0 ? rTh : q === 1 ? rSh : rFt) + mg;
+            const ax = L[i], ay = L[i + 1], az = L[i + 2], sx = L[j] - ax, sy = L[j + 1] - ay, sz = L[j + 2] - az;
+            const l2 = sx * sx + sy * sy + sz * sz, tt = l2 > 1e-9 ? U.clamp(((bx - ax) * sx + (by - ay) * sy + (bz - az) * sz) / l2, 0, 1) : 0;
+            const vx = bx - ax - sx * tt, vy = by - ay - sy * tt, vz = bz - az - sz * tt, dv = Math.hypot(vx, vy, vz), dh = Math.hypot(vx, vy);
+            if (dv >= rr || dh < 1e-4) continue;
+            const h = Math.min(0.5, (rr - dv) * dv / dh);
+            px += vx / dh * h; py += vy / dh * h;
+          }
+        }
+        const pn = Math.hypot(px, py);
+        if (pn > need) { need = pn; tx = av.x + px; ty = av.y + py; }
+      }
+      if (!(need > 0)) { tx = 0; ty = 0; }
+      // (the spring, its acceleration capped)
+      const w = 2 * Math.PI * TH.avoidHz;
+      let ax = w * w * (tx - av.x) - 2 * w * av.vx, ay = w * w * (ty - av.y) - 2 * w * av.vy;
+      const am = Math.hypot(ax, ay), cap = TH.avoidAccel;
+      if (am > cap) { ax *= cap / am; ay *= cap / am; }
+      if (dt > 0) { av.vx += ax * dt; av.vy += ay * dt; av.x += av.vx * dt; av.y += av.vy * dt; }
+      AVO[0] = av.x; AVO[1] = av.y;
+      return AVO;
+    }
+    /** the bounce spot (bounce true, while the hand pushes) or the catch spot (while the ball falls) moved, a little,
+     *  to where the ball's path from there on stays clear of his legs as they will be (Actor.legsAt): candidates round the
+     *  plan's own spot, each scored by how deep the ball would go into a thigh, shin or foot at samples along the rest of
+     *  its flight, plus how far it moved (Tune.handle.clearSpotFt at most) (Trial 8) */
+    _clearPath(d, a, pl, u, bounce) {
+      const TH = M.Tune.handle, H = a.H, T = d.T || d.curPeriod || 0.6, sd = pl.side;
+      const hang = pl.hang && pl.hang.t < pl.hang.dur ? pl.hang.dur - pl.hang.t : 0;
+      // (the plan's own spots, kept: every frame's choice is made from them)
+      if (bounce) { if (pl.cx0 == null) { pl.cx0 = pl.cx; pl.cy0 = pl.cy; } }
+      else if (pl.qx0 == null) { pl.qx0 = pl.qx; pl.qy0 = pl.qy; }
+      const yawD = a.dribbleYaw || 0, rTh = 0.044 * H, rSh = 0.032 * H, rFt = 0.02 * H, mg = TH.clearMarginFt + R;
+      // the frames at the release, the bounce and the catch (the ball's path across the floor is straight between its
+      // spots then, as _airW flies it), and the fall's and the rise's samples: their times, heights and legs
+      const tOf = (uu) => Math.max(0, hang + (uu - u) * T);
+      const fr = (dt, k) => { const pf = dt > 0 ? a.predictFrame(dt, PF) : null; CP_K[k * 3] = pf ? pf.x : a.x; CP_K[k * 3 + 1] = pf ? pf.y : a.y; CP_K[k * 3 + 2] = (pf ? pf.facing : a.facing) + yawD; };
+      const wAt = (k, lx, ly, o, j) => { const f = CP_K[k * 3 + 2], cf = Math.cos(f), sf = Math.sin(f), x = sd * lx; o[j] = CP_K[k * 3] + sf * x + cf * ly; o[j + 1] = CP_K[k * 3 + 1] - cf * x + sf * ly; };
+      const fl = d.fl && d.fl.serial === pl.serial ? d.fl : null;
+      fr(tOf(pl.uP), 0); fr(tOf(pl.uB), 1); fr(tOf(pl.uC), 2);
+      const US = CP_U; let n = 0;
+      if (bounce) for (let k = 1; k <= 4; k++) US[n++] = k / 4;
+      const nD = n;
+      for (let k = 1; k <= 4; k++) US[n++] = k / 5;
+      for (let k = 0; k < n; k++) {
+        const down = k < nD, sk = US[k], uu = down ? U.lerp(pl.uP, pl.uB, sk) : U.lerp(pl.uB, pl.uC, sk), t = down ? sk * pl.tD : sk * pl.tU;
+        CP_Z[k] = down ? Math.max(R, pl.rel - pl.vRel * t - 0.5 * pl.g * t * t) : Math.min(pl.ctop, R + pl.vUp * t - 0.5 * pl.g * t * t);
+        a.legsAt(tOf(uu), CP_L[k]);
+      }
+      // (the spots that stay put: the release while the hand pushes, the release and the bounce once it falls)
+      const W = CP_W;
+      if (bounce) wAt(0, pl.rx, pl.ry, W, 0);
+      else { W[0] = fl && fl.r ? fl.r[0] : 0; W[1] = fl && fl.r ? fl.r[1] : 0; if (fl && fl.b) { W[2] = fl.b[0]; W[3] = fl.b[1]; } else wAt(1, pl.cx, pl.cy, W, 2); }
+      const score = (dx, dy) => {
+        if (bounce) { wAt(1, pl.cx0 + dx, pl.cy0 + dy, W, 2); wAt(2, pl.qx, pl.qy, W, 4); } else wAt(2, pl.qx0 + dx, pl.qy0 + dy, W, 4);
+        let c = 0;
+        for (let k = 0; k < n; k++) {
+          const down = k < nD, sk = US[k];
+          const bx = down ? U.lerp(W[0], W[2], sk) : U.lerp(W[2], W[4], sk), by = down ? U.lerp(W[1], W[3], sk) : U.lerp(W[3], W[5], sk), bz = CP_Z[k], L = CP_L[k];
+          let pen = 0;
+          for (let side = 0; side < 2; side++) {
+            const o = side * 15;
+            pen = Math.max(pen, rTh + mg - segDist3(L, o, o + 3, bx, by, bz), rSh + mg - segDist3(L, o + 3, o + 6, bx, by, bz),
+              rFt + mg - segDist3(L, o + 6, o + 9, bx, by, bz), rFt + mg - segDist3(L, o + 9, o + 12, bx, by, bz));
+          }
+          if (pen > 0) c += pen * pen;
+        }
+        return 100 * c + dx * dx + dy * dy;
+      };
+      const lim = TH.clearSpotFt;
+      let best = score(0, 0), bx = 0, by = 0;
+      if (best > 1e-9) {
+        for (const g of CP_G) for (const h of CP_G) { const v = score(g * lim, h * lim); if (v < best) { best = v; bx = g * lim; by = h * lim; } }
+        const st = 0.25 * lim, x0 = bx, y0 = by;
+        for (const g of [-1, 0, 1]) for (const h of [-1, 0, 1]) {
+          if (!g && !h) continue;
+          const nx = U.clamp(x0 + g * st, -lim, lim), ny = U.clamp(y0 + h * st, -lim, lim), v = score(nx, ny);
+          if (v < best) { best = v; bx = nx; by = ny; }
+        }
+      }
+      if (bounce) { pl.cx = pl.cx0 + bx; pl.cy = pl.cy0 + by; }
+      else {
+        // (the catch spot is where the other hand is going: it moves there no faster than Tune.handle.catchMoveFtps)
+        const mv = TH.catchMoveFtps / 60, qx = pl.qxC != null ? pl.qxC : pl.qx0, qy = pl.qyC != null ? pl.qyC : pl.qy0;
+        const ex = pl.qx0 + bx - qx, ey = pl.qy0 + by - qy, el = Math.hypot(ex, ey), k = el > mv ? mv / el : 1;
+        pl.qx = pl.qxC = qx + ex * k; pl.qy = pl.qyC = qy + ey * k;
+      }
+    }
     /** geometry and physics of the next bounce (heights in feet, body-local) */
     _planBounce(d, a) {
       const H = a.H;
-      const moving = d.move && (d.move.type === 'cross' || d.move.type === 'btl' || d.move.type === 'btb');
+      const moving = d.move && (d.move.type === 'cross' || d.move.type === 'btl' || d.move.type === 'btb' || d.move.type === 'inout');
+      const hesi = d.move && d.move.type === 'hesi';
       const side = d.hand ? 1 : -1;
       const recv = moving ? d.move.toHand : d.hand;
       const rside = recv ? 1 : -1;
       // the dribble's shape for how he is moving (the actor's dribbleShape: wide of the hip sizing up, low and outside
       // the foot driving, pushed out ahead at thigh height running)
-      const sh = a.dribbleShape ? a.dribbleShape(DSH) : { tx: 0.2, ty: 0.13, cx: 0.21, cy: 0.18, top: 0.5, low: 0, spK: 0 };
-      const low = U.clamp(Math.max(d.low || 0, sh.low), 0, 1), spK = sh.spK;
+      const sh = a.dribbleShape ? a.dribbleShape(DSH, !!d.from) : { tx: 0.2, ty: 0.13, cx: 0.21, cy: 0.18, top: 0.5, low: 0, spK: 0 };
+      // (the bounce after a hesitation: low and quick, the burst past him)
+      const burst = !!d.burst && !d.move;
+      const low = U.clamp(Math.max(d.low || 0, sh.low, burst ? M.Tune.handle.burstLow : 0), 0, 1), spK = sh.spK;
       // heights of the ball centre: top of the ride ~hip height, catch ~0.07 H lower, release ~0.14 H below the top;
       // low/protect dribble at the knees
       let top = (sh.top - 0.2 * Math.max(0, low - sh.low)) * H;
@@ -933,7 +1195,16 @@
         // the ball crosses the midline: in front (crossover), under the body (between the legs), behind the back
         cx = 0;
         cy = d.move.type === 'cross' ? ty + 0.06 * H : d.move.type === 'btl' ? 0.06 * H : -0.14 * H;
+        // in and out: the one bounce in front, in toward the middle as if crossing over, and the same hand, come round to
+        // the inside of the ball, takes it there and rides it back out (coaching: the hand rolls from the outside over the
+        // top to the inside, then pushes the ball back out, the ball never changing hands)
+        if (d.move.type === 'inout') { cx = M.Tune.handle.inoutInK * tx; cy = ty + 0.06 * H; qx = M.Tune.handle.inoutCatchK * tx; qy = ty + 0.03 * H; }
+        // behind the back and between the legs (front to back), the ball comes up behind the hip on the other side and
+        // is taken there, then ridden forward (Trial 8: caught out in front, its way up went under him, through a thigh)
+        if (d.move.type === 'btb' || d.move.type === 'btl') qy = M.Tune.handle.behindCatchH * H;
       }
+      // a hesitation: the bounce comes up higher, into a hand that rides it up as he rises, slower (the hang)
+      if (hesi) { top += M.Tune.handle.hesiTopH * H; ctop = top; }
       let rel = Math.max(R + 0.05 * H, top - push);
       let ccatch = ctop - ride;
       // the release along the push's line (x in this hand's side convention) and the catch (x in the old hand's)
@@ -995,12 +1266,48 @@
       // from relaxed to quick as a man closes in on him
       const walking = a.gaitOn && a.speed > 2 && !moving && !d.pull;
       let P;
-      if (d.move && d.moveStarted) P = d.move.period;
+      if (d.move && d.moveStarted) {
+        P = d.move.period;
+        // moving, a move's bounce lands with the footfall of the receiving hand's foot (Trial 8: they were timed without the
+        // feet, one bounce in four with a step): the ball goes across as that foot plants, and between the legs it goes
+        // between the feet then (the other one still down behind or in front); the period within Tune.handle.moveSyncK
+        d.moveFoot = null;
+        if (a.gaitOn && a.speed > 2 && a.feet) {
+          // (the footfall nearest the move's own bounce, either foot: a step can be longer than the move; behind the back,
+          // the ball side foot's (coaching: step with the foot on the ball's side and push the ball behind as it goes, so
+          // that leg is out in front, not trailing where the ball goes by; with the other foot's landing the ball went
+          // over the trailing ankle); between the legs, the receiving side's (front to back, the foot on the other side
+          // stepping out in front: with the ball side's, the other knee, bent in the stance and trailing, was in the way
+          // of the ball coming up to the other hand)
+          const sps = a.gaitDbg && a.gaitDbg.sps > 0 ? a.gaitDbg.sps : M.Anims.stepsPerSec(a.speed, H), stepT = 1 / sps;
+          const fr = (v) => v - Math.floor(v), ft = footOf(d), span = ft != null ? 2 * stepT : stepT;
+          const tL0 = ft != null ? fr((ft ? 0 : 0.5) - (a.phase || 0)) * span : fr(-2 * (a.phase || 0)) * stepT;
+          const P0 = P, lo = P0 * (1 - TH.moveSyncK), hi = P0 * (1 + TH.moveSyncK), u0 = Math.max(0, d.u);
+          let tL = null;
+          // (from now: the plan is made up to a frame into the cycle, Trial 8)
+          for (let it = 0; it < 2; it++) {
+            const s0 = solve(P), tb = s0.tP + s0.tD - u0 * s0.T;
+            if (tL == null) tL = tL0 + Math.max(0, Math.round((tb - tL0) / span)) * span;
+            P = U.clamp(P - (tb - tL) * s0.T / Math.max(0.05, tb + u0 * s0.T), lo, hi);
+          }
+          // a bounce the period cannot put that late, the cycle as slow as the ball's fall lets it be (a hesitation's, up
+          // high): the push waits at the top, the hand on the ball, for the rest (the hang), up to Tune.handle.hangMaxS
+          // (Trial 8: a hesitation's bounce came ~0.08 s before the footfall)
+          // (not the spin's crossover, whose pull already held it at the top through the turn)
+          const s1 = solve(P), late = tL - (s1.tP + s1.tD - u0 * s1.T);
+          if (late > 0.01 && !d.move.spin) pl.hang = { t: 0, dur: Math.min(TH.hangMaxS, late) };
+          // (which foot lands then: the right at the stride's start, the left halfway)
+          d.moveFoot = fr((a.phase || 0) + tL * sps * 0.5 + 0.25) < 0.5 ? 1 : 0;
+        }
+      }
       else if (walking) {
         const sps = a.gaitDbg && a.gaitDbg.sps > 0 ? a.gaitDbg.sps : M.Anims.stepsPerSec(a.speed, H), stepT = 1 / sps, tMin = cyc(TH.vcComfort).T;
         let n = d.n || 2;
         if (n * stepT < tMin * 0.92 && n < 3) n++;
         else if (n > 1 && (n - 1) * stepT >= tMin * 1.08) n--;
+        // (a behind the back or between the legs asked for: a bounce every step till it goes, the bounces then with either
+        // foot, so one comes with the landing of the foot it waits for, footOf)
+        if (d.pendingMove && footOf(d, d.pendingMove) != null) n = 1;
         d.n = n;
         P = n * stepT;
         // (the bounce in this cycle, against the nearest landing of the inside foot: n = 1, either foot, every step)
@@ -1014,8 +1321,23 @@
         const pr = a.pressure ? a.pressure() : 0;
         P = U.lerp(TH.periodOpenS, TH.periodPressedS, pr) * (d.period / 0.68);
       }
+      if (burst) { P *= TH.burstK; d.burst = false; }
       const c = solve(P);
       const tP = c.tP, tD = c.tD, tU = c.tU, T = c.T;
+      // between the legs: the bounce between his feet as they will be then (the receiving foot where it lands, the other
+      // where it is), in the dribble's frame then (Trial 8: at a fixed spot under him it went through a leg)
+      if (moving && d.move.type === 'btl' && a.feet && a.predictFrame) {
+        const lf = d.moveFoot != null ? d.moveFoot : recv ? 1 : 0, fR = a.feet[lf], fO = a.feet[1 - lf];
+        const ax = fR.state === 'plant' ? fR.x : fR.tx, ay = fR.state === 'plant' ? fR.y : fR.ty;
+        // (between the ankles, where the shins come down: a foot's spot is the ball of the foot, dims.ball on along it,
+        // and between those the ball went into the front shin, Trial 8)
+        const bl = a.dims ? a.dims.ball : 0.084 * H, yR = fR.state === 'plant' ? fR.yaw : fR.tyaw, yO = fO.yaw;
+        const mx = 0.5 * (ax + fO.x - bl * (Math.cos(yR || 0) + Math.cos(yO || 0))), my = 0.5 * (ay + fO.y - bl * (Math.sin(yR || 0) + Math.sin(yO || 0)));
+        // (then: after any hang at the top, from the cycle's start)
+        const pf = a.predictFrame((pl.hang ? pl.hang.dur : 0) + tP + tD - Math.max(0, d.u) * T, PF), f = pf.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f);
+        const lx = (mx - pf.x) * sf - (my - pf.y) * cf, ly = (mx - pf.x) * cf + (my - pf.y) * sf;
+        cx = lx * side; cy = ly;
+      }
       // (the hand carries the ball along the push no faster than Tune.handle.pushHFtps across the floor: speeding up, the
       // dribble's shape grows between bounces and a push from the last ride's end to the new release had the ball, and the
       // hand, go ~1 ft in 3 frames; the rest of the way is the ball's, falling)
@@ -1028,10 +1350,12 @@
       pl.top = top; pl.top0 = top0; pl.rel = rel; pl.ctop = ctop; pl.ccatch = ccatch;
       pl.uP = tP / T; pl.uB = (tP + tD) / T; pl.uC = (tP + tD + tU) / T;
       pl.tD = tD; pl.tU = tU; pl.g = g; pl.vRel = c.vRel; pl.vUp = c.vUp;
-      pl.tx = tx; pl.ty = ty; pl.cx = cx; pl.cy = cy;
+      pl.tx = tx; pl.ty = ty; pl.cx = cx; pl.cy = cy; pl.cx0 = pl.cy0 = pl.qx0 = pl.qy0 = pl.qxC = pl.qyC = null;
+      pl.serial = (pl.serial || 0) + 1; pl.qxA = pl.qyA = null;
       // release and catch points (x in the old hand's side convention; the catch and the ride on the receiving hand's side)
       pl.rx = rx; pl.ry = ry;
       pl.qx = qxo; pl.qy = qy; pl.qtx = tx * rside * side; pl.qty = ty;
+      pl.inout = !!(moving && d.move.type === 'inout');
     }
 
     // ------------------------------------------------------------ drawing
@@ -1086,7 +1410,21 @@
   }
 
   const TA = new Float64Array(3), TB = new Float64Array(3), TC = new Float64Array(3), TL = new Float64Array(3), TMP3 = [0, 0, 0], DSH = {};
-  const AR = new Float64Array(4), TP3 = new Float64Array(3), TO2 = [0, 0];
+  const AR = new Float64Array(4), TP3 = new Float64Array(3), TO2 = [0, 0, 0], TW2 = [0, 0], TW3 = [0, 0];
+  /** the foot whose landing a move's bounce waits for (1 right, 0 left), or null for either (Trial 8): behind the back,
+   *  the ball side's; between the legs, the receiving side's */
+  function footOf(d, mv) {
+    const m = mv || d.move;
+    if (!m || m.spin) return null;
+    return m.type === 'btb' ? (d.hand ? 1 : 0) : m.type === 'btl' ? (m.toHand != null ? m.toHand : 1 - d.hand) : null;
+  }
+  /** a hand's spot w (world) moved straight out from the ball's centre to at least `min` from it (not on the ball) */
+  function keepOff(w, b, min) {
+    const dx = w[0] - b.x, dy = w[1] - b.y, dz = w[2] - b.z, dl = Math.hypot(dx, dy, dz);
+    if (dl >= min || dl < 1e-6) return;
+    const k = min / dl;
+    w[0] = b.x + dx * k; w[1] = b.y + dy * k; w[2] = b.z + dz * k;
+  }
   /** a palm spot p (body frame) brought straight toward the arm's shoulder until it is within Tune.handle.reachK of the
    *  arm's reach (ar: armReach); returns how far it was moved (0: already in reach) */
   function toReach(ar, p) {
@@ -1095,6 +1433,16 @@
     const k = lim / dl;
     p[0] = ar[0] + dx * k; p[1] = ar[1] + dy * k; p[2] = ar[2] + dz * k;
     return dl - lim;
+  }
+  // (_clearPath's scratch: sample fractions, legs, frames, a point, the candidate grid)
+  const CP_U = new Float64Array(8), CP_L = Array.from({ length: 8 }, () => new Float64Array(30)), CP_K = new Float64Array(9), CP_W = new Float64Array(6), CP_Z = new Float64Array(8);
+  const CP_G = [-1, -0.5, 0, 0.5, 1];
+  const AV_L = new Float64Array(30), AVO = [0, 0];
+  /** distance from (x, y, z) to the segment between points i and j of the flat array L */
+  function segDist3(L, i, j, x, y, z) {
+    const ax = L[i], ay = L[i + 1], az = L[i + 2], bx = L[j] - ax, by = L[j + 1] - ay, bz = L[j + 2] - az;
+    const l2 = bx * bx + by * by + bz * bz, t = l2 > 1e-9 ? U.clamp(((x - ax) * bx + (y - ay) * by + (z - az) * bz) / l2, 0, 1) : 0;
+    return Math.hypot(x - ax - bx * t, y - ay - by * t, z - az - bz * t);
   }
   const HO1 = { x: 0, y: 0, z: 0 }, HO2 = { x: 0, y: 0, z: 0 }, HO3 = { x: 0, y: 0, z: 0 }, HO4 = { x: 0, y: 0, z: 0, act: 0 }, PF = { x: 0, y: 0, facing: 0 }, TD = new Float64Array(3);
   const RM = new Float64Array(9);

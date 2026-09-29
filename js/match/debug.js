@@ -154,9 +154,10 @@
         wt: { cut: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, brake: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, turnSnaps: 0, byMass: {}, hipJumps: 0, hipJumpBy: {}, hipJumpWorst: 0, hipJumpWorstAt: '' },
         gt: { cls: {}, trans: 0, transBy: {}, transPops: 0, transPopBy: {}, transPopAt: [], popBy: {}, after: { frames: 0, pops: 0 } },
         hd: { contacts: 0, contactsOff: 0, contactMaxIn: [], catchIn: [], offBy: {}, throughFrames: 0, throughBy: {}, throughWorst: 0, throughWorstAt: '',
-          floorFrames: 0, ballFrames: { dribble: 0, held: 0, flight: 0, loose: 0 }, bounces: 0, moveBounces: 0, syncS: [], syncSAny: [], ratio: [],
+          floorFrames: 0, ballFrames: { dribble: 0, held: 0, flight: 0, loose: 0 }, bounces: 0, moveBounces: 0, syncS: [], syncSAny: [], syncMoveS: [], ratio: [],
           interval: { still: [], moving: [], open: [], pressed: [] }, topIn: { open: [], pressed: [], moving: [] },
-          drib: 0, eyeOn: 0, eyeDownDeg: [], press: 0, offUp: 0 },
+          drib: 0, eyeOn: 0, eyeDownDeg: [], press: 0, offUp: 0,
+          air: { frames: 0, jolts: 0, worst: 0, worstAt: '', by: {}, p: [] } },
       };
     }
     tracker(a) {
@@ -235,6 +236,23 @@
           }
         }
       }
+      // --- the ball in the air across the floor (a dribble's fall or rise): nothing pushes it there, so a jolt means it was
+      // shoved out of a body in a frame (Trial 8: a move's path through a shin, pushed out as it got there, jumped up to a
+      // foot); three frames in the same flight, the middle one's acceleration against Tune.debug.airJoltFtps2
+      {
+        const A = HD.air, q = A.p, fph = dd && (dd.ph === 'down' || dd.ph === 'up') ? dd.ph : null;
+        q.push({ t: time, x: ball.x, y: ball.y, ph: fph, mv: ball.dr && ball.dr.move && ball.dr.moveStarted ? ball.dr.move.type : 'dribble' });
+        if (q.length > 3) q.shift();
+        if (q.length === 3 && fph && q[0].ph === fph && q[1].ph === fph) {
+          const d1 = q[1].t - q[0].t, d2 = q[2].t - q[1].t;
+          if (d1 > 1e-6 && d2 > 1e-6) {
+            const ax = 2 * ((q[2].x - q[1].x) / d2 - (q[1].x - q[0].x) / d1) / (d1 + d2), ay = 2 * ((q[2].y - q[1].y) / d2 - (q[1].y - q[0].y) / d1) / (d1 + d2), ac = Math.hypot(ax, ay);
+            A.frames++;
+            if (ac > Tn.airJoltFtps2) { A.jolts++; const k = q[2].mv + ' ' + fph; A.by[k] = (A.by[k] || 0) + 1; }
+            if (ac > A.worst) { A.worst = ac; A.worstAt = q[2].mv + ' ' + fph + ' ' + (dr && dr.id || '') + ' t=' + time.toFixed(2); }
+          }
+        }
+      }
       // --- the dribbler
       for (const a of list) {
         const t = this.tr.get(a);
@@ -250,7 +268,7 @@
             for (let k = h.pend.length - 1; k >= 0; k--) {
               const b = h.pend[k];
               if (!b.any && b.foot !== i) continue;
-              HD.syncS.push(Math.min(b.t - b.prev, time - b.t)); h.pend.splice(k, 1);
+              (b.mv ? HD.syncMoveS : HD.syncS).push(Math.min(b.t - b.prev, time - b.t)); h.pend.splice(k, 1);
             }
           }
           h.fst[i] = fs;
@@ -284,6 +302,8 @@
             }
           }
           h.lastB = time; h.lastBMove = busy; h.top = 0;
+          // (a move's bounce, moving: against a footfall, either foot)
+          if (moving && ball.dr.move && ball.dr.moveStarted) h.pend.push({ t: time, prev: Math.max(h.land[0], h.land[1]), foot: -1, any: true, mv: true });
           if (moving && !busy) {
             // (against the landing of the foot on the other side from the hand that pushed it: the inside step)
             const foot = ball.dr.hand ? 0 : 1;
@@ -807,11 +827,12 @@
         ballThroughFrames: HD.throughFrames, ballThroughBy: top(HD.throughBy), ballThroughWorstIn: +HD.throughWorst.toFixed(2), ballThroughWorstAt: HD.throughWorstAt,
         ballFloorFrames: HD.floorFrames, ballFrames: HD.ballFrames,
         bounces: HD.bounces, movingBounces: HD.moveBounces,
-        rhythm: { withInsideStepPct: within(HD.syncS, Tn.handleSyncS), offS: summ(HD.syncS, 3), periodPerStep: summ(HD.ratio, 2) },
+        rhythm: { withInsideStepPct: within(HD.syncS, Tn.handleSyncS), offS: summ(HD.syncS, 3), periodPerStep: summ(HD.ratio, 2), movesWithStepPct: within(HD.syncMoveS, Tn.handleSyncS), moveOffS: summ(HD.syncMoveS, 3) },
         bouncesPerS: { still: rate(HD.interval.still), open: rate(HD.interval.open), pressed: rate(HD.interval.pressed), moving: rate(HD.interval.moving) },
         topIn: { open: summ(HD.topIn.open, 1), pressed: summ(HD.topIn.pressed, 1), moving: summ(HD.topIn.moving, 1) },
         eyesOnBallPct: +(HD.eyeOn / Math.max(1, HD.drib) * 100).toFixed(2), faceDownDeg: summ(HD.eyeDownDeg, 1),
         pressedFrames: HD.press, offArmUpPct: +(HD.offUp / Math.max(1, HD.press) * 100).toFixed(1),
+        airFrames: HD.air.frames, airJolts: HD.air.jolts, airJoltBy: top(HD.air.by), airWorstFtps2: +HD.air.worst.toFixed(1), airWorstAt: HD.air.worstAt,
       };
     }
     /** the Trial 5 gait scorecard */

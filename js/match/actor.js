@@ -286,6 +286,44 @@
       if (this.clip) { this.clip.ending = true; if (fade === 0) this._endClip(); }
     }
     isBusy() { return !!(this.clip && !this.clip.done); }
+    /** a retreat dribble (Trial 8): two or three dribbles straight back from the nearest man on the other team (or
+     *  back, with nobody near), turned side-on with the dribbling shoulder away from him, the ball low beside the back
+     *  knee, the off arm barred toward him (coaching: the escape dribble). o.dist (ft) */
+    retreat(o) {
+      o = o || {};
+      const b = this.view && this.view.ball, TH = M.Tune.handle;
+      if (!(b && b.state === 'dribble' && b.dr && b.dr.actor === this)) return false;
+      // (with the ball in his hand: asked for while it is in the air, the step back waits for the catch, a bounce at most;
+      // taken at once, the drop step's knee came up into the ball rising to the hand, Trial 8)
+      const ph = this.dribble && this.dribble.ph;
+      if (ph === 'down' || ph === 'up') { this._retreatWait = o; return true; }
+      this._retreatWait = null;
+      let dfd = null, bd = 1e9;
+      const v = this.view;
+      if (v.onCourt && v.actors && this.team >= 0) for (const id of v.onCourt[1 - this.team] || []) { const q = v.actors[id]; if (!q) continue; const dd = Math.hypot(q.x - this.x, q.y - this.y); if (dd < bd) { bd = dd; dfd = q; } }
+      let ax = -Math.cos(this.facing), ay = -Math.sin(this.facing);
+      if (dfd && bd < 12) { ax = (this.x - dfd.x) / (bd || 1); ay = (this.y - dfd.y) / (bd || 1); }
+      const dist = o.dist || TH.retreatFt, toD = Math.atan2(-ay, -ax);
+      this.moveTo(this.x + ax * dist, this.y + ay * dist, { speed: TH.retreatFtps, face: toD + (b.dr.hand ? -1 : 1) * TH.retreatTurnDeg * D, stance: 'dribble' });
+      this._retreat = { t: this.time || 0, dur: dist / TH.retreatFtps + 0.25 };
+      return true;
+    }
+    /** how far into a retreat dribble he is, 0 to 1 (eased in and out) */
+    _retreatK() {
+      const r = this._retreat;
+      if (!r) return 0;
+      const t = (this.time || 0) - r.t;
+      if (t > r.dur + 0.3) { this._retreat = null; return 0; }
+      return U.smooth(t / 0.15) * (1 - U.smooth((t - r.dur) / 0.3));
+    }
+    /** a hesitation (Trial 8): the body rises and the eyes come up (the 'hesi' clip) while the dribble floats up higher
+     *  and slower into the hand, then a low quick bounce goes with the burst (coaching: slow the dribble, raise up a
+     *  little, look up to sell it, then explode with the ball pushed out in front) */
+    hesitate() {
+      const b = this.view && this.view.ball;
+      if (b && b.state === 'dribble' && b.dr && b.dr.actor === this && !b.dr.move && !b.dr.pendingMove) b.dribbleMove('hesi');
+      return this.play('hesi');
+    }
     /** in the middle of throwing the ball (an upper-body pass clip before it ends): not a time to start dribbling it
      *  (Trial 8: the pass windup picked the dribble up and the rule "the holder dribbles when moving" put it straight back
      *  down in the same frame, the throw then made from the dribble) */
@@ -574,6 +612,7 @@
     // ============================================================ update
     update(dt, now) {
       this.time = now;
+      if (this._retreatWait && !(this.dribble && (this.dribble.ph === 'down' || this.dribble.ph === 'up'))) { const o = this._retreatWait; this._retreatWait = null; this.retreat(o); }
       // (the speed a knock's push gave the body last step, for a move starting this step to carry on from, see _updateClip)
       this._hitPrevVx = this._hitVx || 0; this._hitPrevVy = this._hitVy || 0;
       const hit = this.hit;
@@ -1515,6 +1554,7 @@
             const lift = gp.lift * H * U.lerp(pw, pr, gp.run || 0) * lk;
             f.ax = f.x0 + (a1[0] - f.x0) * e;
             f.ay = f.y0 + (a1[1] - f.y0) * e;
+            f.pdL = tLeft; f.pdS = sw; f.pdX = a1[0]; f.pdY = a1[1]; f.pdT = this.time;
             this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1], lift, dt);
             // a runner's heel comes up behind its own hip, not out to the side: the shank folds in the leg's own
             // plane while the foot passes under the body, so the ankle eases over toward the hip's line as the heel
@@ -1849,6 +1889,7 @@
       const e = f.easeOut ? f.s * (2 - f.s) : U.smooth(f.s);
       f.ax = f.x0 + (a1[0] - f.x0) * e;
       f.ay = f.y0 + (a1[1] - f.y0) * e;
+      f.pdL = (1 - f.s) * f.dur; f.pdS = f.s; f.pdX = a1[0]; f.pdY = a1[1]; f.pdT = this.time;
       const arc = f.arc;
       if (arc) {
         // round the pivot foot (angle and radius eased from where it left to where it lands)
@@ -2194,6 +2235,55 @@
       out[3] = sk.dims.ua + sk.dims.fa + 0.75 * sk.dims.hand;
       return out;
     }
+    /** where his legs will be dt s on (Trial 8: the dribble's moves are planned round them, not shoved out of them in the
+     *  air): the hips carried with the body's predicted frame, each foot planted where it is or going on along its swing
+     *  (its own easing) to where it lands, the knee between them bent forward. out (30): the left hip, knee, ankle, ball
+     *  of the foot and toe (world, z up from the floor), then the right's */
+    legsAt(dt, out) {
+      // (the model's own error cancels: the legs as solved now, moved on by how far the model says they move in dt; the
+      // model alone was 1-4 in off the solved legs at dt 0, the feet's targets and a knee bent straight forward)
+      const P = this.sk.P;
+      this._legModel(0, LG0);
+      this._legModel(dt, out);
+      for (let side = 0; side < 2; side++) {
+        const js = side ? LEG_JR : LEG_JL, o = side * 15;
+        for (let k = 0; k < 5; k++) { const j = js[k] * 3, i = o + k * 3; out[i] += P[j] - LG0[i]; out[i + 1] += P[j + 1] - LG0[i + 1]; out[i + 2] += P[j + 2] - LG0[i + 2]; }
+      }
+      return out;
+    }
+    /** legsAt's model: the hips with the body's predicted frame, the feet planted or on along their swings, the knees
+     *  solved between, bent forward */
+    _legModel(dt, out) {
+      const P = this.sk.P, dm = this.dims, pf = this.predictFrame(dt, LPF);
+      const c0 = Math.cos(this.facing), s0 = Math.sin(this.facing), c1 = Math.cos(pf.facing), s1 = Math.sin(pf.facing);
+      const th = dm.th, sh = dm.sh, t = this.time || 0;
+      for (let side = 0; side < 2; side++) {
+        const o = side * 15, f = this.feet[side], hj = (side ? RG.J.R_HIP : RG.J.L_HIP) * 3;
+        const rx = P[hj] - this.x, ry = P[hj + 1] - this.y, bx = rx * s0 - ry * c0, by = rx * c0 + ry * s0;
+        const hx = pf.x + s1 * bx + c1 * by, hy = pf.y - c1 * bx + s1 * by, hz = P[hj + 2] - (this.jumpZ || 0);
+        let ax = f.ax, ay = f.ay, az = f.az, yaw = f.yawNow != null ? f.yawNow : f.yaw;
+        if (f.state === 'swing' && f.pdT === t && f.pdL > 0 && f.x0 != null) {
+          const s2 = dt >= f.pdL ? 1 : f.pdS + dt * (1 - f.pdS) / f.pdL, e2 = U.smooth(Math.min(1, s2));
+          ax = f.x0 + (f.pdX - f.x0) * e2; ay = f.y0 + (f.pdY - f.y0) * e2; az = U.lerp(az, dm.ankH, e2);
+          yaw = U.lerp(yaw, yaw + U.wrapPi(f.tyaw - yaw), e2);
+        }
+        out[o] = hx; out[o + 1] = hy; out[o + 2] = hz;
+        out[o + 6] = ax; out[o + 7] = ay; out[o + 8] = az;
+        const cy = Math.cos(yaw), sy = Math.sin(yaw);
+        out[o + 9] = ax + cy * dm.ball; out[o + 10] = ay + sy * dm.ball; out[o + 11] = Math.max(0, az - dm.ankH) + 0.02 * this.H;
+        out[o + 12] = out[o + 9] + cy * dm.toe; out[o + 13] = out[o + 10] + sy * dm.toe; out[o + 14] = out[o + 11];
+        // (the knee: two bones from the hip to the ankle, bent toward where he will face)
+        let vx = ax - hx, vy = ay - hy, vz = az - hz;
+        const vl = Math.hypot(vx, vy, vz) || 1, dl = Math.min(vl, (th + sh) * 0.999);
+        vx /= vl; vy /= vl; vz /= vl;
+        const a = (th * th - sh * sh + dl * dl) / (2 * dl), h = Math.sqrt(Math.max(0, th * th - a * a));
+        let nx = c1, ny = s1, nz = 0;
+        const dn = nx * vx + ny * vy + nz * vz; nx -= dn * vx; ny -= dn * vy; nz -= dn * vz;
+        const nl = Math.hypot(nx, ny, nz) || 1;
+        out[o + 3] = hx + vx * a + nx / nl * h; out[o + 4] = hy + vy * a + ny / nl * h; out[o + 5] = hz + vz * a + nz / nl * h;
+      }
+      return out;
+    }
     /** where the ball is while held (clip-driven or by hold mode) */
     heldBallPos(out) {
       const H = this.H;
@@ -2316,7 +2406,7 @@
       // (driving he stays down in it; only running it out in the open does the dribble come back up)
       const st = this.stance === 'dribble' ? 0.35 * (1 - U.smooth((this.speed - 10) / 8)) : 0;
       // (and with a man up on him it goes lower, Trial 8)
-      return Math.max(this.dribbleLow || 0, st, this._protectK(), M.Tune.handle.pressLow * this.pressure());
+      return Math.max(this.dribbleLow || 0, st, this._protectK(), M.Tune.handle.pressLow * this.pressure(), M.Tune.handle.retreatLow * this._retreatK());
     }
     /** how closely he is guarded, 0 to 1 (Trial 8): the nearest man on the other team on the floor, none from
      *  Tune.handle.pressFarFt, fully at pressNearFt, eased on a critically damped spring (pressS) */
@@ -2337,7 +2427,7 @@
      *  the hand has the ball at the top, cx/cy = where it meets the floor, top = its height at the top. Sizing up
      *  (standing): the ball out wide of the hip with the arm long (the reference guard setup); driving: low, outside
      *  the foot; running it up the floor: pushed out ahead at thigh height, where he runs onto it */
-    dribbleShape(o) {
+    dribbleShape(o, fresh) {
       const low = this.dribbleDepth();
       const spK = U.smooth((this.speed - 6) / 12), still = 1 - U.smooth((this.speed - 1) / 4);
       o.tx = U.lerp(0.2, 0.27, still) - 0.03 * spK;
@@ -2345,9 +2435,16 @@
       o.cx = o.tx + 0.01;
       o.cy = o.ty + 0.05 + 0.22 * spK;
       o.top = 0.5 - 0.2 * low - 0.03 * spK;
-      // (protecting it from a reach: the dribble pulled back beside the hip, a little wider)
-      const pk = this._protectK();
+      // (protecting it from a reach: the dribble pulled back beside the hip, a little wider; retreating, beside the back
+      // knee, Trial 8)
+      const pk = Math.max(this._protectK(), this._retreatK());
       if (pk > 0.001) { o.ty -= 0.12 * pk; o.cy -= 0.12 * pk; o.tx += 0.03 * pk; o.cx += 0.03 * pk; }
+      // (a man up on him, not running: the control dribble, back beside the hip and in closer, the body between it and
+      // him, Trial 8; coaching: "keep the ball low to the floor, behind and close to your body". Out in front it went
+      // into the hands of a defender up on him. Not for the first bounce out of his hands, fresh: carried from the chest
+      // to there, under the shoulder, the palm could not stay on top of it; he settles into it over that bounce)
+      const TH = M.Tune.handle, pb = fresh ? 0 : TH.pressBackK * this.pressure() * (1 - spK) * (1 - pk);
+      if (pb > 0.001) { o.ty -= 0.12 * pb; o.cy -= 0.12 * pb; o.tx -= TH.pressInK * pb; o.cx -= TH.pressInK * pb; }
       o.low = low; o.spK = spK; o.still = still;
       return o;
     }
@@ -2968,6 +3065,7 @@
       this._handOnBall();
       this._gripOnBall(dtI);
       this._cacheBody();
+      this._ballOffLegs();
       // the dribble's frame: a share of the chest's turn from the hips' (Tune.handle.trunkYawK; see localD)
       { const R = sk.R, ch = Math.atan2(R[22], R[19]); this.dribbleYaw = M.Tune.handle.trunkYawK * U.wrapPi(ch - this.facing); }
     }
@@ -3037,7 +3135,9 @@
       // (the wrist target kept inside the arm's reach from the shoulder: past it the arm is straight whatever the target
       // does, no step can tell which way to go, and a target left out there held a palm that could reach its spot with
       // the elbow bent inches off it, the ball pushed out ahead running)
-      const so = (side ? RG.J.R_SH : RG.J.L_SH) * 3, reach = (sk.dims.ua + sk.dims.fa) * 0.999;
+      // (with soft IK the target goes on past the reach while the wrist comes on ever slower: capped where the arm is all
+      // but straight, three softening lengths out)
+      const so = (side ? RG.J.R_SH : RG.J.L_SH) * 3, reach = (sk.dims.ua + sk.dims.fa) * (ik.soft > 0 ? 0.9995 + 2 * ik.soft : 0.999);
       const inReach = () => {
         const rx = ik.x - P[so], ry = ik.y - P[so + 1], rz = ik.z - P[so + 2], rl = Math.hypot(rx, ry, rz);
         if (rl > reach) { const k = reach / rl; ik.x = P[so] + rx * k; ik.y = P[so + 1] + ry * k; ik.z = P[so + 2] + rz * k; }
@@ -3440,14 +3540,15 @@
     /** a ball this player holds or dribbles (centre l = [x, y, z] in the body frame, radius r) pushed out of his own
      *  trunk, head and legs as last solved, so it never sinks into him (the hands hold it where it ends up); legs
      *  false while it goes between them on purpose. Returns how far it moved. */
-    clearBall(l, r, legs, yaw) {
+    clearBall(l, r, legs, yaw, flat) {
       const B = this._body;
       if (!B) return 0;
       const H = this.H, x0 = l[0], y0 = l[1], z0 = l[2];
       // (a point in a frame turned by yaw from the hips', the dribble's: into the hips' frame and back)
       const cy = yaw ? Math.cos(yaw) : 1, sy = yaw ? Math.sin(yaw) : 0;
       if (yaw) { const x = l[0], y = l[1]; l[0] = x * cy - y * sy; l[1] = x * sy + y * cy; }
-      for (let it = 0; it < 2; it++) {
+      // (flat: across the floor only, a ball in the air keeping its fall; more passes for it)
+      for (let it = 0; it < (flat ? 3 : 2); it++) {
         pushSeg(B, 0, 1, 0.063 * H + r, l); pushSeg(B, 1, 2, 0.063 * H + r, l);
         pushSeg(B, 3, 3, 0.06 * H + r, l);
         if (legs) {
@@ -3455,16 +3556,32 @@
           // (and the feet, Trial 8: a crossover's bounce in front went through the front foot)
           pushSeg(B, 6, 10, 0.02 * H + r, l); pushSeg(B, 10, 11, 0.02 * H + r, l); pushSeg(B, 9, 12, 0.02 * H + r, l); pushSeg(B, 12, 13, 0.02 * H + r, l);
         }
+        if (flat) l[2] = z0;
       }
       if (yaw) { const x = l[0], y = l[1]; l[0] = x * cy + y * sy; l[1] = -x * sy + y * cy; }
       return Math.hypot(l[0] - x0, l[1] - y0, l[2] - z0);
     }
 
-    /** a ball that is not his (world centre x, y, z, radius r) pushed across the floor out of his trunk, legs and feet as
-     *  last solved (Trial 8: a defender up on the dribble had it bounce through his legs); out: [x, y]. Returns how far */
-    clearBallOf(x, y, z, r, out) {
+    /** the ball he dribbles, in the air, out of his legs and body as they are after this solve, across the floor (Trial 8:
+     *  it was placed against where they were going to be, one frame on, and a landing foot or a knee coming through faster
+     *  than that clipped it for a frame) */
+    _ballOffLegs() {
+      const vb = this.view && this.view.ball, d = this.dribble, Bn = this._bodyNow;
+      if (!vb || !d || !Bn || vb.state !== 'dribble' || !vb.dr || vb.dr.actor !== this || !(d.ph === 'down' || d.ph === 'up')) return;
       const B = this._body;
-      out[0] = x; out[1] = y;
+      this._body = Bn;
+      const c = Math.cos(this.facing), s = Math.sin(this.facing), rx = vb.x - this.x, ry = vb.y - this.y, l = TCB;
+      l[0] = rx * s - ry * c; l[1] = rx * c + ry * s; l[2] = vb.z - this.jumpZ;
+      if (this.clearBall(l, BALL_R, true, 0, true) > 1e-6) { vb.x = this.x + s * l[0] + c * l[1]; vb.y = this.y - c * l[0] + s * l[1]; }
+      this._body = B;
+    }
+    /** a ball that is not his (world centre x, y, z, radius r) pushed out of his trunk, legs, feet, forearms and hands as
+     *  last solved, across the floor only when flat (a ball in the air keeps its fall) (Trial 8: a defender up on the
+     *  dribble had it bounce through his legs, and a first push out of the hands went through his hand held out in his
+     *  stance: the dribbler keeps it off them); out: [x, y, z]. Returns how far */
+    clearBallOf(x, y, z, r, out, flat) {
+      const B = this._body;
+      out[0] = x; out[1] = y; out[2] = z;
       if (!B) return 0;
       const H = this.H, c = Math.cos(this.facing), s = Math.sin(this.facing), rx = x - this.x, ry = y - this.y, l = TCB;
       l[0] = rx * s - ry * c; l[1] = rx * c + ry * s; l[2] = z - this.jumpZ;
@@ -3473,11 +3590,14 @@
         pushSeg(B, 0, 1, 0.063 * H + r, l); pushSeg(B, 1, 2, 0.063 * H + r, l);
         pushSeg(B, 4, 5, 0.044 * H + r, l); pushSeg(B, 7, 8, 0.044 * H + r, l); pushSeg(B, 5, 6, 0.032 * H + r, l); pushSeg(B, 8, 9, 0.032 * H + r, l);
         pushSeg(B, 6, 10, 0.02 * H + r, l); pushSeg(B, 10, 11, 0.02 * H + r, l); pushSeg(B, 9, 12, 0.02 * H + r, l); pushSeg(B, 12, 13, 0.02 * H + r, l);
-        l[2] = z0;
+        // (his forearms and hands only for a ball in the air: one in the dribbler's hand moved out of them took his hand with
+        // it in a frame, Trial 8)
+        if (flat) { pushSeg(B, 14, 15, 0.022 * H + r, l); pushSeg(B, 17, 18, 0.022 * H + r, l); pushSeg(B, 15, 16, 0.008 * H + r, l); pushSeg(B, 18, 19, 0.008 * H + r, l); }
+        if (flat) l[2] = z0;
       }
-      const dx = l[0] - x0, dy = l[1] - y0;
-      out[0] = x + s * dx + c * dy; out[1] = y - c * dx + s * dy;
-      return Math.hypot(dx, dy);
+      const dx = l[0] - x0, dy = l[1] - y0, dz = l[2] - z0;
+      out[0] = x + s * dx + c * dy; out[1] = y - c * dx + s * dy; out[2] = z + dz;
+      return Math.hypot(dx, dy, dz);
     }
 
     _armTargets() {
@@ -3485,7 +3605,7 @@
       const grip = this._grip || (this._grip = [0, 0]);
       grip[0] = grip[1] = 0;
       const src = this._armSrc || (this._armSrc = [null, null]);
-      for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; sk.armIK[side].fkPole = false; src[side] = null; }
+      for (let side = 0; side < 2; side++) { sk.armIK[side].on = 0; sk.armIK[side].pole = null; sk.armIK[side].fkPole = false; sk.armIK[side].soft = 0; src[side] = null; }
       // explicit
       for (let side = 0; side < 2; side++) {
         const t = this.handTarget[side];
@@ -3501,7 +3621,7 @@
         // (all of it, Trial 8: at 0.98 the animated arm's 2% kept the palm up to ~0.4 in off the ball, and going from one
         // weight to the other at the release and the catch jolted the elbow)
         ik.on = Math.max(ik.on, wAll * (d.act == null ? 1 : d.act));
-        ik.x = d.wx; ik.y = d.wy; ik.z = d.wz; ik.pole = DRIB_POLE; src[hand] = 'drib';
+        ik.x = d.wx; ik.y = d.wy; ik.z = d.wz; ik.pole = DRIB_POLE; ik.soft = M.Tune.handle.softIk; src[hand] = 'drib';
         // out of a grip (the ball carried from the chest or the hip to where the first push starts): the palm slides from
         // where it held the ball onto the dribble's spot (_handOnBall), and the elbow goes from where the hold had it to
         // the dribble's (back and a little out)
@@ -3530,7 +3650,7 @@
         pp[CH[pre + 'WrF']] = U.lerp(pp[CH[pre + 'WrF']], (d.wrF || 0) * D, wAll);
         pp[CH[pre + 'Pro']] = U.lerp(pp[CH[pre + 'Pro']], 150 * D, wAll);
         pp[CH[pre + 'WrD']] = U.lerp(pp[CH[pre + 'WrD']], 8 * D, wAll);
-        pp[CH[pre + 'Fing']] = U.lerp(pp[CH[pre + 'Fing']], 0.12, wAll);
+        pp[CH[pre + 'Fing']] = U.lerp(pp[CH[pre + 'Fing']], d.fing != null ? d.fing : 0.12, wAll);
         // a move from hand to hand (crossover, between the legs, behind the back), the other hand (d.aux): reaching for the
         // catch while this one still pushes the ball, or letting go of it over the flight after (Trial 8)
         const rv = d.aux, rh = rv && (rv.hand ? 1 : 0) !== hand ? (rv.hand ? 1 : 0) : -1, rAct = rh >= 0 ? U.clamp(rv.act, 0, 1) * wAll : 0;
@@ -3554,7 +3674,7 @@
         }
         if (rAct > 0.001) {
           const ikR = sk.armIK[rh], rp = rh ? 'r' : 'l';
-          ikR.on = Math.max(ikR.on, rAct); ikR.x = rv.x; ikR.y = rv.y; ikR.z = rv.z; ikR.pole = DRIB_POLE; src[rh] = 'drib';
+          ikR.on = Math.max(ikR.on, rAct); ikR.x = rv.x; ikR.y = rv.y; ikR.z = rv.z; ikR.pole = DRIB_POLE; ikR.soft = M.Tune.handle.softIk; src[rh] = 'drib';
           // (a hand letting go of a hold keeps its elbow where the hold had it)
           if (rv.wrF == null) { const sr = this._armS[rh]; ikR.pole = sr.pole; ikR.fkPole = !!sr.fk; }
           const hr = this._hw && this._hw[rh];
@@ -3575,6 +3695,11 @@
         if (spD > 0.001) { pp[CH.pelPitch] += 7 * D * spD; pp[CH.spFlex] += 5 * D * spD; pp[CH.nkFlex] -= 7 * D * spD; pp[CH.hdFlex] -= 3 * D * spD; }
         // shoulders turn a little toward the ball side; the dribbling shoulder dips as the push goes down
         pp[CH.chTwist] += (hand ? -1 : 1) * 5 * D * wAll;
+        // an in and out's fake: shoulders and head toward the other hand as if crossing over (Trial 8)
+        if (d.fake) {
+          const fk = d.fake * wAll * M.Tune.handle.inoutFakeDeg * D, sg = hand ? 1 : -1;
+          pp[CH.chTwist] += sg * fk; pp[CH.spTwist] += sg * 0.4 * fk; pp[CH.chLat] -= sg * 0.5 * fk; pp[CH.nkTwist] += sg * 0.6 * fk;
+        }
         if (d.ph === 'push') pp[CH.chLat] += (hand ? 1 : -1) * 2.5 * D * Math.sin(Math.PI * (d.s || 0)) * wAll;
       }
       // about to catch: the hands go out to meet the ball, a pass in its last ~0.3 s or a loose ball within reach
@@ -3718,7 +3843,9 @@
           ik.x = this.x + s * st.ox + c * st.oy; ik.y = this.y - c * st.ox + s * st.oy; ik.z = st.oz + this.jumpZ;
           st.src = null; st.xf = null;
         } else { st.has = false; st.src = null; st.xf = null; st.t.reset(); }
-        ik.on = st.w;
+        // (eased in and out, a grip or a reach coming on over the ramp without a jolt at either end, Trial 8; the dribble's
+        // own weights come eased already)
+        ik.on = st.src === 'drib' || src[side] === 'drib' ? st.w : U.smooth(st.w);
       }
     }
 
@@ -3734,7 +3861,11 @@
   const TD = new Float64Array(3), TE = new Float64Array(3), TF = new Float64Array(3), DSH = {}, GI = {}, JAC = new Float64Array(9), WEV = new Float64Array(3), TCB = new Float64Array(3);
   // body centre lines kept for clearBall: pelvis, chest, neck, head centre, left hip / knee / ankle, right hip / knee / ankle,
   // left ball of the foot / toe, right ball of the foot / toe
-  const BODY_J = [RG.J.PEL, RG.J.CHS, RG.J.NCK, RG.J.HC, RG.J.L_HIP, RG.J.L_KN, RG.J.L_AN, RG.J.R_HIP, RG.J.R_KN, RG.J.R_AN, RG.J.L_BALL, RG.J.L_TOE, RG.J.R_BALL, RG.J.R_TOE];
+  // (the arms last, 14 to 19: another player's forearms and hands, for a ball that is not his, clearBallOf)
+  const LPF = { x: 0, y: 0, facing: 0 }, LG0 = new Float64Array(30);
+  const LEG_JL = [RG.J.L_HIP, RG.J.L_KN, RG.J.L_AN, RG.J.L_BALL, RG.J.L_TOE], LEG_JR = [RG.J.R_HIP, RG.J.R_KN, RG.J.R_AN, RG.J.R_BALL, RG.J.R_TOE];
+  const BODY_J = [RG.J.PEL, RG.J.CHS, RG.J.NCK, RG.J.HC, RG.J.L_HIP, RG.J.L_KN, RG.J.L_AN, RG.J.R_HIP, RG.J.R_KN, RG.J.R_AN, RG.J.L_BALL, RG.J.L_TOE, RG.J.R_BALL, RG.J.R_TOE,
+    RG.J.L_EL, RG.J.L_WR, RG.J.L_HD, RG.J.R_EL, RG.J.R_WR, RG.J.R_HD];
   /** move point l out to at least `min` from the segment between body points a and b (a == b: a sphere) */
   function pushSeg(B, a, b, min, l) {
     const ax = B[a * 3], ay = B[a * 3 + 1], az = B[a * 3 + 2];
