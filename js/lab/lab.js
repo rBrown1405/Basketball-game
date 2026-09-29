@@ -211,8 +211,15 @@
   add('Dribbling', 'djog', 'Dribble jogging', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 200, 11)); });
   add('Dribbling', 'dsprint', 'Speed dribble', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 300, 19)); });
   add('Dribbling', 'dstand', 'Dribble in place', 6, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); });
-  for (const [id, name] of [['cross', 'Crossover'], ['btl', 'Between the legs'], ['btb', 'Behind the back']]) {
-    add('Dribbling', id, name, 4.6, (c) => {
+  // (Trial 8: a man up on him, the control dribble, low and quick, back by the hip, the off arm up)
+  add('Dribbling', 'dpress', 'Dribble in place, a defender up on him', 6, (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble');
+    c.d.place(c.x0 + c.fx * 3.6, c.y0 + c.fy * 3.6, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+  }, { two: true });
+  // (each move three times walking, each on a footfall; a move asked for while one waits goes after it)
+  for (const [id, name] of [['cross', 'Crossover'], ['btl', 'Between the legs'], ['btb', 'Behind the back'], ['inout', 'In and out']]) {
+    add('Dribbling', id, name, 6.2, (c) => {
       c.b.dribble(c.a); c.a.setStance('dribble');
       c.at(0.3, () => go(c, 60, 3));
       for (const t of [0.9, 2.1, 3.3]) c.at(t, () => c.b.dribbleMove(id));
@@ -226,7 +233,17 @@
   add('Dribbling', 'hesimove', 'Hesitation', 3.4, (c) => {
     c.b.dribble(c.a); c.a.setStance('dribble');
     c.at(0.3, () => go(c, 60, 10));
-    c.at(1.2, () => c.a.play('hesi'));
+    c.at(1.2, () => c.a.hesitate());
+  });
+  add('Dribbling', 'retreat', 'Retreat dribble (a defender up on him)', 3.4, (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble');
+    c.d.place(c.x0 + c.fx * 3.4, c.y0 + c.fy * 3.4, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    c.at(0.9, () => c.a.retreat());
+  }, { two: true });
+  add('Dribbling', 'catchgo', 'Catch and go (a dribble out of the hands)', 3, (c) => {
+    c.b.give(c.a, 'chest'); c.a.setStance('triple');
+    c.at(0.6, () => { c.a.setStance('dribble'); c.b.dribble(c.a); go(c, 60, 12); });
   });
   add('Ball', 'triple', 'Triple threat', 5, (c) => { c.b.give(c.a, 'triple'); c.a.setStance('triple'); });
   // contact: the body reacting to other bodies (the lab has no collisions of its own, so the pushes are applied here)

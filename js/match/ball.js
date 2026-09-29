@@ -734,13 +734,17 @@
       // it falls, against where his legs will be as it goes by (_clearPath): neither shows until the ball leaves the
       // hand or comes off the floor (Trial 8: planned once at the cycle's start and the legs not looked at, a move's
       // path went through a shin and the ball was shoved out of it in the air, up to a foot in a frame)
-      if (a.gaitOn && a.speed > 2 && a.legsAt && !cr && !(moving && d.move.spin)) {
+      if (a.gaitOn && a.speed > 2 && a.legsAt && !cr && !(moving && d.move.spin) && !(a.clip && a.clip.clip && a.clip.clip.name === 'spinMove')) {
         if (u < pl.uP) this._clearPath(d, a, pl, u, true);
         else if (u < pl.uB) this._clearPath(d, a, pl, u, false);
       }
       // --- ball, body-local (x toward the dribble hand side of the body, y forward, z up; feet)
       let lx, ly, lz, ph, s;
       const uP = pl.uP, uB = pl.uB, uC = pl.uC;
+      // (in the air the ball goes its own way across the floor (_airW), except while a spin turns him: the body's facing
+      // lags the spin clip's, 20-47 deg 0.2 s on, and a flight fixed where he was to be came down behind him; there the
+      // ball goes round with his trunk as before, the spin's footwork is Trial 7's)
+      const worldAir = !(moving && d.move.spin) && !(a.clip && a.clip.clip && a.clip.clip.name === 'spinMove');
       if (cr) {
         // carried out of the hands to the push's start (the hand on it, the push not yet begun), from a start that goes with
         // his shoulders
@@ -762,13 +766,13 @@
         const k0 = (pl.top - pl.rel) / Math.max(0.01, pl.top - R);
         const k = U.lerp(k0, 1, s), kk = (k - k0) / Math.max(1e-3, 1 - k0);
         lx = U.lerp(pl.rx, pl.cx, kk); ly = U.lerp(pl.ry, pl.cy, kk);
-        if (!(moving && d.move.spin)) { const q = this._airW(d, a, pl, true, s, u, TW2); lx = q[0]; ly = q[1]; }
+        if (worldAir) { const q = this._airW(d, a, pl, true, s, u, TW2); lx = q[0]; ly = q[1]; }
       } else if (u < uC) {
         ph = 'up'; s = (u - uB) / (uC - uB);
         const t = s * pl.tU;
         lz = Math.min(pl.ctop, R + pl.vUp * t - 0.5 * pl.g * t * t);
         lx = U.lerp(pl.cx, pl.qx, s); ly = U.lerp(pl.cy, pl.qy, s);
-        if (!(moving && d.move.spin)) { const q = this._airW(d, a, pl, false, s, u, TW2); lx = q[0]; ly = q[1]; }
+        if (worldAir) { const q = this._airW(d, a, pl, false, s, u, TW2); lx = q[0]; ly = q[1]; }
       } else {
         ph = 'ride'; s = (u - uC) / (1 - uC);
         lz = pl.ctop - (pl.ctop - pl.ccatch) * (1 - s) * (1 - s);
@@ -784,7 +788,7 @@
       }
       const sd = pl.side; // +1: right hand side of the body
       // (in the air, eased round where his legs are about to be, Trial 8: _airAvoid)
-      if ((ph === 'down' || ph === 'up') && a.legsAt && !(moving && d.move.spin)) {
+      if ((ph === 'down' || ph === 'up') && a.legsAt && worldAir) {
         const av = this._airAvoid(d, a, pl, u, dt), f = a.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f);
         lx += (av[0] * sf - av[1] * cf) * sd; ly += av[0] * cf + av[1] * sf;
       } else if (d.av) { d.av.x = d.av.y = d.av.vx = d.av.vy = 0; }
@@ -795,10 +799,14 @@
       const TH = M.Tune.handle, beh = moving && (d.move.type === 'btb' || d.move.type === 'btl') && ph !== 'ride';
       const shA = !beh && a.armReach ? a.armReach(ph === 'push' || ph === 'down' ? d.hand : endHand, AR)[1] + TH.aheadFt : null;
       const fwd = (y) => shA == null ? y : y + TH.aheadSoftFt * Math.log1p(Math.exp((shA - y) / TH.aheadSoftFt));
-      // (behind the back and between the legs the other hand takes it behind the hip: the floor comes in over the ride
-      // that brings it forward, Trial 8; all at once, the ball and the hand jumped ~0.8 ft forward at the catch)
-      const behRide = moving && (d.move.type === 'btb' || d.move.type === 'btl') && ph === 'ride';
-      ly = behRide ? U.lerp(ly, fwd(ly), U.smooth(s)) : fwd(ly);
+      // (only with the hand on it, the push and the ride: in the air the ball goes its own way, and pushed on by a trunk
+      // turning or leaning over it, it jolted across the floor, Trial 8; its catch spot is kept ahead as it bounces, and
+      // the floor comes in over the ride from where it was taken: all at once, a ball taken behind the hip, behind the
+      // back or between the legs, jumped with the hand ~0.8 ft forward at the catch)
+      // (the spin's catch is behind him as he comes round, ~1.3 ft: eased over its ride the hand could not keep up with the
+      // ball, and it is taken there at once, as before; the spin's footwork is Trial 7's)
+      if (ph === 'ride') ly = moving && d.move.spin ? fwd(ly) : U.lerp(ly, fwd(ly), U.smooth(s));
+      else if (ph === 'push' || !worldAir) ly = fwd(ly);
       // the spin's crossover: once out of the hand the ball is on its own, so the bounce spot stays put on the floor
       // (where the body will be facing when it lands) while he turns, and it comes up to wherever the new hand is
       const anchored = moving && d.move.spin && (ph === 'down' || ph === 'up');
@@ -889,7 +897,8 @@
         const f = (u - uP) / (uC - uP);
         const rel = handOn(sd * pl.rx, fwd(pl.ry), pl.rel, sd, RCV);
         const rx0 = rel.x, ry0 = rel.y, rz0 = rel.z;
-        const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], fwd(cq[1]), pl.ccatch, pl.inout ? -pl.rside : pl.rside, ACT);
+        // (the hand goes to where the ball will be caught, the floor ahead of the shoulder already in it: see _airW)
+        const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], worldAir ? cq[1] : fwd(cq[1]), pl.ccatch, pl.inout ? -pl.rside : pl.rside, ACT);
         if (moving && d.move.toHand !== d.hand) {
           // crossover / between the legs / behind the back: from the release the new hand has the dribble, on its way to
           // the catch since the push (_moveHands), and the old hand follows through and lets go (hd.aux)
@@ -920,7 +929,7 @@
           // (where the pushing palm is, frame by frame, for its follow-through from the release)
           const mv = d.move, hp = a.handLocal ? a.handLocal(d.hand, TD) : null;
           if (hp) mv.hp = [hp[0], hp[1], hp[2]];
-          const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], fwd(cq[1]), pl.ccatch, pl.rside, HO3);
+          const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], worldAir ? cq[1] : fwd(cq[1]), pl.ccatch, pl.rside, HO3);
           this._moveHand(d, pl, a, u, uC, cat, HO4);
           const wq = (a.localD || a.local).call(a, HO4.x, HO4.y, HO4.z, TD);
           keepOff(wq, this, pr + M.Tune.handle.offClearFt);
@@ -1013,16 +1022,21 @@
         out[0] = x0 + sf * x + cf * ly; out[1] = y0 - cf * x + sf * ly;
         return out;
       };
+      // (its spots kept ahead of the shoulder whose hand has it, as the push and the ride keep it, unless a move goes behind on
+      // purpose: the floor is not applied in the air)
+      const TH = M.Tune.handle, behind = d.move && d.moveStarted && (d.move.type === 'btb' || d.move.type === 'btl');
+      const ahead = (y, hand) => { if (behind || !a.armReach) return y; const shA = a.armReach(hand, AR)[1] + TH.aheadFt; return y + TH.aheadSoftFt * Math.log1p(Math.exp((shA - y) / TH.aheadSoftFt)); };
       let wx, wy;
       if (down) {
-        if (!fl.r) fl.r = at(pl.rx, pl.ry, 0, [0, 0]);
-        if (!fl.b) fl.b = at(pl.cx, pl.cy, Math.max(0, (pl.uB - u) * T), [0, 0]);
+        // (from where the push let it go, the floor ahead of the shoulder in it as the push had it)
+        if (!fl.r) fl.r = at(pl.rx, ahead(pl.ry, d.hand), 0, [0, 0]);
+        if (!fl.b) fl.b = at(pl.cx, ahead(pl.cy, d.hand), Math.max(0, (pl.uB - u) * T), [0, 0]);
         wx = U.lerp(fl.r[0], fl.b[0], s); wy = U.lerp(fl.r[1], fl.b[1], s);
       } else {
         // (and where it comes up to is fixed there too, where the hand was to be then: the hand goes to it, not it to the
         // hand; aimed again every frame, a body speeding up into a retreat bent the ball in the air)
         if (!fl.b) fl.b = [this.x, this.y];
-        if (!fl.q) fl.q = at(pl.qx, pl.qy, Math.max(0, (pl.uC - u) * T), [0, 0]);
+        if (!fl.q) fl.q = at(pl.qx, ahead(pl.qy, d.move && d.moveStarted ? d.move.toHand : d.hand), Math.max(0, (pl.uC - u) * T), [0, 0]);
         wx = U.lerp(fl.b[0], fl.q[0], s); wy = U.lerp(fl.b[1], fl.q[1], s);
       }
       const f = a.facing + yawD, cf = Math.cos(f), sf = Math.sin(f), rx = wx - a.x, ry = wy - a.y;
