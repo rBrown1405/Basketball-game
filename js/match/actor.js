@@ -47,6 +47,10 @@
       // reaching for a spot in the world (the rim): { x, y, z, t0, t1 } eases the held ball there over the rise;
       // { hx, hy, hz, h0, h1, hands } holds the hand(s) on it (a dunker's grip on the rim)
       this.reach = o.reach || null;
+      // a running jump (Trial 11: a rebounder's, from where he is to where the move is set, o.x, o.y): the body stays over its
+      // feet through the load, pushes off toward it from ta to the take-off t0 (clip times), and carries on in the air at the
+      // speed it took off with, over the spot at tg (where the hands meet the ball) and on until it lands at t1
+      this.travel = o.travel || null;
     }
   }
 
@@ -177,7 +181,8 @@
         f.ax = a[0]; f.ay = a[1]; f.az = a[2]; f.tx = f.x; f.ty = f.y; f.swT = null; f.swLastT = null; f.pax = null;
       }
     }
-    /** move to (x,y). o: {by (abs time), speed (cap), face ('move'|angle|{x,y}), stance, arrive(bool)} */
+    /** move to (x,y). o: {by (abs time), speed (cap), face ('move'|angle|{x,y}), stance, arrive(bool), brakeK (the share of
+     *  his braking the arrival plans on, 0.8: a gentler stop starts braking sooner and is there stopped, Trial 11)} */
     moveTo(x, y, o) {
       o = o || {};
       if (this._rcHold(x, y)) return this;
@@ -189,6 +194,7 @@
       g.by = o.by == null ? null : o.by;
       g.speed = o.speed ? o.speed * this.goalK : this.maxSpeed * 0.85;
       g.arrive = o.arrive !== false;
+      g.brakeK = o.brakeK || 0;
       g.track = null;
       // timed moves: never slower than this natural pace (walk there and wait instead of creeping in slow motion)
       g.pace = o.pace || 0;
@@ -254,6 +260,35 @@
       if (o && o.hold > 0) this._lkHold = { p, until: t + o.hold };
       else if (h && t < h.until && p !== h.p) return;
       this.look_ = p;
+    }
+    /** a contest (Trial 11): the hand nearer the ball goes up at it, along the line from its shoulder to the ball (wherever it
+     *  is: in the shooter's hands going up to the release, then in the air), as far as the arm reaches and never onto it
+     *  (Tune.glass.contestGapFt short of it); up over Tune.glass.contestLeadS before tRel, held contestHoldS after, then
+     *  let down. o: { lead, hold, both (both hands: verticality at the rim) } */
+    contestBall(b, tRel, o) {
+      o = o || {};
+      const TG = M.Tune.glass, side = o.side != null ? o.side : this.contestSide(b);
+      this._contest = { b, t1: tRel, lead: o.lead || TG.contestLeadS, hold: o.hold != null ? o.hold : TG.contestHoldS, sides: o.both ? [0, 1] : [side] };
+    }
+    /** the hand on the ball's side (1 the right, 0 the left): the one whose shoulder is nearer it */
+    contestSide(b) {
+      const P = this.sk.P, J = RG.J, dl = (j) => Math.hypot(P[j * 3] - b.x, P[j * 3 + 1] - b.y, P[j * 3 + 2] - b.z);
+      return dl(J.R_SH) <= dl(J.L_SH) ? 1 : 0;
+    }
+    /** meant to be in contact with b now (Trial 11: a box-out, the boxer's back into his man; set on either, until a time) */
+    touching(b) {
+      const t = this.time || 0, c = this._contact, d = b && b._contact;
+      return !!((c && c.with === b && t < c.until) || (d && d.with === this && t < d.until));
+    }
+    /** reach for a ball in the air or on the floor (Trial 11: a rebound, a long rebound's catch, a loose ball's pick-up, a
+     *  block, a tip): the hands go onto it where it is, on its sides as a hold has them (over it above the head), over the
+     *  last o.lead (Tune.glass.reachS) before tTake, and stay on it until it is taken or o.until. o: { hands: [0, 1] or one
+     *  side, lead (s), until (s), touch (the palm onto the near side of it: a block, a poke, a tip), other (a ball in someone
+     *  else's hands or dribble: reached for all the same) } */
+    reachFor(b, tTake, o) {
+      o = o || {};
+      const TG = M.Tune.glass;
+      this._reach = { b, t1: tTake, lead: o.lead || TG.reachS, until: o.until != null ? o.until : tTake + TG.takeLateS + 0.1, hands: o.hands || [0, 1], w: o.w == null ? 1 : o.w, touch: !!o.touch, other: !!o.other };
     }
     /** a pass is coming (Trial 10), from the moment the passer commits to it (the choreographer: as the passer turns to
      *  the catch spot): the hands come up in front of the chest toward the passer as a target, the eyes on the passer.
@@ -932,7 +967,7 @@
           if (g.pace && dist > 1) want = Math.max(want, Math.min(g.pace, g.speed));
         }
         want = Math.min(want, this.maxSpeed * 1.08);
-        if (g.arrive) want = Math.min(want, Math.sqrt(2 * this.decel * 0.8 * Math.max(0, dist - 0.05)));
+        if (g.arrive) want = Math.min(want, Math.sqrt(2 * this.decel * (g.mode === 'move' && g.brakeK ? g.brakeK : 0.8) * Math.max(0, dist - 0.05)));
         if (dist < 0.15 && Math.hypot(tvx, tvy) < 0.5) want = 0;
         if (dist > 1e-4) { dvx = dx / dist * want; dvy = dy / dist * want; }
         dvx += tvx; dvy += tvy;
@@ -1113,7 +1148,8 @@
         // a spot ~1 ft ahead was seen running ~1.2 ft past it and ~1.5 ft to the side, Trial 10)
         if (b === this || b === this._simOf || b.hidden) continue;
         const rx = b.x - this.x, ry = b.y - this.y, r2 = rx * rx + ry * ry;
-        const touch = (this.H + b.H) * 0.15;
+        // (two bodies meant to touch, a box-out's, Trial 11: the torsos' own depth apart, not the room kept between players)
+        const touch = this.touching(b) ? (this.H + b.H) * M.Tune.glass.touchH : (this.H + b.H) * 0.15;
         // (as far off as the two can close in Tune.weight.avoidAheadS, 10 ft at least: two bodies running at each other
         // at full speed, ~35 ft/s between them, were seen too late to steer or stop and ran into each other)
         const reach = Math.max(10, (this.speed + (b.speed || 0)) * TW.avoidAheadS + touch);
@@ -1283,7 +1319,10 @@
       // stride to put the right foot down (a quarter of the pace meanwhile, ~0.3 s at most). (Not at a sprint: held
       // back there, the body ran on sideways with the feet stretched out and dragging)
       const dA = U.wrapPi(want - this.facing);
-      if (this.kind === 'player' && !this.clip && this.gaitOn && this.speed > 1.5 && this.speed < 9 && Math.abs(dA) > 0.6) {
+      // (a box-out's turn is a reverse pivot into the man, the back to him at once: not held back to wait for a stride, nor to
+      // a defender's opening-up rate, Trial 11: turned at those, it took ~1 s to get his back to his man)
+      const boxing = this.stance === 'boxout';
+      if (this.kind === 'player' && !this.clip && this.gaitOn && this.speed > 1.5 && this.speed < 9 && Math.abs(dA) > 0.6 && !boxing) {
         // (judged over the next ~60 deg: a bigger turn goes round in stages, a step at a time, the way a player
         // drop-steps to go the other way; judged over all of it, a half turn could never go, the feet change sides)
         const dC = U.clamp(dA, -1.05, 1.05);
@@ -1301,7 +1340,7 @@
       // Tune.gait.openUpRate: swung round at the run's 8 rad/s over a foot planted out wide, the hip ran out of range
       // and the foot was torn off the floor, the ankle jumping ~2 ft, Trial 5)
       const stO = A.STANCE[this.stance];
-      if (stO && stO.slide && this.gaitOn && !this.clip && Math.max(this.latK || 0, this.backK || 0) > 0.3) rate = Math.min(rate, M.Tune.gait.openUpRate);
+      if (stO && stO.slide && this.gaitOn && !this.clip && !boxing && Math.max(this.latK || 0, this.backK || 0) > 0.3) rate = Math.min(rate, M.Tune.gait.openUpRate);
       this._turnRate = rate;
       this._faceStep(want, rate, this.turnAcc * (this.paceK || 1), dt);
     }
@@ -1358,6 +1397,9 @@
       }
       if (!this.gaitOn && sp > 1.4) this._startGait();
       else if (this.gaitOn && sp < 0.6 && this._feetSettled()) this.gaitOn = false;
+      // (stopped with a foot still in a gait swing: at a standstill the gait's clock barely moves and the foot hung in the air
+      // ~0.4 s, the feet a walk's width apart meanwhile; it comes down now in a quick step to its stance spot, Trial 11)
+      if (this.gaitOn && sp < 0.6) for (const f of this.feet) if (f.state === 'swing' && f.mode === 'gait' && f.liftT != null && this.time - f.liftT > M.Tune.gait.stopSwingS) this._swingToStance(f, stanceOf(this, this.stance));
       this.gaitK = U.damp(this.gaitK, this.gaitOn ? U.smooth(sp / 3) : 0, 8, dt);
       if (this.gaitOn) {
         const H = this.H;
@@ -1996,14 +2038,7 @@
       const rx = s, ry = -c;
       // any foot still in a gait swing: retarget to stance spot and finish as a step
       for (const f of this.feet) {
-        if (f.state === 'swing' && f.mode === 'gait') {
-          f.mode = 'step'; f.s = 0; f.dur = 0.16;
-          const o = f.side ? st.R : st.L;
-          f.tx = this.x + rx * o[0] * H + c * o[1] * H;
-          f.ty = this.y + ry * o[0] * H + s * o[1] * H;
-          f.tyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
-          f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow != null ? f.yawNow : f.yaw; f.p0 = f.pitchNow || 0; f.h = 0.02 * H;
-        }
+        if (f.state === 'swing' && f.mode === 'gait') this._swingToStance(f, st);
         if (f.state === 'plant' && f.pitch > 0) f.pitch = Math.max(0, f.pitch - dt * 4);
         else if (f.state === 'plant' && f.pitch < 0) { f.pitch = Math.min(0, f.pitch + dt * 4); f.hs = false; }
       }
@@ -2063,6 +2098,15 @@
       }
     }
 
+    /** a foot in a gait swing finished as a quick step onto its stance spot */
+    _swingToStance(f, st) {
+      const H = this.H, c = Math.cos(this.facing), s = Math.sin(this.facing), o = f.side ? st.R : st.L;
+      f.mode = 'step'; f.s = 0; f.dur = 0.16;
+      f.tx = this.x + s * o[0] * H + c * o[1] * H;
+      f.ty = this.y - c * o[0] * H + s * o[1] * H;
+      f.tyaw = this.facing + (f.side ? -1 : 1) * st.yaw * D;
+      f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow != null ? f.yawNow : f.yaw; f.p0 = f.pitchNow || 0; f.h = 0.02 * H;
+    }
     _beginStep(f, tx, ty, tyaw, dur, lift) {
       // (a foot still in the air goes on from where it is: restarted from the spot it last stood on, it jumped back
       // there for a frame)
@@ -2217,6 +2261,22 @@
       out.yaw = cs.ofacing + (clip.yawKeys ? (cs.mirror ? -1 : 1) * clip.yawKeys(t) : 0);
       return out;
     }
+    /** where the body will be at clip time t of a move (its root, with a running jump's travel and the move's placement
+     *  eased off), for planning; out: { x, y } */
+    clipBodyAt(cs, t, out) {
+      const r = this._clipRoot(cs, Math.min(t, cs.clip.dur)), tv = cs.travel;
+      const bo = tv ? 1 - this._travelF(tv, t) : cs.blendT > 0 ? 1 - U.smooth(t / cs.blendT) : 0;
+      out.x = r.x + cs.offX * bo; out.y = r.y + cs.offY * bo;
+      return out;
+    }
+    /** a running jump's share of its way to the move's spot at clip time t (see ClipState.travel): the push accelerates it
+     *  evenly from ta to the take-off t0, the air carries it on at that speed, over the spot at tg and past it to t1 */
+    _travelF(tv, t) {
+      const T1 = Math.max(1e-3, tv.t0 - tv.ta), T2 = Math.max(1e-3, tv.tg - tv.t0), N = T1 / 2 + T2;
+      if (t <= tv.ta) return 0;
+      if (t < tv.t0) { const u = t - tv.ta; return u * u / (2 * T1) / N; }
+      return (T1 / 2 + (Math.min(t, tv.t1) - tv.t0)) / N;
+    }
     _clipJumpZ(cs, t) {
       const j = cs.clip.jump;
       if (!j || t <= j.t0 || t >= j.t1) return 0;
@@ -2290,10 +2350,11 @@
       const r = this._clipRoot(cs, Math.min(cs.t, clip.dur));
       const bt = Math.max(cs.blendT, 0.3);
       const bl = 1 - U.smooth(cs.t / bt);
-      const bo = cs.blendT > 0 ? 1 - U.smooth(cs.t / cs.blendT) : 0;
-      // carry the entry momentum and fade it out (no velocity pop at the clip start)
+      const tv = cs.travel;
+      const bo = tv ? 1 - this._travelF(tv, cs.t) : cs.blendT > 0 ? 1 - U.smooth(cs.t / cs.blendT) : 0;
+      // carry the entry momentum and fade it out (no velocity pop at the clip start; a running jump's own push is its travel)
       const tau = 0.12, mk = tau * (1 - Math.exp(-cs.t / tau));
-      const clipV0 = clip.rootKeys ? 0 : 1;
+      const clipV0 = clip.rootKeys || tv ? 0 : 1;
       const nx = r.x + cs.offX * bo + (cs.v0x || 0) * mk * bl * clipV0, ny = r.y + cs.offY * bo + (cs.v0y || 0) * mk * bl * clipV0;
       // the body follows the move's root as a mass (Trial 4): exactly, as long as that takes no more than a body's
       // push (Tune.weight.clipAccelMax); a move whose root changes speed harder than that between its keys is caught up
@@ -4324,6 +4385,63 @@
         // shape's return the frame after as two jumps, and the forearms turned ~50 deg past it for a frame)
         const tc = rc.caught != null ? rc.caught : this.time || 0;
         this._rcShape(1 - U.smooth(((this.time || 0) - tc) / M.Tune.pass.afterS));
+      }
+      // reaching for a ball (Trial 11, reachFor): onto it where it is, on its sides as a hold has them (over it, above the
+      // head), turned to it as seen from the body, from reach.t1 - reach.lead on until it is taken or gone
+      this._reachW = 0;
+      const rch = this._reach;
+      if (rch) {
+        const b = rch.b, t = this.time || 0;
+        if (!b || (b.holder && (b.holder === this || !rch.other)) || t > rch.until) this._reach = null;
+        else if (rch.touch) {
+          // (a touch: the wrist on the line from the ball to the shoulder, the palm onto the ball's near side)
+          const w = U.smooth((t - (rch.t1 - rch.lead)) / rch.lead) * rch.w, P = sk.P, TG = M.Tune.glass;
+          if (w > 0.001) for (const side of rch.hands) {
+            const ik = sk.armIK[side], so = (side ? RG.J.R_SH : RG.J.L_SH) * 3;
+            if (ik.on >= w) continue;
+            const ux = P[so] - b.x, uy = P[so + 1] - b.y, uz = P[so + 2] - b.z, ul = Math.hypot(ux, uy, uz) || 1, k = (BALL_R + TG.touchWristFt) / ul;
+            ik.on = w; src[side] = 'tgt'; ik.pole = HOLD_POLE.over; ik.fkPole = false;
+            ik.x = b.x + ux * k; ik.y = b.y + uy * k; ik.z = b.z + uz * k;
+            this._reachW = w;
+          }
+        } else {
+          const w = U.smooth((t - (rch.t1 - rch.lead)) / rch.lead) * rch.w;
+          if (w > 0.001) {
+            const over = b.z > this.jumpZ + 0.95 * this.H, gn = over ? 'over' : 'hold', grip = A.GRIP[gn];
+            const dl = Math.hypot(b.x - this.x, b.y - this.y), fa = dl > 0.4 ? Math.atan2(b.y - this.y, b.x - this.x) : this.facing;
+            const c = Math.cos(fa), s = Math.sin(fa);
+            const wf = this._wrFix || (this._wrFix = [new Float64Array(3), new Float64Array(3)]);
+            for (const side of rch.hands) {
+              const g = side ? grip.r : grip.l, ik = sk.armIK[side];
+              if (ik.on >= w) continue;
+              // (a grip, to the arms' easing: taken, the ball's hold carries on from it round the ball, not from a spot left
+              // behind in the air as it comes down, ~9 in off it, Trial 11)
+              ik.on = w; src[side] = 'grip'; ik.pole = HOLD_POLE[gn] || null; ik.fkPole = false;
+              ik.x = b.x + (s * g[0] + c * g[1]) * BALL_R; ik.y = b.y + (-c * g[0] + s * g[1]) * BALL_R; ik.z = b.z + g[2] * BALL_R;
+              wf[side][2] = 1;
+            }
+            this._reachW = w;
+          }
+        }
+      }
+      // a contest (Trial 11, contestBall): the hand up at the ball along the line from its shoulder, as far as the arm reaches
+      const ctb = this._contest;
+      if (ctb) {
+        const t = this.time || 0, TG = M.Tune.glass;
+        const w = U.smooth((t - (ctb.t1 - ctb.lead)) / ctb.lead) * (1 - U.smooth((t - ctb.t1 - ctb.hold) / TG.contestDownS));
+        if (t > ctb.t1 + ctb.hold + TG.contestDownS || !ctb.b) this._contest = null;
+        else if (w > 0.001) {
+          const b = ctb.b, P = sk.P, L = (this.dims.ua + this.dims.fa) * TG.contestReachK;
+          for (const side of ctb.sides) {
+            const ik = sk.armIK[side], so = (side ? RG.J.R_SH : RG.J.L_SH) * 3;
+            if (ik.on >= w) continue;
+            const dx = b.x - P[so], dy = b.y - P[so + 1], dz = b.z - P[so + 2], dl = Math.hypot(dx, dy, dz) || 1;
+            // (the wrist on the line to the ball, the hand past it: short of the ball by contestGapFt)
+            const k = U.clamp(dl - TG.contestGapFt - 0.12 * this.H, 0.5 * L, L) / dl;
+            ik.on = w; src[side] = 'tgt'; ik.pole = HOLD_POLE.over; ik.fkPole = false;
+            ik.x = P[so] + dx * k; ik.y = P[so + 1] + dy * k; ik.z = P[so + 2] + dz * k;
+          }
+        }
       }
       // about to catch: the hands go out to meet the ball, a pass in its last ~0.3 s (one nobody warned him of) or a loose
       // ball within reach just before a clip's catch or grab (a grip that only switched on at the catch left the hands

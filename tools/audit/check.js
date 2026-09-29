@@ -603,6 +603,37 @@ console.log('the shot (Trial 9)');
   ok(ct.relIn > op.relIn + 0.5 && ct.relS < op.relS && ct.leanDeg < op.leanDeg - 3, `a contested jumper against the same one open: released higher (${ct.relIn} against ${op.relIn} in), quicker (${ct.relS} against ${op.relS} s), leaning away (${ct.leanDeg} against ${op.leanDeg} deg)`);
 }
 
+console.log('the glass and the contest (Trial 11)');
+{
+  // (the glass lab, js/match/glasslab.js: misses, box-outs, contests, blocks, steals and a reach-in played by the game's own
+  // beats, measured by the glass meter)
+  const GL11 = require('./glass');
+  const rows = GL11.scenarios(PBC).map(sc => GL11.run(PBC, sc));
+  const recs = rows.flatMap(r => r.recs.map(x => Object.assign({ sc: r.id }, x)));
+  const T11 = M.Tune.debug;
+  const C = recs.filter(x => x.kind === 'miss' || x.kind === 'blocked');
+  const bent = C.filter(x => x.bendMaxIn > T11.glBendIn), untaken = C.filter(x => !x.taken);
+  ok(C.length >= 9 && !bent.length && !untaken.length, `every carom (${C.length}) flies on its own: none steered onto a player's hands (worst ${Math.max(...C.map(x => x.bendMaxIn))} in), and every one taken${untaken.length ? ': not taken ' + untaken.map(x => x.sc).join(', ') : ''}`);
+  const T = C.filter(x => x.taken), read = (x) => (x.onsetS == null || x.onsetS >= T11.glReadS) && !(x.preCloseFt > T11.glPreCloseFt);
+  const early = T.filter(x => !read(x));
+  ok(!early.length, `every rebounder reads it off the rim: nobody sets off after it before it comes off (runs ${T.map(x => x.onsetS == null ? '-' : x.onsetS).join(', ')} s after; read-ahead at most ${Math.max(...T.map(x => x.preCloseFt))} ft)${early.length ? ': early ' + early.map(x => x.sc).join(', ') : ''}`);
+  const Jt = T.filter(x => x.air && x.apexS != null), two = (x) => x.gapLIn <= T11.glTakeGapIn && x.gapRIn <= T11.glTakeGapIn;
+  const jb = Jt.filter(x => !two(x) || Math.abs(x.apexS) > T11.glApexS || !(x.chinS <= T11.glChinByS));
+  ok(Jt.length >= 6 && !jb.length, `jump rebounds (${Jt.length}): both hands on the ball at the top of the jump (${Jt.map(x => x.apexS).join(', ')} s from it; hands within ${Math.max(...Jt.map(x => Math.max(x.gapLIn, x.gapRIn)))} in) and under the chin with the elbows out${jb.length ? ': not ' + jb.map(x => x.sc).join(', ') : ''}`);
+  const fl = T.filter(x => !x.air).concat(recs.filter(x => x.kind === 'loose')), flBad = fl.filter(x => !x.taken || !(Math.min(x.gapLIn, x.gapRIn) <= T11.glTakeGapIn * 2));
+  ok(fl.length >= 3 && !flBad.length, `off the floor and knocked loose (${fl.length}): run down and picked up or caught with the hands on it (${fl.map(x => Math.min(x.gapLIn, x.gapRIn)).join(', ')} in)${flBad.length ? ': not ' + flBad.map(x => x.sc).join(', ') : ''}`);
+  const B = recs.filter(x => x.box).flatMap(x => x.box.filter(b => b.man && b.contactS != null && b.holdPct >= 80));
+  ok(B.length >= 4 && B.every(b => b.behindDeg <= T11.glBoxBehindDeg && b.gapIn <= T11.glBoxGapFt * 12 && b.elbowX >= T11.glElbowSpan),
+    `box-outs: the back into the man and held (${B.length}: ${B.map(b => b.gapIn + ' in, ' + b.behindDeg + ' deg off behind').join('; ')}), the arms out (elbows ${Math.min(...B.map(b => b.elbowX))}x the shoulders at least)`);
+  const Ct = recs.filter(x => x.kind === 'contest'), cBad = Ct.filter(x => x.angBestDeg > T11.glContestDeg);
+  ok(Ct.length >= 10 && !cBad.length, `every contest's hand goes up at the ball (${Ct.length}: ${Math.max(...Ct.map(x => x.angBestDeg))} deg off the line to it at most)${cBad.length ? ': off ' + cBad.map(x => x.sc).join(', ') : ''}`);
+  const Bk = recs.filter(x => x.kind === 'block');
+  ok(Bk.length === 2 && Bk.every(x => x.gapIn <= T11.glBlockGapIn), `every block's hand is on the ball as it hits it (${Bk.map(x => x.gapIn).join(', ')} in off it)`);
+  const Sw = recs.filter(x => x.kind === 'swipe'), Xc = recs.filter(x => x.kind === 'interception');
+  ok(Sw.length >= 2 && Sw.every(x => x.minFt <= T11.glSwipeFt) && Xc.length === 1 && Xc.every(x => x.gapLIn <= T11.glTakeGapIn && x.gapRIn <= T11.glTakeGapIn),
+    `the steals and the reach-in go to the ball: swipes ${Sw.map(x => x.minFt).join(', ')} ft from it at their nearest, the interception's hands ${Xc.map(x => x.gapLIn + ' / ' + x.gapRIn).join('')} in off it`);
+}
+
 console.log('the floor and the weight in a real game (the first minute of seed 7)');
 {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'quarter.js'), '--seed', '7', '--frames', '3600'], { encoding: 'utf8', maxBuffer: 1 << 26 });

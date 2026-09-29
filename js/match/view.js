@@ -387,10 +387,12 @@
         for (let j = i + 1; j < n; j++) {
           const b = list[j];
           let dx = b.x - a.x, dy = b.y - a.y;
-          let minD = ra + b.H * 0.15;
+          // (two bodies meant to touch, a box-out's, Trial 11: the torsos' own depth apart, not the room kept between players)
+          const tch = a.touching && a.touching(b);
+          let minD = tch ? (a.H + b.H) * M.Tune.glass.touchH : ra + b.H * 0.15;
           let d2 = dx * dx + dy * dy;
           if (d2 > 36) continue;
-          const cdx = dx + b._chx - a._chx, cdy = dy + b._chy - a._chy, minC = (a.H + b.H) * 0.125;
+          const cdx = dx + b._chx - a._chx, cdy = dy + b._chy - a._chy, minC = tch ? minD : (a.H + b.H) * 0.125;
           const c2 = cdx * cdx + cdy * cdy;
           if (c2 < minC * minC && minC - Math.sqrt(c2) > minD - Math.sqrt(d2)) { dx = cdx; dy = cdy; d2 = c2; minD = minC; }
           const TW = M.Tune.weight, zone = minD + TW.avoidFt + (a.clip || b.clip ? TW.yieldFt : 0);

@@ -1627,6 +1627,6 @@
   }
 
   Ball.R = R;
-  Ball.aim = aim; Ball.seg = seg; Ball.timeForAngle = timeForAngle; Ball.contact = bounceOff; Ball.eFloor = eFloor;
+  Ball.aim = aim; Ball.seg = seg; Ball.timeForAngle = timeForAngle; Ball.contact = bounceOff; Ball.eFloor = eFloor; Ball.DRAG = DRAG; Ball.RIM_Z = RIM_Z;
   M.Ball = Ball;
 })();

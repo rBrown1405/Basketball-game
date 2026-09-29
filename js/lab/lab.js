@@ -356,6 +356,20 @@
     }
   }
 
+  // the glass and the contest (Trial 11): every scenario of the glass audit (tools/audit/glass.js), played by the game's own
+  // beats (js/match/glasslab.js: the shot's contest and block, the carom settled off the rim and read a reaction later, the
+  // box-outs, the rebound, the steals and the reach-in), with its bodies; the camera follows the first
+  if (M.GlassLab && M.Director) {
+    for (const s of M.GlassLab.scenarios()) {
+      const words = s.name.charAt(0).toUpperCase() + s.name.slice(1);
+      add('Rebounds, blocks and steals (the glass lab)', 'glass:' + s.id, words, s.T + 0.8, (c) => {
+        const GL = M.GlassLab, pc = { M, a: c.bodies, b: c.b, at: c.at, D: GL.director(c.W, c.now, c.at) };
+        pc.hold = (who, how) => { who.ballHold = how || 'chest'; const hp = who.heldBallPos([0, 0, 0]); c.b.x = hp[0]; c.b.y = hp[1]; c.b.z = hp[2]; c.b.give(who, how || 'chest'); };
+        s.setup(pc);
+      }, { bodies: s.bodies });
+    }
+  }
+
   // every clip in the library, grouped
   const GROUPS = {
     Shooting: ['jumpshot', 'jumpshot2', 'pullup', 'stepback', 'fadeaway', 'freethrow', 'floater', 'hook', 'postFadeL', 'postFadeR'],

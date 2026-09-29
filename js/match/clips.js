@@ -508,10 +508,13 @@
       { t: 0.0, p: { base: 'ready', rootZ: -0.08, pelPitch: 24, spFlex: 8, nkFlex: -34, hdFlex: -10, both: { ShF: 80, ShA: 30, ElF: 70, HipF: 40, Knee: 58 } } },
       { t: 0.2, p: { rootZ: -0.12, pelPitch: 26, spFlex: 8, nkFlex: -30, both: { ShF: 40, ShA: 30, ElF: 60, HipF: 50, Knee: 76, Ank: 20 } } },
       { t: 0.4, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -6, nkFlex: -40, hdFlex: -10, both: { ShF: 172, ShA: 20, ShT: 0, ElF: 20, Pro: 20, WrF: -20, Fing: 0.1, HipF: 20, Knee: 34, Ank: -30 } } },
-      { t: 0.5, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -6, nkFlex: -38, both: { ShF: 170, ShA: 18, ElF: 26, Pro: 15, WrF: -10, HipF: 22, Knee: 36, Ank: -30 } }, ball: [0.0, 0.08, 1.42], grip: 'over' },
+      // (the ball where two hands up at full stretch hold it: about a standing reach, ~1.33 heights to the fingertips; set at
+      // 1.42 heights it was out of the arms' reach, and the hands only met it on its way back down, after the top, Trial 11)
+      { t: 0.5, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -6, nkFlex: -38, both: { ShF: 170, ShA: 18, ElF: 26, Pro: 15, WrF: -10, HipF: 22, Knee: 36, Ank: -30 } }, ball: [0.0, 0.12, 1.3], grip: 'over' },
       { t: 0.6, p: { rootZ: 0, pelPitch: 4, spFlex: -1, chFlex: -1, nkFlex: -24, both: { ShF: 110, ShA: 20, ShT: 10, ElF: 35, Pro: 15, WrF: -20, HipF: 26, Knee: 40, Ank: -20 } }, ball: [0.0, 0.3, 1.08], grip: 'over' },
-      { t: 0.7, p: { rootZ: 0, pelPitch: 8, spFlex: 6, chFlex: 4, nkFlex: -18, both: { ShF: 55, ShA: 50, ShT: 30, ElF: 105, Pro: 10, WrF: -30, HipF: 30, Knee: 44 } }, ball: [0.0, 0.22, 0.8], grip: 'hold' },
-      { t: 0.8, p: { rootZ: -0.08, pelPitch: 22, spFlex: 10, chFlex: 6, nkFlex: -16, both: { ShF: 50, ShA: 55, ShT: 30, ElF: 100, Pro: 10, WrF: -30, HipF: 44, HipA: 10, Knee: 62, Ank: 18 } }, ball: [0.0, 0.33, 0.66], grip: 'hold' },
+      // (chinned: under the chin through the landing, the elbows out; the chin comes down with the body as it lands, Trial 11)
+      { t: 0.7, p: { rootZ: 0, pelPitch: 8, spFlex: 6, chFlex: 4, nkFlex: -18, both: { ShF: 55, ShA: 50, ShT: 30, ElF: 105, Pro: 10, WrF: -30, HipF: 30, Knee: 44 } }, ball: [0.0, 0.22, 0.84], grip: 'hold' },
+      { t: 0.8, p: { rootZ: -0.08, pelPitch: 22, spFlex: 10, chFlex: 6, nkFlex: -16, both: { ShF: 50, ShA: 55, ShT: 30, ElF: 100, Pro: 10, WrF: -30, HipF: 44, HipA: 10, Knee: 62, Ank: 18 } }, ball: [0.0, 0.3, 0.74], grip: 'hold' },
       { t: 1.25, p: { base: 'holdChest', rootZ: -0.06, both: { ShA: 40 } }, ball: [0.0, 0.24, 0.7], grip: 'hold' },
     ],
   });
@@ -723,15 +726,20 @@
     ],
   });
   // pick the ball up off the floor
-  clip('pickup', {
-    dur: 0.8, events: { grab: 0.34 },
-    keys: [
+  {
+    const keys = [
       { t: 0.0, p: 'ready' },
       { t: 0.34, p: { rootZ: -0.2, pelPitch: 50, spFlex: 20, chFlex: 10, nkFlex: -20, both: { ShF: 60, ShA: 16, ElF: 20, Pro: 10, HipF: 80, Knee: 90, Ank: 25 } }, ball: [0.0, 0.3, 0.07], grip: 'hold' },
       { t: 0.6, p: { base: 'holdChest', rootZ: -0.06 }, ball: [0.0, 0.18, 0.62], grip: 'hold' },
       { t: 0.8, p: 'holdChest', ball: [0.0, 0.16, 0.66], grip: 'hold' },
-    ],
-  });
+    ];
+    // (the ball comes up in front of the knees, the body as it was: straight up from the floor to the chest it went through
+    // them, and the ball pushed out of the legs (Actor.clearBall) flipped from under a thigh to over it, ~1 ft in a frame,
+    // Trial 11)
+    const mid = A.sampleClip(A.buildClip({ name: '_pickup', keys }), 0.45, new Float32Array(RG.NCH));
+    keys.splice(2, 0, { t: 0.45, p: mid, ball: [0.0, 0.34, 0.27], grip: 'hold' });
+    clip('pickup', { dur: 0.8, events: { grab: 0.34 }, keys });
+  }
 
   // ------------------------------------------------------------ ball-handling
   clip('jab', {
@@ -963,7 +971,8 @@
   L.dribbleLow = P({ rootZ: -0.145, pelPitch: 31, spFlex: 5, chFlex: 3, nkFlex: -32, hdFlex: -6, lShF: 44, lShA: 26, lShT: -6, lElF: 88, lPro: 60, rShF: 30, rShA: 20, rElF: 60, both: { HipF: 68, HipA: 13, HipT: -10, Knee: 90, Ank: 28 } }, M.Poses.BASE);
   Object.assign(A.STANCE, {
     screen: { pose: 'screen', L: [-0.13, 0.085], R: [0.13, 0.085], yaw: 14, gaitArms: 0.2, gaitTorso: 0.5 },
-    boxout: { pose: 'boxout', L: [-0.16, 0.085], R: [0.16, 0.085], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
+    // (a box-out: a base wider than the shoulders, Trial 11)
+    boxout: { pose: 'boxout', L: [-0.19, 0.085], R: [0.19, 0.085], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
     postUp: { pose: 'postUp', L: [-0.16, 0.085], R: [0.16, 0.085], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
     postD: { pose: 'postD', L: [-0.15, 0.105], R: [0.15, 0.065], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
     inbound: { pose: 'inbound', L: [-0.08, 0.115], R: [0.08, 0.055], yaw: 10, gaitArms: 0.1, gaitTorso: 0.8 },
