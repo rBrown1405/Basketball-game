@@ -385,6 +385,9 @@
       if (b.state === 'dribble') b.give(from, 'chest');
       from.setFace(tgt); from.aimAt(tgt, this.T + rel + 0.2);
       from.play('passPush', { speed: 1 });
+      // (the receiver waits for it where he is: left to the spacing, a set's handler was sent off to his spot in the corner
+      // at ~12 ft/s as the ball was thrown to him, his hands held out ~3 ft for a catch point his run had left behind, Trial 10)
+      const rt = this.role && this.role[to.id]; if (rt) rt.until = Math.max(rt.until || 0, this.T + rel + dur + 0.3);
       this.passSoon(from, to, 'chest', dur, clip, this.T, this.T + rel, null);
       this.at(this.T + rel, () => { if (b.holder === from) this.passBall(from, to, 'chest', dur, onCatch); else if (b.holder !== to && !(b.state === 'flight' && b.passTarget === to)) this.giveBall(to, 'chest'); }, 'quick throw');
       return rel;

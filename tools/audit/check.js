@@ -567,7 +567,7 @@ console.log('the pass and the catch (Trial 10)');
   ok(two.every(x => x.passGapIn <= 2.2) && recs.every(x => x.passGapIn <= 4.5), `the passer's hands on the ball through the throw: within ${mx(two, 'passGapIn')} in for the two-handed passes, ${mx(recs, 'passGapIn')} in for any`);
   const kinds = new Set(recs.map(x => x.kind));
   ok(['chest', 'bounce', 'overhead', 'lob', 'kick', 'outlet', 'btb', 'whip', 'nolook'].every(k => kinds.has(k)), `every pass and variation thrown and caught: ${[...kinds].join(', ')}`);
-  const calm = rows.filter(r => !/drive|facing away/.test(r.name));
+  const calm = rows.filter(r => !/drive/.test(r.name));
   ok(calm.every(r => r.armPops <= 4), `hands and elbows without pops: at most ${Math.max(...calm.map(r => r.armPops))} in any of ${calm.length} scenarios (still open: ${rows.filter(r => calm.indexOf(r) < 0).map(r => r.name.replace(/ \(.*$/, '') + ' ' + r.armPops).join(', ')})`);
 }
 

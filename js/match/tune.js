@@ -177,6 +177,10 @@
       // spine and neck joints slow down into the end of their range (the tissues stiffen) instead of stopping dead:
       // within this many degrees of a limit the angle eases in and never quite reaches it
       softDeg: 8,
+      // an arm part way onto its IK target (Trial 10): the wrist goes from the animated arm's wrist to the target in a
+      // straight line, or round the shoulder where that line passes nearer the shoulder than armBlendFarK of the shorter
+      // reach (all of the way round nearer than armBlendNearK)
+      armBlendNearK: 0.45, armBlendFarK: 0.65,
     },
 
     // ---------------------------------------------------------------- spine as a chain (Trial 2)
@@ -215,6 +219,7 @@
     // stepping to it; look it into the hands; soft hands: the elbows give and bring it into the chest)
     pass: {
       catchFwdH: 0.3,               // the hands meet the ball this far out in front of the body (H): the arms out...
+      catchReachH: 0.36,            // (and wait for it in the air no further out than this, H)
       catchZH: 0.72,                // ...at chest height (H); a bounce pass is taken lower, a lob higher:
       catchZBounceH: 0.5, catchZLobH: 0.98,
       targetS: 0.22,                // once the pass is coming the hands come up as a target over this long (s)...
@@ -225,6 +230,12 @@
       runOnFtps: 6,                 // round than this from the run (deg); a runner: faster than runOnFtps (ft/s)
       holdSideDeg: 100,             // the hands waiting for it never further round than this from the way the body faces
                                     // (deg; with the chest turned toward it, Tune.pass.chestTurnDeg)
+      targetSideDeg: 60,            // ...and shown as a target before it is thrown no further round than this (deg)
+      faceBallDeg: 60,              // not running on through it, the body turns toward a pass in the air to him, never further
+      faceBallRunDeg: 90,           // round from the way to the passer than this (deg), faceBallRunDeg faster than runOnFtps
+      sideJumpDeg: 25,              // the way to the passer changing more than this in a step (deg: behind a turning man, from
+      sideDps: 480, sideDps2: 3000, // one side to the other) the target hands swing across the front, at most this fast (deg/s,
+                                    // deg/s^2); switched at once, they jumped ~4 ft in a frame
       meetS: 0.12,                  // ...and over the last this-long (s) go onto the ball's own path, where it really comes
       // variations (Trial 10), for a passer with the flair: his handle from flairFrom (none) to flairTo (all of it)
       flairFrom: 60, flairTo: 95,

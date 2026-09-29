@@ -440,7 +440,22 @@
           // frame, Trial 5; at full weight it is the same reach)
           const tl = Math.sqrt(Dx * Dx + Dy * Dy + Dz * Dz), rm = (d.ua + d.fa) * 0.9995;
           if (tl > rm) { const k = rm / tl; Dx *= k; Dy *= k; Dz *= k; }
-          Dx = fx + (Dx - fx) * w; Dy = fy + (Dy - fy) * w; Dz = fz + (Dz - fz) * w;
+          // (round the shoulder where the straight way passes close by it: the way from the shoulder turned from the one to
+          // the other and the reach blended, as far as the straight line comes within Tune.limits.armBlendNearK
+          // and armBlendFarK of the shorter reach. In a straight line a hand swinging by the hip on its way to a target over the
+          // head passed ~9 in from the shoulder, the elbow folding to ~140 deg and the shoulder flipping to its other
+          // solution, Trial 10; taken round for every way, a hand letting go of the ball for a dribble popped)
+          const lx = fx + (Dx - fx) * w, ly = fy + (Dy - fy) * w, lz = fz + (Dz - fz) * w;
+          const fl = Math.sqrt(fx * fx + fy * fy + fz * fz), gl = Math.min(tl, rm), ch = Math.hypot(Dx - fx, Dy - fy, Dz - fz);
+          const cA = fl > 1e-4 && gl > 1e-4 ? U.clamp((fx * Dx + fy * Dy + fz * Dz) / (fl * gl), -1, 1) : 1, A = Math.acos(cA), sA = Math.sin(A);
+          // (how near the straight line comes to the shoulder, against the shorter reach; past the ends, the ends)
+          const near = ch > 1e-4 ? fl * gl * sA / ch : fl, onSeg = (fx * (fx - Dx) + fy * (fy - Dy) + fz * (fz - Dz)) > 0 && (Dx * (Dx - fx) + Dy * (Dy - fy) + Dz * (Dz - fz)) > 0;
+          // (not for two ways nearly opposite, where turning round is not defined: faded out from ~165 deg)
+          const TB = M.Tune.limits, k = onSeg && A > 0.05 && sA > 0.1 ? (1 - U.smooth((near / Math.max(1e-4, Math.min(fl, gl)) - TB.armBlendNearK) / (TB.armBlendFarK - TB.armBlendNearK))) * (A > Math.PI / 2 ? U.smooth((sA - 0.1) / 0.15) : 1) : 0;
+          if (k > 0) {
+            const k0 = Math.sin((1 - w) * A) / (sA * fl), k1 = Math.sin(w * A) / (sA * gl), L = fl + (gl - fl) * w;
+            Dx = lx + ((fx * k0 + Dx * k1) * L - lx) * k; Dy = ly + ((fy * k0 + Dy * k1) * L - ly) * k; Dz = lz + ((fz * k0 + Dz * k1) * L - lz) * k;
+          } else { Dx = lx; Dy = ly; Dz = lz; }
         }
         const ex = P[o + 3] - sx, ey = P[o + 4] - sy, ez = P[o + 5] - sz;
         const qx = R[18] * ex + R[21] * ey + R[24] * ez, qy = R[19] * ex + R[22] * ey + R[25] * ez, qz = R[20] * ex + R[23] * ey + R[26] * ez;

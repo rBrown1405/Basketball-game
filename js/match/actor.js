@@ -304,13 +304,42 @@
     /** where the hands take the ball (Trial 10): the catch point relative to a body at (x, y) with the ball coming from
      *  (fx, fy), for a pass of this kind (out in front toward it, at chest height; a bounce pass lower, a lob higher). A body
      *  facing `facing` (running on, a ball from behind) takes it out to the side, no further round than catchSideDeg */
-    catchPoint(x, y, fx, fy, kind, out, facing, sideDeg) {
+    catchPoint(x, y, fx, fy, kind, out, facing, sideDeg, trk) {
       const T = M.Tune.pass, H = this.H;
       let a = Math.atan2(fy - y, fx - x);
-      if (facing != null) { const r = U.wrapPi(a - facing), m = (sideDeg || T.catchSideDeg) * D; if (Math.abs(r) > m) a = facing + Math.sign(r) * m; }
+      if (facing != null) {
+        const m = (sideDeg || T.catchSideDeg) * D;
+        let r = U.wrapPi(a - facing);
+        if (Math.abs(r) > m) r = Math.sign(r) * m;
+        a = trk ? this._rcSide(trk, facing, r) : facing + r;
+      }
       const z = kind === 'bounce' || kind === 'entry' ? T.catchZBounceH : kind === 'lob' || kind === 'alley' ? T.catchZLobH : T.catchZH;
       out[0] = x + Math.cos(a) * T.catchFwdH * H; out[1] = y + Math.sin(a) * T.catchFwdH * H; out[2] = (this.jumpZ || 0) + z * H;
       return out;
+    }
+    /** the target hands' way round (Trial 10): the world angle they are shown at for a body facing f, wanted r round from
+     *  it (within the side limit), as kept in trk. It goes with the way to the passer as that moves, but a jump (the passer
+     *  crossing behind a turning man, from one side's limit to the other's; the limit itself, running on or not) is swung
+     *  round the front at a limited rate, Tune.pass.sideDps and sideDps2: taken at once, the hands went from one side of
+     *  the body to the other in a frame, ~4 ft */
+    _rcSide(trk, f, r) {
+      const T = M.Tune.pass, t = this.time || 0, aw = f + r;
+      let s = trk.side;
+      if (!s) s = trk.side = { a: aw, v: 0, aw, t };
+      const dt = t - s.t;
+      if (dt > 0 && dt < 0.12) {
+        const dw = U.wrapPi(aw - s.aw);
+        if (Math.abs(dw) < T.sideJumpDeg * D) s.a += dw;
+        s.aw = aw;
+        // (what is left, round the front: both measured from the facing, the one shown where the body's turn has left it)
+        const e = r - U.wrapPi(s.a - f), A = T.sideDps2 * D, ae = Math.abs(e);
+        const vd = Math.sign(e) * Math.min(T.sideDps * D, Math.sqrt(2 * A * ae), ae / dt);
+        s.v += U.clamp(vd - s.v, -A * dt, A * dt);
+        let st = s.v * dt;
+        if (st * e > 0 && Math.abs(st) > ae) { st = e; s.v = e / dt; }
+        s.a = U.wrapPi(s.a + st); s.t = t;
+      } else if (dt !== 0) { s.a = s.aw = aw; s.v = 0; s.t = t; }
+      return s.a;
     }
     /** the way the body will face at a catch it runs on through: its run (a runner's facing follows it), else null */
     _runFacing(vx, vy) { return Math.hypot(vx, vy) > M.Tune.pass.runOnFtps && (this.faceMode === 'move' || this._runMode) ? Math.atan2(vy, vx) : null; }
@@ -1133,7 +1162,27 @@
       return out;
     }
 
+    /** where the body wants to face, turned toward a pass in the air to him (Trial 10): not running on through the catch,
+     *  never further round from the way to the passer than Tune.pass.faceBallDeg, faceBallRunDeg on the move (coaching:
+     *  face the passer, show a target, meet the ball). Walking off to his spot turned away, a man had the ball tossed to
+     *  him from behind, and one jogging to his opened up to run with it in the air: the body went round with the passer
+     *  behind it, and the hands held out toward the ball went from one side of him to the other. (Not before it is
+     *  thrown: a man starting a run up the floor for an outlet was turned back to the passer, then round again as he got
+     *  going) */
     _desiredFacing() {
+      const face = this._desiredFacing0(), rc = this._rc, T = M.Tune.pass;
+      if (!rc || !rc.ball || rc.runOn || rc.caught != null || this.clip || !rc.from) return face;
+      const fx = rc.rel ? rc.rel[0] : rc.from.x, fy = rc.rel ? rc.rel[1] : rc.from.y;
+      if (Math.hypot(fx - this.x, fy - this.y) < 1) return face;
+      const ap = Math.atan2(fy - this.y, fx - this.x), r = U.wrapPi(face - ap);
+      const m = U.lerp(T.faceBallDeg, T.faceBallRunDeg, U.smooth((this.speed - T.runOnFtps + 1) / 2)) * D;
+      if (Math.abs(r) <= m) return face;
+      // (turned further away than that, he comes round into it the short way, the passer coming round in front of him:
+      // sent to the edge nearer where he wanted to face, the body went the other way round, the passer behind it)
+      const r0 = U.wrapPi(this.facing - ap);
+      return ap + Math.sign(Math.abs(r0) > m ? r0 : r) * m;
+    }
+    _desiredFacing0() {
       const sp = this.speed;
       let face = this.facing;
       if (this.faceMode === 'angle') face = this.faceAngle;
@@ -2484,7 +2533,10 @@
     /** the planned catch point (Trial 10) about a body at (x, y) facing `facing`: the plan's offset from where the body was
      *  to be, in the world's axes, never further round from the facing than Tune.pass.holdSideDeg */
     _rcAt(x, y, rc, facing, out) {
-      const P = rc.P, C = rc.Cs || rc.C, Ep = rc.Ep, ox = P[0] + Ep[0] - C[0], oy = P[1] + Ep[1] - C[1], ol = Math.hypot(ox, oy);
+      // (no further out than the arms reach, Tune.pass.catchReachH: a body run on past where it was planned to be had the
+      // hands held ~3 ft out for the ball, the far arm straight across the chest flipping over and under; the last moment
+      // onto the ball's path, _rcHands, takes them to it wherever it comes)
+      const P = rc.P, C = rc.Cs || rc.C, Ep = rc.Ep, ox = P[0] + Ep[0] - C[0], oy = P[1] + Ep[1] - C[1], ol = Math.min(Math.hypot(ox, oy), M.Tune.pass.catchReachH * this.H);
       let a = Math.atan2(oy, ox);
       const r = U.wrapPi(a - facing), m = M.Tune.pass.holdSideDeg * D;
       if (Math.abs(r) > m) a = facing + Math.sign(r) * m;
@@ -2502,7 +2554,9 @@
       // had the hands jump from the side of his run round to the passer, ~1.3 ft in a frame)
       // (the target is shown where this kind of pass will be caught: a bounce pass's low, a lob's high; never further round
       // from the way the body faces than a runner's hands go, Tune.pass.catchSideDeg: a man running away from the passer
-      // with the ball still to come, or turned away, held them out behind his back, the arms twisted through themselves)
+      // with the ball still to come, or turned away, held them out behind his back, the arms twisted through themselves.
+      // Standing, no further than Tune.pass.targetSideDeg: out at the side the far hand could not reach its place on the
+      // ball, and the arm, straight across the chest, flipped between reaching over and under)
       const rf = this._runFacing(this.vx, this.vy);
       if (rc.ball && rc.C && b && b.segs && rc.tEnd != null && t > (rc.cpT == null ? -1e9 : rc.cpT)) {
         // (where the body will be as the ball gets there: as planned, unless he has been sent somewhere else since, when it
@@ -2521,14 +2575,14 @@
         // in the world's axes, not turned with it: turned with a body still squaring up to the passer, the hands came round
         // ~1.7 ft over the last 0.15 s. A runner running on through it takes it out to the side of the run, as planned)
         this._rcAt(this.x, this.y, rc, this.facing, q);
-      } else this.catchPoint(this.x, this.y, fx, fy, rc.kind, q, rf != null ? rf : this.facing, rf != null ? 0 : T.holdSideDeg);
+      } else this.catchPoint(this.x, this.y, fx, fy, rc.kind, q, rf != null ? rf : this.facing, rf != null ? 0 : rc.ball ? T.holdSideDeg : T.targetSideDeg, rc);
       // (from the target to the catch point over the first moment of the flight, T.fullS: switched in a frame, a runner's
       // hands jumped from the side of his run round toward the passer, or a target shown for another kind of pass up or down)
       this._rcK = 1;
       if (rc.ball && rc.exp) {
         const k = U.smooth((t - rc.tRel) / T.fullS);
         if (k < 1) {
-          const qe = this.catchPoint(this.x, this.y, rc.from.x, rc.from.y, rc.kindE || rc.kind, RT4, rf != null ? rf : this.facing, rf != null ? 0 : T.holdSideDeg);
+          const qe = this.catchPoint(this.x, this.y, rc.from.x, rc.from.y, rc.kindE || rc.kind, RT4, rf != null ? rf : this.facing, rf != null ? 0 : T.targetSideDeg, rc);
           for (let i = 0; i < 3; i++) q[i] = qe[i] + (q[i] - qe[i]) * k;
           this._rcK = k;
         }
@@ -3069,11 +3123,15 @@
       const dt = (this.time || 0) - lk.t;
       lk.t = this.time || 0;
       if (!(dt >= 0) || dt > 0.12) { lk.y = want; lk.u = want; lk.v = 0; lk.w = null; }
-      else if (dt > 0 && t) {
-        // a target: the gaze is held on it in the world while the body turns under it, the spring on where it looks in the
-        // world (Trial 10: sprung relative to the body, a body turning into a catch took the head off the ball with it)
+      else if (dt > 0 && t && this._lkHold && (this.time || 0) < this._lkHold.until) {
+        // a target held (a pass coming, a decoy): the gaze is held on it in the world while the body turns under it, the
+        // spring on where it looks in the world (Trial 10: sprung relative to the body, a body turning into a catch took the
+        // head off the ball with it). Only then: every look held in the world, each turn the steering snapped into went into
+        // the neck in a frame, the head and neck popping ~23 times a player-minute in games (~2 before)
         const wantW = Math.atan2((t.y != null ? t.y : 0) - ey, (t.x != null ? t.x : 0) - ex);
-        const lw = lk.w || (lk.w = { y: this.facing + lk.y, v: 0, u: this.facing + lk.y });
+        // (started going the way the gaze was going, the body's turn and the head's on it: started still, a look held as the
+        // body turned ~5.7 rad/s jolted the neck and head the other way, ~12,000 to 15,000 deg/s^2)
+        const lw = lk.w || (lk.w = { y: this.facing + lk.y, v: (this.faceW || 0) + (lk.v || 0), u: this.facing + lk.y });
         lw.u += U.wrapPi(wantW - lw.u) * (1 - Math.exp(-dt / TL.leadS));
         const w = TL.omega, e = Math.exp(-w * dt), j0 = U.wrapPi(lw.y - lw.u), j1 = lw.v + j0 * w;
         lw.y = lw.u + e * (j0 + j1 * dt); lw.v = e * (lw.v - j1 * w * dt);
@@ -3104,7 +3162,10 @@
         if (dt > 0 && dt <= 0.12) { const w = TL.omega, e = Math.exp(-w * dt), j0 = tw.y, j1 = tw.v + j0 * w; tw.y = e * (j0 + j1 * dt); tw.v = e * (tw.v - j1 * w * dt); } else { tw.y = 0; tw.v = 0; }
         if (Math.abs(tw.y) < 1e-4 && Math.abs(tw.v) < 1e-3) this._rcTw = null; else twY = tw.y;
       }
-      if (twY) { p[CH.spTwist] += twY * 0.4; p[CH.chTwist] += twY * 0.6; if (t && lk.raw != null) rel = RG.softClamp(U.wrapPi(lk.raw - twY), -TL.maxRad, TL.maxRad, TL.softRad); }
+      // (the look as it is now: after a held look, from where the free look has it; from the held look's last angle, kept while
+      // the chest's turn eased off after a catch, the head stood still and then jumped to where the look had gone, ~19,000
+      // deg/s^2)
+      if (twY) { p[CH.spTwist] += twY * 0.4; p[CH.chTwist] += twY * 0.6; rel = RG.softClamp(U.wrapPi((lk.w && lk.raw != null ? lk.raw : lk.y) - twY), -TL.maxRad, TL.maxRad, TL.softRad); }
       // (all of it: at 0.35 and 0.35 the head came 10% short of what it looked at, Trial 10)
       if (Math.abs(rel) >= 1e-5) { p[CH.chTwist] += rel * 0.2; p[CH.nkTwist] += rel * 0.4; p[CH.hdTwist] += rel * 0.4; }
       // a target with a height (the ball in the air, Trial 10): the head tips up or down to it, from where the head is
