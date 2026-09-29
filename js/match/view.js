@@ -475,7 +475,7 @@
       if (this.director.active) return;
       // between possessions: ball holder keeps dribbling slowly; nothing else is required
       const b = this.ball;
-      if (b.holder && b.holder.kind === 'player' && b.state === 'held' && b.holder.speed > 2) b.dribble(b.holder);
+      if (b.holder && b.holder.kind === 'player' && b.state === 'held' && b.holder.speed > 2 && !(b.holder.throwing && b.holder.throwing())) b.dribble(b.holder);
       this.focus = { x: b.x, vx: b.vx * 0.5 };
     }
     refAmbient(h) {

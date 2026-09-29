@@ -530,7 +530,7 @@
       }
       // ball holder dribbles when moving
       // (not the inbounder carrying it out to his spot)
-      if (b.holder && b.state === 'held' && !b.holder.isBusy() && b.holder.speed > 1.8 && b.holder.team === this.off && !(this.beat && this.beat.type === 'inbound' && !this.beat.fired && this.beat.by === b.holder) && !(b.holder.holdBallUntil > this.T)) b.dribble(b.holder);
+      if (b.holder && b.state === 'held' && !b.holder.isBusy() && !b.holder.throwing() && b.holder.speed > 1.8 && b.holder.team === this.off && !(this.beat && this.beat.type === 'inbound' && !this.beat.fired && this.beat.by === b.holder) && !(b.holder.holdBallUntil > this.T)) b.dribble(b.holder);
       // camera focus
       v.focus = { x: b.x, vx: b.vx };
     }
@@ -592,7 +592,7 @@
       const tx = r.spot.x + r.jx, ty = U.clamp(r.spot.y + r.jy, 2, 48);
       const d = Math.hypot(tx - a.x, ty - a.y);
       a.moveTo(tx, ty, { speed: this.tempo === 'push' ? 20 : d > 8 ? 15 : 7, face: d > 6 ? 'move' : this.rim, stance: 'dribble' });
-      if (b.state === 'held' && b.holder === a && (a.speed > 1 || Math.random() < 0.02)) b.dribble(a);
+      if (b.state === 'held' && b.holder === a && !a.throwing() && !(a.holdBallUntil > this.T) && (a.speed > 1 || Math.random() < 0.02)) b.dribble(a);
       a.lookAt(null);
     }
     trackDefender(a) {

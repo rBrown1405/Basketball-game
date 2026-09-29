@@ -53,6 +53,27 @@
     const t = l2 > 1e-9 ? U.clamp(((x - ax) * bx + (y - ay) * by + (z - az) * bz) / l2, 0, 1) : 0;
     return Math.hypot(x - ax - bx * t, y - ay - by * t, z - az - bz * t);
   }
+  // the body as capsules round the skeleton's lines (Trial 8): [from, to, radius key, name]; hands last
+  const BODY_SEGS = [
+    [J.PEL, J.SPN, 'trunk', 'trunk'], [J.SPN, J.CHS, 'trunk', 'trunk'], [J.CHS, J.NCK, 'trunk', 'trunk'], [J.HC, J.HT, 'head', 'head'],
+    [J.L_HIP, J.L_KN, 'thigh', 'thigh'], [J.R_HIP, J.R_KN, 'thigh', 'thigh'], [J.L_KN, J.L_AN, 'shank', 'shank'], [J.R_KN, J.R_AN, 'shank', 'shank'],
+    [J.L_AN, J.L_BALL, 'foot', 'foot'], [J.R_AN, J.R_BALL, 'foot', 'foot'], [J.L_BALL, J.L_TOE, 'foot', 'foot'], [J.R_BALL, J.R_TOE, 'foot', 'foot'],
+    [J.L_SH, J.L_EL, 'upperArm', 'upper arm'], [J.R_SH, J.R_EL, 'upperArm', 'upper arm'], [J.L_EL, J.L_WR, 'forearm', 'forearm'], [J.R_EL, J.R_WR, 'forearm', 'forearm'],
+    [J.L_WR, J.L_HD, 'hand', 'L hand'], [J.R_WR, J.R_HD, 'hand', 'R hand'],
+  ];
+  const HB = { depth: 0, seg: '' };
+  /** how deep a ball (centre x, y, z, radius r) is inside a body's capsules; skip: 1 the left hand, 2 the right, 3 both */
+  function ballInBody(a, x, y, z, r, rad, skip) {
+    const P = a.sk.P, H = a.H;
+    HB.depth = 0; HB.seg = '';
+    for (let i = 0; i < BODY_SEGS.length; i++) {
+      const sg = BODY_SEGS[i];
+      if (i >= BODY_SEGS.length - 2 && (skip === 3 || skip === (i === BODY_SEGS.length - 2 ? 1 : 2))) continue;
+      const dp = r + rad[sg[2]] * H - segDist(P, sg[0], sg[1], x, y, z);
+      if (dp > HB.depth) { HB.depth = dp; HB.seg = sg[3]; }
+    }
+    return HB;
+  }
   function segSeg(PA, a0, a1, PB, b0, b1) {
     let best = 1e9;
     for (let i = 0; i <= 6; i++) {
@@ -132,6 +153,10 @@
         step: {}, headTravel: [], headTravelOff: 0, speedBins: {},
         wt: { cut: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, brake: { n: 0, plant: 0, drop: 0, dropIn: [], peak: [], miss: {} }, turnSnaps: 0, byMass: {}, hipJumps: 0, hipJumpBy: {}, hipJumpWorst: 0, hipJumpWorstAt: '' },
         gt: { cls: {}, trans: 0, transBy: {}, transPops: 0, transPopBy: {}, transPopAt: [], popBy: {}, after: { frames: 0, pops: 0 } },
+        hd: { contacts: 0, contactsOff: 0, contactMaxIn: [], catchIn: [], offBy: {}, throughFrames: 0, throughBy: {}, throughWorst: 0, throughWorstAt: '',
+          floorFrames: 0, ballFrames: { dribble: 0, held: 0, flight: 0, loose: 0 }, bounces: 0, moveBounces: 0, syncS: [], syncSAny: [], ratio: [],
+          interval: { still: [], moving: [], open: [], pressed: [] }, topIn: { open: [], pressed: [], moving: [] },
+          drib: 0, eyeOn: 0, eyeDownDeg: [], press: 0, offUp: 0 },
       };
     }
     tracker(a) {
@@ -159,6 +184,7 @@
         // (the Lab and the scripted audits count a body anywhere, s.countAll: their runs and slides go off the court
         // lines; a game counts the players on the floor, not the bench)
         const count = a.kind === 'player' && (onCourt || !!s.countAll);
+        t.count = count;
         if (count) S.playerFrames++;
         // (a body placed somewhere new, a substitute put on the floor, is a new start: its feet were not dragged there;
         // over 3 ft in one step, as in _kin)
@@ -177,7 +203,121 @@
         t.label = stateLabel(a, s.view);
       }
       this._pairs(list);
+      this._handle(list, ball, s.time || 0);
       for (const a of list) { const t = this.tr.get(a); if (t) t.ballState = ball ? ball.state : null; }
+    }
+    /** the handle (Trial 8), once a frame: the ball through anyone's body or the floor, and the dribbler's hand on the
+     *  ball through each contact, each bounce against his inside foot's landing, how fast and how high he dribbles open
+     *  and pressured, where his face points, and his off arm with a defender on the ball */
+    _handle(list, ball, time) {
+      if (!ball) return;
+      const S = this.S, Tn = TU(), R = M.Ball.R, HD = S.hd, tol = Tn.handleGapIn;
+      const dr = ball.state === 'dribble' && ball.dr ? ball.dr.actor : null;
+      const dd = dr && dr.dribble;
+      const inContact = !!(dd && (dd.ph === 'push' || dd.ph === 'ride') && (dd.act == null || dd.act > 0.95));
+      // --- the ball through a body (the dribbling hand while it is on the ball, and a holder's gripping hands, are
+      // measured by the gap instead), and through the floor
+      const st = ball.state;
+      if (HD.ballFrames[st] != null) {
+        HD.ballFrames[st]++;
+        if (ball.z < R - Tn.ballBodyTolIn / IN) HD.floorFrames++;
+        for (const a of list) {
+          if (!a || a.hidden || !a.sk || a.kind !== 'player' || Math.abs(a.x - ball.x) > 4 || Math.abs(a.y - ball.y) > 4) continue;
+          const t = this.tr.get(a);
+          if (!t || !t.count) continue;
+          const skip = a === dr && inContact ? (dd.hand ? 2 : 1) : st === 'held' && ball.holder === a ? 3 : 0;
+          const pen = ballInBody(a, ball.x, ball.y, ball.z, R, Tn.bodyR, skip);
+          if (pen.depth * IN > Tn.ballBodyTolIn) {
+            HD.throughFrames++;
+            const k = st + (a === dr ? ' own ' : a === ball.holder ? ' holder ' : ' other ') + pen.seg;
+            HD.throughBy[k] = (HD.throughBy[k] || 0) + 1;
+            if (pen.depth * IN > HD.throughWorst) { HD.throughWorst = pen.depth * IN; HD.throughWorstAt = k + ' ' + (a.id || '') + ' t=' + time.toFixed(2); }
+          }
+        }
+      }
+      // --- the dribbler
+      for (const a of list) {
+        const t = this.tr.get(a);
+        if (!t) continue;
+        const h = t.hd || (t.hd = { on: false, max: 0, first: 0, why: '', ph: null, lastB: null, lastBMove: false, top: 0, land: [-9, -9], pend: [], fst: [null, null] });
+        // (each foot's landings, for the rhythm)
+        for (let i = 0; i < 2; i++) {
+          const fs = a.feet && a.feet[i] ? a.feet[i].state : null;
+          if (h.fst[i] && h.fst[i] !== 'plant' && fs === 'plant') {
+            h.land[i] = time;
+            // bounces waiting for a landing: the nearest landing before and after (of the inside foot, or of either foot
+            // for a bounce every step)
+            for (let k = h.pend.length - 1; k >= 0; k--) {
+              const b = h.pend[k];
+              if (!b.any && b.foot !== i) continue;
+              HD.syncS.push(Math.min(b.t - b.prev, time - b.t)); h.pend.splice(k, 1);
+            }
+          }
+          h.fst[i] = fs;
+        }
+        for (let k = h.pend.length - 1; k >= 0; k--) if (time - h.pend[k].t > 1) h.pend.splice(k, 1);
+        const mine = a === dr && t.count;
+        if (!mine) { if (h.on) this._hdEnd(h); h.ph = null; h.lastB = null; continue; }
+        const d = a.dribble;
+        // contact spans
+        if (inContact && t.gap != null) {
+          const g = Math.abs(t.gap);
+          if (!h.on) { h.on = true; h.max = g; HD.catchIn.push(t.gap); h.why = ''; }
+          else h.max = Math.max(h.max, g);
+          if (g > tol && !h.why) h.why = d.ph + (ball.dr.move && ball.dr.moveStarted ? ':' + ball.dr.move.type : '') + (ball.blend ? ':blend' : '') + (a.upper ? ':' + (a.upper.clip.name || 'upper') : '');
+        } else if (h.on) this._hdEnd(h);
+        // bounces: the phase going from the fall to the rise
+        const ph = d ? d.ph : null;
+        h.top = Math.max(h.top, ball.z);
+        if (h.ph === 'down' && ph === 'up') {
+          HD.bounces++;
+          let near = 99;
+          for (const o of list) if (o && o !== a && o.kind === 'player' && o.team !== a.team && !o.hidden) near = Math.min(near, Math.hypot(o.x - ball.x, o.y - ball.y));
+          const moving = !!(a.gaitOn && a.speed > 3), cls = near < Tn.handleNearFt ? 'pressed' : near > Tn.handleOpenFt ? 'open' : null;
+          const busy = !!(ball.dr.move || ball.dr.pull || ball.blend);
+          if (h.lastB != null && !busy && !h.lastBMove) {
+            const iv = time - h.lastB;
+            if (iv < 1.4) {
+              HD.interval[moving ? 'moving' : 'still'].push(iv);
+              if (!moving && cls) HD.interval[cls].push(iv);
+              HD.topIn[moving ? 'moving' : (cls || 'open')] && (moving || cls) && HD.topIn[moving ? 'moving' : cls].push(h.top * IN);
+            }
+          }
+          h.lastB = time; h.lastBMove = busy; h.top = 0;
+          if (moving && !busy) {
+            // (against the landing of the foot on the other side from the hand that pushed it: the inside step)
+            const foot = ball.dr.hand ? 0 : 1;
+            HD.moveBounces++;
+            const step = a.gaitDbg && a.gaitDbg.sps > 0 ? 1 / a.gaitDbg.sps : null, per = step && ball.dr.curPeriod ? ball.dr.curPeriod / step : 2;
+            if (step && ball.dr.curPeriod) HD.ratio.push(per);
+            // (a bounce every step comes with each step, either foot)
+            const any = per < 1.5;
+            h.pend.push({ t: time, prev: any ? Math.max(h.land[0], h.land[1]) : h.land[foot], foot, any });
+          }
+        }
+        h.ph = ph;
+        // the face and the off arm
+        HD.drib++;
+        const P = a.sk.P, Rm = a.sk.R, hj = J.HC * 3, fx = Rm[37], fy = Rm[40], fz = Rm[43];
+        const bx = ball.x - P[hj], by = ball.y - P[hj + 1], bz = ball.z - P[hj + 2], bl = Math.hypot(bx, by, bz) || 1, fl = Math.hypot(fx, fy, fz) || 1;
+        const ang = Math.acos(U.clamp((fx * bx + fy * by + fz * bz) / (bl * fl), -1, 1)) / U.DEG;
+        if (ang < Tn.handleEyeDeg) HD.eyeOn++;
+        HD.eyeDownDeg.push(-Math.asin(U.clamp(fz / fl, -1, 1)) / U.DEG);
+        let dfd = null, dn = 99;
+        for (const o of list) if (o && o !== a && o.kind === 'player' && o.team !== a.team && !o.hidden) { const q = Math.hypot(o.x - ball.x, o.y - ball.y); if (q < dn) { dn = q; dfd = o; } }
+        if (dfd && dn < Tn.handleNearFt) {
+          HD.press++;
+          const oj = ((ball.dr.hand ? J.L_HD : J.R_HD)) * 3, cj = J.CHS * 3;
+          const toD = Math.hypot(dfd.x - P[cj], dfd.y - P[cj + 1]) - Math.hypot(dfd.x - P[oj], dfd.y - P[oj + 1]);
+          if (P[oj + 2] > 0.45 * a.H && toD > 0.3) HD.offUp++;
+        }
+      }
+    }
+    _hdEnd(h) {
+      const HD = this.S.hd;
+      h.on = false; HD.contacts++;
+      HD.contactMaxIn.push(h.max);
+      if (h.max > TU().handleGapIn) { HD.contactsOff++; const k = h.why || 'off'; HD.offBy[k] = (HD.offBy[k] || 0) + 1; }
     }
     ctx(a) {
       if (a.clip && a.clip.clip) return 'clip:' + (a.clip.clip.name || '?');
@@ -656,6 +796,24 @@
       b.hs += hs; b.hss += hs * hs;
       b.elb += (q[CH.lElF] + q[CH.rElF]) * 0.5;
     }
+    /** the Trial 8 handle scorecard */
+    handleSummary() {
+      const HD = this.S.hd, Tn = TU(), top = (o, n) => Object.entries(o).sort((p, q) => q[1] - p[1]).slice(0, n || 10);
+      const med = (a) => summ(a, 3).p50, rate = (a) => (a.length ? +(1 / med(a)).toFixed(2) : null);
+      const within = (a, v) => (a.length ? +(a.filter(x => Math.abs(x) <= v).length / a.length * 100).toFixed(1) : null);
+      return {
+        contacts: HD.contacts, contactsOffPct: +(HD.contactsOff / Math.max(1, HD.contacts) * 100).toFixed(2), contactsOff: HD.contactsOff,
+        contactMaxIn: summ(HD.contactMaxIn, 2), catchIn: summ(HD.catchIn, 2), offBy: top(HD.offBy),
+        ballThroughFrames: HD.throughFrames, ballThroughBy: top(HD.throughBy), ballThroughWorstIn: +HD.throughWorst.toFixed(2), ballThroughWorstAt: HD.throughWorstAt,
+        ballFloorFrames: HD.floorFrames, ballFrames: HD.ballFrames,
+        bounces: HD.bounces, movingBounces: HD.moveBounces,
+        rhythm: { withInsideStepPct: within(HD.syncS, Tn.handleSyncS), offS: summ(HD.syncS, 3), periodPerStep: summ(HD.ratio, 2) },
+        bouncesPerS: { still: rate(HD.interval.still), open: rate(HD.interval.open), pressed: rate(HD.interval.pressed), moving: rate(HD.interval.moving) },
+        topIn: { open: summ(HD.topIn.open, 1), pressed: summ(HD.topIn.pressed, 1), moving: summ(HD.topIn.moving, 1) },
+        eyesOnBallPct: +(HD.eyeOn / Math.max(1, HD.drib) * 100).toFixed(2), faceDownDeg: summ(HD.eyeDownDeg, 1),
+        pressedFrames: HD.press, offArmUpPct: +(HD.offUp / Math.max(1, HD.press) * 100).toFixed(1),
+      };
+    }
     /** the Trial 5 gait scorecard */
     gaitSummary() {
       const S = this.S, G = S.gt, top = (o, n) => Object.entries(o).sort((p, q) => q[1] - p[1]).slice(0, n || 8);
@@ -779,6 +937,7 @@
         floor: this.floorSummary(),
         weight: this.weightSummary(),
         gait: this.gaitSummary(),
+        handle: this.handleSummary(),
       };
     }
     /** the Trial 2 body scorecard */

@@ -349,7 +349,7 @@
       return true;
     }
     a.moveTo(pt.x, pt.y, { speed: sp, face: face === 'rim' ? this.rim : 'move', stance: 'dribble' });
-    if (b.state === 'held' && b.holder === a) b.dribble(a);
+    if (b.state === 'held' && b.holder === a && !a.throwing() && !(a.holdBallUntil > this.T)) b.dribble(a);
     a.lookAt(null);
     return true;
   };
@@ -492,7 +492,9 @@
     const delay = Math.max(0, (turn - 1.1) / 7.5);
     from.setFace(tp); from.aimAt(tp, T + delay + windup + 0.2);
     from.moveTo(from.x, from.y, { speed: 3 });
-    if (delay > 0) this.at(T + delay, () => { if (this.swing === sw && b.holder === from && !from.isBusy()) from.play(PASS_CLIPS[kind], { speed: 1 }); }, 'swing throw');
+    // (he holds it through the turn and the throw: "the holder dribbles when moving" put it back down in the turn, Trial 8)
+    from.holdBallUntil = T + delay + windup + 0.1;
+    if (delay > 0) this.at(T + delay, () => { if (this.swing === sw && b.holder === from && !from.isBusy()) { if (b.state === 'dribble') b.give(from, 'chest'); from.play(PASS_CLIPS[kind], { speed: 1 }); } }, 'swing throw');
     else from.play(PASS_CLIPS[kind], { speed: 1 });
     sw.state = 'windup';
     this.at(T + delay + windup, () => {

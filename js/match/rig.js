@@ -291,7 +291,9 @@
       const sv = this._swv || (this._swv = [0, 0]);
       const iF = CH[pre + 'ShF'], iA = CH[pre + 'ShA'], iT = CH[pre + 'ShT'];
       const F0 = p[iF], A0 = p[iA], T0 = p[iT];
-      const pen0 = armPen(P, o, H);
+      const dt = this.dt;
+      // (solved again in the same frame, dt 0, the swivel stays where it is: nothing to search for)
+      const pen0 = dt === 0 ? 0 : armPen(P, o, H);
       let want = 0;
       if (pen0 > 0.002 * H) {
         let best = pen0, bestPhi = 0;
@@ -310,7 +312,6 @@
         if (bestPhi && best < pen0 * 0.67) want = bestPhi;
         this._armFK(side);
       }
-      const dt = this.dt;
       let cur = sv[side];
       if (dt == null || !(dt >= 0) || dt > 0.12) cur = want;
       else if (dt > 0) cur += (want - cur) * (1 - Math.exp(-dt / (Math.abs(want) > Math.abs(cur) ? 0.025 : 0.09)));
