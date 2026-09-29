@@ -110,6 +110,7 @@
       this.dr = null; // dribble state
       this.hidden = false;
       this.inHoop = null; // hoop reference when passing through the rim zone
+      this.shotCue = null; // a missed shot waiting for its first contact (the audio hears the result then)
       this.time = 0;
       this._pt = { x: 0, y: 0, s: 0, d: 0 };
       this._tmp = new Float64Array(3);
@@ -120,6 +121,8 @@
 
     // ------------------------------------------------------------ control
     give(actor, hold) {
+      // (a ball in the air or loose arriving in someone's hands: a catch, for the audio)
+      if (actor && (this.state === 'flight' || this.state === 'loose') && this.view && this.view.onCue) this.view.cue('catch', actor, { from: this.state, x: this.x, y: this.y, z: this.z });
       if (this.holder && this.holder !== actor) { this.holder.hasBall = false; this.holder.dribble = null; }
       this.holder = actor;
       this.state = actor ? 'held' : 'dead';
@@ -212,6 +215,7 @@
     /** flight through the given list of waypoints builder: returns the segment list */
     flight(segs, onEnd) {
       this.release();
+      this.shotCue = null;
       this.state = 'flight';
       this.segs = segs; this.segI = 0; this.onEnd = onEnd || null;
       this.dr = null;
@@ -244,7 +248,9 @@
       // backspin off the fingers
       if (!segs[0].w) segs[0].w = spinAlong(p1[0] - p0[0], p1[1] - p0[1], -sp / R * 0.3);
       segs[segs.length - 1].target = o.target || null; // function returning live target [x,y,z]
+      const passer = this.holder;
       this.flight(segs, o.onArrive);
+      if (this.view && this.view.onCue) this.view.cue('pass', passer, { x: p0[0], y: p0[1], z: p0[2], dur, bounce: !!o.bounce });
     }
     /**
      * Bounce pass with a real floor bounce: the floor contact time is found so that after the bounce (restitution
@@ -627,15 +633,22 @@
     _enterSeg(s) {
       const v = this.view;
       if (s.w) { this.spin[0] = s.w[0]; this.spin[1] = s.w[1]; this.spin[2] = s.w[2]; }
-      if (s.bounce && !s.roll) { this.squash = U.clamp(Math.abs(this.vz) / 20, 0.2, 1); this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1)); }
+      if (s.bounce && !s.roll) { this.squash = U.clamp(Math.abs(this.vz) / 20, 0.2, 1); this.onBounce && this.onBounce(this); if (v && v.sound) v.sound('bounce', U.clamp(Math.abs(this.vz) / 18, 0.2, 1), this); }
       if (s.rim && this.shotHoop) {
         // (the rim rings and the net jumps as hard as the ball came in: a flat line drive clangs, a soft touch ticks)
         const hit = s.soft ? 0.4 : U.clamp(Math.hypot(this.vx, this.vy, this.vz) / 22, 0.55, 1.6);
         this.shotHoop.hitRim(hit); this.onRim && U.safe(() => this.onRim(this), null, 'onRim');
         if (!s.w && !s.orbit) this.spin[2] += (Math.random() - 0.5) * 20;
-        if (v && v.sound) v.sound('rim', s.soft ? 0.5 : U.clamp(hit, 0.6, 1));
+        if (v && v.sound) v.sound('rim', s.soft ? 0.5 : U.clamp(hit, 0.6, 1), this);
       }
-      if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); if (v && v.sound) v.sound('board', 1); }
+      if (s.board && this.shotHoop) { this.shotHoop.hitBoard(1); if (v && v.sound) v.sound('board', 1, this); }
+      // a missed shot's first contact (the rim, the glass, the blocker's hand, or the ball going by on an air ball):
+      // that is when the result is out (the choreographer set shotCue; a make is reported with its score)
+      if (this.shotCue) {
+        const c = this.shotCue;
+        this.shotCue = null;
+        if (v && v.onCue) v.cue('shotResult', null, { ev: c.ev, contact: s.rim ? 'rim' : s.board ? 'board' : c.blocked ? 'hand' : 'air', x: s.p0[0], y: s.p0[1], z: s.p0[2] });
+      }
     }
     _fireSeg(s) {
       if (s.fired) return;
@@ -643,7 +656,7 @@
       if (s.score) {
         // (a swish whips the net up hard, a make off the rim gives it a lighter snap)
         if (this.shotHoop) this.shotHoop.swish(s.swish ? 1.3 : 0.6);
-        if (this.view && this.view.sound) this.view.sound(s.swish ? 'swish' : 'net', 1);
+        if (this.view && this.view.sound) this.view.sound(s.swish ? 'swish' : 'net', 1, this);
         const cb = this.onScore; this.onScore = null;
         if (cb) U.safe(() => cb(this), null, 'onScore');
       }
@@ -763,7 +776,7 @@
         const wp = a.local(sd * lx, ly, lz, TB);
         this.x = wp[0]; this.y = wp[1]; this.z = wp[2];
       }
-      if (u0 < uB && d.u >= uB) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1)); }
+      if (u0 < uB && d.u >= uB) { this.squash = 1; if (this.onBounce) this.onBounce(this); if (this.view && this.view.sound) this.view.sound('dribble', U.clamp(0.45 + a.speed / 30, 0.4, 1), this, a); }
       // forward roll spin
       this.setSpinAlong(a.vx || 0.01, a.vy || 0, -(a.speed + 3) / R * 0.4);
       // --- the dribbling hand (wrist IK target + wrist angle); the other hand takes over on a crossover

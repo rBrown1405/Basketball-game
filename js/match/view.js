@@ -127,10 +127,19 @@
       U.safe(() => { this.court = new M.Court(this.ctx, this.opts); }, this, 'court atmosphere');
       if (this.arena.setAtmosphere) this.arena.setAtmosphere(this.atm);
     }
-    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk' */
-    sound(name, v) {
+    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk',
+     *  'block'; at: where it happens (the ball or an actor: x, y, z), who: the actor making it */
+    sound(name, v, at, who) {
       if (!this.onSound || this.replay) return;
-      try { this.onSound(name, v == null ? 1 : v); } catch (e) { /* audio must never break the view */ }
+      try { this.onSound(name, v == null ? 1 : v, at || null, who || null); } catch (e) { /* audio must never break the view */ }
+    }
+    /** what else the audio listens to (the host hands it to the audio event bus): 'plant' (a foot lands in a stride or
+     *  a step: a = the actor, d = the foot), 'land' (a foot back down from a jump), 'catch' and 'pass' (the ball:
+     *  d = {from}), 'shotResult' (the ball reached the rim, the glass, the net or the blocker's hand: d = {ev, contact,
+     *  x, y, z}). Callers check onCue first, so nothing is built when nobody listens; nothing goes out in a replay */
+    cue(type, a, d) {
+      if (!this.onCue || this.replay) return;
+      try { this.onCue(type, a, d); } catch (e) { /* audio must never break the view */ }
     }
     setDefScheme(team, scheme) {
       if (team !== 0 && team !== 1) return;

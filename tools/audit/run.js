@@ -3,8 +3,10 @@
 // actually do, then writes a report of bad behaviour with counts.
 //
 //   node tools/audit/run.js [--games 52] [--procs 4] [--seed 101] [--out audit/latest] [--label now] [--repo .]
-//                           [--baseline audit/phase1/metrics.json] [--baseLabel "Phase 1"] [--calls 1]
-// (--calls 1: the head coach calls plays, drawn plays, inbound plays and defensive schemes during the games)
+//                           [--baseline audit/phase1/metrics.json] [--baseLabel "Phase 1"] [--calls 1] [--audio 0]
+// (--calls 1: the head coach calls plays, drawn plays, inbound plays and defensive schemes during the games;
+//  --audio 0: the Arena sound setting off. Since the audio gauntlet's Trial 1 the audio draws no random numbers from
+//  the game, so the games are the same either way; older code's audio did, so compare with it using --audio 0)
 //
 // Needs Node and Playwright with Chromium (PLAYWRIGHT_BROWSERS_PATH or --chrome path). Each game is a fresh league
 // made from its own seed, played from the opening tip to the final buzzer exactly as the Live view plays it; the
@@ -35,7 +37,7 @@ async function playGame(browser, seed) {
   await page.waitForTimeout(600);
   await page.addScriptTag({ content: sampler });
   const t0 = Date.now();
-  const res = await page.evaluate(([seed, calls]) => window.PBCAudit.playGame(seed, { calls }), [seed, !!+(args.calls || 0)]);
+  const res = await page.evaluate(([seed, calls, audio]) => window.PBCAudit.playGame(seed, { calls, audio }), [seed, !!+(args.calls || 0), args.audio == null ? true : !!+args.audio]);
   res.wallMs = Date.now() - t0; res.errors = errs.slice(0, 5);
   await page.close();
   return res;

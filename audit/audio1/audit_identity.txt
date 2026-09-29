@@ -1,0 +1,52 @@
+Gameplay audit identity (tools/audit/run.js --games 8 --procs 3 --seed 101, then tools/audio/test/cmp_audit.js)
+The engine draws from its own seeded random numbers; the court from Math.random. Every game record is compared
+field by field: frames, every shot, catch and rebound, the players sampled 10 times a second, the play tracking.
+
+1. The Phase 5 code (commit 8baee19) with its arena sound off vs on: its audio took numbers from Math.random, so
+   the court played every game differently with the sound on (same scores: the engine has its own numbers)
+Phase 5 audio off  vs  Phase 5 audio on
+seed 101: DIFFERENT (first different field: frames)  score 100,115 / 100,115  possessions 193 / 193  frames 242389 / 241780  shots 181 / 181
+seed 102: DIFFERENT (first different field: frames)  score 116,114 / 116,114  possessions 198 / 198  frames 253968 / 254091  shots 184 / 184
+seed 103: DIFFERENT (first different field: frames)  score 118,101 / 118,101  possessions 198 / 198  frames 250433 / 250493  shots 183 / 183
+seed 104: DIFFERENT (first different field: frames)  score 111,118 / 111,118  possessions 194 / 194  frames 256562 / 257302  shots 190 / 190
+seed 105: DIFFERENT (first different field: frames)  score 112,117 / 112,117  possessions 196 / 196  frames 252115 / 252742  shots 196 / 196
+seed 106: DIFFERENT (first different field: frames)  score 107,118 / 107,118  possessions 207 / 207  frames 259740 / 260530  shots 186 / 186
+seed 107: DIFFERENT (first different field: frames)  score 113,123 / 113,123  possessions 201 / 201  frames 246429 / 246790  shots 186 / 186
+seed 108: DIFFERENT (first different field: frames)  score 106,97 / 106,97  possessions 197 / 197  frames 256115 / 255397  shots 183 / 183
+0 the same, 8 different
+
+2. Trial 1 with the sound on vs off
+Trial 1 audio on  vs  Trial 1 audio off
+seed 101: same  score 100,115 / 100,115  possessions 193 / 193  frames 242389 / 242389  shots 181 / 181
+seed 102: same  score 116,114 / 116,114  possessions 198 / 198  frames 253968 / 253968  shots 184 / 184
+seed 103: same  score 118,101 / 118,101  possessions 198 / 198  frames 250433 / 250433  shots 183 / 183
+seed 104: same  score 111,118 / 111,118  possessions 194 / 194  frames 256562 / 256562  shots 190 / 190
+seed 105: same  score 112,117 / 112,117  possessions 196 / 196  frames 252115 / 252115  shots 196 / 196
+seed 106: same  score 107,118 / 107,118  possessions 207 / 207  frames 259740 / 259740  shots 186 / 186
+seed 107: same  score 113,123 / 113,123  possessions 201 / 201  frames 246429 / 246429  shots 186 / 186
+seed 108: same  score 106,97 / 106,97  possessions 197 / 197  frames 256115 / 256115  shots 183 / 183
+8 the same, 0 different
+
+3. The Phase 5 code (sound off, so its audio draws nothing) vs Trial 1 with the sound on: the same games
+Phase 5 audio off  vs  Trial 1 audio on
+seed 101: same  score 100,115 / 100,115  possessions 193 / 193  frames 242389 / 242389  shots 181 / 181
+seed 102: same  score 116,114 / 116,114  possessions 198 / 198  frames 253968 / 253968  shots 184 / 184
+seed 103: same  score 118,101 / 118,101  possessions 198 / 198  frames 250433 / 250433  shots 183 / 183
+seed 104: same  score 111,118 / 111,118  possessions 194 / 194  frames 256562 / 256562  shots 190 / 190
+seed 105: same  score 112,117 / 112,117  possessions 196 / 196  frames 252115 / 252115  shots 196 / 196
+seed 106: same  score 107,118 / 107,118  possessions 207 / 207  frames 259740 / 259740  shots 186 / 186
+seed 107: same  score 113,123 / 113,123  possessions 201 / 201  frames 246429 / 246429  shots 186 / 186
+seed 108: same  score 106,97 / 106,97  possessions 197 / 197  frames 256115 / 256115  shots 183 / 183
+8 the same, 0 different
+
+4. Rerun on the final Trial 1 code (after the ducking fixes), sound on, vs the Phase 5 code with its sound off
+Phase 5 audio off  vs  Trial 1 final, audio on
+seed 101: same  score 100,115 / 100,115  possessions 193 / 193  frames 242389 / 242389  shots 181 / 181
+seed 102: same  score 116,114 / 116,114  possessions 198 / 198  frames 253968 / 253968  shots 184 / 184
+seed 103: same  score 118,101 / 118,101  possessions 198 / 198  frames 250433 / 250433  shots 183 / 183
+seed 104: same  score 111,118 / 111,118  possessions 194 / 194  frames 256562 / 256562  shots 190 / 190
+seed 105: same  score 112,117 / 112,117  possessions 196 / 196  frames 252115 / 252115  shots 196 / 196
+seed 106: same  score 107,118 / 107,118  possessions 207 / 207  frames 259740 / 259740  shots 186 / 186
+seed 107: same  score 113,123 / 113,123  possessions 201 / 201  frames 246429 / 246429  shots 186 / 186
+seed 108: same  score 106,97 / 106,97  possessions 197 / 197  frames 256115 / 256115  shots 183 / 183
+8 the same, 0 different

@@ -250,6 +250,11 @@
       else if (ev.type === 'ft' && ev.made) { const t = this.teamOf(ev.shooter, ev.team); if (t === 0 || t === 1) this.score[t] += 1; }
       if (ev && ev.text) this.cheer = ev.type === 'shot' ? this.cheer : this.cheer;
     }
+    /** what the audio listens to besides the sounds (see View.cue in view.js): here a shot's result */
+    cue(type, a, d) {
+      if (!this.onCue) return;
+      try { this.onCue(type, a, d); } catch (e) { /* audio must never break the view */ }
+    }
     fireScore(shotEv) {
       this.swishT = 0; this.swishSide = (shotEv.x > 47 ? 1 : -1);
       this.cheer = 2.5; this.flashT = 0;
@@ -520,7 +525,9 @@
       }
       if (ev.type === 'shot' && this.released && !this.scored && this.ball.state === 'done') {
         this.scored = true;
-        if (this.ball.made) this.fireScore(ev);
+        // (a make is out when the ball drops through: its result goes to the audio just before the score; a miss
+        // was reported when it came off the rim, in stepBall)
+        if (this.ball.made) { this.cue('shotResult', null, { ev, contact: 'net', x: this.ball.x1, y: this.ball.y1, z: 10 }); this.fireScore(ev); }
       }
       if (ev.type === 'ft' && this.released && this.ball.state === 'done' && !this.scored) {
         this.scored = true;
@@ -571,7 +578,8 @@
           if (b.state === 'shot') {
             if (b.made) { b.state = 'done'; }
             else {
-              // clank off the rim toward a loose spot (rebound event secures it)
+              // clank off the rim toward a loose spot (rebound event secures it); the miss is out now
+              if (b.ev) this.cue('shotResult', null, { ev: b.ev, contact: b.ev.blocked ? 'hand' : 'rim', x: b.x1, y: b.y1, z: 10 });
               b.state = 'loose';
               b.x0 = b.x1; b.y0 = b.y1;
               const r = this.ballLanding();

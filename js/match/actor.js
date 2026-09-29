@@ -1080,6 +1080,7 @@
             // walkers (and most joggers) land heel first with the toes up, then roll the forefoot down
             f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = Math.min(0, gp.landPitch); f.hs = f.pitch < 0;
             f.sw = 0; f.tPlant = this.time; f.liftRel = null;
+            if (this.view && this.view.onCue) this.view.cue('plant', this, f);
           }
           const rel = frac(this.phase - cph);
           if (f.state === 'plant' && f.mode !== 'step') {
@@ -1255,6 +1256,7 @@
       f.pitch = U.clamp(Math.asin(U.clamp((P[jh + 2] - P[jb + 2]) / L, -1, 1)), 0, 40 * D);
       f.lz = U.clamp(P[jb + 2], 0, 0.8);
       f.land = true; f.state = 'plant'; f.tPlant = this.time; f.sw = 0;
+      if (this.view && this.view.onCue) this.view.cue('land', this, f);
     }
     _settleLanding(f, dt) {
       if (!f.land) return;
@@ -1410,7 +1412,10 @@
         f.yawNow = this.facing + U.clamp(U.lerp(r0, r1, U.smooth(f.s / 0.5)), -0.7, 0.7);
       } else f.yawNow = U.angLerp(f.yaw0, f.tyaw, e);
       f.pitchNow = U.lerp(f.p0, 0, e) + Math.sin(Math.PI * f.s) * 0.18;
-      if (f.s >= 1) { f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null; }
+      if (f.s >= 1) {
+        f.state = 'plant'; f.x = f.tx; f.y = f.ty; f.yaw = f.tyaw; f.pitch = 0; f.tStep = this.time; f.arc = null;
+        if (this.view && this.view.onCue) this.view.cue('plant', this, f);
+      }
     }
 
     // ============================================================ clips

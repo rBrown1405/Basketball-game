@@ -255,3 +255,182 @@ How Trial 1 will be proven:
   pre-generating the stock calls and every name in the game's name pools (373 last names) ahead of time.
   ([kokoro-js on npm](https://www.npmjs.com/package/kokoro-js),
   [Kokoro.js announcement](https://huggingface.co/posts/Xenova/503648859052804))
+
+## Trial 1: the foundation
+
+Built on the existing `arenaaudio.js` and `commentary.js` (their sounds and lines are unchanged): one event bus
+everything publishes to, one mixer with the five buses, voice limits with priorities, ducking, a debug console with a
+rolling recorder, and a loader for licensed sound packs. The only intended audible changes: the crowd's and the
+booth's reactions to a miss or a block wait for the ball to get there, and the ducking.
+
+### What was built
+
+```
+ court (view.js, ball.js, choreo.js, retro.js, actor.js)       live view (live.js)
+   court.* sounds + position    anim.* plants, landings,          game.* events ──> tracker.js ── game.shot (no result)
+   and player                   catches, passes                                                  game.shotResult (at the rim)
+          │                          │  (built only when                                         game.run / leadChange / tie /
+          │                          │   someone listens)                                        milestone / clutch
+          ▼                          ▼                           live.* intro, possession, break, replay, jump, final...
+ ┌──────────────────────── PBC.AudioBus: every event stamped with real time, audio time, period, game clock ────────┐
+ └──────────┬───────────────────────────────┬────────────────────────────────────┬─────────────────────────────────┘
+      arenaaudio.js                    commentary.js                       debug.js (console, traces)
+            │ play() each sound             │ premium voices; browser speech (outside Web Audio: the
+            ▼                               ▼  Commentary bus sets its volume, and it keys the duck)
+ PBC.AudioMixer: Court | Players | Crowd | Arena | Commentary
+   each bus: bed/continuous input + one-shot input (each with its own duck) → fader → mute/solo gate → meter
+            └─ send → arena reverb ─┐
+ Master: volume (x0.35 paused) → the arena's glue compressor → limiter (-1.5 dB, its makeup gain taken back) → speakers
+                                                                            └─ rolling recorder (last 30 s)
+```
+
+- **The event bus** (`js/audio/bus.js`): `game.*` (every event the court shows, plus the moments the tracker works out:
+  a run of 8, 10, 12, 15 or 20 unanswered points, a lead change, a tie, a player reaching 20, 30, 40 or 50, clutch
+  time), `court.*` (the court's sounds, now with the ball's or the player's position and the player), `anim.*` (foot
+  plants with speed, braking and turning, jump landings, catches, pass releases: logged for Trial 2, built only when
+  someone listens), `live.*` (the broadcast around the game), `timer.*` (the two sounds still on a timer: squeaks,
+  Trial 2; the DE-FENSE claps, Trial 4) and `booth.say` (each line as it starts). Every sound request is written into
+  the event that asked for it, with its bus and priority, or why it did not play.
+- **The shot split** (`js/audio/tracker.js`): `game.shot` goes out at the release with no result in it;
+  `game.shotResult` when the court says the ball got there: a make at the net, a miss at its first contact with the
+  rim or the glass, an air ball as it passes the rim, a block at the blocker's hand (`ball.js` `shotCue`,
+  `choreo.js reportScore`, `retro.js`). A shot the court never reports (text mode, a skipped presentation) gets its
+  result from the next event or after 2.5 s. The crowd's "ooh" and the booth's miss and block calls moved to it.
+- **The mixer** (`js/audio/mixer.js`): one AudioContext for the arena and the premium voices (the second context is
+  gone), the five buses into the master with the arena's compressor and a limiter. Mute and solo ramp in 8 ms.
+- **Voices**: every one-shot goes through `play()`: its cooldown, its own limit, the bus's cap, the global cap of
+  48. When a cap is hit a sound only takes the place of a lower-priority one, faded out in 15 ms; a sound can never
+  displace an equal or higher one.
+- **Ducking**: while the booth talks the crowd bed drops 6 dB and crowd reactions 3 dB (attack 80 ms), held through
+  the whole exchange (1 s after a line) and back up over 1 s; a big reaction (a home dunk, three, and-one, a block,
+  the final) lifts the duck for 1.5 s and hands back to the voice over 0.8 s.
+- **Audio clock**: the delayed boo after a call against the home team, the second roar at a home win and the chant's
+  claps are scheduled on the audio clock (no `setTimeout`); game speed and pause go through the mixer.
+- **The audio's own random numbers** (`js/audio/random.js`): the crowd, the booth, the synthesized sounds and the
+  personality lines (`persona.js blurb`, which now takes a random source) no longer draw from `Math.random`, which
+  the court also uses. Before, switching the arena sound on changed how the court played every seeded game.
+- **One config** (`js/audio/config.js`, `PBC.AudioConfig`): bus levels, reverb, limiter, voice caps, every sound's
+  bus, priority, cooldown and limit, the duck, the crowd levels and reaction sizes, chant and squeak timing, every
+  synthesized recipe's numbers, the moment thresholds, the console. Moved out of the two files at the same values.
+- **The audio console** (`js/audio/debug.js`, the A key or the 🎚️ button in a live game): the event log with the
+  sounds each event played or refused, filters, meters per bus and master, faders, mute, solo, a test tone per bus,
+  voice counts, the limiter and the duck, and "Save last 30 s" (a WAV of the master from a recorder that always
+  keeps the last 30 s, in an AudioWorklet so it costs the page nothing until it is saved). Browser speech is not in
+  the WAV: it plays outside Web Audio until Trial 7.
+- **Sound packs** (`js/audio/assets.js`, `tools/audio/pack.js`): `assets/audio/{court,crowd,chants,chatter,arena,
+  commentary,test}/`, each with a `LICENSES.md` table; the packer refuses any file without a row or with a license
+  the game cannot ship (only CC0 / public domain, CC BY with the credit, or made by this project) and writes a script
+  the game loads even from `file://`. Takes are grouped by name, never repeat back to back, and get a little pitch
+  and level jitter; a missing sound falls back to the synthesized one. The only pack is `test`: three tones made by
+  `tools/audio/testpack.js` (no outside material), used by the console's test buttons.
+- **Tests anyone can run**: `tools/audio/test/*.js` (see `tools/audio/README.md`), results in `audit/audio1/`.
+
+New assets and their licenses: `assets/audio/test/tone_01.wav` to `tone_03.wav`, generated by this project. No
+libraries, models or recordings from anywhere else.
+
+### Listen test
+
+`node tools/audio/test/listen.js`: seed 21 (the same game as Trial 0's recording), 1x, 150 s, booth on (headless
+Chromium has no voices, so a stand-in speech engine with a real one's timing), arena sound on. Every event on the bus
+with the sounds it played, stamped with real time, audio time and game clock: `audit/audio1/listen_trace.txt` (5,716
+events, the 5,323 foot plants in `listen_trace_anim.txt`), the summary in `listen_result.txt`, and the recordings
+`listen_60s.webm` (the speakers) and `listen_last30.webm` (the mixer's own "last 30 s"). A missed three, as logged:
+
+```
+ real s  audio s  clock        event              what                        | sounds
+ 71.725   70.621  Q1 11:12.4   game.shot          Jenkins 3pt catch_shoot BOS |
+ 72.951   71.851  Q1 11:11.5   court.rim          v 1 at 88.5, 25.7, 10.4 ft  | rim→court p60
+ 72.952   71.851  Q1 11:11.5   game.shotResult    Jenkins miss, rim (court)   | crowd.ooh→crowd p50; booth.pbp→commentary p4 queued
+ 72.953   71.851  Q1 11:11.5   booth.say          pbp: "Front rim." (browser, waited 0 ms)
+ 73.379   72.272  Q1 11:11.2   court.rim          v 0.6 at 88.9, 24.5, 10.4 ft | rim→court p60
+ 73.642   72.542  Q1 11:11.1   game.rebound       def. Dunn                   | booth.pbp→commentary p3 queued
+```
+
+The "ooh" and "Front rim." now come with the rim hit, 1.2 s after the release; in Trial 0 they came at the release.
+All six shots in the test got their result from the court at the moment the ball arrived (makes at the net after
+0.3 s for dunks and 0.9 to 2.0 s for jumpers, misses at the rim after 1.2 s). The mixer played 219 sounds, never more
+than 3 at once, stole nothing and refused nothing; the crowd sat 5.5 dB down (the bed) and 2.8 dB (reactions) while
+the booth talked and within 0.7 dB of full level while it was quiet, with no chops.
+
+### Devil's advocate: what a fan would say, and the fixes
+
+The first listen test of the finished build (the booth talking through a stand-in speech engine, the crowd duck
+read every 100 ms) and a scripted test of the duck (`tools/audio/test/duck.js`, the same timeline of lines and
+roars with the first settings and the fixed ones, `audit/audio1/duck_result.txt`) found three things:
+
+1. **"The crowd keeps surging between the announcer's sentences."** Two lines 0.7 s apart: the crowd came back up to
+   -1 dB and went down again in under a second (the duck held only 0.35 s and came back in 0.45 s). Fixed: the duck
+   holds 1 s after a line and comes back over 1 s, so one exchange keeps the crowd down (voice-over ducking holds
+   through the spoken passage and releases slowly: a common setting is 1.5 s hold, 1 s release). Surges on the
+   script: 2 before, 0 after.
+2. **"The roar on that dunk just cut off."** A big reaction lifted the duck for 1.2 s, then the duck snapped back
+   down in 80 ms while the roar was still ringing: a 6 dB drop inside 0.2 s in the middle of the cheer. Fixed: the
+   lift lasts 1.5 s (the swell of a big roar) and hands back to the voice over 0.8 s. Steepest fall on the script:
+   6.0 dB in 0.2 s before, 2.7 dB after.
+3. **"The cheers are smaller than they used to be."** Trial 0 ducked only the bed; the first Trial 1 build ducked
+   the whole Crowd bus, so a regular home basket's cheer sat 6 dB lower under the call. Fixed: the Crowd bus has two
+   inputs with their own duck, the bed 6 dB, the reactions 3 dB (past 6 to 8 dB ducking is heard as pumping; 2 to
+   4 dB is the gentle range).
+
+Found while checking the fixes: the reactions' duck could stay at its old level after a quiet spell. When the last
+sound leaves a path Chrome switches that path off and its gain automation stops, so the next cheer started from
+wherever the duck had been left (the console showed -3 dB for 20 s with the booth silent). Fixed with a silent
+source into every bus input that keeps the paths running; on the script, after 6 s with nothing on the path both
+ducks read 0.00 dB and the next cheer plays at full level.
+
+Also heard, and left to the trial that owns them (each is noted where it belongs):
+- the sneaker squeaks still come from a timer, not from feet (`timer.squeak` in the log): Trial 2, which now has
+  every foot plant with its speed, braking and turning on the bus;
+- the block sound plays at the release, 0.16 s before the ball meets the blocker's hand, and the ball's deflection
+  plays a floor bounce: Trial 2 (ball sounds);
+- the DE-FENSE claps are still a timer: Trial 4;
+- the booth's set calls can come 1 to 1.5 s late when the queue is busy: Trial 8;
+- the whole mix is quiet (about -38 dBFS RMS, far under broadcast loudness): Trial 9.
+
+### Scorecard
+
+| Criterion | Result | Evidence |
+|---|---|---|
+| Every bus can be soloed and muted during a live game | PASS | `mutesolo.js` clicks the console's own S and M buttons in a live game, a test tone on every bus: soloed, a bus is the only one with signal (every other bus -inf dB in all ~300 readings) and the master carries it; muted, a bus reads -inf while the others play. 10 of 10 (`audit/audio1/mutesolo_result.txt`), a 30 s recording per soloed bus (`solo_<bus>.webm`) |
+| The event log shows events and the sounds they triggered, with timestamps | PASS | the console (A key) and `listen_trace.txt`: every event with real time, audio time and game clock and the sounds it played (bus, priority), queued (the booth) or refused (why) |
+| No audio causes a frame drop | PASS | the audio's own main-thread time per frame: mean 0.03 ms at 1x and 0.06 ms at 4x, 99th percentile 0.3 and 0.5 ms (`perf_result.txt`); the same seeded game frame for frame with the audio on and off, two rounds each: on minus off at 4x +0.14 ms mean and +1.5 ms at the 99th percentile against a round-to-round spread of 1.6 and 7.2 ms with the same setting (at 1x the frames with audio were 1.1 ms faster, which is the noise), `perfsame_result.txt` |
+| Audio event bus: the sim and animation publish, the audio subscribes | PASS | game.*, court.* (with positions), anim.* (plants, landings, catches, passes), live.*, and runs, lead changes, ties, milestones, clutch: counts in `listen_result.txt` |
+| Buses Court, Players, Crowd, Arena, Commentary, Master | PASS | `js/audio/mixer.js`; the solo recordings |
+| Voice limits and priority: minor sounds never cut off important ones | PASS | `voices.js` with the caps forced: a rim, board or swish takes a lower sound's place, a whistle and the horn take a roar's, a dribble never displaces a higher sound (refused: bus cap, voice cap), cooldowns, the 16x cut: 10 of 10 (`voices_result.txt`) |
+| Ducking: the booth ducks the crowd gently, big moments push through | PASS | `duck.js` on a fixed script: bed -6 dB, cheers -3 dB, no surges between lines, a roar lifts the duck and eases back (`duck_result.txt`); in the live game -5.5 / -2.8 dB while the booth talks |
+| Debug tools: log, meters, mute/solo, "last 30 s" recorder | PASS | the console (screenshots `console_solo.png`, `console_mute.png`); `listen_last30.webm` is the recorder's file |
+| Asset loader from organized folders, licenses checked | PASS | `assets/audio/*/LICENSES.md`, the packer refuses unlisted or unshippable files; the test pack loads and plays through the console's test buttons |
+| Every tunable in one config | PASS | `js/audio/config.js`; the A/B shows the move changed nothing |
+| The game is untouched | PASS | `same.js`: seeds 21 and 33, audio all on / all off / arena only: the same play-by-play, box score and court fingerprint (`same_result.txt`); the gameplay audit (8 games, every field): Trial 1 with the sound on or off is the same games as the Phase 5 code (`audit_identity.txt`) |
+| It sounds the same as Trial 0 apart from the planned changes | PASS | `ab.js` against commit 8baee19 with the same random variations: 17 sounds within 0.24 dB, the bed within 0.01 dB; only the duck differs (`ab_result.txt`) |
+
+### Regression check
+
+- **Trial 0** (the audit): still accurate as a record of the old code; its findings that Trial 1 changed are marked
+  above (the shot reactions, the ducking, the second AudioContext, the config). Everything else it lists still holds
+  and belongs to later trials.
+- **Earlier game phases**: the engine and the court are unchanged: the gameplay audit plays the same 8 games as the
+  Phase 5 code, field for field, frame counts included (`audit_identity.txt`, rerun on the final code:
+  `8 the same, 0 different`). The old code itself did not pass this with its sound on: its audio drew from
+  `Math.random` and every audited game played differently on the court.
+- **Other ways to watch**: the retro court and the play-by-play only mode run with no errors; on the retro court
+  every shot's result comes from the court (17 of 17), in text mode with the shot. Instant replays: no court, body
+  or game audio events while a replay runs, the booth's replay lines still come.
+
+### What to listen for
+
+- **The console**: in a live game press **A** (or the 🎚️ button). Events scroll in with the sounds they played in
+  green and the ones they did not in red with the reason. Press **S** on Crowd: only the crowd. **M** on Court: no
+  dribbles, rims or squeaks. **▶** plays a test tone on that bus. "⬇ Save last 30 s" downloads a WAV of the arena
+  sound (the browser voice is not in it).
+- **A missed three**: the "ooh" (or the murmur when it is the away team's) and the booth's "Front rim" now come when
+  the ball hits the rim, about a second after the release, not at the release. A blocked shot's crowd reaction comes
+  when the ball meets the blocker's hand.
+- **The booth talking**: the crowd dips gently (the bed 6 dB, cheers 3 dB), stays down through back-to-back lines
+  instead of bobbing up between them, and eases back up about 2 s after the booth stops.
+- **A home dunk, three or block**: the roar comes through the call at full level, then settles under the voice over
+  about a second instead of being cut.
+- **Everything else should sound exactly as before**: the same sounds at the same levels (the A/B in
+  `audit/audio1/ab_result.txt`).
+- **Still to come** (not this trial): squeaks that follow the feet, block and ball contact sounds at the right moment
+  (Trial 2), the crowd bed (Trial 3), chants that follow the game (Trial 4), new voices (Trial 7).

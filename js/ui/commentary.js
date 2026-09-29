@@ -9,14 +9,19 @@
  *  - Optional premium AI voices (OpenAI gpt-4o-mini-tts with announcer "instructions", or ElevenLabs) with the
  *    player's own API key, kept only in this browser's localStorage. Audio for a possession's calls is requested as
  *    soon as the possession starts (the engine already knows what will happen), so it is ready when the play is.
- *    Any failure falls back to the browser voices. */
+ *    Any failure falls back to the browser voices.
+ * The booth listens on the audio event bus (js/audio/bus.js): game.* for the calls (a miss or a block is called when
+ * the ball gets there, game.shotResult) and live.* for the intro, breaks, replays and the final. Premium voices play
+ * through the mixer's Commentary bus; the browser voice takes its volume from that bus (mixer.speechVolume()), and
+ * the booth tells the mixer when it talks so the crowd ducks under it. */
 (function () {
   'use strict';
   const PBC = window.PBC;
   const U = PBC.U;
 
-  const pick = a => a[Math.floor(Math.random() * a.length)];
-  const chance = p => Math.random() < p;
+  // (the audio's own random numbers: the booth never changes the game's)
+  const pick = a => PBC.AudioRandom.pick(a);
+  const chance = p => PBC.AudioRandom.chance(p);
   const TTS_KEY = 'pbc_tts_cloud';
 
   function loadCloud() { try { return JSON.parse(localStorage.getItem(TTS_KEY) || 'null') || { provider: 'off' }; } catch (e) { return { provider: 'off' }; } }
@@ -108,9 +113,14 @@
     const B = {
       enabled: st.commentary !== false, voice: st.voice !== false, speed: 2, paused: false, unlocked: false,
       queue: [], speaking: null, lastLineAt: 0, since: 0, destroyed: false,
-      voices: [], vPbp: null, vColor: null, keep: [], cloud: loadCloud(), cache: new Map(), actx: null,
+      voices: [], vPbp: null, vColor: null, keep: [], cloud: loadCloud(), cache: new Map(),
       said: {}, runSaid: 0, lastPossColor: 0, possN: 0, lastSub: -9, milestones: {}, foulNoted: {}, lastInjury: 0,
     };
+    const mx = host.mx || null;
+    const Bus = PBC.AudioBus;
+    const offs = [];
+    const duck = on => { if (mx) mx.speaking(on); };
+    const speechVolume = () => (mx ? mx.speechVolume() : Math.min(1, (st.volume == null ? 0.7 : st.volume) + 0.3));
 
     // ---------------------------------------------------------- helpers
     const T = teams, nick = i => T[i].name, city = i => T[i].city;
@@ -144,7 +154,7 @@
     };
     const seasonAvg = id => { const p = pl(id); const s = p && PBC.Stats.season(p, S.season, false); return s && s.gp >= 3 ? s : null; };
     const persona = id => { const p = pl(id); return p && PBC.Persona ? PBC.Persona.of(p) : 'quiet'; };
-    const blurb = id => { const p = pl(id); return p && PBC.Persona ? PBC.Persona.blurb(p) : ''; };
+    const blurb = id => { const p = pl(id); return p && PBC.Persona ? PBC.Persona.blurb(p, PBC.AudioRandom.random) : ''; };
     const star = i => U.maxBy(g.t[i].players, c => (c.p.ovr || 0) + (g.t[i].strat.goTo1 === c.id ? 8 : 0));
     const intensity = () => (stakes.playoff ? stakes.level : 0);
     const chatty = () => ({ light: 0.45, normal: 0.8, full: 1.15 }[st.booth || 'normal']);
@@ -182,13 +192,8 @@
       const list = set[gen] || set.m;
       return speaker === 'pbp' ? list[0] : list[1] || list[0];
     }
-    function actx() {
-      if (B.actx) return B.actx;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      try { B.actx = new AC(); } catch (e) { return null; }
-      return B.actx;
-    }
+    // premium audio is decoded and played in the mixer's context (no second AudioContext)
+    function actx() { return mx ? mx.ensure() : null; }
     function fetchCloud(line) {
       const c = B.cloud;
       const key = `${c.provider}|${cloudVoice(line.who)}|${line.hype ? 1 : 0}|${line.text}`;
@@ -228,16 +233,17 @@
       o = o || {};
       const pri = o.pri || 4;
       // fast playback: only the big moments survive
-      if (B.speed >= 8 && pri < 9) return;
-      if (B.speed >= 4 && pri < 7) return;
+      if ((B.speed >= 8 && pri < 9) || (B.speed >= 4 && pri < 7)) { if (Bus) Bus.note({ n: 'booth.' + who, b: 'commentary', p: pri, s: 'speed' }); return; }
       text = String(text).replace(/\s+/g, ' ').replace(/[🔥🎯🏀💥]/g, '').trim();
-      const line = { who, text, pri, hype: !!o.hype, at: performance.now(), ttl: (o.ttl || 6) * 1000, dur: estDur(text, who), wait: o.wait || 1400 };
+      const line = { who, text, pri, hype: !!o.hype, at: performance.now(), ttl: (o.ttl || 6) * 1000, dur: estDur(text, who), wait: o.wait || 1400, tag: o.tag || null };
       if (cloudOn() && B.voice) line.cloud = fetchCloud(line);
       // keep the queue short: a new important call replaces stale filler
       B.queue = B.queue.filter(l => l.pri >= pri - 2 || performance.now() - l.at < 1200);
       B.queue.push(line);
       B.queue.sort((a, b) => b.pri - a.pri || a.at - b.at);
       if (B.queue.length > 3) B.queue.length = 3;
+      // (the log shows which event queued the line; booth.say shows when it starts)
+      if (Bus) Bus.note({ n: 'booth.' + who, b: 'commentary', p: pri, s: B.queue.includes(line) ? 'queued' : 'queue full' });
       // a big call cuts off low-priority chatter
       if (B.speaking && pri >= 8 && B.speaking.pri <= 4) stopSpeaking();
       pump();
@@ -248,7 +254,7 @@
       B.speaking = null;
       if (s && s.src) { try { s.src.stop(); } catch (e) { /* ignore */ } }
       if ('speechSynthesis' in window && s && s.utter) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
-      if (host.au) host.au.duck(false);
+      duck(false);
     }
     function pump() {
       if (B.speaking || B.paused || !B.queue.length || B.destroyed) return;
@@ -263,11 +269,12 @@
       if (now - B.lastLineAt < 220) { B.queue.unshift(line); setTimeout(pump, 240); return; }
       B.speaking = line;
       line.start = now;
+      if (Bus) Bus.emit('booth.say', { who: line.who, text: line.text, pri: line.pri, waitedMs: Math.round(now - line.at), voice: !B.voice ? 'captions' : !B.unlocked ? 'captions (no click yet)' : line.cloud ? 'premium' : 'browser' });
       if (host.bc && host.bc.caption) host.bc.caption(line.who === 'pbp' ? booth.pbp : booth.color, line.text, line.who, line.dur);
       const done = () => {
         if (B.speaking !== line) return;
         B.speaking = null; B.lastLineAt = performance.now();
-        if (host.au) host.au.duck(false);
+        duck(false);
         setTimeout(pump, 60);
       };
       const speakBrowser = () => {
@@ -278,11 +285,11 @@
         const same = B.vPbp === B.vColor;
         u.rate = line.who === 'pbp' ? (line.hype ? 1.14 : 1.06) : 0.98;
         u.pitch = line.who === 'pbp' ? (line.hype ? 1.08 : 1.0) : (same ? 0.82 : 0.95);
-        u.volume = Math.min(1, (st.volume == null ? 0.7 : st.volume) + 0.3);
+        u.volume = speechVolume();
         line.utter = u;
         B.keep.push(u); if (B.keep.length > 8) B.keep.shift(); // Chrome drops onend if the utterance is garbage collected
         u.onend = done; u.onerror = done;
-        if (host.au) host.au.duck(true);
+        duck(true);
         try { window.speechSynthesis.speak(u); } catch (e) { done(); return; }
         setTimeout(done, line.dur * 1.9 + 2500); // watchdog: onend sometimes never fires
       };
@@ -293,11 +300,14 @@
           if (!ctx || !buf) { speakBrowser(); return; }
           if (ctx.state === 'suspended') ctx.resume().catch(() => {});
           const s = ctx.createBufferSource(), gn = ctx.createGain();
-          gn.gain.value = Math.min(1, (st.volume == null ? 0.7 : st.volume) + 0.3);
-          s.buffer = buf; s.connect(gn); gn.connect(ctx.destination);
+          // (into the Commentary bus, after which the master volume applies: the same level as before, when the
+          // voice went straight to the speakers at the volume plus a boost)
+          const vol = mx.volume();
+          gn.gain.value = vol > 0.01 ? Math.min(1, vol + PBC.AudioConfig.speechBoost) / vol : 1;
+          s.buffer = buf; s.connect(gn); gn.connect(mx.input('commentary'));
           line.src = s;
           s.onended = done;
-          if (host.au) host.au.duck(true);
+          duck(true);
           s.start();
           setTimeout(done, buf.duration * 1000 + 1500);
         };
@@ -409,7 +419,7 @@
     const api = {
       unlock() {
         B.unlocked = true;
-        if (B.actx && B.actx.state === 'suspended') B.actx.resume().catch(() => {});
+        if (mx && mx.ctx && mx.ctx.state === 'suspended') mx.ctx.resume().catch(() => {});
       },
       intro(silent) {
         const i0 = 0, i1 = 1;
@@ -471,15 +481,10 @@
         switch (ev.type) {
           case 'jump_ball': say('pbp', pick([`${last(ev.jumpers && ev.jumpers[0])} and ${last(ev.jumpers && ev.jumpers[1])} for the tip, and we are underway.`, `Here's the tip... ${nick(ev.winner)} control it.`]), { pri: 7, ttl: 4 }); break;
           case 'shot': {
+            // (at the release the shot carries no result: the miss or the block is called at game.shotResult)
             if (ev.pending) break;
             const setup = shotSetup(ev);
-            if (setup && chance(0.55 * chatty())) say('pbp', setup + '...', { pri: 5, ttl: 1.6 });
-            if (ev.made === false) {
-              const mc = missCall(ev);
-              if (ev.blocked) say('pbp', mc, { pri: 8, ttl: 3, hype: true });
-              else if (chance(0.5 * chatty())) say('pbp', mc, { pri: 4, ttl: 2.2 });
-              if (ev.blocked && chance(0.6)) say('color', pick([`Great timing by ${last(ev.blocker)}. ${pron(ev.blocker).He} stayed vertical and just erased it.`, `You don't bring that weak stuff in here!`, `${last(ev.blocker)} protecting the rim. That's ${pc(ev.blocker) ? pc(ev.blocker).st.blk : 1} blocks tonight.`]), { pri: 5, ttl: 6 });
-            }
+            if (setup && chance(0.55 * chatty())) say('pbp', setup + '...', { pri: 5, ttl: 1.6, tag: 'setup' });
             break;
           }
           case 'score': {
@@ -566,6 +571,18 @@
         // injuries noted by the engine
         const inj = g.pbp.slice(-6).find(x => x.type === 'injury' && x !== B.lastInjury);
         if (inj) { B.lastInjury = inj; say('color', 'Uh oh. That does not look good. We will keep an eye on the injury update.', { pri: 6, ttl: 8 }); }
+      },
+      /** the ball got to the rim, the glass, the net or the blocker's hand (ev: the whole shot event now) */
+      onShotResult(ev) {
+        if (!B.enabled) return;
+        // a set-up line still waiting ("Smith for three...") is too late once the ball is there
+        B.queue = B.queue.filter(l => l.tag !== 'setup');
+        if (ev.made === false) {
+          const mc = missCall(ev);
+          if (ev.blocked) say('pbp', mc, { pri: 8, ttl: 3, hype: true });
+          else if (chance(0.5 * chatty())) say('pbp', mc, { pri: 4, ttl: 2.2 });
+          if (ev.blocked && chance(0.6)) say('color', pick([`Great timing by ${last(ev.blocker)}. ${pron(ev.blocker).He} stayed vertical and just erased it.`, `You don't bring that weak stuff in here!`, `${last(ev.blocker)} protecting the rim. That's ${pc(ev.blocker) ? pc(ev.blocker).st.blk : 1} blocks tonight.`]), { pri: 5, ttl: 6 });
+        }
       },
       onBreak(per) {
         const sc = g.score;
@@ -675,11 +692,29 @@
       },
       destroy() {
         B.destroyed = true; B.queue = [];
+        offs.forEach(f => f()); offs.length = 0;
         stopSpeaking();
         if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); window.speechSynthesis.removeEventListener('voiceschanged', refreshVoices); } catch (e) { /* ignore */ } }
-        if (B.actx) { try { B.actx.close(); } catch (e) { /* ignore */ } }
       },
     };
+    // ---------------------------------------------------------- what the booth hears (the audio event bus)
+    if (Bus) {
+      const DERIVED = { run: 1, leadChange: 1, tie: 1, milestone: 1, clutch: 1 };
+      offs.push(Bus.on('game.*', b => {
+        const t = b.type.slice(5);
+        if (DERIVED[t]) return; // (worked out by the audio tracker: the booth still reads runs off the engine)
+        if (t === 'shotResult') api.onShotResult(b.e);
+        else api.onEvent(b.e, b.P, b.sc);
+      }));
+      offs.push(Bus.on('live.intro', b => api.intro(b.silent)));
+      offs.push(Bus.on('live.possession', b => api.onPossession(b.P)));
+      offs.push(Bus.on('live.break', b => api.onBreak(b.per)));
+      offs.push(Bus.on('live.replay', b => api.onReplay(b.hl)));
+      offs.push(Bus.on('live.gim', b => api.gimSetup(b.ctx)));
+      offs.push(Bus.on('live.jump', () => api.onJump()));
+      offs.push(Bus.on('live.adjust', b => api.onAdjust(b.key, b.val)));
+      offs.push(Bus.on('live.final', b => api.onFinal(b.box)));
+    }
     return api;
   }
 

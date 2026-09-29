@@ -57,7 +57,7 @@
       this.clockStart = +poss.clockStart || 0;
       this.clockEnd = poss.clockEnd == null ? Math.max(0, this.clockStart - this.maxEventT()) : +poss.clockEnd;
       this.sc0 = 24; this.scT = 0; this.shotClockOn = true;
-      this.lastShot = null; this.pendingRebound = null; this.madeShot = null;
+      this.lastShot = null; this.pendingRebound = null; this.madeShot = null; this.madeType = null;
       this.swing = null; this._soonAt = -1; this._driveReactT = 0; this._swingCheck = 0;
       this.watch = this.T0 + this.maxEventT() * 2 + 60;
       this.phase = 'start';
@@ -2019,6 +2019,7 @@
       b.release();
       b.state = 'flight';
       this.madeShot = result.made ? ev : null;
+      this.madeType = result.made ? result.type : null;
       this.scored = false;
       const pr = this.pendingRebound;
       const onScore = () => this.reportScore(ev);
@@ -2036,10 +2037,11 @@
         const segsB = [s1, s2];
         if (pr && pr.floor && tgt[2] < 1) b._bounceTail(segsB);
         b.flight(segsB, null);
+        b.shotCue = { ev, blocked: true }; // (the result is out when the ball meets the blocker's hand)
         b.passTarget = pr && pr.actor ? pr.actor : null;
         if (pr) this.scheduleRebounder(pr, b.time + 0.16 + T2);
         v.arena.cheer(this.def, 0.9, 2.2);
-        if (v.sound) v.sound('block', 1);
+        if (v.sound) v.sound('block', 1, b, this.A(ev.blocker));
         this.crashBoards(sh);
         return;
       }
@@ -2056,6 +2058,7 @@
         const segsD = [s1, s2];
         if (pr && pr.floor && tgt[2] < 1) b._bounceTail(segsD);
         b.flight(segsD, null);
+        b.shotCue = { ev };
         b.shotHoop = this.hoop; b.onScore = null;
         b.passTarget = pr && pr.actor ? pr.actor : null;
         if (pr) { this.scheduleRebounder(pr, b.time + 0.1 + T2); this.pendingRebound.tGrab = b.time + 0.1 + T2; }
@@ -2075,7 +2078,7 @@
         this.hoop.hang(1);
         if (!result.made) { /* dunk miss: treat as rim miss */ }
         v.arena.cheer(this.off, 1, 3);
-        if (v.sound) v.sound('dunk', 1);
+        if (v.sound) v.sound('dunk', 1, b, sh);
         // the stanchion takes the hit: a small jolt of the picture as the ball goes down
         this.at(this.T + 0.12, () => { if (v.camRig && v.camRig.kick) v.camRig.kick(0.22); }, 'dunk jolt');
         this.at(this.T + 0.35, () => { this.hoop.hitRim(2); }, 'rim shake');
@@ -2105,6 +2108,7 @@
         const prC = this.pendingRebound;
         this.at(this.T + Math.max(0.05, tContact - b.time), () => this.chaseCarom(prC), 'chase carom');
       }
+      if (!result.made) b.shotCue = { ev }; // (a miss is out at its first contact: the rim, the glass, or an air ball)
       if (result.made) {
         const three = (+ev.pts === 3);
         v.arena.cheer(this.off, three ? 0.95 : 0.7, three ? 3 : 2);
@@ -2154,6 +2158,9 @@
     reportScore(ev) {
       if (this.scored) return;
       this.scored = true;
+      // (the ball is through: the result goes to the audio just before the score)
+      const b = this.v.ball;
+      if (this.v.onCue) this.v.cue('shotResult', null, { ev, contact: 'net', result: this.madeType || 'made', x: b.x, y: b.y, z: b.z });
       if (+ev.pts === 3 && this.threeRef) { const r = this.threeRef; r.upper = null; r.play('refThreeGood'); this.threeRef = null; }
       const e = { type: 'score', team: ev.team != null ? ev.team : this.off, pts: +ev.pts || 2, shotEvent: ev, t: ev.t };
       if (this.cb.onEvent) U.safe(() => this.cb.onEvent(e), null, 'onEvent score');

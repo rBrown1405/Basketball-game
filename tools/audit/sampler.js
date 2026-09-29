@@ -62,7 +62,7 @@
     S.userTid = 0; PBC.Coach.create(S, 'Audit Coach', 0); PBC.League.preseasonProjections(S); PBC.AI.autoRotation(S, 0);
     S.teams[0].rot.auto = true; PBC.UI.setState(S); PBC.Season.startRegularSeason(S); PBC.Season.prepareToday(S);
     const ug = PBC.Season.userGameToday(S) || PBC.Season.advanceToUserGame(S);
-    Object.assign(S.settings, { gameIntro: false, replays: false, commentary: false, tvGraphics: false, gimEnabled: false });
+    Object.assign(S.settings, { gameIntro: false, replays: false, commentary: false, tvGraphics: false, gimEnabled: false, arenaSound: opt.audio !== false });
     // the coach's calls (Phase 4, --calls 1): plays drawn on the whiteboard go into the user's playbook, and the
     // coach calls plays, inbound plays and defensive schemes during the game (below)
     const CALLS = !!opt.calls;
