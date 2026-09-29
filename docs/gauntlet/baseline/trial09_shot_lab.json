@@ -1,0 +1,6556 @@
+[
+ {
+  "id": "spotA",
+  "name": "spot-up jumper from the right wing, 18 ft (shooter A)",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "jumpshot": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 4.2,
+    "p90": 4.2,
+    "p99": 4.2,
+    "max": 4.2
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 4.6,
+    "p90": 4.6,
+    "p99": 4.6,
+    "max": 4.6
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 24.2,
+    "p90": 24.2,
+    "p99": 24.2,
+    "max": 24.2
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 69.7,
+    "p90": 69.7,
+    "p99": 69.7,
+    "max": 69.7
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.05,
+    "p90": -0.05,
+    "p99": -0.05,
+    "max": -0.05
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 1.1,
+    "p90": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 18.9,
+    "p90": 18.9,
+    "p99": 18.9,
+    "max": 18.9
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 5.2,
+    "p90": 5.2,
+    "p99": 5.2,
+    "max": 5.2
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 12.4,
+    "p90": 12.4,
+    "p99": 12.4,
+    "max": 12.4
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 0.8,
+    "p90": 0.8,
+    "p99": 0.8,
+    "max": 0.8
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 18.2,
+    "p90": 18.2,
+    "p99": 18.2,
+    "max": 18.2
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2713,
+    "p90": 2713,
+    "p99": 2713,
+    "max": 2713
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 80.1,
+    "p90": 80.1,
+    "p99": 80.1,
+    "max": 80.1
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.369,
+    "p90": 1.369,
+    "p99": 1.369,
+    "max": 1.369
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.55,
+    "p90": 0.55,
+    "p99": 0.55,
+    "max": 0.55
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {
+    "0": {
+     "n": 1,
+     "relH": 1.369,
+     "relS": 0.55,
+     "leanDeg": -5.1,
+     "jumpIn": 12.4
+    }
+   },
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "jumpshot",
+    "kind": "jumper",
+    "ek": "jumper",
+    "contest": 0,
+    "id": "s0",
+    "t0": 0.867,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 12.4,
+    "relS": 0.55,
+    "relH": 1.369,
+    "relIn": 106.8,
+    "relApexS": -0.05,
+    "closeFt": null,
+    "leanDeg": -5.1,
+    "dipBallIn": 4.2,
+    "dipHipIn": 4.6,
+    "dipKneeDeg": 24.2,
+    "dipSyncS": 0.017,
+    "riseBallIn": 69.7,
+    "riseKneeDeg": 53.7,
+    "elbowOffIn": 0.8,
+    "elbowBelowIn": 18.2,
+    "setH": 1.251,
+    "flareDeg": -14.5,
+    "handGapIn": 2.08,
+    "snapDegps": 2713,
+    "gooseDeg": 80.1,
+    "holdS": 1.1,
+    "offUpDeg": 144.4,
+    "landKneeDeg": 18.9,
+    "landHipIn": 4.4,
+    "driftIn": 5.2,
+    "driftSideIn": 0,
+    "airS": 0.5
+   }
+  ],
+  "popsN": 0
+ },
+ {
+  "id": "spotB",
+  "name": "spot-up jumper from the right wing, 18 ft (shooter B)",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "jumpshot2": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 6,
+    "p90": 6,
+    "p99": 6,
+    "max": 6
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 5.9,
+    "p90": 5.9,
+    "p99": 5.9,
+    "max": 5.9
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 29.9,
+    "p90": 29.9,
+    "p99": 29.9,
+    "max": 29.9
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 64.8,
+    "p90": 64.8,
+    "p99": 64.8,
+    "max": 64.8
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.017,
+    "p90": -0.017,
+    "p99": -0.017,
+    "max": -0.017
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 0.6,
+    "p90": 0.6,
+    "p99": 0.6,
+    "max": 0.6
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 24.6,
+    "p90": 24.6,
+    "p99": 24.6,
+    "max": 24.6
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 2.6,
+    "p90": 2.6,
+    "p99": 2.6,
+    "max": 2.6
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 8.4,
+    "p90": 8.4,
+    "p99": 8.4,
+    "max": 8.4
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 5.1,
+    "p90": 5.1,
+    "p99": 5.1,
+    "max": 5.1
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 16.7,
+    "p90": 16.7,
+    "p99": 16.7,
+    "max": 16.7
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2139,
+    "p90": 2139,
+    "p99": 2139,
+    "max": 2139
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 78.1,
+    "p90": 78.1,
+    "p99": 78.1,
+    "max": 78.1
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.284,
+    "p90": 1.284,
+    "p99": 1.284,
+    "max": 1.284
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.85,
+    "p90": 0.85,
+    "p99": 0.85,
+    "max": 0.85
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "jumpshot2",
+    "kind": "jumper",
+    "ek": "jumper",
+    "contest": 0,
+    "id": "s0",
+    "t0": 0.867,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 8.4,
+    "relS": 0.85,
+    "relH": 1.284,
+    "relIn": 100.2,
+    "relApexS": -0.017,
+    "closeFt": null,
+    "leanDeg": -10.2,
+    "dipBallIn": 6,
+    "dipHipIn": 5.9,
+    "dipKneeDeg": 29.9,
+    "dipSyncS": 0.1,
+    "riseBallIn": 64.8,
+    "riseKneeDeg": 66.3,
+    "elbowOffIn": 5.1,
+    "elbowBelowIn": 16.7,
+    "setH": 1.206,
+    "flareDeg": 7.8,
+    "handGapIn": 2.38,
+    "snapDegps": 2139,
+    "gooseDeg": 78.1,
+    "holdS": 0.6,
+    "offUpDeg": 137.4,
+    "landKneeDeg": 24.6,
+    "landHipIn": 4.1,
+    "driftIn": 2.6,
+    "driftSideIn": 0,
+    "airS": 0.417
+   }
+  ],
+  "popsN": 0
+ },
+ {
+  "id": "cnsA",
+  "name": "catch and shoot on the wing, a chest pass from the top (shooter A)",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "jumpshot": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 18.1,
+    "p90": 18.1,
+    "p99": 18.1,
+    "max": 18.1
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 5.5,
+    "p90": 5.5,
+    "p99": 5.5,
+    "max": 5.5
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 23.1,
+    "p90": 23.1,
+    "p99": 23.1,
+    "max": 23.1
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 68.6,
+    "p90": 68.6,
+    "p99": 68.6,
+    "max": 68.6
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.05,
+    "p90": -0.05,
+    "p99": -0.05,
+    "max": -0.05
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 1.1,
+    "p90": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 18.9,
+    "p90": 18.9,
+    "p99": 18.9,
+    "max": 18.9
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 5.1,
+    "p90": 5.1,
+    "p99": 5.1,
+    "max": 5.1
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 12.4,
+    "p90": 12.4,
+    "p99": 12.4,
+    "max": 12.4
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 0.8,
+    "p90": 0.8,
+    "p99": 0.8,
+    "max": 0.8
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 18.1,
+    "p90": 18.1,
+    "p99": 18.1,
+    "max": 18.1
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2713,
+    "p90": 2713,
+    "p99": 2713,
+    "max": 2713
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 80,
+    "p90": 80,
+    "p99": 80,
+    "max": 80
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.369,
+    "p90": 1.369,
+    "p99": 1.369,
+    "max": 1.369
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.55,
+    "p90": 0.55,
+    "p99": 0.55,
+    "max": 0.55
+   },
+   "catchAndShoot": 1,
+   "catchToRelS": {
+    "n": 1,
+    "p50": 0.55,
+    "p90": 0.55,
+    "p99": 0.55,
+    "max": 0.55
+   },
+   "catchShoot": 1,
+   "catchShootToRelS": {
+    "n": 1,
+    "p50": 0.55,
+    "p90": 0.55,
+    "p99": 0.55,
+    "max": 0.55
+   },
+   "catchShootIn": 1,
+   "byContest": {
+    "0": {
+     "n": 1,
+     "relH": 1.369,
+     "relS": 0.55,
+     "leanDeg": -5.1,
+     "jumpIn": 12.4
+    }
+   },
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "jumpshot",
+    "kind": "jumper",
+    "ek": "catch_shoot",
+    "contest": 0,
+    "id": "s0",
+    "t0": 1.55,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 12.4,
+    "relS": 0.55,
+    "relH": 1.369,
+    "relIn": 106.8,
+    "relApexS": -0.05,
+    "catchToRelS": 0.55,
+    "closeFt": null,
+    "leanDeg": -5.1,
+    "dipBallIn": 18.1,
+    "dipHipIn": 5.5,
+    "dipKneeDeg": 23.1,
+    "dipSyncS": 0.017,
+    "riseBallIn": 68.6,
+    "riseKneeDeg": 46.3,
+    "elbowOffIn": 0.8,
+    "elbowBelowIn": 18.1,
+    "setH": 1.251,
+    "flareDeg": -14.3,
+    "handGapIn": 2.03,
+    "snapDegps": 2713,
+    "gooseDeg": 80,
+    "holdS": 1.1,
+    "offUpDeg": 144.4,
+    "landKneeDeg": 18.9,
+    "landHipIn": 4.4,
+    "driftIn": 5.1,
+    "driftSideIn": 0,
+    "airS": 0.5
+   }
+  ],
+  "popsN": 6
+ },
+ {
+  "id": "cnsB",
+  "name": "catch and shoot on the wing, a chest pass from the top (shooter B)",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "jumpshot2": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 20.5,
+    "p90": 20.5,
+    "p99": 20.5,
+    "max": 20.5
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 6.9,
+    "p90": 6.9,
+    "p99": 6.9,
+    "max": 6.9
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 22.2,
+    "p90": 22.2,
+    "p99": 22.2,
+    "max": 22.2
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 64.4,
+    "p90": 64.4,
+    "p99": 64.4,
+    "max": 64.4
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.017,
+    "p90": -0.017,
+    "p99": -0.017,
+    "max": -0.017
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 0.6,
+    "p90": 0.6,
+    "p99": 0.6,
+    "max": 0.6
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 24.6,
+    "p90": 24.6,
+    "p99": 24.6,
+    "max": 24.6
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 2.6,
+    "p90": 2.6,
+    "p99": 2.6,
+    "max": 2.6
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 8.4,
+    "p90": 8.4,
+    "p99": 8.4,
+    "max": 8.4
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 4.5,
+    "p90": 4.5,
+    "p99": 4.5,
+    "max": 4.5
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 17,
+    "p90": 17,
+    "p99": 17,
+    "max": 17
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2139,
+    "p90": 2139,
+    "p99": 2139,
+    "max": 2139
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 78.1,
+    "p90": 78.1,
+    "p99": 78.1,
+    "max": 78.1
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.284,
+    "p90": 1.284,
+    "p99": 1.284,
+    "max": 1.284
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.85,
+    "p90": 0.85,
+    "p99": 0.85,
+    "max": 0.85
+   },
+   "catchAndShoot": 1,
+   "catchToRelS": {
+    "n": 1,
+    "p50": 0.85,
+    "p90": 0.85,
+    "p99": 0.85,
+    "max": 0.85
+   },
+   "catchShoot": 1,
+   "catchShootToRelS": {
+    "n": 1,
+    "p50": 0.85,
+    "p90": 0.85,
+    "p99": 0.85,
+    "max": 0.85
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "jumpshot2",
+    "kind": "jumper",
+    "ek": "catch_shoot",
+    "contest": 0,
+    "id": "s0",
+    "t0": 1.55,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 8.4,
+    "relS": 0.85,
+    "relH": 1.284,
+    "relIn": 100.1,
+    "relApexS": -0.017,
+    "catchToRelS": 0.85,
+    "closeFt": null,
+    "leanDeg": -10.2,
+    "dipBallIn": 20.5,
+    "dipHipIn": 6.9,
+    "dipKneeDeg": 22.2,
+    "dipSyncS": 0.1,
+    "riseBallIn": 64.4,
+    "riseKneeDeg": 48.8,
+    "elbowOffIn": 4.5,
+    "elbowBelowIn": 17,
+    "setH": 1.206,
+    "flareDeg": 5.2,
+    "handGapIn": 2.31,
+    "snapDegps": 2139,
+    "gooseDeg": 78.1,
+    "holdS": 0.6,
+    "offUpDeg": 137.4,
+    "landKneeDeg": 24.6,
+    "landHipIn": 4.1,
+    "driftIn": 2.6,
+    "driftSideIn": 0,
+    "airS": 0.417
+   }
+  ],
+  "popsN": 8
+ },
+ {
+  "id": "twoForms",
+  "name": "two shooters, the same jumper from the two wings (A on the right, then B on the left)",
+  "shot": {
+   "shots": 2,
+   "byName": {
+    "jumpshot": 1,
+    "jumpshot2": 1
+   },
+   "jumpers": 2,
+   "jumpersAllPhases": 2,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 2,
+    "p50": 6,
+    "p90": 6,
+    "p99": 6,
+    "max": 6
+   },
+   "dipHipIn": {
+    "n": 2,
+    "p50": 5.9,
+    "p90": 5.9,
+    "p99": 5.9,
+    "max": 5.9
+   },
+   "dipKneeDeg": {
+    "n": 2,
+    "p50": 29.9,
+    "p90": 29.9,
+    "p99": 29.9,
+    "max": 29.9
+   },
+   "dipSyncS": {
+    "n": 2,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "riseBallIn": {
+    "n": 2,
+    "p50": 69.7,
+    "p90": 69.7,
+    "p99": 69.7,
+    "max": 69.7
+   },
+   "relApexS": {
+    "n": 2,
+    "p50": -0.017,
+    "p90": -0.017,
+    "p99": -0.017,
+    "max": -0.017
+   },
+   "holdS": {
+    "n": 2,
+    "p50": 1.1,
+    "p90": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "landKneeDeg": {
+    "n": 2,
+    "p50": 24.7,
+    "p90": 24.7,
+    "p99": 24.7,
+    "max": 24.7
+   },
+   "driftIn": {
+    "n": 2,
+    "p50": 5.2,
+    "p90": 5.2,
+    "p99": 5.2,
+    "max": 5.2
+   },
+   "jumpIn": {
+    "n": 2,
+    "p50": 12.4,
+    "p90": 12.4,
+    "p99": 12.4,
+    "max": 12.4
+   },
+   "elbowOffIn": {
+    "n": 2,
+    "p50": 5.1,
+    "p90": 5.1,
+    "p99": 5.1,
+    "max": 5.1
+   },
+   "elbowBelowIn": {
+    "n": 2,
+    "p50": 18.2,
+    "p90": 18.2,
+    "p99": 18.2,
+    "max": 18.2
+   },
+   "snapDegps": {
+    "n": 2,
+    "p50": 2713,
+    "p90": 2713,
+    "p99": 2713,
+    "max": 2713
+   },
+   "gooseDeg": {
+    "n": 2,
+    "p50": 80.1,
+    "p90": 80.1,
+    "p99": 80.1,
+    "max": 80.1
+   },
+   "relH": {
+    "n": 2,
+    "p50": 1.369,
+    "p90": 1.369,
+    "p99": 1.369,
+    "max": 1.369
+   },
+   "relS": {
+    "n": 2,
+    "p50": 0.85,
+    "p90": 0.85,
+    "p99": 0.85,
+    "max": 0.85
+   },
+   "catchAndShoot": 1,
+   "catchToRelS": {
+    "n": 1,
+    "p50": 1.217,
+    "p90": 1.217,
+    "p99": 1.217,
+    "max": 1.217
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {
+    "0": {
+     "n": 1,
+     "relH": 1.369,
+     "relS": 0.55,
+     "leanDeg": -5.1,
+     "jumpIn": 12.4
+    }
+   },
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "jumpshot",
+    "kind": "jumper",
+    "ek": "jumper",
+    "contest": 0,
+    "id": "s0",
+    "t0": 0.867,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 12.4,
+    "relS": 0.55,
+    "relH": 1.369,
+    "relIn": 106.8,
+    "relApexS": -0.05,
+    "closeFt": null,
+    "leanDeg": -5.1,
+    "dipBallIn": 4.2,
+    "dipHipIn": 4.6,
+    "dipKneeDeg": 24.2,
+    "dipSyncS": 0.017,
+    "riseBallIn": 69.7,
+    "riseKneeDeg": 53.7,
+    "elbowOffIn": 0.8,
+    "elbowBelowIn": 18.2,
+    "setH": 1.251,
+    "flareDeg": -14.5,
+    "handGapIn": 2.08,
+    "snapDegps": 2713,
+    "gooseDeg": 80.1,
+    "holdS": 1.1,
+    "offUpDeg": 144.4,
+    "landKneeDeg": 18.9,
+    "landHipIn": 4.4,
+    "driftIn": 5.2,
+    "driftSideIn": 0,
+    "airS": 0.5
+   },
+   {
+    "name": "jumpshot2",
+    "kind": "jumper",
+    "ek": "jumper",
+    "contest": 0,
+    "id": "s1",
+    "t0": 3.467,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 8.4,
+    "relS": 0.85,
+    "relH": 1.284,
+    "relIn": 100.2,
+    "relApexS": -0.017,
+    "catchToRelS": 1.217,
+    "closeFt": null,
+    "leanDeg": -10.2,
+    "dipBallIn": 6,
+    "dipHipIn": 5.9,
+    "dipKneeDeg": 29.9,
+    "dipSyncS": 0.1,
+    "riseBallIn": 64.8,
+    "riseKneeDeg": 66.3,
+    "elbowOffIn": 5.1,
+    "elbowBelowIn": 16.7,
+    "setH": 1.206,
+    "flareDeg": 7.8,
+    "handGapIn": 2.38,
+    "snapDegps": 2139,
+    "gooseDeg": 77.7,
+    "holdS": 0.6,
+    "offUpDeg": 137.4,
+    "landKneeDeg": 24.7,
+    "landHipIn": 4.1,
+    "driftIn": 2.6,
+    "driftSideIn": 0,
+    "airS": 0.417
+   }
+  ],
+  "popsN": 0
+ },
+ {
+  "id": "pullup",
+  "name": "pull-up jumper off the dribble at the elbow",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "pullup": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 21.6,
+    "p90": 21.6,
+    "p99": 21.6,
+    "max": 21.6
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 4.3,
+    "p90": 4.3,
+    "p99": 4.3,
+    "max": 4.3
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 53.8,
+    "p90": 53.8,
+    "p99": 53.8,
+    "max": 53.8
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 74.3,
+    "p90": 74.3,
+    "p99": 74.3,
+    "max": 74.3
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.033,
+    "p90": -0.033,
+    "p99": -0.033,
+    "max": -0.033
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 0.9,
+    "p90": 0.9,
+    "p99": 0.9,
+    "max": 0.9
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 29.2,
+    "p90": 29.2,
+    "p99": 29.2,
+    "max": 29.2
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 3.6,
+    "p90": 3.6,
+    "p99": 3.6,
+    "max": 3.6
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 13.1,
+    "p90": 13.1,
+    "p99": 13.1,
+    "max": 13.1
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 5.1,
+    "p90": 5.1,
+    "p99": 5.1,
+    "max": 5.1
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 16.8,
+    "p90": 16.8,
+    "p99": 16.8,
+    "max": 16.8
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2289,
+    "p90": 2289,
+    "p99": 2289,
+    "max": 2289
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 82.3,
+    "p90": 82.3,
+    "p99": 82.3,
+    "max": 82.3
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.357,
+    "p90": 1.357,
+    "p99": 1.357,
+    "max": 1.357
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.75,
+    "p90": 0.75,
+    "p99": 0.75,
+    "max": 0.75
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "pullup",
+    "kind": "jumper",
+    "ek": "pullup",
+    "contest": 0.5,
+    "id": "s0",
+    "t0": 1.533,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 13.1,
+    "relS": 0.75,
+    "relH": 1.357,
+    "relIn": 105.8,
+    "relApexS": -0.033,
+    "closeFt": null,
+    "leanDeg": -14.4,
+    "dipBallIn": 21.6,
+    "dipHipIn": 4.3,
+    "dipKneeDeg": 53.8,
+    "dipSyncS": 0.017,
+    "riseBallIn": 74.3,
+    "riseKneeDeg": 82,
+    "elbowOffIn": 5.1,
+    "elbowBelowIn": 16.8,
+    "setH": 1.264,
+    "flareDeg": 1.8,
+    "handGapIn": 6.68,
+    "snapDegps": 2289,
+    "gooseDeg": 82.3,
+    "holdS": 0.9,
+    "offUpDeg": 149.3,
+    "landKneeDeg": 29.2,
+    "landHipIn": 4.3,
+    "driftIn": 3.6,
+    "driftSideIn": -0.1,
+    "airS": 0.517
+   }
+  ],
+  "popsN": 12
+ },
+ {
+  "id": "stepback",
+  "name": "step-back three on the left wing",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "stepback": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 10.7,
+    "p90": 10.7,
+    "p99": 10.7,
+    "max": 10.7
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 7.6,
+    "p90": 7.6,
+    "p99": 7.6,
+    "max": 7.6
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 47.3,
+    "p90": 47.3,
+    "p99": 47.3,
+    "max": 47.3
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.033,
+    "p90": 0.033,
+    "p99": 0.033,
+    "max": 0.033
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 67.9,
+    "p90": 67.9,
+    "p99": 67.9,
+    "max": 67.9
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.05,
+    "p90": -0.05,
+    "p99": -0.05,
+    "max": -0.05
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 0.917,
+    "p90": 0.917,
+    "p99": 0.917,
+    "max": 0.917
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 26.3,
+    "p90": 26.3,
+    "p99": 26.3,
+    "max": 26.3
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 11.7,
+    "p90": 11.7,
+    "p99": 11.7,
+    "max": 11.7
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 13.1,
+    "p90": 13.1,
+    "p99": 13.1,
+    "max": 13.1
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 3.2,
+    "p90": 3.2,
+    "p99": 3.2,
+    "max": 3.2
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 18.1,
+    "p90": 18.1,
+    "p99": 18.1,
+    "max": 18.1
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2222,
+    "p90": 2222,
+    "p99": 2222,
+    "max": 2222
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 80.3,
+    "p90": 80.3,
+    "p99": 80.3,
+    "max": 80.3
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.343,
+    "p90": 1.343,
+    "p99": 1.343,
+    "max": 1.343
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.817,
+    "p90": 0.817,
+    "p99": 0.817,
+    "max": 0.817
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "stepback",
+    "kind": "jumper",
+    "ek": "stepback",
+    "contest": 0.5,
+    "id": "s0",
+    "t0": 1.233,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 13.1,
+    "relS": 0.817,
+    "relH": 1.343,
+    "relIn": 104.8,
+    "relApexS": -0.05,
+    "closeFt": null,
+    "leanDeg": -14.4,
+    "dipBallIn": 10.7,
+    "dipHipIn": 7.6,
+    "dipKneeDeg": 47.3,
+    "dipSyncS": 0.033,
+    "riseBallIn": 67.9,
+    "riseKneeDeg": 65.7,
+    "elbowOffIn": 3.2,
+    "elbowBelowIn": 18.1,
+    "setH": 1.224,
+    "flareDeg": -8.6,
+    "handGapIn": 7.69,
+    "snapDegps": 2222,
+    "gooseDeg": 80.3,
+    "holdS": 0.917,
+    "offUpDeg": 144.2,
+    "landKneeDeg": 26.3,
+    "landHipIn": 4.4,
+    "driftIn": 11.7,
+    "driftSideIn": 0,
+    "airS": 0.517
+   }
+  ],
+  "popsN": 11
+ },
+ {
+  "id": "fadeaway",
+  "name": "fadeaway from the right baseline, 14 ft",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "fadeaway": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 7.7,
+    "p90": 7.7,
+    "p99": 7.7,
+    "max": 7.7
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 8.7,
+    "p90": 8.7,
+    "p99": 8.7,
+    "max": 8.7
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 28.4,
+    "p90": 28.4,
+    "p99": 28.4,
+    "max": 28.4
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 70.5,
+    "p90": 70.5,
+    "p99": 70.5,
+    "max": 70.5
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.033,
+    "p90": -0.033,
+    "p99": -0.033,
+    "max": -0.033
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 0.9,
+    "p90": 0.9,
+    "p99": 0.9,
+    "max": 0.9
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 29.5,
+    "p90": 29.5,
+    "p99": 29.5,
+    "max": 29.5
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": -23.2,
+    "p90": -23.2,
+    "p99": -23.2,
+    "max": -23.2
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 15,
+    "p90": 15,
+    "p99": 15,
+    "max": 15
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 4.1,
+    "p90": 4.1,
+    "p99": 4.1,
+    "max": 4.1
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 17.5,
+    "p90": 17.5,
+    "p99": 17.5,
+    "max": 17.5
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2383,
+    "p90": 2383,
+    "p99": 2383,
+    "max": 2383
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 85.2,
+    "p90": 85.2,
+    "p99": 85.2,
+    "max": 85.2
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.35,
+    "p90": 1.35,
+    "p99": 1.35,
+    "max": 1.35
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.65,
+    "p90": 0.65,
+    "p99": 0.65,
+    "max": 0.65
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "fadeaway",
+    "kind": "jumper",
+    "ek": "fadeaway",
+    "contest": 0.5,
+    "id": "s0",
+    "t0": 0.9,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 15,
+    "relS": 0.65,
+    "relH": 1.35,
+    "relIn": 105.3,
+    "relApexS": -0.033,
+    "closeFt": null,
+    "leanDeg": -31,
+    "dipBallIn": 7.7,
+    "dipHipIn": 8.7,
+    "dipKneeDeg": 28.4,
+    "dipSyncS": 0.017,
+    "riseBallIn": 70.5,
+    "riseKneeDeg": 68.3,
+    "elbowOffIn": 4.1,
+    "elbowBelowIn": 17.5,
+    "setH": 1.306,
+    "flareDeg": 1,
+    "handGapIn": 3.46,
+    "snapDegps": 2383,
+    "gooseDeg": 85.2,
+    "holdS": 0.9,
+    "offUpDeg": 159.6,
+    "landKneeDeg": 29.5,
+    "landHipIn": 4.3,
+    "driftIn": -23.2,
+    "driftSideIn": 1.2,
+    "airS": 0.55
+   }
+  ],
+  "popsN": 13
+ },
+ {
+  "id": "postFade",
+  "name": "turnaround post fade from the left block, back to the basket",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "postFadeR": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 9,
+    "p90": 9,
+    "p99": 9,
+    "max": 9
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 2.8,
+    "p90": 2.8,
+    "p99": 2.8,
+    "max": 2.8
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 15.9,
+    "p90": 15.9,
+    "p99": 15.9,
+    "max": 15.9
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 66.2,
+    "p90": 66.2,
+    "p99": 66.2,
+    "max": 66.2
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.033,
+    "p90": -0.033,
+    "p99": -0.033,
+    "max": -0.033
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 0.9,
+    "p90": 0.9,
+    "p99": 0.9,
+    "max": 0.9
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 28.8,
+    "p90": 28.8,
+    "p99": 28.8,
+    "max": 28.8
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": -23.4,
+    "p90": -23.4,
+    "p99": -23.4,
+    "max": -23.4
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 15,
+    "p90": 15,
+    "p99": 15,
+    "max": 15
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 4.1,
+    "p90": 4.1,
+    "p99": 4.1,
+    "max": 4.1
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 17.4,
+    "p90": 17.4,
+    "p99": 17.4,
+    "max": 17.4
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2404,
+    "p90": 2404,
+    "p99": 2404,
+    "max": 2404
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 83.3,
+    "p90": 83.3,
+    "p99": 83.3,
+    "max": 83.3
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.349,
+    "p90": 1.349,
+    "p99": 1.349,
+    "max": 1.349
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.8,
+    "p90": 0.8,
+    "p99": 0.8,
+    "max": 0.8
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "postFadeR",
+    "kind": "jumper",
+    "ek": "fadeaway",
+    "contest": 0.5,
+    "id": "s0",
+    "t0": 0.9,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 15,
+    "relS": 0.8,
+    "relH": 1.349,
+    "relIn": 105.3,
+    "relApexS": -0.033,
+    "closeFt": null,
+    "leanDeg": -31.1,
+    "dipBallIn": 9,
+    "dipHipIn": 2.8,
+    "dipKneeDeg": 15.9,
+    "dipSyncS": 0,
+    "riseBallIn": 66.2,
+    "riseKneeDeg": 62.7,
+    "elbowOffIn": 4.1,
+    "elbowBelowIn": 17.4,
+    "setH": 1.303,
+    "flareDeg": 1.1,
+    "handGapIn": 3.1,
+    "snapDegps": 2404,
+    "gooseDeg": 83.3,
+    "holdS": 0.9,
+    "offUpDeg": 159.5,
+    "landKneeDeg": 28.8,
+    "landHipIn": 4.3,
+    "driftIn": -23.4,
+    "driftSideIn": 2.2,
+    "airS": 0.55
+   }
+  ],
+  "popsN": 38
+ },
+ {
+  "id": "open",
+  "name": "open jumper, the defender back (to compare with the contested one)",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "jumpshot": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 4.2,
+    "p90": 4.2,
+    "p99": 4.2,
+    "max": 4.2
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 4.6,
+    "p90": 4.6,
+    "p99": 4.6,
+    "max": 4.6
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 24.2,
+    "p90": 24.2,
+    "p99": 24.2,
+    "max": 24.2
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 69.7,
+    "p90": 69.7,
+    "p99": 69.7,
+    "max": 69.7
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.05,
+    "p90": -0.05,
+    "p99": -0.05,
+    "max": -0.05
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 1.1,
+    "p90": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 18.9,
+    "p90": 18.9,
+    "p99": 18.9,
+    "max": 18.9
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 5.2,
+    "p90": 5.2,
+    "p99": 5.2,
+    "max": 5.2
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 12.4,
+    "p90": 12.4,
+    "p99": 12.4,
+    "max": 12.4
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 0.8,
+    "p90": 0.8,
+    "p99": 0.8,
+    "max": 0.8
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 18.2,
+    "p90": 18.2,
+    "p99": 18.2,
+    "max": 18.2
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2713,
+    "p90": 2713,
+    "p99": 2713,
+    "max": 2713
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 80.1,
+    "p90": 80.1,
+    "p99": 80.1,
+    "max": 80.1
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.369,
+    "p90": 1.369,
+    "p99": 1.369,
+    "max": 1.369
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.55,
+    "p90": 0.55,
+    "p99": 0.55,
+    "max": 0.55
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {
+    "0": {
+     "n": 1,
+     "relH": 1.369,
+     "relS": 0.55,
+     "leanDeg": -5.1,
+     "jumpIn": 12.4
+    }
+   },
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "jumpshot",
+    "kind": "jumper",
+    "ek": "jumper",
+    "contest": 0,
+    "id": "s0",
+    "t0": 0.867,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 12.4,
+    "relS": 0.55,
+    "relH": 1.369,
+    "relIn": 106.8,
+    "relApexS": -0.05,
+    "closeFt": 8.2,
+    "leanDeg": -5.1,
+    "dipBallIn": 4.2,
+    "dipHipIn": 4.6,
+    "dipKneeDeg": 24.2,
+    "dipSyncS": 0.017,
+    "riseBallIn": 69.7,
+    "riseKneeDeg": 53.7,
+    "elbowOffIn": 0.8,
+    "elbowBelowIn": 18.2,
+    "setH": 1.251,
+    "flareDeg": -14.5,
+    "handGapIn": 2.08,
+    "snapDegps": 2713,
+    "gooseDeg": 80.1,
+    "holdS": 1.1,
+    "offUpDeg": 144.4,
+    "landKneeDeg": 18.9,
+    "landHipIn": 4.4,
+    "driftIn": 5.2,
+    "driftSideIn": 0,
+    "airS": 0.5
+   }
+  ],
+  "popsN": 0
+ },
+ {
+  "id": "contested",
+  "name": "contested jumper, a defender closing out hard",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "jumpshot": 1
+   },
+   "jumpers": 1,
+   "jumpersAllPhases": 1,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 1,
+    "p50": 4.1,
+    "p90": 4.1,
+    "p99": 4.1,
+    "max": 4.1
+   },
+   "dipHipIn": {
+    "n": 1,
+    "p50": 4.6,
+    "p90": 4.6,
+    "p99": 4.6,
+    "max": 4.6
+   },
+   "dipKneeDeg": {
+    "n": 1,
+    "p50": 23.9,
+    "p90": 23.9,
+    "p99": 23.9,
+    "max": 23.9
+   },
+   "dipSyncS": {
+    "n": 1,
+    "p50": 0.033,
+    "p90": 0.033,
+    "p99": 0.033,
+    "max": 0.033
+   },
+   "riseBallIn": {
+    "n": 1,
+    "p50": 70.8,
+    "p90": 70.8,
+    "p99": 70.8,
+    "max": 70.8
+   },
+   "relApexS": {
+    "n": 1,
+    "p50": -0.067,
+    "p90": -0.067,
+    "p99": -0.067,
+    "max": -0.067
+   },
+   "holdS": {
+    "n": 1,
+    "p50": 1.117,
+    "p90": 1.117,
+    "p99": 1.117,
+    "max": 1.117
+   },
+   "landKneeDeg": {
+    "n": 1,
+    "p50": 25.8,
+    "p90": 25.8,
+    "p99": 25.8,
+    "max": 25.8
+   },
+   "driftIn": {
+    "n": 1,
+    "p50": 5.1,
+    "p90": 5.1,
+    "p99": 5.1,
+    "max": 5.1
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 13.6,
+    "p90": 13.6,
+    "p99": 13.6,
+    "max": 13.6
+   },
+   "elbowOffIn": {
+    "n": 1,
+    "p50": 0.4,
+    "p90": 0.4,
+    "p99": 0.4,
+    "max": 0.4
+   },
+   "elbowBelowIn": {
+    "n": 1,
+    "p50": 17.4,
+    "p90": 17.4,
+    "p99": 17.4,
+    "max": 17.4
+   },
+   "snapDegps": {
+    "n": 1,
+    "p50": 2915,
+    "p90": 2915,
+    "p99": 2915,
+    "max": 2915
+   },
+   "gooseDeg": {
+    "n": 1,
+    "p50": 83.1,
+    "p90": 83.1,
+    "p99": 83.1,
+    "max": 83.1
+   },
+   "relH": {
+    "n": 1,
+    "p50": 1.384,
+    "p90": 1.384,
+    "p99": 1.384,
+    "max": 1.384
+   },
+   "relS": {
+    "n": 1,
+    "p50": 0.517,
+    "p90": 0.517,
+    "p99": 0.517,
+    "max": 0.517
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {
+    "1": {
+     "n": 1,
+     "relH": 1.384,
+     "relS": 0.517,
+     "leanDeg": -13.3,
+     "jumpIn": 13.6
+    }
+   },
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "jumpshot",
+    "kind": "jumper",
+    "ek": "jumper",
+    "contest": 1,
+    "id": "s0",
+    "t0": 0.867,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 13.6,
+    "relS": 0.517,
+    "relH": 1.384,
+    "relIn": 108,
+    "relApexS": -0.067,
+    "closeFt": 6.8,
+    "leanDeg": -13.3,
+    "dipBallIn": 4.1,
+    "dipHipIn": 4.6,
+    "dipKneeDeg": 23.9,
+    "dipSyncS": 0.033,
+    "riseBallIn": 70.8,
+    "riseKneeDeg": 56.9,
+    "elbowOffIn": 0.4,
+    "elbowBelowIn": 17.4,
+    "setH": 1.246,
+    "flareDeg": -15.7,
+    "handGapIn": -1.72,
+    "snapDegps": 2915,
+    "gooseDeg": 83.1,
+    "holdS": 1.117,
+    "offUpDeg": 150.8,
+    "landKneeDeg": 25.8,
+    "landHipIn": 4.4,
+    "driftIn": 5.1,
+    "driftSideIn": 0,
+    "airS": 0.517
+   }
+  ],
+  "popsN": 2
+ },
+ {
+  "id": "ft",
+  "name": "free throw: the bounce pass from the official, two dribbles and a deep breath, the shot",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "freethrow": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 1,
+   "ftDribbles": {
+    "n": 1,
+    "p50": 2,
+    "p90": 2,
+    "p99": 2,
+    "max": 2
+   },
+   "ftRoutineS": {
+    "n": 1,
+    "p50": 3.03,
+    "p90": 3.03,
+    "p99": 3.03,
+    "max": 3.03
+   },
+   "ftSpin": 0,
+   "ftBreath": 1,
+   "ftJumpIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 1,
+    "p50": 1.183,
+    "p90": 1.183,
+    "p99": 1.183,
+    "max": 1.183
+   },
+   "ftAllPhases": 1,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "freethrow",
+    "kind": "ft",
+    "ek": null,
+    "contest": null,
+    "id": "s0",
+    "t0": 5.583,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 0,
+    "relS": 0.633,
+    "relH": 1.181,
+    "relIn": 92.1,
+    "closeFt": null,
+    "leanDeg": -6,
+    "dipBallIn": 5.1,
+    "dipHipIn": 8.4,
+    "dipKneeDeg": 67.4,
+    "dipSyncS": 0.017,
+    "riseBallIn": 54.2,
+    "elbowOffIn": 3,
+    "elbowBelowIn": 18.1,
+    "setH": 1.101,
+    "flareDeg": -3,
+    "handGapIn": -2.63,
+    "snapDegps": 2658,
+    "gooseDeg": 77.5,
+    "holdS": 1.183,
+    "offUpDeg": 137.5,
+    "dribbles": 2,
+    "spin": false,
+    "breath": true,
+    "routineS": 3.03
+   }
+  ],
+  "popsN": 3
+ },
+ {
+  "id": "ft2",
+  "name": "free throw: the bounce pass from the official, three dribbles, a spin of the ball and a deep breath, the shot",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "freethrow": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 1,
+   "ftDribbles": {
+    "n": 1,
+    "p50": 3,
+    "p90": 3,
+    "p99": 3,
+    "max": 3
+   },
+   "ftRoutineS": {
+    "n": 1,
+    "p50": 3.97,
+    "p90": 3.97,
+    "p99": 3.97,
+    "max": 3.97
+   },
+   "ftSpin": 1,
+   "ftBreath": 1,
+   "ftJumpIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 1,
+    "p50": 1.183,
+    "p90": 1.183,
+    "p99": 1.183,
+    "max": 1.183
+   },
+   "ftAllPhases": 1,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "freethrow",
+    "kind": "ft",
+    "ek": null,
+    "contest": null,
+    "id": "s0",
+    "t0": 6.517,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 0,
+    "relS": 0.633,
+    "relH": 1.181,
+    "relIn": 92.1,
+    "closeFt": null,
+    "leanDeg": -6,
+    "dipBallIn": 5.1,
+    "dipHipIn": 8.4,
+    "dipKneeDeg": 67.8,
+    "dipSyncS": 0.017,
+    "riseBallIn": 54.2,
+    "elbowOffIn": 3,
+    "elbowBelowIn": 18.1,
+    "setH": 1.101,
+    "flareDeg": -3,
+    "handGapIn": -2.63,
+    "snapDegps": 2658,
+    "gooseDeg": 77.5,
+    "holdS": 1.183,
+    "offUpDeg": 137.5,
+    "dribbles": 3,
+    "spin": true,
+    "breath": true,
+    "routineS": 3.97
+   }
+  ],
+  "popsN": 3
+ },
+ {
+  "id": "layupR",
+  "name": "right-hand layup, a drive from the right wing",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "layup": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 1,
+   "finishFootworkOk": 1,
+   "finishSteps": {
+    "n": 1,
+    "p50": 2,
+    "p90": 2,
+    "p99": 2,
+    "max": 2
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 1,
+    "p50": 99.4,
+    "p90": 99.4,
+    "p99": 99.4,
+    "max": 99.4
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "layup",
+    "kind": "finish",
+    "ek": "layup",
+    "contest": 0,
+    "id": "s0",
+    "t0": 1.567,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 29.8,
+    "relS": 0.833,
+    "relH": 1.488,
+    "relIn": 116.1,
+    "relApexS": -0.033,
+    "closeFt": null,
+    "leanDeg": -7.5,
+    "dipBallIn": 7.7,
+    "dipHipIn": 11,
+    "dipKneeDeg": 61.9,
+    "dipSyncS": 0.017,
+    "riseBallIn": 73.2,
+    "riseKneeDeg": 20,
+    "elbowOffIn": 2,
+    "elbowBelowIn": 14.9,
+    "setH": 1.443,
+    "flareDeg": -8.9,
+    "handGapIn": -3.31,
+    "snapDegps": 811,
+    "gooseDeg": 74,
+    "holdS": 0.2,
+    "offUpDeg": 82.4,
+    "landKneeDeg": 20.8,
+    "landHipIn": 4.6,
+    "driftIn": 47.2,
+    "driftSideIn": -0.2,
+    "airS": 0.75,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": false,
+    "kneeDriveDeg": 99.4
+   }
+  ],
+  "popsN": 8
+ },
+ {
+  "id": "layupLefty",
+  "name": "a left-hander's layup, a drive from the left wing",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "layup": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 1,
+   "finishFootworkOk": 1,
+   "finishSteps": {
+    "n": 1,
+    "p50": 2,
+    "p90": 2,
+    "p99": 2,
+    "max": 2
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 1,
+    "p50": 99,
+    "p90": 99,
+    "p99": 99,
+    "max": 99
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "layup",
+    "kind": "finish",
+    "ek": "layup",
+    "contest": 0,
+    "id": "s0",
+    "t0": 1.933,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 29.8,
+    "relS": 0.9,
+    "relH": 1.497,
+    "relIn": 116.8,
+    "relApexS": -0.033,
+    "closeFt": null,
+    "leanDeg": -7.4,
+    "dipBallIn": 7,
+    "dipHipIn": 5.4,
+    "dipKneeDeg": 55,
+    "dipSyncS": 0.133,
+    "riseBallIn": 75.6,
+    "riseKneeDeg": 26,
+    "elbowOffIn": 2,
+    "elbowBelowIn": 15.2,
+    "setH": 1.454,
+    "flareDeg": -9.2,
+    "handGapIn": -3.88,
+    "snapDegps": 809,
+    "gooseDeg": 74.1,
+    "holdS": 0.2,
+    "offUpDeg": 82.1,
+    "landKneeDeg": 22.3,
+    "landHipIn": 4.4,
+    "driftIn": 46.5,
+    "driftSideIn": -0.1,
+    "airS": 0.75,
+    "steps": 2,
+    "takeoffFoot": "R",
+    "hand": "L",
+    "twoFoot": false,
+    "kneeDriveDeg": 99
+   }
+  ],
+  "popsN": 16
+ },
+ {
+  "id": "layupLeftSide",
+  "name": "a right-hander's layup from the left side",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "layup": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 1,
+   "finishFootworkOk": 1,
+   "finishSteps": {
+    "n": 1,
+    "p50": 2,
+    "p90": 2,
+    "p99": 2,
+    "max": 2
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 1,
+    "p50": 99.4,
+    "p90": 99.4,
+    "p99": 99.4,
+    "max": 99.4
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "layup",
+    "kind": "finish",
+    "ek": "layup",
+    "contest": 0,
+    "id": "s0",
+    "t0": 1.567,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 29.8,
+    "relS": 0.833,
+    "relH": 1.489,
+    "relIn": 116.2,
+    "relApexS": -0.033,
+    "closeFt": null,
+    "leanDeg": -7.4,
+    "dipBallIn": 7.6,
+    "dipHipIn": 11.3,
+    "dipKneeDeg": 63.1,
+    "dipSyncS": 0,
+    "riseBallIn": 73.1,
+    "riseKneeDeg": 19.7,
+    "elbowOffIn": 1.9,
+    "elbowBelowIn": 15,
+    "setH": 1.445,
+    "flareDeg": -8.6,
+    "handGapIn": -3.15,
+    "snapDegps": 778,
+    "gooseDeg": 74.1,
+    "holdS": 0.2,
+    "offUpDeg": 82.2,
+    "landKneeDeg": 22.7,
+    "landHipIn": 4.5,
+    "driftIn": 46.8,
+    "driftSideIn": 0.4,
+    "airS": 0.75,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": false,
+    "kneeDriveDeg": 99.4
+   }
+  ],
+  "popsN": 10
+ },
+ {
+  "id": "reverse",
+  "name": "reverse layup along the baseline",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "reverse": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 1,
+   "finishFootworkOk": 1,
+   "finishSteps": {
+    "n": 1,
+    "p50": 2,
+    "p90": 2,
+    "p99": 2,
+    "max": 2
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 1,
+    "p50": 93.5,
+    "p90": 93.5,
+    "p99": 93.5,
+    "max": 93.5
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "reverse",
+    "kind": "finish",
+    "ek": "reverse",
+    "contest": 0,
+    "id": "s0",
+    "t0": 2.533,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 29.8,
+    "relS": 0.917,
+    "relH": 1.41,
+    "relIn": 110,
+    "relApexS": -0.017,
+    "closeFt": null,
+    "leanDeg": -14.3,
+    "dipBallIn": 4.2,
+    "dipHipIn": 6.8,
+    "dipKneeDeg": 36,
+    "dipSyncS": 0.15,
+    "riseBallIn": 68.8,
+    "riseKneeDeg": 25,
+    "elbowOffIn": 3.4,
+    "elbowBelowIn": 13.8,
+    "setH": 1.448,
+    "flareDeg": 18.4,
+    "handGapIn": -4.34,
+    "snapDegps": 543,
+    "gooseDeg": 79.1,
+    "holdS": 0,
+    "offUpDeg": 90,
+    "landKneeDeg": 22.4,
+    "landHipIn": 4.4,
+    "driftIn": 46.6,
+    "driftSideIn": -3.4,
+    "airS": 0.75,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": false,
+    "kneeDriveDeg": 93.5
+   }
+  ],
+  "popsN": 22
+ },
+ {
+  "id": "floater",
+  "name": "floater in the lane",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "floater": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 1,
+   "runnerFootOk": 1,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "floater",
+    "kind": "runner",
+    "ek": "floater",
+    "contest": 0,
+    "id": "s0",
+    "t0": 1.633,
+    "H": 6.5,
+    "released": true,
+    "jumpIn": 11.3,
+    "relS": 0.5,
+    "relH": 1.34,
+    "relIn": 104.5,
+    "relApexS": -0.05,
+    "closeFt": null,
+    "leanDeg": -4.1,
+    "dipBallIn": 0,
+    "dipHipIn": 0,
+    "dipKneeDeg": 1.3,
+    "dipSyncS": 0,
+    "riseBallIn": 68.3,
+    "riseKneeDeg": 76.5,
+    "elbowOffIn": 0.3,
+    "elbowBelowIn": 18.5,
+    "setH": 1.23,
+    "flareDeg": -16.2,
+    "handGapIn": 5.31,
+    "snapDegps": 3193,
+    "gooseDeg": 23.5,
+    "holdS": 0,
+    "offUpDeg": 118.9,
+    "landKneeDeg": 25.4,
+    "landHipIn": 4.8,
+    "driftIn": 16.3,
+    "driftSideIn": 0.1,
+    "airS": 0.467,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": false,
+    "kneeDriveDeg": 56.1
+   }
+  ],
+  "popsN": 6
+ },
+ {
+  "id": "hook",
+  "name": "hook shot from the right block",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "hook": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 1,
+   "runnerFootOk": 1,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "hook",
+    "kind": "runner",
+    "ek": "hook",
+    "contest": 0.5,
+    "id": "s0",
+    "t0": 0.917,
+    "H": 6.92,
+    "released": true,
+    "jumpIn": 11.1,
+    "relS": 0.633,
+    "relH": 1.282,
+    "relIn": 106.4,
+    "relApexS": 0.017,
+    "closeFt": null,
+    "leanDeg": 2.1,
+    "dipBallIn": 0.5,
+    "dipHipIn": 1.8,
+    "dipKneeDeg": 8,
+    "dipSyncS": 0.133,
+    "riseBallIn": 54.5,
+    "riseKneeDeg": 22.9,
+    "elbowOffIn": 0.3,
+    "elbowBelowIn": 20.7,
+    "setH": 1.289,
+    "flareDeg": 30.1,
+    "handGapIn": 10.04,
+    "snapDegps": 1434,
+    "gooseDeg": 52.6,
+    "holdS": 0,
+    "offUpDeg": 86.6,
+    "landKneeDeg": 23.8,
+    "landHipIn": 5,
+    "driftIn": 3.2,
+    "driftSideIn": -4.6,
+    "airS": 0.467,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": false,
+    "kneeDriveDeg": 69.7
+   }
+  ],
+  "popsN": 10
+ },
+ {
+  "id": "dunk1",
+  "name": "one-foot dunk on the break",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "dunk": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 1,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 1,
+   "dunkRimHandS": {
+    "n": 1,
+    "p50": 0.167,
+    "p90": 0.167,
+    "p99": 0.167,
+    "max": 0.167
+   },
+   "dunkLandKneeDeg": {
+    "n": 1,
+    "p50": 34.1,
+    "p90": 34.1,
+    "p99": 34.1,
+    "max": 34.1
+   }
+  },
+  "recs": [
+   {
+    "name": "dunk",
+    "kind": "dunk",
+    "ek": "dunk",
+    "contest": 0,
+    "id": "s0",
+    "t0": 2.367,
+    "H": 6.58,
+    "released": true,
+    "jumpIn": 35.2,
+    "relS": 0.95,
+    "relH": 1.525,
+    "relIn": 120.5,
+    "relApexS": 0,
+    "closeFt": null,
+    "leanDeg": 4.7,
+    "dipBallIn": 15.2,
+    "dipHipIn": 11.4,
+    "dipKneeDeg": 61.7,
+    "dipSyncS": 0.017,
+    "riseBallIn": 85.6,
+    "riseKneeDeg": 35,
+    "elbowOffIn": 3.2,
+    "elbowBelowIn": 9,
+    "setH": 1.528,
+    "flareDeg": 1.2,
+    "handGapIn": 8.25,
+    "snapDegps": 677,
+    "gooseDeg": 30.7,
+    "holdS": 0,
+    "offUpDeg": 101.3,
+    "landKneeDeg": 34.1,
+    "landHipIn": 7.5,
+    "driftIn": 30.2,
+    "driftSideIn": 0,
+    "airS": 0.783,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": false,
+    "kneeDriveDeg": 66.8,
+    "rimHandS": 0.167
+   }
+  ],
+  "popsN": 19
+ },
+ {
+  "id": "dunk2",
+  "name": "two-foot power dunk",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "dunk2": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 1,
+   "dunkTwoFoot": 1,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 1,
+    "p50": 0.117,
+    "p90": 0.117,
+    "p99": 0.117,
+    "max": 0.117
+   },
+   "dunkLandKneeDeg": {
+    "n": 1,
+    "p50": 40.9,
+    "p90": 40.9,
+    "p99": 40.9,
+    "max": 40.9
+   }
+  },
+  "recs": [
+   {
+    "name": "dunk2",
+    "kind": "dunk",
+    "ek": "dunk",
+    "contest": 0,
+    "id": "s0",
+    "t0": 2.3,
+    "H": 6.75,
+    "released": true,
+    "jumpIn": 33.6,
+    "relS": 0.95,
+    "relH": 1.547,
+    "relIn": 125.3,
+    "relApexS": 0.017,
+    "closeFt": null,
+    "leanDeg": 11.1,
+    "dipBallIn": 18.9,
+    "dipHipIn": 2.8,
+    "dipKneeDeg": 32.6,
+    "dipSyncS": 0,
+    "riseBallIn": 90.1,
+    "riseKneeDeg": 33.5,
+    "elbowOffIn": 9,
+    "elbowBelowIn": 10.5,
+    "setH": 1.506,
+    "flareDeg": 0.9,
+    "handGapIn": 5.26,
+    "snapDegps": 900,
+    "gooseDeg": 49.2,
+    "holdS": 0,
+    "offUpDeg": 137.5,
+    "landKneeDeg": 40.9,
+    "landHipIn": 7.9,
+    "driftIn": 36.2,
+    "driftSideIn": 0.4,
+    "airS": 0.75,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": true,
+    "kneeDriveDeg": 0,
+    "rimHandS": 0.117
+   }
+  ],
+  "popsN": 11
+ },
+ {
+  "id": "putback",
+  "name": "putback from under the rim",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "putback": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "putback",
+    "kind": "other",
+    "ek": "layup",
+    "contest": 0,
+    "id": "s0",
+    "t0": 0.65,
+    "H": 6.75,
+    "released": true,
+    "jumpIn": 25.1,
+    "relS": 0.633,
+    "relH": 1.408,
+    "relIn": 114.1,
+    "relApexS": 0,
+    "closeFt": null,
+    "leanDeg": -8.1,
+    "dipBallIn": 6,
+    "dipHipIn": 3.8,
+    "dipKneeDeg": 18.9,
+    "dipSyncS": 0.017,
+    "riseBallIn": 71.4,
+    "riseKneeDeg": 14.6,
+    "elbowOffIn": 3.1,
+    "elbowBelowIn": 14.5,
+    "setH": 1.378,
+    "flareDeg": -6.3,
+    "handGapIn": 4.17,
+    "snapDegps": 708,
+    "gooseDeg": 66.3,
+    "holdS": 0.2,
+    "offUpDeg": 83.8,
+    "landKneeDeg": 24.4,
+    "landHipIn": 5,
+    "driftIn": 8.4,
+    "driftSideIn": 0,
+    "airS": 0.683
+   }
+  ],
+  "popsN": 2
+ },
+ {
+  "id": "putbackDunk",
+  "name": "putback dunk from under the rim",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "putbackDunk": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 1,
+   "dunkTwoFoot": 1,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 1,
+    "p50": 0.183,
+    "p90": 0.183,
+    "p99": 0.183,
+    "max": 0.183
+   },
+   "dunkLandKneeDeg": {
+    "n": 1,
+    "p50": 30.8,
+    "p90": 30.8,
+    "p99": 30.8,
+    "max": 30.8
+   }
+  },
+  "recs": [
+   {
+    "name": "putbackDunk",
+    "kind": "dunk",
+    "ek": "dunk",
+    "contest": 0,
+    "id": "s0",
+    "t0": 0.783,
+    "H": 6.83,
+    "released": true,
+    "jumpIn": 28.7,
+    "relS": 0.617,
+    "relH": 1.515,
+    "relIn": 124.2,
+    "relApexS": -0.017,
+    "closeFt": null,
+    "leanDeg": 11.3,
+    "dipBallIn": 4.1,
+    "dipHipIn": 0.5,
+    "dipKneeDeg": 3.7,
+    "dipSyncS": 0.05,
+    "riseBallIn": 80.9,
+    "riseKneeDeg": 30.8,
+    "elbowOffIn": 8.9,
+    "elbowBelowIn": 11.9,
+    "setH": 1.459,
+    "flareDeg": 1,
+    "handGapIn": 10.13,
+    "snapDegps": 458,
+    "gooseDeg": 40,
+    "holdS": 0,
+    "offUpDeg": 165.7,
+    "landKneeDeg": 30.8,
+    "landHipIn": 8.7,
+    "driftIn": 12.3,
+    "driftSideIn": 0,
+    "airS": 0.683,
+    "steps": 1,
+    "takeoffFoot": "R",
+    "hand": "R",
+    "twoFoot": true,
+    "kneeDriveDeg": 0,
+    "rimHandS": 0.183
+   }
+  ],
+  "popsN": 24
+ },
+ {
+  "id": "tip",
+  "name": "tip-in at the rim",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "tip": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 0,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 0,
+   "dunkRimHandS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dunkLandKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "name": "tip",
+    "kind": "other",
+    "ek": "tip",
+    "contest": 0,
+    "id": "s0",
+    "t0": 0.65,
+    "H": 6.75,
+    "released": true,
+    "jumpIn": 20.9,
+    "relS": 0.433,
+    "relH": 1.471,
+    "relIn": 119.1,
+    "relApexS": -0.017,
+    "closeFt": null,
+    "leanDeg": -4,
+    "dipBallIn": 3.4,
+    "dipHipIn": 0.1,
+    "dipKneeDeg": 0.2,
+    "dipSyncS": 0.1,
+    "riseBallIn": 23.2,
+    "riseKneeDeg": 60.9,
+    "elbowOffIn": 2,
+    "elbowBelowIn": 17.7,
+    "setH": 1.43,
+    "flareDeg": -2.7,
+    "handGapIn": -3.62,
+    "snapDegps": 364,
+    "gooseDeg": 86.7,
+    "holdS": 0.033,
+    "offUpDeg": 129.6,
+    "landKneeDeg": 22.8,
+    "landHipIn": 5,
+    "driftIn": 0,
+    "driftSideIn": 0,
+    "airS": 0.533
+   }
+  ],
+  "popsN": 9
+ },
+ {
+  "id": "alley",
+  "name": "alley-oop from a lob at the top",
+  "shot": {
+   "shots": 1,
+   "byName": {
+    "alley": 1
+   },
+   "jumpers": 0,
+   "jumpersAllPhases": 0,
+   "jumpersMissing": {
+    "dip": 0,
+    "rise": 0,
+    "apex": 0,
+    "follow": 0,
+    "land": 0
+   },
+   "dipBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipHipIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "dipSyncS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "riseBallIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "holdS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "landKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "driftIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowOffIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowBelowIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "snapDegps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "gooseDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relH": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "relS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchAndShoot": 0,
+   "catchToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShoot": 0,
+   "catchShootToRelS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "catchShootIn": 0,
+   "byContest": {},
+   "finishes": 0,
+   "finishFootworkOk": 0,
+   "finishSteps": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "finishWrongFoot": 0,
+   "kneeDriveDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "runners": 0,
+   "runnerFootOk": 0,
+   "freeThrows": 0,
+   "ftDribbles": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftRoutineS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftSpin": 0,
+   "ftBreath": 0,
+   "ftJumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "ftAllPhases": 0,
+   "dunks": 1,
+   "dunkTwoFoot": 0,
+   "dunkOneFootOk": 1,
+   "dunkRimHandS": {
+    "n": 1,
+    "p50": 0.083,
+    "p90": 0.083,
+    "p99": 0.083,
+    "max": 0.083
+   },
+   "dunkLandKneeDeg": {
+    "n": 1,
+    "p50": 41.8,
+    "p90": 41.8,
+    "p99": 41.8,
+    "max": 41.8
+   }
+  },
+  "recs": [
+   {
+    "name": "alley",
+    "kind": "dunk",
+    "ek": "alley",
+    "contest": 0,
+    "id": "s0",
+    "t0": 1.533,
+    "H": 6.67,
+    "released": true,
+    "jumpIn": 35.6,
+    "relS": 0.833,
+    "relH": 1.511,
+    "relIn": 120.9,
+    "relApexS": 0.083,
+    "closeFt": null,
+    "leanDeg": 11.9,
+    "dipBallIn": 0,
+    "dipHipIn": null,
+    "dipKneeDeg": null,
+    "dipSyncS": 0.15,
+    "riseBallIn": 41.1,
+    "riseKneeDeg": 2.2,
+    "elbowOffIn": 18.1,
+    "elbowBelowIn": 7.8,
+    "setH": 1.269,
+    "flareDeg": 8,
+    "handGapIn": 54.77,
+    "snapDegps": 3105,
+    "gooseDeg": 59.2,
+    "holdS": 0,
+    "offUpDeg": 125,
+    "landKneeDeg": 41.8,
+    "landHipIn": 8,
+    "driftIn": 26.1,
+    "driftSideIn": 9.6,
+    "airS": 0.8,
+    "steps": 2,
+    "takeoffFoot": "L",
+    "hand": "R",
+    "twoFoot": false,
+    "kneeDriveDeg": 78.4,
+    "rimHandS": 0.083
+   }
+  ],
+  "popsN": 52
+ }
+]

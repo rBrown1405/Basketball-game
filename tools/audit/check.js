@@ -571,6 +571,38 @@ console.log('the pass and the catch (Trial 10)');
   ok(calm.every(r => r.armPops <= 4), `hands and elbows without pops: at most ${Math.max(...calm.map(r => r.armPops))} in any of ${calm.length} scenarios (still open: ${rows.filter(r => calm.indexOf(r) < 0).map(r => r.name.replace(/ \(.*$/, '') + ' ' + r.armPops).join(', ')})`);
 }
 
+console.log('the shot (Trial 9)');
+{
+  // (the shot lab, js/match/shotlab.js: every shot planned and thrown by the game's own shot beat, measured by the shot meter)
+  const SH9 = require('./shot');
+  const rows = SH9.scenarios(PBC).map(sc => SH9.run(PBC, sc));
+  const recs = rows.flatMap(r => r.recs.map(x => Object.assign({ sc: r.id }, x)));
+  const T9 = M.Tune.debug, get = (id, i) => (rows.find(r => r.id === id) || { recs: [] }).recs[i || 0] || {};
+  ok(recs.length >= 26 && recs.every(x => x.released), `every shot let go: ${recs.length} shots in ${rows.length} scenarios`);
+  const J = recs.filter(x => x.kind === 'jumper');
+  const miss = (x) => [x.dipBallIn >= T9.shotDipMinIn && x.dipHipIn >= T9.shotDipHipMinIn && x.dipSyncS <= T9.shotDipSyncS ? '' : 'dip', x.riseBallIn >= T9.shotRiseMinIn ? '' : 'rise',
+    x.relApexS >= -T9.shotApexBeforeS && x.relApexS <= T9.shotApexAfterS ? '' : 'apex', x.holdS >= T9.shotHoldMinS ? '' : 'follow', x.landKneeDeg >= T9.shotLandMinDeg ? '' : 'land'].filter(Boolean);
+  const bad = J.filter(x => miss(x).length);
+  ok(J.length >= 12 && !bad.length, `every jump shot (${J.length}) dips (the ball and hips together), rises, lets go near the top of the jump, holds the follow-through and gives on landing${bad.length ? ': missing ' + bad.map(x => x.sc + ' ' + miss(x).join('/')).join(', ') : ''}`);
+  const Fn = recs.filter(x => x.kind === 'finish' || x.kind === 'runner' || (x.kind === 'dunk' && !/^putback/.test(x.name)));
+  // (a runner, the floater or the hook, pushes off with less of a knee drive: two thirds of it)
+  const footBad = Fn.filter(x => (x.kind === 'finish' && x.steps !== 2) || (x.name === 'dunk2' ? !x.twoFoot : x.twoFoot || x.takeoffFoot === x.hand || x.kneeDriveDeg < T9.shotKneeDriveDeg * (x.kind === 'runner' ? 2 / 3 : 1)));
+  ok(Fn.length >= 9 && !footBad.length, `every finish off the right feet: layups two steps after the gather and off the foot away from the hand, the other knee driving (left-handed too); one-foot dunks and runners off that foot; the power dunk off two${footBad.length ? ': wrong ' + footBad.map(x => x.sc).join(', ') : ''}`);
+  const dk = recs.filter(x => x.kind === 'dunk');
+  ok(dk.every(x => x.rimHandS >= 0.05 && x.landKneeDeg >= 20), `the dunks: a hand on the rim (${dk.map(x => x.rimHandS).join(', ')} s) and a landing that gives (${dk.map(x => x.landKneeDeg).join(', ')} deg at the knee)`);
+  const fts = recs.filter(x => x.kind === 'ft');
+  ok(fts.length === 2 && fts.every(x => x.routineS >= 2 && x.routineS <= 4.5 && (x.jumpIn || 0) < 0.5 && x.holdS >= 0.8) && fts[0].dribbles === 2 && fts[1].dribbles === 3 && fts[1].spin && fts.every(x => x.breath),
+    `the free throw: a routine of ${fts.map(x => x.routineS).join(' and ')} s (${fts.map(x => x.dribbles + ' dribbles' + (x.spin ? ', a spin' : '') + (x.breath ? ', a deep breath' : '')).join('; ')}), no jump, the follow-through held ${fts.map(x => x.holdS).join(', ')} s`);
+  const A9 = get('spotA'), B9 = get('spotB');
+  const dif = [['release height', Math.abs(A9.relIn - B9.relIn), 3, 'in'], ['set point', Math.abs(A9.setH - B9.setH) * 78, 2, 'in'], ['jump', Math.abs(A9.jumpIn - B9.jumpIn), 3, 'in'],
+    ['release time', Math.abs(A9.relS - B9.relS), 0.15, 's'], ['follow-through held', Math.abs(A9.holdS - B9.holdS), 0.3, 's'], ['elbow off the line', Math.abs(A9.elbowOffIn - B9.elbowOffIn), 2, 'in']];
+  ok(A9.name === 'jumpshot' && B9.name === 'jumpshot2' && dif.every(d => d[1] >= d[2]), `two shooters of one size told apart by their form alone: one motion against two, and ${dif.map(d => d[0] + ' ' + d[1].toFixed(2) + ' ' + d[3]).join(', ')}`);
+  const cA = get('cnsA'), cB = get('cnsB');
+  ok([cA, cB].every(x => x.catchToRelS >= T9.shotCnsMinS && x.catchToRelS <= T9.shotCnsMaxS + 0.06), `catch and shoot let go ${cA.catchToRelS} s and ${cB.catchToRelS} s after the catch (NBA ~0.5-0.8 s)`);
+  const op = get('open'), ct = get('contested');
+  ok(ct.relIn > op.relIn + 0.5 && ct.relS < op.relS && ct.leanDeg < op.leanDeg - 3, `a contested jumper against the same one open: released higher (${ct.relIn} against ${op.relIn} in), quicker (${ct.relS} against ${op.relS} s), leaning away (${ct.leanDeg} against ${op.leanDeg} deg)`);
+}
+
 console.log('the floor and the weight in a real game (the first minute of seed 7)');
 {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'quarter.js'), '--seed', '7', '--frames', '3600'], { encoding: 'utf8', maxBuffer: 1 << 26 });

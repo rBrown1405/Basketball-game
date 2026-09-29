@@ -2067,8 +2067,17 @@
       // (a foot still in the air goes on from where it is: restarted from the spot it last stood on, it jumped back
       // there for a frame)
       const inAir = f.state === 'swing' && f.ax != null;
-      if (inAir) { f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow != null ? f.yawNow : f.yaw; f.p0 = f.pitchNow || 0; f.l0 = null; }
-      else this._liftStart(f);
+      f.v0x = 0; f.v0y = 0;
+      if (inAir) {
+        f.x0 = f.ax; f.y0 = f.ay; f.z0 = f.az; f.yaw0 = f.yawNow != null ? f.yawNow : f.yaw; f.p0 = f.pitchNow || 0; f.l0 = null;
+        // (and at the speed it was going: started from rest it stopped dead in the air and set off again, the toes and knee
+        // popping, as a layup's first step took over a running stride's foot, Trial 9)
+        const dv = (f.paT || 0) - (f.paT2 || 0);
+        if (f.pax != null && f.pax2 != null && dv > 1e-4 && dv < 0.05 && this.time - f.paT < 0.05) {
+          const vx = (f.pax - f.pax2) / dv, vy = (f.pay - f.pay2) / dv, vl = Math.hypot(vx, vy), k = vl > 30 ? 30 / vl : 1;
+          f.v0x = vx * k; f.v0y = vy * k;
+        }
+      } else this._liftStart(f);
       f.state = 'swing'; f.mode = 'step'; f.s = 0; f.dur = dur; f.trk = null; f.liftKind = 'step';
       f.liftT = this.time; this._lastSwing = f.side; f.liftPending = false;
       f.tx = tx; f.ty = ty; f.tyaw = tyaw; f.h = lift * this.H; f.arc = null; f.stanceStep = false; f.easeOut = false;
@@ -2114,6 +2123,8 @@
         const th = th0 + dth * e, r = r0 + (r1 - r0) * e;
         f.ax = arc.x + Math.cos(th) * r; f.ay = arc.y + Math.sin(th) * r;
       } else this._swingClear(f, e, f.x0, f.y0, a1[0], a1[1], f.h * Math.sin(Math.PI * f.s), dt);
+      // (a step taken over from a foot already moving carries its speed on and eases it out: Hermite, s(1 - s)^2)
+      if ((f.v0x || f.v0y) && !f.easeOut) { const h = f.s * (1 - f.s) * (1 - f.s) * f.dur; f.ax += f.v0x * h; f.ay += f.v0y * h; }
       f.az = f.z0 + (a1[2] - f.z0) * e + f.h * Math.sin(Math.PI * f.s);
       if (f.stanceStep) {
         // (in the body's own terms: a foot in the air comes round with the hips the short way and never points more
@@ -2211,9 +2222,13 @@
       if (!j || t <= j.t0 || t >= j.t1) return 0;
       const u = (t - j.t0) / (j.t1 - j.t0);
       const h = cs.jumpH != null ? cs.jumpH : j.h * this.H * (0.85 + this.rVert * 0.3);
-      if (j.hang && !cs.noHang && t > j.hang[0] && t < j.hang[1]) {
+      if (j.hang && !cs.noHang && t > j.hang[0]) {
         const uh = (j.hang[0] - j.t0) / (j.t1 - j.t0);
-        return 4 * h * uh * (1 - uh);
+        if (t < j.hang[1]) return 4 * h * uh * (1 - uh);
+        // (let go of the rim: the rest of the drop from the hang, down by the landing; picked up where the clock was, the
+        // body fell ~1 ft in a frame as the hang ended, every joint popping, Trial 9)
+        const v = uh + (1 - uh) * (t - j.hang[1]) / Math.max(1e-3, j.t1 - j.hang[1]);
+        return 4 * h * v * (1 - v);
       }
       return 4 * h * u * (1 - u);
     }
@@ -2308,6 +2323,9 @@
         for (const f of this.feet) f.state = 'air';
       } else {
         for (const f of this.feet) {
+          // (a foot the move lifts off the floor early: the swing leg of a one-foot take-off, its knee driving up as the other
+          // foot plants and pushes off; put down on its step, the take-off came off both feet, Trial 9)
+          if (clip.lifts && (!clip.jump || cs.t < clip.jump.t0) && clip.lifts.some(q => ((q.foot === 'r') !== !!cs.mirror ? 1 : 0) === f.side && cs.t >= q.t)) { f.state = 'air'; continue; }
           if (f.state === 'air') this._landFoot(f, this.facing + (f.side ? -1 : 1) * 10 * D);
           if (f.state === 'swing' && f.mode === 'step') this._advanceStep(f, dt);
           else if (f.state === 'plant' && this.feet[1 - f.side].state !== 'air') {
@@ -2316,7 +2334,15 @@
             const dist = Math.hypot(f.x - hx, f.y - hy);
             // a scripted step for this foot starting very soon takes care of it
             let soon = false;
-            if (clip.steps) for (const stp of clip.steps) { const sd = (stp.foot === 'r') !== cs.mirror ? 1 : 0; if (sd === f.side && stp.t0 >= cs.t - 0.02 && stp.t0 - cs.t < 0.1) soon = true; }
+            // (the zero step: a foot planted at the gather stays down until its own step, strained or not, when that step is near,
+            // Tune.shot.zeroHoldS: corrected as the move got going, the layup's steps went three, Trial 9)
+            if (clip.steps) for (const stp of clip.steps) { const sd = (stp.foot === 'r') !== cs.mirror ? 1 : 0; if (sd === f.side && stp.t0 >= cs.t - 0.02 && (stp.t0 - cs.t < 0.1 || (stp.t0 - cs.t < M.Tune.shot.zeroHoldS && dist < 0.45 * this.H))) soon = true; }
+            // (nor the first step's foot before the move lifts it into the knee drive: squared up again on a slow start, the steps
+            // went three)
+            if (clip.lifts) for (const q of clip.lifts) { const sd = (q.foot === 'r') !== cs.mirror ? 1 : 0; if (sd === f.side && q.t >= cs.t - 0.02 && q.t - cs.t < M.Tune.shot.zeroHoldS && dist < 0.45 * this.H) soon = true; }
+            // (and none in the last moments before a jump: the legs are pushing off; a foot squared up ~0.03 s before a jump
+            // shot's take-off left the floor twice, popping, Trial 9)
+            if (clip.jump && cs.t > clip.jump.t0 - M.Tune.shot.noStepBeforeJumpS && cs.t < clip.jump.t0) soon = true;
             // (or its hip held at the end of its range over it by the hip guard, Trial 3: dragged, it slipped)
             const strained = (f.strain || 0) > M.Tune.hipGuard.stepAtH && this.jumpZ < 0.05;
             if (!soon && this.time - landedAt(f) >= M.Tune.floor.hardMinStanceS - 1e-6 && (strained || dist > 0.33 * this.H || (!clip.steps && dist > 0.28 * this.H && (this.feet[1 - f.side].state === 'plant' || dist > 0.4 * this.H)))) {
@@ -3337,6 +3363,7 @@
         } else {
           f.swv = 0; f.swvV = 0; f.swRef = null; ik.swv = 0; ik.swRef = null; ik.swNew = false;
           ik.x = f.ax; ik.y = f.ay; ik.z = f.az; ik.yaw = f.yawNow != null ? f.yawNow : f.yaw; ik.pitch = f.pitchNow || 0;
+          if (f.paT !== this.time) { f.pax2 = f.pax; f.pay2 = f.pay; f.paT2 = f.paT; }
           f.pax = f.ax; f.pay = f.ay; f.paT = this.time;
           // (fully soft in mid-swing; a walker's leg reaches its heel strike exactly so the plant does not jump,
           // a runner's landing is kept reachable by the pelvis settling instead)
@@ -4463,6 +4490,8 @@
           ik.x = this.x + s * st.ox + c * st.oy; ik.y = this.y - c * st.ox + s * st.oy; ik.z = st.oz + this.jumpZ;
           st.src = null; st.xf = null;
         } else { st.has = false; st.src = null; st.xf = null; st.t.reset(); }
+        // (an arm letting go of what it held: its wrist blended round the shoulder near full reach, Rig._armIK, Trial 9)
+        ik.letGo = !(want > 0.001) && st.w > 0.001 && st.has;
         // (eased in and out, a grip or a reach coming on over the ramp without a jolt at either end, Trial 8; the dribble's
         // own weights come eased already)
         ik.on = st.src === 'drib' || src[side] === 'drib' ? st.w : U.smooth(st.w);

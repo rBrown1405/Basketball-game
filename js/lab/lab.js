@@ -340,6 +340,22 @@
     }
   }
 
+  // shots (Trial 9): every shot of the shot audit (tools/audit/shot.js), planned and thrown by the game's own shot beat
+  // (js/match/shotlab.js: the approach, the shooter's own form, the release, the ball to a real hoop), with its bodies (a
+  // passer, a defender, the official at the free throw line); the camera follows the shooter
+  if (M.ShotLab && M.Director) {
+    for (const s of M.ShotLab.scenarios()) {
+      const words = s.name.charAt(0).toUpperCase() + s.name.slice(1);
+      add('Shooting (the shot lab)', 'shot:' + s.id, words, s.T + 0.8, (c) => {
+        const SL = M.ShotLab, pc = { M, a: c.bodies, b: c.b, at: c.at, D: SL.director(c.W, c.now, c.at) };
+        pc.hold = (who, how) => { who.ballHold = how || 'chest'; const hp = who.heldBallPos([0, 0, 0]); c.b.x = hp[0]; c.b.y = hp[1]; c.b.z = hp[2]; c.b.give(who, how || 'chest'); };
+        pc.shoot = (o) => SL.stageShot(pc, o);
+        pc.pass = (from, to, o) => M.PassLab.stagePass({ M, b: c.b, at: c.at, D: pc.D }, from, to, o);
+        s.setup(pc);
+      }, { bodies: s.bodies });
+    }
+  }
+
   // every clip in the library, grouped
   const GROUPS = {
     Shooting: ['jumpshot', 'jumpshot2', 'pullup', 'stepback', 'fadeaway', 'freethrow', 'floater', 'hook', 'postFadeL', 'postFadeR'],
@@ -464,6 +480,26 @@
       b.x = x0 + 3; b.y = y0; b.z = 0.39;
       const ctx = { W, a, b, f0, fx: Math.cos(f0), fy: Math.sin(f0), rx: Math.sin(f0), ry: -Math.cos(f0), x0, y0, ev: [] };
       if (sc.two) { ctx.d = W.add(makeLook(ls, 1), 1); }
+      // (a scenario with its own bodies, the shot lab's: players of the given size, hand, spring, shot form and free throw
+      // routine, and an official; the first is the one the camera follows)
+      if (sc.bodies) {
+        W.list.length = 0; W.onCourt = [[], []]; W.actors = {}; W.refs = [];
+        ctx.bodies = sc.bodies.map((bd, i) => {
+          let x;
+          if (bd.ref) {
+            x = new M.Actor(W, { id: 'ref' + i, num: 14, height: 74, weight: 200, gender: 'm', look: { skin: 1, hair: 'bald', beard: 'none', build: 0.4 } }, -1, 'ref');
+            x.setStance('refStand'); W.actors[x.id] = x; W.list.push(x); W.refs.push(x); x.sk.limHits = new Uint8Array(RG.NCH);
+          } else {
+            const lk = makeLook(Object.assign({}, set, { height: bd.h || set.height, height2: bd.h || set.height, hand: bd.hand || 'R' }), i ? 1 : 0);
+            lk.id = 'lab' + i; lk.teamIdx = bd.team; if (bd.vert) lk.vert = bd.vert;
+            x = W.add(lk, bd.team);
+            if (bd.form) x.shotForm = M.ShotLab.FORMS[bd.form];
+            if (bd.ft) x._ftRoutine = Object.assign({}, bd.ft);
+          }
+          return x;
+        });
+        ctx.a = ctx.bodies[0];
+      }
       // (the scenario's clock, for a scenario that schedules on it: the two-player passes' Director)
       ctx.now = () => this.simT;
       ctx.at = (t, fn) => { ctx.ev.push({ t, fn }); ctx.ev.sort((p, q) => p.t - q.t); };
@@ -632,6 +668,7 @@
       const lookH = 0.45 * a.H + (this.focusUp || 0), camZ = camH + (this.focusUp || 0);
       cam.setPose(this.focus.x, this.focus.y - dist, camZ, Math.atan2(camZ - lookH, dist), 1.25 * cam.H);
       this.drawFloor(g);
+      if (W.hoops) this.drawHoop(g, W.hoops[1]);
       if (set.ov.trails) this.drawPrints(g);
       // people, farthest first
       const people = W.list.map(p => ({ sk: this.displaySk(p), style: p.style, a: p }));
@@ -721,6 +758,28 @@
           g.beginPath(); pts.forEach((q, k) => (k ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y))); g.closePath(); g.fill();
         });
       }
+    }
+    /** a basket for the shot lab: the backboard, the ring and a net (drawn behind the players; the ball through it is enough
+     *  to read the shot) */
+    drawHoop(g, ho) {
+      // (proj hands back one shared point: copied as it comes)
+      const bx = ho.bx, rx = ho.rx, ry = ho.ry, pts = (arr) => arr.map(q => { const p = this.proj(q[0], q[1], q[2]); return [p.x, p.y]; });
+      g.save();
+      // (the backboard, 6 ft wide and 3.5 ft tall, its bottom 9 ft up; the stanchion's arm)
+      const bd = pts([[bx, ry - 3, 9], [bx, ry + 3, 9], [bx, ry + 3, 12.5], [bx, ry - 3, 12.5]]);
+      g.fillStyle = 'rgba(200,220,240,0.18)'; g.strokeStyle = 'rgba(235,240,250,0.9)'; g.lineWidth = 2;
+      g.beginPath(); bd.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fill(); g.stroke();
+      const sq = pts([[bx, ry - 1, 10], [bx, ry + 1, 10], [bx, ry + 1, 11.5], [bx, ry - 1, 11.5]]);
+      g.beginPath(); sq.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke();
+      // (the ring and the net)
+      const ring = [], net = [];
+      for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2; ring.push([rx + Math.cos(a) * 0.75, ry + Math.sin(a) * 0.75, 10]); net.push([rx + Math.cos(a) * 0.4, ry + Math.sin(a) * 0.4, 8.6]); }
+      const rp = pts(ring), np = pts(net);
+      g.strokeStyle = 'rgba(245,245,245,0.55)'; g.lineWidth = 1;
+      g.beginPath(); for (let i = 0; i < 24; i += 2) { g.moveTo(rp[i][0], rp[i][1]); g.lineTo(np[(i + 3) % 24][0], np[(i + 3) % 24][1]); g.moveTo(rp[i][0], rp[i][1]); g.lineTo(np[(i + 21) % 24][0], np[(i + 21) % 24][1]); } g.stroke();
+      g.strokeStyle = '#e8521f'; g.lineWidth = 3;
+      g.beginPath(); rp.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.stroke();
+      g.restore();
     }
     drawBallShadow(g, b) {
       const p = this.proj(b.x, b.y, 0);

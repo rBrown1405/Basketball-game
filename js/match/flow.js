@@ -368,6 +368,10 @@
     const b = this.v.ball, a = b.holder, T = this.T;
     if (!a || b.state !== 'dribble' || !b.dr || b.dr.actor !== a || b.dr.move || b.dr.pendingMove || a.isBusy()) return;
     if (a._drive && T < a._drive.tEnd) return;
+    // (nor with the handler's own shot coming: a move under way as a layup or pull-up began kept the ball from the gather,
+    // the move starting on a ball snatched off the floor and the steps going three, Trial 9)
+    const bt = this.beat;
+    if (bt && !bt.fired && bt.type === 'shot' && bt.ev && bt.ev.shooter === a.id && bt.fireAt - T < M.Tune.shot.noMoveBeforeShotS) return;
     const hs = a._hs || (a._hs = { next: T + 0.3 + Math.random() * 0.5 });
     if (T < hs.next) return;
     const skill = a.rHandle == null ? 0.5 : a.rHandle;

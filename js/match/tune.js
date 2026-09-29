@@ -107,6 +107,21 @@
       // ball is more than passBentIn off its own ballistic path; the ball stops dead at a catch (a teleport, no absorb) when
       // it slows faster than passStopFtps2 in a frame, and a catch is watched this long after (passAfterS)
       passSetFt: 0.5, passEyeDeg: 30, passBentIn: 1, passStopFtps2: 1500, passAfterS: 0.3,
+      // the shot (Trial 9): the set is read shotSetLeadS before the release; the follow-through is held while the shooting
+      // arm is raised past shotHoldShFDeg (0 hanging, 180 straight up), the elbow within shotHoldElFDeg of straight and the
+      // fingers pointing forward over the wrist past shotHoldWrFDeg (the gooseneck; 0 straight up), from the wrist's snap
+      // within shotSnapS of the release; the
+      // landing is watched shotLandS; a take-off is off two feet when both leave the floor within shotTwoFootS of each other;
+      // a dunker's hand is on the rim within shotRimHandFt of its spot
+      shotSetLeadS: 0.1, shotSnapS: 0.25, shotHoldShFDeg: 110, shotHoldElFDeg: 35, shotHoldWrFDeg: 20, shotLandS: 0.35, shotTwoFootS: 0.07, shotRimHandFt: 0.5,
+      // ...and a jump shot has its phases when the ball dips shotDipMinIn and the hips shotDipHipMinIn within shotDipSyncS of
+      // each other, the ball rises shotRiseMinIn to the release, the release comes between shotApexBeforeS before and
+      // shotApexAfterS after the top of the jump, the follow-through is held shotHoldMinS and the knees give shotLandMinDeg
+      // on landing; a finish drives the free knee past shotKneeDriveDeg
+      shotDipMinIn: 2, shotDipHipMinIn: 1, shotDipSyncS: 0.12, shotRiseMinIn: 12, shotApexBeforeS: 0.15, shotApexAfterS: 0.04,
+      shotHoldMinS: 0.35, shotLandMinDeg: 5, shotKneeDriveDeg: 60,
+      // ...and a catch-and-shoot is let go shotCnsMinS to shotCnsMaxS after the catch (NBA: ~0.5-0.8 s)
+      shotCnsMinS: 0.5, shotCnsMaxS: 0.8,
       colors: {
         ok: '#3ecf8e', warn: '#f2c14e', bad: '#ff4d5a', sink: '#b46bff', hover: '#5ad1ff',
         vel: '#f07a1a', acc: '#39c6ff', face: '#ffffff', chest: '#ffb86b', want: 'rgba(255,255,255,0.35)',
@@ -181,6 +196,13 @@
       // straight line, or round the shoulder where that line passes nearer the shoulder than armBlendFarK of the shorter
       // reach (all of the way round nearer than armBlendNearK)
       armBlendNearK: 0.45, armBlendFarK: 0.65,
+      // ...and round it, too, for an arm letting go between two wrists both further out than armBlendLongK of the arm's full
+      // reach (all of the way round from 0.1 more), where the straight line passes inside the reach and bends the elbow
+      armBlendLongK: 0.8,
+      // an arm solved toward its animated elbow, the animated arm bent less than this (deg): the elbow goes the way the animated
+      // one would bulge, square to its hinge (Trial 9: nearly straight, the side the animated elbow gave flipped through a
+      // jump shot's push, and the hand turned over with it)
+      armStraightDeg: 25,
     },
 
     // ---------------------------------------------------------------- spine as a chain (Trial 2)
@@ -276,6 +298,78 @@
                                     // catches on the move)
       eyeLeadS: 0.15,               // the eyes on the ball this far ahead along its flight (s): the head's own spring lags
                                     // about as much
+    },
+
+    // ---------------------------------------------------------------- the shot (Trial 9)
+    // Every jump shot (one and two motion, the pull-up, the step-back, the fadeaway) and the free throw is built from these
+    // phases (clips.js, M.Anims.shotClip), at the shooter's own speed 1 (s) and depths (H: the body's height). NBA and
+    // coaching references: catch-and-shoot releases ~0.5-0.8 s after the catch (league average ~0.54 s); the ball and the
+    // knees dip together; the ball is released just before the top of the jump (elite shooters ~0.06 s before it); the
+    // follow-through is held until the ball gets to the rim; a longer shot carries the body a little further forward.
+    shot: {
+      gatherS: 0.03,                // the ball into the pocket before the dip starts
+      dipS: 0.13,                   // down into the dip: the ball and the knees go down together...
+      dipBallH: 0.09,               // ...the ball this far below the pocket (H), the hips dipHipH, the knees to dipKneeDeg
+      dipHipH: 0.07, dipKneeDeg: 70,
+      riseS: 0.24,                  // the bottom of the dip to the take-off: the legs extend, the ball comes up the shot's line
+      pushS: 0.06,                  // the release: the push this long before it, the set point setS before the push...
+      setS: 0.08,
+      relApexS: 0.06,               // ...and the release this long before the top of the jump
+      snapS: 0.06,                  // the wrist's snap into the gooseneck after the release
+      reachK: 0.97,                 // from the set on the ball's keys stay within this share of the arm's length from the
+                                    // shoulder (the elbow ~25 deg short of straight at a key, the curve between reaching
+                                    // ~0.99: straight, its side of the line was lost)
+      jumpH: 0.13,                  // the jump (H, before the player's spring and form); its airtime from real gravity (sqrt(8 h / g))
+      holdS: 0.6,                   // the follow-through held this long after the release (the gooseneck, the guide hand up)...
+      relaxS: 0.2, downS: 0.15,     // ...then the arms relax and come down together
+      landS: 0.1,                   // the landing: the knees give to landKneeDeg and the hips drop landHipH over landS, and
+      landKneeDeg: 44, landHipH: 0.05, // come back up over landUpS
+      landUpS: 0.25,
+      driftFt: 0.35,                // the landing this much further toward the rim than the take-off (ft)
+      noStepBeforeJumpS: 0.2,       // no foot squares up under the body this close before a jump's take-off (s): the legs push off
+      gatherBallWaitS: 0.4,         // a layup or dunk off the dribble picks the ball up as it comes up into the hand with the zero-step
+                                    // foot down, waiting up to this long (s, a bounce) for it (twice that, through a dribble move or a
+                                    // foot in the air)...
+      gatherFootWaitS: 0.2,         // ...and up to this long (s) more to gather it with the foot that stays down (the zero step)
+                                    // on the floor: the two steps after it are then the right two
+      zeroLandFtps: 4,              // slower than this (ft/s, a walk), a zero-step foot still in a gait swing is brought down before
+      zeroLandS: 0.1,               // the gather in a quick short step this long (s)
+      zeroHoldS: 0.35,              // a foot planted at the gather is not squared up under the body when its own step in the move
+                                    // comes within this long (clip s): it stays down until that step
+      pullGatherS: 0.25,            // a jumper off the dribble asks for the ball into the hands this long before its move (s)
+      noMoveBeforeShotS: 1.6,       // the handler starts no dribble move (crossover, between the legs...) this close before the
+                                    // handler's own shot (s before the release)
+      jumpSlipFt: 2.5,              // a jump shot waits for its shooter to get within this of where it starts (ft)...
+      jumpWaitS: 1.5,               // ...this long at most (s) past its planned start
+      dunkReachH: 1.24,             // a dunk only for a player whose reach (this x height, the arm up) plus the dunk's own jump comes
+                                    // to this (ft, each dunk's own: set from where the Lab's dunks first get a hand on the rim, for
+                                    // heights 6-0 to 6-9 and springs 40 to 95); anyone shorter lays it up
+      dunkRimFt: { dunk: 10.6, dunk2: 10.5, putbackDunk: 9.95 },
+      pullUpFromFt: 6,              // a jumper the shooter takes off the dribble from further than this off its spot is a pull-up (ft),
+                                    // and so is any jump shot started straight out of a dribble
+      cnsHoldS: 0.1,                // a catch-and-shoot holds the ball at most this much longer than the shot itself needs (s)
+      // two-motion (the ball set over the forehead while the legs are still loaded, then the legs drive): its deeper dip
+      // and the set, then the drive to the take-off; its release nearer the top of the jump
+      dip2S: 0.13, set2S: 0.3, drive2S: 0.14, relApex2S: 0.03,
+      // a player's own form (M.Anims.shotForm), drawn once per player from these ranges (a better shooter toward the quicker,
+      // higher, cleaner end): the speed, the release and set heights (H, + higher), the elbow out from the shot's line (deg),
+      // the jump and the dip (x), the follow-through held (s), the release before the top of the jump (s), the drift (x),
+      // the lean back in the air (deg); some kick a leg out on the way up (kickP), some shoot in two motions (a quarter of
+      // the players, half of those 6-8 and up)
+      form: {
+        speed: [0.92, 1.08], relH: [-0.03, 0.025], setH: [-0.03, 0.02], flareDeg: [0, 12], jump: [0.8, 1.2], dip: [0.8, 1.3],
+        holdS: [0.4, 0.95], relApexS: [0.03, 0.09], drift: [0.5, 1.6], lean: [0, 4], kickP: 0.12, twoMotionP: 0.25, twoMotionBigP: 0.5,
+      },
+      // a contested shot (the contest 0-1: open, contested, tight): released higher (H) and quicker (x speed), a higher jump
+      // (x), leaning away from the contest (deg) and a little earlier before the top of the jump (s)
+      contestRelH: 0.02, contestSpeed: 1.08, contestJump: 1.1, contestLeanDeg: 6, contestApexS: 0.02,
+      // the free throw: a shallower dip (x the jumper's), no jump (up onto the toes), the follow-through held longer (+ s)
+      ftDip: 0.6, ftHoldS: 0.25,
+      // ...and the routine before it (M.Anims.ftRoutine): the official's bounce pass comes ftCatchS before the routine starts;
+      // each player dribbles 0-4 times (the shares of each count, dribbleP) at their own pace (s a bounce), some spin the ball
+      // in their hands (spinP, ftSpinS), most take a deep breath (breathP, ftBreathS), then the set (ftSetS) and the shot
+      ftRoutine: { dribbleP: [0.1, 0.25, 0.35, 0.2, 0.1], periodS: [0.55, 0.72], spinP: 0.4, breathP: 0.75 },
+      ftCatchS: 0.75, ftSpinS: 0.45, ftBreathS: 1.0, ftSetS: 0.35, ftSpinRps: 2.5,
     },
 
     // ---------------------------------------------------------------- planted hip guard (Trial 2)

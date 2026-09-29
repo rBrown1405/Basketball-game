@@ -452,9 +452,14 @@
           const near = ch > 1e-4 ? fl * gl * sA / ch : fl, onSeg = (fx * (fx - Dx) + fy * (fy - Dy) + fz * (fz - Dz)) > 0 && (Dx * (Dx - fx) + Dy * (Dy - fy) + Dz * (Dz - fz)) > 0;
           // (not for two ways nearly opposite, where turning round is not defined: faded out from ~165 deg)
           const TB = M.Tune.limits, k = onSeg && A > 0.05 && sA > 0.1 ? (1 - U.smooth((near / Math.max(1e-4, Math.min(fl, gl)) - TB.armBlendNearK) / (TB.armBlendFarK - TB.armBlendNearK))) * (A > Math.PI / 2 ? U.smooth((sA - 0.1) / 0.15) : 1) : 0;
-          if (k > 0) {
+          // (and round, too, for an arm letting go between two wrists both near its full reach: the straight line between them
+          // passes inside it, the elbow bending ~10-30 deg on the way; a jump shot's arm re-bent that much as the hands let go of
+          // the ball at the release, Trial 9. Only letting go: taken round for a hand reaching out to a catch, it met the ball's
+          // path early)
+          const kL = ik.letGo && A > 1e-3 && A < 1.2 ? U.smooth((Math.min(fl, gl) / rm - TB.armBlendLongK) / 0.1) : 0, kk = Math.max(k, kL);
+          if (kk > 0) {
             const k0 = Math.sin((1 - w) * A) / (sA * fl), k1 = Math.sin(w * A) / (sA * gl), L = fl + (gl - fl) * w;
-            Dx = lx + ((fx * k0 + Dx * k1) * L - lx) * k; Dy = ly + ((fy * k0 + Dy * k1) * L - ly) * k; Dz = lz + ((fz * k0 + Dz * k1) * L - lz) * k;
+            Dx = lx + ((fx * k0 + Dx * k1) * L - lx) * kk; Dy = ly + ((fy * k0 + Dy * k1) * L - ly) * kk; Dz = lz + ((fz * k0 + Dz * k1) * L - lz) * kk;
           } else { Dx = lx; Dy = ly; Dz = lz; }
         }
         const ex = P[o + 3] - sx, ey = P[o + 4] - sy, ez = P[o + 5] - sz;
@@ -463,6 +468,17 @@
         if (ik.fkPole) {
           // the elbow bulges the way the animated arm's elbow does (a clip's key poses, and everything between)
           px = qx / ql; py = qy / ql; pz = qz / ql; pole = PFK;
+          // (an animated arm nearly straight has its elbow barely off the shoulder-wrist line, and which side it is on is noise:
+          // through a jump shot's push it crossed the line, from under the ball pointing at the rim to up behind the arm, and
+          // the solved elbow and forearm turned over with it, the hand flipping ~140 deg in a frame, Trial 9. Under
+          // Tune.limits.armStraightDeg of bend it is the way the animated elbow would bulge, square to its hinge, instead)
+          const eA = p[CH[pre + 'ElF']], S = M.Tune.limits.armStraightDeg * U.DEG;
+          if (eA < S) {
+            const u = (side === 0 ? F.L_UA : F.R_UA) * 9, yx = -R[u + 1], yy = -R[u + 4], yz = -R[u + 7];
+            const hx = R[18] * yx + R[21] * yy + R[24] * yz, hy = R[19] * yx + R[22] * yy + R[25] * yz, hz = R[20] * yx + R[23] * yy + R[26] * yz;
+            const k = U.smooth(eA / S);
+            px = px * k + hx * (1 - k); py = py * k + hy * (1 - k); pz = pz * k + hz * (1 - k);
+          }
         } else if (pole) {
           // and the elbow turns from where the animated elbow points to the pole
           const pl = Math.hypot(pole[0], pole[1], pole[2]) || 1;
@@ -843,6 +859,11 @@
       pl = Math.sqrt(px * px + py * py + pz * pz) || 1;
     }
     px /= pl; py /= pl; pz /= pl;
+    armSide(ux0, uy0, uz0, a, r, nx, ny, nz, L1, L2, px, py, pz, sg, f0, b0);
+    return PSOL;
+  }
+  /** armPole's solve for the elbow on the pole's side (px, py, pz: unit, square to the shoulder-wrist line) into PSOL */
+  function armSide(ux0, uy0, uz0, a, r, nx, ny, nz, L1, L2, px, py, pz, sg, f0, b0) {
     // elbow and the two bone directions
     const ex = a * ux0 + r * px, ey = a * uy0 + r * py, ez = a * uz0 + r * pz;
     const ux = ex / L1, uy = ey / L1, uz = ez / L1;
@@ -868,7 +889,6 @@
     const d1 = Math.abs(U.wrapPi(f1 - f0)) + Math.abs(U.wrapPi(b1 - b0)), d2 = Math.abs(U.wrapPi(f2 - f0)) + Math.abs(U.wrapPi(b2 - b0));
     const two = v2 * 4 + d2 < v1 * 4 + d1;
     PSOL.f = two ? f2 : f1; PSOL.b = two ? b2 : b1; PSOL.t = two ? t2 : t1;
-    return PSOL;
   }
   /** how far (radians, summed) a shoulder solution lies outside the joint limits (f = ShF, -sg b = ShA, sg t = ShT) */
   function armViolation(f, b, t, sg) {
