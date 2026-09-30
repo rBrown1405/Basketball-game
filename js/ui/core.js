@@ -142,7 +142,7 @@
     nav.innerHTML = `
       <div class="brand" data-nav="home">${UI.logo(34)}<div class="brand-t">Pro BBALL<small>COACH</small></div></div>
       ${gkeys.map(g => `<div class="nav-group"><div class="nav-group-t">${g}</div>${groups[g].map(n => `
-        <a class="nav-a ${current.key === n.key ? 'active' : ''}" data-nav="${n.key}"><span class="nav-ico">${n.icon || '•'}</span><span>${n.label}</span>${n.dot && S && n.dot(S) ? '<i class="badge-dot"></i>' : ''}</a>`).join('')}</div>`).join('')}
+        <a class="nav-a ${current.key === n.key || (screens[current.key] && screens[current.key].navKey === n.key) ? 'active' : ''}" data-nav="${n.key}"><span class="nav-ico">${n.icon || '•'}</span><span>${n.label}</span>${n.dot && S && n.dot(S) ? '<i class="badge-dot"></i>' : ''}</a>`).join('')}</div>`).join('')}
       <div class="nav-foot">${S ? `<div id="save-status">${saveFootHtml()}</div>` : ''}<div>${S ? U.esc(PBC.Config.LEAGUES[S.leagueKey].label) : ''}</div></div>`;
   };
 

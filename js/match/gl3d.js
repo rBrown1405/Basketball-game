@@ -929,7 +929,7 @@ void main() { oCol = vec4(1.0); }`;
     // ---------------------------------------------------------- meshes
     key(style, dims, detail) {
       const F = style.F || {};
-      return [style.kind, F.stamp || '', dims.H.toFixed(3), dims.bulk.toFixed(3), style.hair, style.beard, style.headband || '', style.armSleeve, style.legSleeve, style.tattoo, style.seed, detail].join('|');
+      return [style.kind, F.stamp || '', dims.H.toFixed(3), dims.bulk.toFixed(3), (dims.wing || 0).toFixed(3), style.hair, style.beard, style.headband || '', style.armSleeve, style.legSleeve, style.tattoo, style.seed, detail].join('|');
     }
     /** mesh for a person (built synchronously when allowed, else queued and null for now) */
     mesh(style, dims, detail, allowBuild) {

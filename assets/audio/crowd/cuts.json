@@ -1,0 +1,15 @@
+{
+  "about": "How tools/audio/cut.js makes the crowd's beds from their download (node tools/audio/cut.js crowd --src <folder with the downloads>). Parts are [from, to] s into the download, picked where nothing stands out: no whistle, horn, chant, shout or dribble (those would come round again every loop). The licenses are in LICENSES.md; the download is not in the repository.",
+  "sources": {
+    "crowd": "freesound_community-fans-at-basketball-game-crowd-5859.mp3"
+  },
+  "loops": {
+    "rate": 24000,
+    "kbps": 64,
+    "defaults": { "flattenS": 3, "rollS": 0.25, "rmsDb": -20 },
+    "sounds": {
+      "bed.murmur": { "src": "crowd", "parts": [[44.5, 47.4], [48.2, 54.0], [66.0, 71.8], [92.4, 102.4]], "xfade": 1.0, "loopS": 20 },
+      "bed.cheer": { "src": "crowd", "parts": [[0.5, 16.5], [55.5, 64.8]], "xfade": 1.5, "loopS": 22 }
+    }
+  }
+}

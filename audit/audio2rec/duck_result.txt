@@ -1,0 +1,31 @@
+Crowd duck on a fixed script, bed / reactions in dB (before: the first Trial 1 settings, after: the config now)
+before: {"crowdDb":-6,"crowdReactDb":-6,"hold":0.35,"release":0.45,"attack":0.08,"pushHold":1.2,"pushReturn":0.08}
+after:  {"crowdDb":-6,"crowdReactDb":-3,"arenaDb":-10,"arenaBuses":[],"attack":0.08,"hold":1,"release":1,"pushThrough":0.9,"pushHold":1.5,"pushReturn":0.8}
+
+moment                                              before            after
+between line 1 and 2 (gap 0.7 s), at 2.6 s            -1.1 / -1.1     -6.0 / -3.0
+between line 2 and 3 (gap 0.35 s), at 3.95 s          -6.0 / -6.0     -6.0 / -3.0
+4 s line: before the roar, at 9.25 s                  -6.0 / -6.0     -6.0 / -3.0
+roar pushing through, at 9.8 s                          0.0 / 0.0       0.0 / 0.0
+roar pushing through, at 10.6 s                       -5.5 / -5.5       0.0 / 0.0
+after the push (1.5 s / 1.2 s), at 10.75 s            -6.0 / -6.0       0.0 / 0.0
+at 11.0 s                                             -6.0 / -6.0     -2.2 / -1.2
+at 11.4 s                                             -6.0 / -6.0     -5.0 / -2.6
+at 12.0 s                                             -6.0 / -6.0     -5.9 / -3.0
+home cheer under a line, at 16.8 s                    -6.0 / -6.0     -6.0 / -3.0
+1 s after the last line, at 18.4 s                    -0.1 / -0.1     -6.0 / -3.0
+2 s after, at 19.4 s                                    0.0 / 0.0     -0.2 / -0.1
+a line at 21-22 s, then nothing on the reaction path: at 28.5 s      0.0 / 0.0       0.0 / 0.0
+a cheer, booth quiet, at 29.3 s                         0.0 / 0.0       0.0 / 0.0
+
+surges (the crowd back up and down again within 1.5 s): before 2, after 0
+steepest fall of the bed in 0.2 s once the booth had been talking 0.3 s (a chop after a push-through): before 6.0 dB, after 2.7 dB
+errors: 0
+
+after a quiet spell both ducks are back at 0 dB (bed 0.00, reactions 0.00; the cheer at 0.00): PASS
+no surges, no chop over 3 dB after a push-through, cheers ducked less than the bed: PASS
+RESULT: PASS
+
+bed duck every 0.1 s, 0-20 s (before, then after):
+0 0 0 0 0 0 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -5 -2 -1 -1 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -3 -1 -1 -0 -0 -0 -0 -0 -0 -0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -6 -6 -6 -0 0 0 0 0 0 0 0 0 0 0 0 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -4 -2 -1 -0 -0 -0 -0 -0 -0 -0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -4 -2 -1 -0 -0 -0 -0 -0 -0 -0 0 0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -4 -3 -2 -1 -1 -1 -1 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -6 -6 -6 -0 -0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1 -2 -3 -4 -5 -5 -5 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -4 -3 -2 -2 -1 -1 -1 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -0 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -6 -4 -3 -2 -2 -1 -1 -1 -0 -0 -0 -0 -0 -0 -0 -0

@@ -1,0 +1,24 @@
+{
+  "about": "How tools/audio/cut.js makes this folder's recordings from their downloads (node tools/audio/cut.js court --src <folder with the downloads>). Times in s into the download; the licenses are in LICENSES.md. The downloads are not in the repository.",
+  "sources": {
+    "dribbles": "freesound_community-basketball-99685.mp3",
+    "swishes": "freesound_community-basketball-net-swish-sound-40170.mp3",
+    "netEL": "ElevenLabs_Swoosh_of_a_basketball_net_satisfying_and_crisp.mp3",
+    "boardEL": "ElevenLabs_Sound_of_a_basketball_hitting_the_backboard_echoing_impact.mp3",
+    "passEL": "ElevenLabs_Sound_of_a_basketball_being_passed_quick_whoosh_through_the_air.mp3"
+  },
+  "hits": {
+    "rate": 48000,
+    "defaults": { "pre": 0.003, "fadeIn": 0.002, "onsetK": 0.2, "maxPeakDb": -1 },
+    "sounds": {
+      "dribble": { "src": "dribbles", "at": [0.305, 1.445, 2.165, 2.98, 3.8, 4.485, 5.24, 6.035, 7.015, 7.825, 8.71, 9.455], "len": 0.18, "fadeOut": 0.1, "hp": 35, "normS": 0.05, "rmsDb": -16 },
+      "swish": [
+        { "src": "swishes", "at": [0.24, 0.91, 1.66, 2.195, 2.81, 3.625, 4.17], "len": 0.5, "fadeOut": 0.2, "hp": 60, "pre": 0.005, "fadeIn": 0.004, "onsetK": 0.03, "normS": 0.3, "rmsDb": -20 },
+        { "src": "swishes", "at": [5.04], "len": 0.36, "fadeOut": 0.15, "hp": 60, "pre": 0.005, "fadeIn": 0.004, "onsetK": 0.03, "normS": 0.3, "rmsDb": -20 },
+        { "src": "netEL", "at": [0.06], "len": 0.45, "fadeOut": 0.2, "hp": 60, "pre": 0.005, "fadeIn": 0.004, "onsetK": 0.03, "normS": 0.3, "rmsDb": -20 }
+      ],
+      "board": { "src": "boardEL", "at": [0.095], "len": 0.6, "fadeOut": 0.3, "hp": 40, "pre": 0.004, "fadeIn": 0.003, "onsetK": 0.03, "normS": 0.3, "rmsDb": -18 },
+      "pass": { "src": "passEL", "at": [0.115, 0.74], "len": 0.4, "fadeOut": 0.2, "hp": 60, "pre": 0.004, "fadeIn": 0.003, "onsetK": 0.03, "normS": 0.15, "rmsDb": -20 }
+    }
+  }
+}

@@ -1,0 +1,303 @@
+   2.100    0.993 Q1 12:00.0  timer.chant         | crowd.chant→crowd p40 +50ms
+   4.423    3.320 Q1 12:00.0  timer.squeak       v 0.71 | squeak→court p15
+   4.859    3.750 Q1 12:00.0  game.jump_ball     UTA | booth.pbp→commentary p7 queued
+   4.859    3.750 Q1 12:00.0  booth.say          pbp: "Here's the tip... Canyons control it." (browser, waited 0 ms) 
+   6.311    5.213 Q1 11:58.6  court.dribble      v 0.62 Collins at 50.7, 19.4, 0.5 ft | dribble→court p20
+   6.737    5.631 Q1 11:58.1  timer.squeak       v 1.02 | squeak→court p15
+   6.749    5.642 Q1 11:58.1  game.advance       UTA 
+   7.473    6.371 Q1 11:57.5  game.set           UTA 
+   7.475    6.371 Q1 11:57.5  court.dribble      v 0.67 Mills at 30.6, 18.7, 0.4 ft | dribble→court p20
+   8.058    6.951 Q1 11:57.0  court.dribble      v 0.76 Mills at 31.8, 21.5, 0.5 ft | dribble→court p20
+   8.548    7.442 Q1 11:56.5  court.dribble      v 0.74 Mills at 29.6, 24.6, 0.5 ft | dribble→court p20
+   9.214    8.112 Q1 11:55.8  court.dribble      v 1 Mills at 24.6, 32.7, 0.7 ft | dribble→court p20
+   9.610    8.501 Q1 11:55.4  timer.squeak       v 0.63 | squeak→court p15
+   9.651    8.551 Q1 11:55.4  court.dribble      v 0.6 Mills at 22.8, 31.3, 0.6 ft | dribble→court p20
+  10.444    9.340 Q1 11:54.6  court.dribble      v 0.45 Mills at 22.1, 31.9, 0.5 ft | dribble→court p20
+  10.472    9.372 Q1 11:54.5  game.pass          UTA swing 
+  12.200   11.090 Q1 11:52.8  timer.squeak       v 1 | squeak→court p15
+  13.437   12.333 Q1 11:51.6  game.pass          UTA swing 
+  14.594   13.491 Q1 11:50.4  timer.squeak       v 1.1 | squeak→court p15
+  15.967   14.861 Q1 11:49.0  timer.squeak       v 1.01 | squeak→court p15
+  17.082   15.981 Q1 11:47.9  timer.squeak       v 1.08 | squeak→court p15
+  17.392   16.292 Q1 11:47.6  game.pass          UTA lob 
+  17.891   16.785 Q1 11:47.2  timer.squeak       v 1.06 | squeak→court p15
+  19.165   18.062 Q1 11:46.2  game.shot          Collins 2pt pullup UTA | booth.pbp→commentary p5 queued
+  19.165   18.062 Q1 11:46.2  booth.say          pbp: "Collins from the elbow..." (browser, waited 0 ms) 
+  19.642   18.541 Q1 11:46.2  timer.squeak       v 1.03 | squeak→court p15
+  19.828   18.721 Q1 11:46.2  court.rim          v 0.6 at 5, 24.8, 10.2 ft | rim→court p60
+  20.484   19.383 Q1 11:46.2  court.net          v 1 at 5.3, 25, 8.5 ft | net→court p60
+  20.485   19.383 Q1 11:46.2  game.shotResult    Collins rim_in, net (court) 
+  20.485   19.383 Q1 11:46.2  game.score         UTA +2 → 0-2 | crowd.murmur→crowd p30; booth.pbp→commentary p7 queued
+  20.553   19.453 Q1 11:46.2  live.possession    BOS ball, pnr | booth.pbp→commentary p2 queued
+  20.764   19.661 Q1 11:46.0  booth.say          pbp: "Got it." (browser, waited 278 ms) 
+  21.206   20.103 Q1 11:45.7  court.bounce       v 1 at 5.1, 24.3, 0.7 ft | bounce→court p25
+  21.719   20.611 Q1 11:45.4  booth.say          pbp: "Colonials into their half-court set." (browser, waited 1166 ms) 
+  22.436   21.330 Q1 11:44.9  timer.squeak       v 0.85 | squeak→court p15
+  23.652   22.552 Q1 11:44.0  timer.squeak       v 0.79 | squeak→court p15
+  23.693   22.590 Q1 11:44.0  game.inbound       BOS 
+  24.535   23.432 Q1 11:43.1  court.dribble      v 0.6 Payton at 20.4, 16.5, 0.5 ft | dribble→court p20
+  25.273   24.172 Q1 11:42.4  court.dribble      v 0.7 Payton at 25.2, 15.4, 0.5 ft | dribble→court p20
+  25.961   24.851 Q1 11:41.7  timer.squeak       v 0.78 | squeak→court p15
+  26.036   24.932 Q1 11:41.6  court.dribble      v 0.69 Payton at 30.7, 16.2, 0.4 ft | dribble→court p20
+  26.848   25.742 Q1 11:40.8  court.dribble      v 0.68 Payton at 36.4, 17.1, 0.5 ft | dribble→court p20
+  27.644   26.540 Q1 11:40.0  court.dribble      v 0.68 Payton at 41.9, 17.9, 0.5 ft | dribble→court p20
+  28.430   27.321 Q1 11:39.2  court.dribble      v 0.68 Payton at 47.4, 18.8, 0.4 ft | dribble→court p20
+  28.645   27.542 Q1 11:39.0  timer.squeak       v 1.02 | squeak→court p15
+  29.170   28.061 Q1 11:38.5  game.advance       BOS 
+  29.252   28.151 Q1 11:38.4  court.dribble      v 0.72 Payton at 53.3, 20.1, 0.5 ft | dribble→court p20
+  29.863   28.761 Q1 11:37.8  game.set           BOS 
+  30.007   28.900 Q1 11:37.7  court.dribble      v 0.78 Payton at 60, 24.9, 0.5 ft | dribble→court p20
+  30.770   29.661 Q1 11:36.9  game.pass          BOS chest 
+  31.009   29.901 Q1 11:36.7  timer.squeak       v 0.98 | squeak→court p15
+  31.302   30.200 Q1 11:36.4  court.whistle      v 1 | whistle→arena p90
+  31.302   30.200 Q1 11:36.4  game.turnover      out_of_bounds Laurent | booth.pbp→commentary p4 queued
+  31.302   30.200 Q1 11:36.4  booth.say          pbp: "Careless pass by Laurent." (browser, waited 0 ms) 
+  32.133   31.031 Q1 11:36.4  timer.squeak       v 0.97 | squeak→court p15
+  32.684   31.582 Q1 11:36.4  live.possession    UTA ball, post 
+  33.997   32.891 Q1 11:36.3  timer.squeak       v 0.81 | squeak→court p15
+  35.066   33.962 Q1 11:36.3  timer.squeak       v 1.02 | squeak→court p15
+  35.963   34.862 Q1 11:36.2  court.bounce       v 1 at 69.8, 0.1, 0.6 ft | bounce→court p25
+  37.144   36.040 Q1 11:36.2  game.inbound       UTA 
+  37.661   36.563 Q1 11:35.6  timer.squeak       v 0.72 | squeak→court p15
+  37.739   36.632 Q1 11:35.6  court.dribble      v 0.62 Mitchell at 69.9, 10.9, 0.5 ft | dribble→court p20
+  38.478   37.373 Q1 11:34.9  court.dribble      v 0.83 Mitchell at 61.8, 13, 0.5 ft | dribble→court p20
+  38.713   37.611 Q1 11:34.6  timer.squeak       v 0.96 | squeak→court p15
+  39.188   38.081 Q1 11:34.1  court.dribble      v 0.81 Mitchell at 54.1, 15.2, 0.4 ft | dribble→court p20
+  39.949   38.841 Q1 11:33.4  court.dribble      v 0.79 Mitchell at 46.7, 17.2, 0.5 ft | dribble→court p20
+  40.461   39.361 Q1 11:32.9  game.advance       UTA 
+  40.690   39.581 Q1 11:32.6  court.dribble      v 0.85 Mitchell at 41.1, 20, 0.5 ft | dribble→court p20
+  41.197   40.092 Q1 11:32.1  timer.squeak       v 0.72 | squeak→court p15
+  41.369   40.260 Q1 11:32.0  court.dribble      v 0.78 Mitchell at 31.7, 26.4, 0.4 ft | dribble→court p20
+  42.042   40.943 Q1 11:31.3  court.dribble      v 0.73 Mitchell at 30.1, 21.2, 0.5 ft | dribble→court p20
+  42.453   41.352 Q1 11:30.9  court.dribble      v 0.61 Mitchell at 29, 18.1, 0.4 ft | dribble→court p20
+  43.102   42.002 Q1 11:30.3  court.dribble      v 0.78 Mitchell at 29.4, 23.5, 0.5 ft | dribble→court p20
+  43.512   42.411 Q1 11:29.8  timer.squeak       v 0.72 | squeak→court p15
+  43.870   42.762 Q1 11:29.5  court.dribble      v 0.84 Mitchell at 26.4, 31.2, 0.5 ft | dribble→court p20
+  44.439   43.331 Q1 11:28.9  court.dribble      v 0.96 Mitchell at 25.4, 40.9, 0.4 ft | dribble→court p20
+  44.917   43.810 Q1 11:28.4  court.dribble      v 0.71 Mitchell at 23.2, 43, 0.5 ft | dribble→court p20
+  45.282   44.182 Q1 11:28.0  timer.squeak       v 1 | squeak→court p15
+  45.562   44.460 Q1 11:27.8  court.dribble      v 0.45 Mitchell at 24.2, 45.4, 0.5 ft | dribble→court p20
+  45.807   44.701 Q1 11:27.6  game.set           UTA 
+  46.901   45.793 Q1 11:27.4  game.turnover      bad_pass Dixon | booth.pbp→commentary p4 queued
+  46.901   45.793 Q1 11:27.4  booth.say          pbp: "Careless pass by Dixon." (browser, waited 0 ms) 
+  47.265   46.161 Q1 11:27.4  timer.squeak       v 1.01 | squeak→court p15
+  48.261   47.151 Q1 11:27.4  live.possession    BOS ball, pnr 
+  49.870   48.762 Q1 11:27.4  timer.squeak       v 0.77 | squeak→court p15
+  51.664   50.561 Q1 11:27.3  timer.squeak       v 0.74 | squeak→court p15
+  54.088   52.982 Q1 11:27.3  timer.squeak       v 0.91 | squeak→court p15
+  54.484   53.383 Q1 11:27.2  court.bounce       v 1 at 17.5, 49.7, 0.7 ft | bounce→court p25
+  55.666   54.561 Q1 11:27.2  game.inbound       BOS 
+  55.837   54.732 Q1 11:27.1  timer.squeak       v 0.94 | squeak→court p15
+  56.276   55.171 Q1 11:26.6  court.dribble      v 0.64 Payton at 13.9, 39, 0.5 ft | dribble→court p20
+  56.951   55.853 Q1 11:25.9  court.dribble      v 0.93 Payton at 24.2, 37.4, 0.4 ft | dribble→court p20
+  57.637   56.532 Q1 11:25.3  court.dribble      v 0.91 Payton at 33.5, 35.5, 0.4 ft | dribble→court p20
+  58.332   57.231 Q1 11:24.6  court.dribble      v 0.88 Payton at 42.2, 33.7, 0.5 ft | dribble→court p20
+  58.417   57.313 Q1 11:24.5  timer.squeak       v 0.85 | squeak→court p15
+  59.022   57.922 Q1 11:23.9  court.dribble      v 0.84 Payton at 50.4, 31.9, 0.5 ft | dribble→court p20
+  59.152   58.053 Q1 11:23.7  game.advance       BOS 
+  59.672   58.572 Q1 11:23.2  timer.squeak       v 0.92 | squeak→court p15
+  59.682   58.581 Q1 11:23.2  court.dribble      v 1 Payton at 56.1, 25.5, 0.5 ft | dribble→court p20
+  60.417   59.312 Q1 11:22.5  court.dribble      v 0.78 Payton at 59.7, 20.1, 0.5 ft | dribble→court p20
+  61.172   60.070 Q1 11:21.8  court.dribble      v 0.78 Payton at 66.1, 16.1, 0.5 ft | dribble→court p20
+  61.785   60.682 Q1 11:21.2  court.dribble      v 1 Payton at 75.4, 10.5, 0.4 ft | dribble→court p20
+  61.859   60.752 Q1 11:21.1  timer.squeak       v 0.61 | squeak→court p15
+  62.469   61.362 Q1 11:20.5  court.dribble      v 1 Payton at 84.8, 4.4, 0.5 ft | dribble→court p20
+  63.199   62.090 Q1 11:19.7  court.dribble      v 0.71 Payton at 90.1, 4.2, 0.5 ft | dribble→court p20
+  63.255   62.151 Q1 11:19.7  game.set           BOS 
+  64.070   62.961 Q1 11:19.1  court.dribble      v 0.48 Payton at 90.9, 3.9, 0.5 ft | dribble→court p20
+  64.373   63.271 Q1 11:18.8  game.pass          BOS chest 
+  64.417   63.312 Q1 11:18.7  timer.squeak       v 0.87 | squeak→court p15
+  65.282   64.183 Q1 11:17.9  game.step          BOS 
+  65.460   64.351 Q1 11:17.7  court.dribble      v 0.45 Jordan at 66, 22.1, 0.4 ft | dribble→court p20
+  66.180   65.071 Q1 11:17.0  court.dribble      v 0.45 Jordan at 66, 22.1, 0.4 ft | dribble→court p20
+  66.436   65.332 Q1 11:16.7  game.screen        BOS ball 
+  66.807   65.701 Q1 11:16.4  court.dribble      v 0.74 Jordan at 64.2, 27.5, 0.4 ft | dribble→court p20
+  67.186   66.081 Q1 11:16.0  game.step          BOS 
+  67.477   66.371 Q1 11:15.7  timer.squeak       v 0.87 | squeak→court p15
+  67.490   66.380 Q1 11:15.7  court.dribble      v 0.57 Jordan at 64.6, 25, 0.5 ft | dribble→court p20
+  67.702   66.601 Q1 11:15.5  game.move          Jordan BOS 
+  68.060   66.952 Q1 11:15.2  court.dribble      v 0.79 Jordan at 66.3, 29.4, 0.5 ft | dribble→court p20
+  68.489   67.381 Q1 11:14.8  court.dribble      v 1 Jordan at 75.2, 31.7, 0.4 ft | dribble→court p20
+  68.768   67.660 Q1 11:14.5  game.step          BOS 
+  68.841   67.733 Q1 11:14.4  timer.squeak       v 0.95 | squeak→court p15
+  69.234   68.130 Q1 11:14.0  court.dribble      v 0.46 Jordan at 83.9, 28.7, 0.4 ft | dribble→court p20
+  69.821   68.714 Q1 11:13.4  game.move          Jordan BOS 
+  69.822   68.722 Q1 11:13.4  court.dribble      v 0.61 Jordan at 79.5, 28.9, 0.6 ft | dribble→court p20
+  70.225   69.120 Q1 11:13.0  court.dribble      v 0.68 Jordan at 81.7, 30.6, 0.4 ft | dribble→court p20
+  70.462   69.361 Q1 11:12.8  game.pass          BOS kick 
+  71.587   70.481 Q1 11:12.4  timer.squeak       v 0.82 | squeak→court p15
+  71.725   70.621 Q1 11:12.4  game.shot          Jenkins 3pt catch_shoot BOS 
+  72.499   71.393 Q1 11:11.8  timer.squeak       v 0.69 | squeak→court p15
+  72.951   71.851 Q1 11:11.5  court.rim          v 1 at 88.5, 25.7, 10.4 ft | rim→court p60
+  72.952   71.851 Q1 11:11.5  game.shotResult    Jenkins miss, rim (court) | crowd.ooh→crowd p50; booth.pbp→commentary p4 queued
+  72.953   71.851 Q1 11:11.5  booth.say          pbp: "Front rim." (browser, waited 0 ms) 
+  73.379   72.272 Q1 11:11.2  court.rim          v 0.6 at 88.9, 24.5, 10.4 ft | rim→court p60
+  73.642   72.542 Q1 11:11.1  game.rebound       def. Dunn | booth.pbp→commentary p3 queued
+  73.923   72.821 Q1 11:11.0  timer.squeak       v 0.79 | squeak→court p15
+  73.923   72.821 Q1 11:11.0  booth.say          pbp: "Dunn with the board." (browser, waited 281 ms) 
+  74.208   73.102 Q1 11:11.0  live.possession    UTA ball, pnr 
+  75.912   74.812 Q1 11:10.5  game.pass          UTA outlet 
+  76.813   75.712 Q1 11:09.6  timer.squeak       v 0.64 | squeak→court p15
+  77.518   76.411 Q1 11:08.9  court.dribble      v 0.67 Mitchell at 25.4, 41.9, 0.7 ft | dribble→court p20
+  77.942   76.841 Q1 11:08.4  timer.squeak       v 0.77 | squeak→court p15
+  77.956   76.852 Q1 11:08.4  court.dribble      v 0.64 Mitchell at 27.8, 41.8, 0.5 ft | dribble→court p20
+  78.771   77.668 Q1 11:07.6  court.dribble      v 0.74 Mitchell at 33.6, 37.1, 0.5 ft | dribble→court p20
+  79.545   78.443 Q1 11:06.8  court.dribble      v 0.72 Mitchell at 38.7, 33.3, 0.5 ft | dribble→court p20
+  79.721   78.611 Q1 11:06.7  timer.squeak       v 1.06 | squeak→court p15
+  80.102   79.000 Q1 11:06.3  game.advance       UTA 
+  80.286   79.180 Q1 11:06.1  court.dribble      v 0.47 Mitchell at 42.4, 30.3, 0.5 ft | dribble→court p20
+  80.975   79.871 Q1 11:05.4  court.dribble      v 0.77 Mitchell at 34.8, 31, 0.4 ft | dribble→court p20
+  81.254   80.152 Q1 11:05.1  timer.squeak       v 0.91 | squeak→court p15
+  81.600   80.492 Q1 11:04.8  court.dribble      v 0.64 Mitchell at 30.5, 28.1, 0.6 ft | dribble→court p20
+  81.953   80.852 Q1 11:04.5  court.dribble      v 0.61 Mitchell at 31.7, 29.4, 0.4 ft | dribble→court p20
+  82.623   81.522 Q1 11:03.8  timer.squeak       v 1.03 | squeak→court p15
+  82.644   81.543 Q1 11:03.8  court.dribble      v 0.67 Mitchell at 35.7, 31.7, 0.5 ft | dribble→court p20
+  82.996   81.891 Q1 11:03.4  court.dribble      v 0.58 Mitchell at 34.5, 33.4, 0.6 ft | dribble→court p20
+  83.376   82.271 Q1 11:03.0  court.dribble      v 0.74 Mitchell at 32.1, 31.3, 0.5 ft | dribble→court p20
+  84.059   82.950 Q1 11:02.3  timer.squeak       v 0.72 | squeak→court p15
+  84.120   83.011 Q1 11:02.3  court.dribble      v 0.6 Mitchell at 31.1, 25.8, 0.4 ft | dribble→court p20
+  84.532   83.432 Q1 11:01.9  court.dribble      v 0.63 Mitchell at 29.2, 24.7, 0.5 ft | dribble→court p20
+  84.717   83.612 Q1 11:01.7  timer.chant         | crowd.chant→crowd p40 +50ms
+  85.238   84.132 Q1 11:01.2  court.dribble      v 0.45 Mitchell at 29.6, 25, 0.6 ft | dribble→court p20
+  85.858   84.753 Q1 11:00.6  court.dribble      v 0.45 Mitchell at 29.7, 25.1, 0.5 ft | dribble→court p20
+  86.033   84.933 Q1 11:00.4  game.set           UTA 
+  86.453   85.351 Q1 10:60.0  court.dribble      v 0.6 Mitchell at 30.2, 26.4, 0.5 ft | dribble→court p20
+  86.887   85.780 Q1 10:59.5  court.dribble      v 0.45 Mitchell at 29.5, 25.8, 0.6 ft | dribble→court p20
+  87.076   85.972 Q1 10:59.3  timer.squeak       v 0.83 | squeak→court p15
+  87.587   86.483 Q1 10:58.8  court.dribble      v 0.45 Mitchell at 29.7, 26.3, 0.5 ft | dribble→court p20
+  87.823   86.721 Q1 10:58.6  game.step          UTA 
+  88.144   87.040 Q1 10:58.3  court.dribble      v 0.54 Mitchell at 29.3, 24.3, 0.5 ft | dribble→court p20
+  88.504   87.403 Q1 10:57.9  court.dribble      v 0.6 Mitchell at 28.1, 22.8, 0.5 ft | dribble→court p20
+  89.149   88.041 Q1 10:57.3  court.dribble      v 0.47 Mitchell at 29.5, 24.4, 0.5 ft | dribble→court p20
+  89.453   88.352 Q1 10:57.0  game.step          UTA 
+  89.579   88.471 Q1 10:56.9  court.dribble      v 0.45 Mitchell at 27.9, 26, 0.4 ft | dribble→court p20
+  90.180   89.072 Q1 10:56.3  timer.squeak       v 0.86 | squeak→court p15
+  90.217   89.112 Q1 10:56.3  court.dribble      v 0.55 Mitchell at 27.8, 24.1, 0.6 ft | dribble→court p20
+  90.486   89.382 Q1 10:56.1  game.screen        UTA ball 
+  90.638   89.530 Q1 10:55.9  court.dribble      v 0.55 Mitchell at 26.8, 23, 0.5 ft | dribble→court p20
+  91.117   90.012 Q1 10:55.4  game.step          UTA 
+  91.313   90.212 Q1 10:55.3  court.dribble      v 0.64 Mitchell at 23.4, 21.2, 0.5 ft | dribble→court p20
+  91.619   90.511 Q1 10:55.0  game.move          Mitchell UTA 
+  91.743   90.642 Q1 10:54.9  timer.squeak       v 0.8 | squeak→court p15
+  91.865   90.761 Q1 10:54.8  court.dribble      v 0.63 Mitchell at 23.4, 17.7, 0.6 ft | dribble→court p20
+  92.266   91.162 Q1 10:54.4  court.dribble      v 0.91 Mitchell at 18.4, 18.3, 0.4 ft | dribble→court p20
+  93.317   92.212 Q1 10:53.3  game.pass          UTA kick 
+  93.366   92.262 Q1 10:53.3  timer.squeak       v 0.66 | squeak→court p15
+  94.536   93.431 Q1 10:52.9  timer.squeak       v 1.06 | squeak→court p15
+  94.711   93.611 Q1 10:52.8  game.shot          Collins 3pt catch_shoot UTA | booth.pbp→commentary p5 queued
+  94.712   93.611 Q1 10:52.8  booth.say          pbp: "Collins, catch and shoot..." (browser, waited 0 ms) 
+  95.646   94.540 Q1 10:52.1  timer.squeak       v 0.89 | squeak→court p15
+  95.951   94.845 Q1 10:51.9  court.rim          v 1 at 5.2, 24.6, 10.5 ft | rim→court p60
+  95.952   94.851 Q1 10:51.9  game.shotResult    Collins miss, rim (court) | crowd.murmur→crowd p30
+  97.015   95.910 Q1 10:51.1  court.bounce       v 1 at 18.3, 30.5, 0.4 ft | bounce→court p25
+  97.856   96.752 Q1 10:51.1  game.rebound       off. Mills | booth.pbp→commentary p5 queued
+  97.856   96.752 Q1 10:51.1  booth.say          pbp: "Second chance for Canyons." (browser, waited 0 ms) 
+  98.130   97.022 Q1 10:51.0  court.dribble      v 0.56 Mills at 23.3, 30.4, 0.6 ft | dribble→court p20
+  98.151   97.048 Q1 10:51.0  timer.squeak       v 1.06 | squeak→court p15
+  98.735   97.631 Q1 10:50.6  court.dribble      v 0.95 Mills at 19.3, 28.2, 0.7 ft | dribble→court p20
+  99.843   98.743 Q1 10:49.8  court.dunk         v 1 Mills at 5.8, 25, 10.3 ft | dunk→court p80
+  99.844   98.743 Q1 10:49.8  game.shot          Mills 2pt dunk UTA 
+ 100.136   99.030 Q1 10:49.8  court.swish        v 1 at 5.3, 25, 8.4 ft | swish→court p65
+ 100.136   99.030 Q1 10:49.8  game.shotResult    Mills dunk, net (court) 
+ 100.145   99.042 Q1 10:49.8  game.score         UTA +2 → 0-4 | crowd.groan→crowd p50; booth.pbp→commentary p9 queued; booth.color→commentary p6 queued
+ 100.146   99.042 Q1 10:49.8  booth.say          pbp: "Mills throws it down!" (browser, waited 0 ms) 
+ 100.801   99.698 Q1 10:49.8  timer.squeak       v 0.72 | squeak→court p15
+ 100.814   99.712 Q1 10:49.8  court.bounce       v 1 at 5.1, 25.9, 0.5 ft | bounce→court p25
+ 100.957   99.852 Q1 10:49.8  live.possession    BOS ball, iso 
+ 101.712  100.609 Q1 10:49.5  booth.say          color: "Watch the explosion there. Mills was up and through before anybody could rotate." (browser, waited 1565 ms) 
+ 101.849  100.743 Q1 10:49.4  court.bounce       v 0.87 at 4.7, 26.7, 0.6 ft | bounce→court p25
+ 102.682  101.581 Q1 10:49.1  court.bounce       v 0.71 at 4.4, 27.4, 0.5 ft | bounce→court p25
+ 103.376  102.272 Q1 10:48.8  court.bounce       v 0.59 at 4.1, 28, 0.5 ft | bounce→court p25
+ 103.413  102.310 Q1 10:48.8  timer.squeak       v 1.04 | squeak→court p15
+ 104.654  103.552 Q1 10:48.4  game.inbound       BOS 
+ 105.355  104.252 Q1 10:47.7  timer.squeak       v 1.03 | squeak→court p15
+ 105.484  104.382 Q1 10:47.6  court.dribble      v 0.62 Payton at 18.5, 14.5, 0.4 ft | dribble→court p20
+ 106.193  105.091 Q1 10:46.9  court.dribble      v 0.78 Payton at 25.6, 13.5, 0.4 ft | dribble→court p20
+ 106.928  105.822 Q1 10:46.1  court.dribble      v 0.77 Payton at 32.6, 14.7, 0.5 ft | dribble→court p20
+ 106.994  105.892 Q1 10:46.1  timer.squeak       v 0.99 | squeak→court p15
+ 107.661  106.562 Q1 10:45.4  court.dribble      v 0.76 Payton at 39.3, 15.8, 0.4 ft | dribble→court p20
+ 108.422  107.323 Q1 10:44.6  court.dribble      v 0.74 Payton at 45.9, 16.8, 0.4 ft | dribble→court p20
+ 109.138  108.031 Q1 10:43.9  game.advance       BOS 
+ 109.175  108.071 Q1 10:43.9  timer.squeak       v 0.77 | squeak→court p15
+ 109.191  108.080 Q1 10:43.9  court.dribble      v 0.74 Payton at 52, 18, 0.5 ft | dribble→court p20
+ 109.945  108.841 Q1 10:43.1  court.dribble      v 0.78 Payton at 59.2, 21.6, 0.5 ft | dribble→court p20
+ 110.339  109.232 Q1 10:42.8  timer.squeak       v 0.81 | squeak→court p15
+ 110.571  109.462 Q1 10:42.5  court.dribble      v 0.71 Payton at 63.4, 24.6, 0.4 ft | dribble→court p20
+ 110.948  109.842 Q1 10:42.1  court.dribble      v 0.57 Payton at 64, 26.9, 0.5 ft | dribble→court p20
+ 111.446  110.341 Q1 10:41.6  timer.squeak       v 0.67 | squeak→court p15
+ 111.571  110.469 Q1 10:41.5  court.dribble      v 0.45 Payton at 61.5, 25.5, 0.5 ft | dribble→court p20
+ 111.978  110.872 Q1 10:41.1  court.dribble      v 0.45 Payton at 62, 23.9, 0.4 ft | dribble→court p20
+ 112.198  111.090 Q1 10:40.9  game.set           BOS 
+ 112.690  111.581 Q1 10:40.4  court.dribble      v 0.7 Payton at 63.1, 25.1, 0.5 ft | dribble→court p20
+ 113.102  112.001 Q1 10:40.0  court.dribble      v 0.45 Payton at 65.8, 24.2, 0.5 ft | dribble→court p20
+ 113.501  112.390 Q1 10:39.6  court.dribble      v 0.45 Payton at 65.7, 22.8, 0.5 ft | dribble→court p20
+ 113.985  112.881 Q1 10:39.1  game.step          BOS 
+ 114.058  112.951 Q1 10:39.0  timer.squeak       v 1.02 | squeak→court p15
+ 114.269  113.162 Q1 10:39.0  court.dribble      v 0.45 Payton at 65.7, 22.8, 0.4 ft | dribble→court p20
+ 114.879  113.772 Q1 10:38.6  court.dribble      v 0.45 Payton at 65.2, 24.6, 0.6 ft | dribble→court p20
+ 115.010  113.903 Q1 10:38.6  game.move          Payton BOS 
+ 115.250  114.141 Q1 10:38.3  court.dribble      v 0.45 Payton at 65.6, 26.1, 0.4 ft | dribble→court p20
+ 115.601  114.495 Q1 10:38.0  timer.squeak       v 0.89 | squeak→court p15
+ 115.910  114.802 Q1 10:37.7  court.dribble      v 0.5 Payton at 65.7, 24.1, 0.5 ft | dribble→court p20
+ 116.229  115.122 Q1 10:37.4  game.step          BOS 
+ 116.305  115.200 Q1 10:37.3  court.dribble      v 0.71 Payton at 65.3, 24.6, 0.5 ft | dribble→court p20
+ 116.652  115.551 Q1 10:37.0  court.whistle      v 1 | whistle→arena p90
+ 116.653  115.551 Q1 10:37.0  game.foul          personal foul Dixon (UTA) 
+ 116.993  115.891 Q1 10:36.9  timer.squeak       v 0.75 | squeak→court p15
+ 119.125  118.021 Q1 10:36.9  timer.squeak       v 1.02 | squeak→court p15
+ 120.189  119.081 Q1 10:36.9  timer.squeak       v 0.65 | squeak→court p15
+ 122.704  121.501 Q1 10:36.9  timer.squeak       v 0.95 | squeak→court p15
+ 125.321  124.116 Q1 10:36.9  timer.squeak       v 1.06 | squeak→court p15
+ 126.555  125.350 Q1 10:36.9  game.inbound       BOS 
+ 128.239  127.031 Q1 10:35.7  timer.squeak       v 0.73 | squeak→court p15
+ 128.399  127.190 Q1 10:35.6  court.dunk         v 1 Laurent at 88.3, 24.5, 10.3 ft | dunk→court p80
+ 128.400  127.190 Q1 10:35.6  game.shot          Laurent 2pt dunk BOS 
+ 128.750  127.541 Q1 10:35.6  court.swish        v 1 at 88.8, 25, 8.4 ft | swish→court p65
+ 128.750  127.541 Q1 10:35.6  game.shotResult    Laurent dunk, net (court) 
+ 128.751  127.541 Q1 10:35.6  game.score         BOS +2 → 2-4 | crowd.roar→crowd p70; booth.pbp→commentary p9 queued
+ 128.752  127.550 Q1 10:35.6  booth.say          pbp: "Oh, Laurent with the hammer!" (browser, waited 0 ms) 
+ 129.322  128.122 Q1 10:35.6  timer.squeak       v 0.69 | squeak→court p15
+ 129.397  128.192 Q1 10:35.6  court.bounce       v 1 at 88.9, 24.5, 0.5 ft | bounce→court p25
+ 129.601  128.395 Q1 10:35.6  live.possession    UTA ball, spot 
+ 130.587  129.382 Q1 10:34.9  timer.squeak       v 1 | squeak→court p15
+ 131.485  130.281 Q1 10:34.2  timer.squeak       v 0.67 | squeak→court p15
+ 132.391  131.193 Q1 10:33.6  game.inbound       UTA 
+ 133.103  131.901 Q1 10:32.9  court.dribble      v 0.6 Mitchell at 81.3, 12.3, 0.4 ft | dribble→court p20
+ 133.849  132.641 Q1 10:32.1  court.dribble      v 0.72 Mitchell at 73, 14, 0.5 ft | dribble→court p20
+ 134.087  132.882 Q1 10:31.9  timer.squeak       v 0.7 | squeak→court p15
+ 134.629  133.422 Q1 10:31.4  court.dribble      v 0.71 Mitchell at 66.9, 15.3, 0.4 ft | dribble→court p20
+ 135.433  134.232 Q1 10:30.6  court.dribble      v 0.71 Mitchell at 60.8, 16.6, 0.5 ft | dribble→court p20
+ 135.718  134.510 Q1 10:30.3  timer.squeak       v 0.92 | squeak→court p15
+ 136.233  135.033 Q1 10:29.8  court.dribble      v 0.7 Mitchell at 55.1, 17.8, 0.4 ft | dribble→court p20
+ 137.044  135.843 Q1 10:29.0  court.dribble      v 0.68 Mitchell at 49.4, 19.1, 0.5 ft | dribble→court p20
+ 137.859  136.652 Q1 10:28.1  court.dribble      v 0.68 Mitchell at 43.8, 20.3, 0.4 ft | dribble→court p20
+ 137.871  136.667 Q1 10:28.1  timer.squeak       v 1 | squeak→court p15
+ 137.969  136.763 Q1 10:28.0  game.advance       UTA 
+ 139.126  137.921 Q1 10:27.6  court.dribble      v 0.58 Collins at 22.9, 10.1, 0.6 ft | dribble→court p20
+ 139.195  137.990 Q1 10:27.6  game.set           UTA 
+ 140.387  139.180 Q1 10:26.4  game.pass          UTA swing 
+ 140.452  139.250 Q1 10:26.4  timer.squeak       v 0.95 | squeak→court p15
+ 141.667  140.460 Q1 10:25.1  timer.squeak       v 0.72 | squeak→court p15
+ 142.378  141.172 Q1 10:24.5  game.pass          UTA swing 
+ 143.473  142.272 Q1 10:23.4  court.dribble      v 0.45 Mills at 5.6, 4.4, 0.4 ft | dribble→court p20
+ 143.488  142.280 Q1 10:23.3  timer.squeak       v 0.68 | squeak→court p15
+ 144.062  142.861 Q1 10:22.8  court.dribble      v 0.45 Mills at 3.9, 4.3, 0.6 ft | dribble→court p20
+ 144.435  143.232 Q1 10:22.4  court.dribble      v 0.45 Mills at 2.2, 4.3, 0.5 ft | dribble→court p20
+ 145.182  143.981 Q1 10:21.7  court.dribble      v 0.55 Mills at 2.5, 5, 0.4 ft | dribble→court p20
+ 145.478  144.271 Q1 10:21.3  timer.squeak       v 1.06 | squeak→court p15
+ 145.799  144.591 Q1 10:21.0  game.pass          UTA swing 
+ 146.729  145.522 Q1 10:20.1  game.shot          Dixon 3pt catch_shoot UTA | booth.pbp→commentary p5 queued
+ 146.730  145.522 Q1 10:20.1  booth.say          pbp: "Dixon, catch and shoot..." (browser, waited 0 ms) 
+ 147.120  145.911 Q1 10:20.1  timer.squeak       v 0.63 | squeak→court p15
+ 148.041  146.834 Q1 10:20.1  court.rim          v 1 at 5.2, 25.4, 10.2 ft | rim→court p60
+ 148.596  147.392 Q1 10:20.1  timer.squeak       v 0.73 | squeak→court p15
+ 148.725  147.522 Q1 10:20.1  court.net          v 1 at 5.3, 25, 8.6 ft | net→court p60
+ 148.726  147.522 Q1 10:20.1  game.shotResult    Dixon rim_in, net (court) 
+ 148.727  147.522 Q1 10:20.1  game.score         UTA +3 → 2-7 | crowd.groan→crowd p50; booth.pbp→commentary p7 queued
+ 148.727  147.522 Q1 10:20.1  booth.say          pbp: "Knocks it down!" (browser, waited 0 ms) 
+ 148.793  147.592 Q1 10:20.1  live.possession    BOS ball, handoff 
+ 149.432  148.230 Q1 10:19.8  court.bounce       v 1 at 4.9, 25.8, 0.5 ft | bounce→court p25
+ 151.603  150.401 Q1 10:19.0  timer.squeak       v 0.83 | squeak→court p15
+ 152.131  150.930 Q1 10:18.8  game.inbound       BOS 
+ 152.582  151.382 Q1 10:18.3  timer.squeak       v 0.93 | squeak→court p15
+ 152.892  151.690 Q1 10:18.0  court.dribble      v 0.62 Payton at 12.7, 38.3, 0.6 ft | dribble→court p20

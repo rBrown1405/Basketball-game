@@ -1,0 +1,11 @@
+seed 21 | all on               | possessions 12, 4390 frames, Q1 524.6 s left, score 7-10, 28 play-by-play lines | game d107e29e8ab1 | court d0517a09e647 | sounds played 581 | errors 0
+seed 21 | all off              | possessions 12, 4390 frames, Q1 524.6 s left, score 7-10, 28 play-by-play lines | game d107e29e8ab1 | court d0517a09e647 | sounds played 0 | errors 0
+seed 21 | arena on, booth off  | possessions 12, 4390 frames, Q1 524.6 s left, score 7-10, 28 play-by-play lines | game d107e29e8ab1 | court d0517a09e647 | sounds played 573 | errors 0
+seed 21: IDENTICAL (the game and the court presentation) with the 3 audio settings
+
+seed 33 | all on               | possessions 12, 3824 frames, Q1 554.9 s left, score 5-8, 26 play-by-play lines | game ab42b04dafce | court 7577ef0a0e62 | sounds played 531 | errors 0
+seed 33 | all off              | possessions 12, 3824 frames, Q1 554.9 s left, score 5-8, 26 play-by-play lines | game ab42b04dafce | court 7577ef0a0e62 | sounds played 0 | errors 0
+seed 33 | arena on, booth off  | possessions 12, 3824 frames, Q1 554.9 s left, score 5-8, 26 play-by-play lines | game ab42b04dafce | court 7577ef0a0e62 | sounds played 537 | errors 0
+seed 33: IDENTICAL (the game and the court presentation) with the 3 audio settings
+
+RESULT: PASS (the audio settings change nothing in the game or on the court)

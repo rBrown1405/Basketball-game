@@ -1,0 +1,7 @@
+Frame times of the live view, 120 s per run after 5 s of warm-up (headless Chromium, software rendering)
+
+run              frames   fps  p50 ms  p95 ms  p99 ms  >33 ms  >50 ms | audio ms/frame: mean   p99    max | sounds  peak voices
+1x audio on        3462  28.9    33.3    50.0    66.6    1107     139 |               0.208   1.10    6.3 |    648            9
+1x audio off       3579  29.8    33.3    50.0    50.1    1015     104 |               0.134   0.50   14.6 |      0            0
+4x audio on        1949  16.3    66.6    83.4   116.6    1867    1222 |               0.431   1.60    7.8 |    858            9
+4x audio off       1865  15.6    66.6    83.4   116.7    1818    1279 |               0.318   0.80   21.7 |      0            0

@@ -9,7 +9,9 @@
   'use strict';
   const M = window.PBC.Match, U = M.U, RG = M.Rig, A = M.Anims, CH = RG.CH, J = RG.J;
   const D = Math.PI / 180;
-  const FRAME = 1 / 60, SUB = 1 / 120;
+  // the game's own fixed step (Tune.clock.step): every step is solved and measured, exactly as in a live game, so the
+  // lab and the game show the same frames and the same numbers
+  const FRAME = (M.Tune && M.Tune.clock.step) || 1 / 60, SUB = FRAME;
 
   // ------------------------------------------------------------ seeded random: a scenario replays exactly
   let rs = 1;
@@ -56,6 +58,8 @@
     return {
       id: 'lab' + idx, teamIdx: idx ? 1 : 0, first: p.first || 'Lab', last: p.last || 'Player' + idx, num: idx ? 21 : 15, pos: p.pos || 'G',
       height: idx ? set.height2 : set.height, weight: Math.round(215 * Math.pow((idx ? set.height2 : set.height) / 78, 2.2)),
+      // (the picked player's wingspan over his height, on the lab's height)
+      wing: p.wing && p.hgt ? (idx ? set.height2 : set.height) + (p.wing - p.hgt) : undefined,
       hand: idx ? 'R' : set.hand, gender: set.gender, look: p.look, speed: set.speed, agility: set.agility,
       vert: (p.r && p.r.vert) || 65, handle: (p.r && p.r.handle) || 60,
     };
@@ -87,6 +91,14 @@
   const go = (ctx, dist, speed, side, o) => { const p = ahead(ctx, dist, side); ctx.a.moveTo(p[0], p[1], Object.assign({ speed }, o || {})); };
 
   add('Locomotion', 'stand', 'Standing', 6, (c) => { c.a.setStance('stand'); });
+  // (Trial 2: two body sizes side by side, the heights set by the two Height sliders: standing, then running the same
+  // speed, where the bigger one takes fewer, longer strides)
+  add('Locomotion', 'sizes', 'Two sizes side by side (stand, then run together)', 7, (c) => {
+    // (the start spot between them, where the camera looks when it does not follow)
+    c.a.place(c.x0 - c.rx * 1.6, c.y0 - c.ry * 1.6, c.f0); c.a.setStance('stand'); c.a.setFace(c.f0);
+    c.d.place(c.x0 + c.rx * 1.6, c.y0 + c.ry * 1.6, c.f0); c.d.setStance('stand'); c.d.setFace(c.f0);
+    c.at(2.5, () => { go(c, 300, 14); const p = ahead(c, 300, 3.2); c.d.moveTo(p[0], p[1], { speed: 14 }); });
+  }, { two: true });
   add('Locomotion', 'ready', 'Ready stance', 6, (c) => { c.a.setStance('ready'); });
   add('Locomotion', 'walk', 'Walk', 8, (c) => { c.a.setStance('stand'); c.at(0.3, () => go(c, 300, 4.5)); });
   add('Locomotion', 'jog', 'Jog', 7, (c) => { c.a.setStance('stand'); c.at(0.3, () => go(c, 300, 10)); });
@@ -110,6 +122,16 @@
     c.at(2.4, () => go(c, 0, 15, 60));
     c.at(4.4, () => go(c, 80, 15));
   });
+  // (Trial 4: a 6-2 guard and a 7-0 center with the same ratings, side by side: both start at once, cut 90 degrees at
+  // once and stop at once; the bigger, heavier body gets going, comes round and stops later)
+  add('Locomotion', 'weight', 'Guard and center: start, cut, stop together', 9, (c) => {
+    for (const [p, s] of [[c.a, -2.5], [c.d, 2.5]]) { p.place(c.x0 + c.rx * s, c.y0 + c.ry * s, c.f0); p.setStance('stand'); p.setFace(c.f0); }
+    const both = (fn) => { for (const p of [c.a, c.d]) fn(p); };
+    c.at(0.4, () => both((p) => p.moveTo(p.x + c.fx * 300, p.y + c.fy * 300, { speed: 22 })));
+    c.at(2.8, () => both((p) => p.moveTo(p.x - c.rx * 300, p.y - c.ry * 300, { speed: 22 })));
+    // (both back to full speed first: the stop starts from the same speed)
+    c.at(6.0, () => both((p) => p.stop()));
+  }, { two: true, sizes: [74, 84] });
   add('Locomotion', 'turn', 'Turn in place 180', 5.2, (c) => {
     c.a.setStance('ready');
     c.at(0.6, () => c.a.setFace(c.f0 + Math.PI));
@@ -159,12 +181,45 @@
     c.a.setStance('defense'); c.a.setFace(c.f0);
     for (let k = 0; k < 4; k++) c.at(0.4 + k * 1.6, () => { go(c, 0, 10, k % 2 ? -12 : 12); c.a.setFace(c.f0); });
   });
+  // (Trial 5: the gaits changing into each other, the scripted transitions the audits count pops over; the defender
+  // ones follow a man, c.m, who moves the way the name says)
+  const man = (c, fwd, right) => { c.m = { x: c.x0 + c.fx * (fwd || 0) + c.rx * (right || 0), y: c.y0 + c.fy * (fwd || 0) + c.ry * (right || 0), vx: 0, vy: 0 }; c.a.track(() => c.m); };
+  const manMove = (c, vf, vr) => { c.m.vx = c.fx * vf + c.rx * vr; c.m.vy = c.fy * vf + c.ry * vr; c.m.x += c.m.vx / 60; c.m.y += c.m.vy / 60; };
+  const tick60 = (fn) => (c, t) => { const k = Math.round(t * 60); if (c._k === k) return; c._k = k; fn(c, t); };
+  add('Gaits', 'walksprint', 'Walk into an all-out sprint, then stop', 7, (c) => {
+    c.a.setStance('stand');
+    c.at(0.2, () => go(c, 400, 4.5)); c.at(2.0, () => go(c, 400, 30)); c.at(4.5, () => c.a.stop());
+  });
+  add('Gaits', 'stopgo', 'Stop and go (walk, jog, run, stop, run, stop)', 9, (c) => {
+    c.a.setStance('stand');
+    c.at(0.2, () => go(c, 200, 6)); c.at(1.5, () => go(c, 200, 14)); c.at(3.0, () => c.a.stop());
+    c.at(4.5, () => go(c, 200, 22)); c.at(6.5, () => c.a.stop());
+  });
+  add('Gaits', 'runback', 'Run with his man, then backpedal as he turns back', 6, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, 3, 0);
+  }, { tick: tick60((c, t) => manMove(c, t < 0.3 ? 0 : t < 2.5 ? 10 : -9, 0)) });
+  add('Gaits', 'backturn', 'Backpedal, then turn and run as he blows by', 6, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, -3, 0);
+  }, { tick: tick60((c, t) => manMove(c, t < 0.3 ? 0 : t < 2.5 ? -8 : -22, 0)) });
+  add('Gaits', 'slidecross', 'Slide with his man, then open up (crossover) and sprint', 6, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, 0, 0);
+  }, { tick: tick60((c, t) => manMove(c, 0, t < 0.3 ? 0 : t < 2.5 ? -7 : -22)) });
+  add('Gaits', 'jogslide', 'Jog, slide across, jog on', 6.5, (c) => {
+    c.a.setStance('defense'); c.a.setFace(() => c.f0); c.a.faceLock = true; man(c, 2, 0);
+  }, { tick: tick60((c, t) => (t < 0.3 ? manMove(c, 0, 0) : t < 2.2 ? manMove(c, 9, 0) : t < 4.2 ? manMove(c, 0, -7) : manMove(c, 9, 0))) });
   add('Dribbling', 'dwalk', 'Dribble walking', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 200, 5)); });
   add('Dribbling', 'djog', 'Dribble jogging', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 200, 11)); });
   add('Dribbling', 'dsprint', 'Speed dribble', 7, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); c.at(0.4, () => go(c, 300, 19)); });
   add('Dribbling', 'dstand', 'Dribble in place', 6, (c) => { c.b.dribble(c.a); c.a.setStance('dribble'); });
-  for (const [id, name] of [['cross', 'Crossover'], ['btl', 'Between the legs'], ['btb', 'Behind the back']]) {
-    add('Dribbling', id, name, 4.6, (c) => {
+  // (Trial 8: a man up on him, the control dribble, low and quick, back by the hip, the off arm up)
+  add('Dribbling', 'dpress', 'Dribble in place, a defender up on him', 6, (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble');
+    c.d.place(c.x0 + c.fx * 3.6, c.y0 + c.fy * 3.6, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+  }, { two: true });
+  // (each move three times walking, each on a footfall; a move asked for while one waits goes after it)
+  for (const [id, name] of [['cross', 'Crossover'], ['btl', 'Between the legs'], ['btb', 'Behind the back'], ['inout', 'In and out']]) {
+    add('Dribbling', id, name, 6.2, (c) => {
       c.b.dribble(c.a); c.a.setStance('dribble');
       c.at(0.3, () => go(c, 60, 3));
       for (const t of [0.9, 2.1, 3.3]) c.at(t, () => c.b.dribbleMove(id));
@@ -178,8 +233,61 @@
   add('Dribbling', 'hesimove', 'Hesitation', 3.4, (c) => {
     c.b.dribble(c.a); c.a.setStance('dribble');
     c.at(0.3, () => go(c, 60, 10));
-    c.at(1.2, () => c.a.play('hesi'));
+    c.at(1.2, () => c.a.hesitate());
   });
+  add('Dribbling', 'retreat', 'Retreat dribble (a defender up on him)', 3.4, (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble');
+    c.d.place(c.x0 + c.fx * 3.4, c.y0 + c.fy * 3.4, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    c.at(0.9, () => c.a.retreat());
+  }, { two: true });
+  add('Dribbling', 'catchgo', 'Catch and go (a dribble out of the hands)', 3, (c) => {
+    c.b.give(c.a, 'chest'); c.a.setStance('triple');
+    c.at(0.6, () => { c.a.setStance('dribble'); c.b.dribble(c.a); go(c, 60, 12); });
+  });
+  // moves in place, sizing up a defender who stays in front of the ball: he slides toward the hand it goes to a
+  // beat after it gets there, and a combo ends in a drive past him (the moves chain from hand to hand)
+  const faceUp = (c) => {
+    c.b.dribble(c.a); c.a.setStance('dribble'); c.a.setFace(c.f0);
+    c.d.place(c.x0 + c.fx * 5.2, c.y0 + c.fy * 5.2, c.f0 + Math.PI); c.d.setStance('defense');
+    c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    c.mir = null;
+  };
+  const mirror = (c, t) => {
+    const dr = c.b.dr;
+    if (!dr || c.drove) return;
+    const side = (dr.move && dr.moveStarted && dr.move.type !== 'hesi' ? dr.move.toHand : dr.hand) ? 1 : -1;
+    if (!c.mir) c.mir = { side, t: -9 };
+    if (side !== c.mir.side) { c.mir.side = side; c.mir.t = t + 0.18; }
+    if (c.mir.t > 0 && t >= c.mir.t) {
+      c.mir.t = -9;
+      c.d.moveTo(c.x0 + c.fx * 5.2 + c.rx * side * 0.8, c.y0 + c.fy * 5.2 + c.ry * side * 0.8, { speed: 9, stance: 'defense' });
+      c.d.setFace(() => Math.atan2(c.a.y - c.d.y, c.a.x - c.d.x));
+    }
+  };
+  // the drive off the last move: past the defender on the ball's side, low, then at the basket; he turns and chases
+  const drive = (c) => {
+    const side = c.b.dr && c.b.dr.hand ? 1 : -1;
+    c.drove = true;
+    c.a.moveTo(c.x0 + c.fx * 34 + c.rx * side * 3.2, c.y0 + c.fy * 34 + c.ry * side * 3.2, { speed: 19, face: 'move', stance: 'dribble' });
+    c.at(c.T + 0.28, () => c.d.moveTo(c.x0 + c.fx * 30 + c.rx * side * 1.2, c.y0 + c.fy * 30 + c.ry * side * 1.2, { speed: 17, face: 'move', stance: 'ready' }));
+  };
+  add('Dribbling', 'crossIn', 'Crossovers in place', 4.4, (c) => {
+    faceUp(c); c.at(0.7, () => c.b.dribbleCombo(['cross', 'cross', 'cross', 'cross']));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'btlIn', 'Between the legs in place', 4.6, (c) => {
+    faceUp(c); c.at(0.7, () => c.b.dribbleCombo(['btl', 'btl', 'btl', 'btl']));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'btbIn', 'Behind the back in place', 4.2, (c) => {
+    faceUp(c); c.at(0.7, () => c.b.dribbleCombo(['btb', 'btb', 'btb']));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'hesiIn', 'Hesitation, then go', 3.6, (c) => {
+    faceUp(c); c.at(0.9, () => c.b.dribbleCombo(['hesi'], { onDone: () => { c.T = c.b.time; drive(c); } }));
+  }, { two: true, tick: mirror });
+  add('Dribbling', 'combo', 'Combo: crossover, crossover, behind the back, between the legs twice, hesitation, drive', 6.4, (c) => {
+    faceUp(c);
+    c.at(0.7, () => c.b.dribbleCombo(['cross', 'cross', 'btb', 'btl', 'btl', 'hesi'], { onDone: () => { c.T = c.b.time; drive(c); } }));
+  }, { two: true, tick: mirror });
   add('Ball', 'triple', 'Triple threat', 5, (c) => { c.b.give(c.a, 'triple'); c.a.setStance('triple'); });
   // contact: the body reacting to other bodies (the lab has no collisions of its own, so the pushes are applied here)
   add('Contact', 'reach', 'Reach for a steal (the dribbler protects)', 3.2, (c) => {
@@ -217,6 +325,50 @@
   });
   add('Ball', 'pocket', 'Shot pocket hold', 4, (c) => { c.b.give(c.a, 'pocket'); c.a.setStance('shotPocket'); });
   add('Ball', 'chest', 'Chest hold', 4, (c) => { c.b.give(c.a, 'chest'); c.a.setStance('holdChest'); });
+
+  // two players passing (Trial 10): every pass of the pass audit (tools/audit/pass.js), staged as the choreographer stages
+  // one and thrown and caught by the game's own code (js/match/passlab.js); the camera follows the passer
+  if (M.PassLab && M.Director) {
+    for (const s of M.PassLab.scenarios()) {
+      const words = s.name.charAt(0).toUpperCase() + s.name.slice(1);
+      add('Passing (two players)', 'pass:' + s.id, words, s.T + 0.8, (c) => {
+        const PL = M.PassLab, pc = { M, p: c.a, r: c.d, b: c.b, at: c.at, D: PL.director(c.W, c.now, c.at) };
+        pc.stage = (from, to, o) => PL.stagePass(pc, from, to, o);
+        pc.hold = (who) => { who.ballHold = 'chest'; const hp = who.heldBallPos([0, 0, 0]); c.b.x = hp[0]; c.b.y = hp[1]; c.b.z = hp[2]; c.b.give(who, 'chest'); };
+        s.setup(pc);
+      }, { two: true });
+    }
+  }
+
+  // shots (Trial 9): every shot of the shot audit (tools/audit/shot.js), planned and thrown by the game's own shot beat
+  // (js/match/shotlab.js: the approach, the shooter's own form, the release, the ball to a real hoop), with its bodies (a
+  // passer, a defender, the official at the free throw line); the camera follows the shooter
+  if (M.ShotLab && M.Director) {
+    for (const s of M.ShotLab.scenarios()) {
+      const words = s.name.charAt(0).toUpperCase() + s.name.slice(1);
+      add('Shooting (the shot lab)', 'shot:' + s.id, words, s.T + 0.8, (c) => {
+        const SL = M.ShotLab, pc = { M, a: c.bodies, b: c.b, at: c.at, D: SL.director(c.W, c.now, c.at) };
+        pc.hold = (who, how) => { who.ballHold = how || 'chest'; const hp = who.heldBallPos([0, 0, 0]); c.b.x = hp[0]; c.b.y = hp[1]; c.b.z = hp[2]; c.b.give(who, how || 'chest'); };
+        pc.shoot = (o) => SL.stageShot(pc, o);
+        pc.pass = (from, to, o) => M.PassLab.stagePass({ M, b: c.b, at: c.at, D: pc.D }, from, to, o);
+        s.setup(pc);
+      }, { bodies: s.bodies });
+    }
+  }
+
+  // the glass and the contest (Trial 11): every scenario of the glass audit (tools/audit/glass.js), played by the game's own
+  // beats (js/match/glasslab.js: the shot's contest and block, the carom settled off the rim and read a reaction later, the
+  // box-outs, the rebound, the steals and the reach-in), with its bodies; the camera follows the first
+  if (M.GlassLab && M.Director) {
+    for (const s of M.GlassLab.scenarios()) {
+      const words = s.name.charAt(0).toUpperCase() + s.name.slice(1);
+      add('Rebounds, blocks and steals (the glass lab)', 'glass:' + s.id, words, s.T + 0.8, (c) => {
+        const GL = M.GlassLab, pc = { M, a: c.bodies, b: c.b, at: c.at, D: GL.director(c.W, c.now, c.at) };
+        pc.hold = (who, how) => { who.ballHold = how || 'chest'; const hp = who.heldBallPos([0, 0, 0]); c.b.x = hp[0]; c.b.y = hp[1]; c.b.z = hp[2]; c.b.give(who, how || 'chest'); };
+        s.setup(pc);
+      }, { bodies: s.bodies });
+    }
+  }
 
   // every clip in the library, grouped
   const GROUPS = {
@@ -334,17 +486,43 @@
       reseed(set.seed * 7919 + 13);
       const W = new World();
       const f0 = 0, x0 = 47, y0 = 25;
-      const a = W.add(makeLook(set, 0), 0);
+      // (a scenario may pick its own two sizes: the weight one pits a guard against a center)
+      const ls = sc.sizes ? Object.assign({}, set, { height: sc.sizes[0], height2: sc.sizes[1] }) : set;
+      const a = W.add(makeLook(ls, 0), 0);
       a.place(x0, y0, f0);
       const b = new M.Ball(W); W.ball = b;
       b.x = x0 + 3; b.y = y0; b.z = 0.39;
       const ctx = { W, a, b, f0, fx: Math.cos(f0), fy: Math.sin(f0), rx: Math.sin(f0), ry: -Math.cos(f0), x0, y0, ev: [] };
-      if (sc.two) { ctx.d = W.add(makeLook(set, 1), 1); }
+      if (sc.two) { ctx.d = W.add(makeLook(ls, 1), 1); }
+      // (a scenario with its own bodies, the shot lab's: players of the given size, hand, spring, shot form and free throw
+      // routine, and an official; the first is the one the camera follows)
+      if (sc.bodies) {
+        W.list.length = 0; W.onCourt = [[], []]; W.actors = {}; W.refs = [];
+        ctx.bodies = sc.bodies.map((bd, i) => {
+          let x;
+          if (bd.ref) {
+            x = new M.Actor(W, { id: 'ref' + i, num: 14, height: 74, weight: 200, gender: 'm', look: { skin: 1, hair: 'bald', beard: 'none', build: 0.4 } }, -1, 'ref');
+            x.setStance('refStand'); W.actors[x.id] = x; W.list.push(x); W.refs.push(x); x.sk.limHits = new Uint8Array(RG.NCH);
+          } else {
+            const lk = makeLook(Object.assign({}, set, { height: bd.h || set.height, height2: bd.h || set.height, hand: bd.hand || 'R' }), i ? 1 : 0);
+            lk.id = 'lab' + i; lk.teamIdx = bd.team; if (bd.vert) lk.vert = bd.vert;
+            x = W.add(lk, bd.team);
+            if (bd.form) x.shotForm = M.ShotLab.FORMS[bd.form];
+            if (bd.ft) x._ftRoutine = Object.assign({}, bd.ft);
+          }
+          return x;
+        });
+        ctx.a = ctx.bodies[0];
+      }
+      // (the scenario's clock, for a scenario that schedules on it: the two-player passes' Director)
+      ctx.now = () => this.simT;
       ctx.at = (t, fn) => { ctx.ev.push({ t, fn }); ctx.ev.sort((p, q) => p.t - q.t); };
       this.world = W; this.ctx = ctx; this.sc = sc;
       this.simT = 0; this.sub = 0; this.frame = 0;
       this.snapFocus = true; this.snapUp = true;
       this.track = new Map();
+      // the same meters as the in-game debug tools and the headless audit (js/match/debug.js)
+      this.meters = M.Debug ? new M.Debug.Meters(() => ({ people: this.world.list, ball: this.world.ball, time: this.simT, view: null, dt: SUB, countAll: true })) : null;
       reseed(set.seed * 104729 + 7);
       b.hidden = true; // (shown when the scenario hands it out, dribbles or passes it)
       U.safe ? U.safe(() => sc.setup(ctx), this, 'scenario') : sc.setup(ctx);
@@ -363,11 +541,12 @@
       if (sc.tick) sc.tick(ctx, this.simT);
       for (const a of this.world.list) a.update(SUB, this.simT);
       if (this.world.ball) this.world.ball.update(SUB, this.simT);
-      if (this.sub % 2 === 0) { this.frame++; this.solveAll(); this.measure(); }
+      this.frame++; this.solveAll(); this.measure();
     }
     solveAll() { for (const a of this.world.list) a.solve(); }
     /** per frame bookkeeping for the overlays: planted-foot slide, footprints, support state, onion skin */
     measure() {
+      if (this.meters) this.meters.frame();
       for (const a of this.world.list) {
         let tr = this.track.get(a);
         if (!tr) { tr = { feet: [{ lock: null, slide: 0 }, { lock: null, slide: 0 }], maxSlide: 0, prints: [], support: [], ghost: [] }; this.track.set(a, tr); }
@@ -503,6 +682,7 @@
       const lookH = 0.45 * a.H + (this.focusUp || 0), camZ = camH + (this.focusUp || 0);
       cam.setPose(this.focus.x, this.focus.y - dist, camZ, Math.atan2(camZ - lookH, dist), 1.25 * cam.H);
       this.drawFloor(g);
+      if (W.hoops) this.drawHoop(g, W.hoops[1]);
       if (set.ov.trails) this.drawPrints(g);
       // people, farthest first
       const people = W.list.map(p => ({ sk: this.displaySk(p), style: p.style, a: p }));
@@ -593,6 +773,28 @@
         });
       }
     }
+    /** a basket for the shot lab: the backboard, the ring and a net (drawn behind the players; the ball through it is enough
+     *  to read the shot) */
+    drawHoop(g, ho) {
+      // (proj hands back one shared point: copied as it comes)
+      const bx = ho.bx, rx = ho.rx, ry = ho.ry, pts = (arr) => arr.map(q => { const p = this.proj(q[0], q[1], q[2]); return [p.x, p.y]; });
+      g.save();
+      // (the backboard, 6 ft wide and 3.5 ft tall, its bottom 9 ft up; the stanchion's arm)
+      const bd = pts([[bx, ry - 3, 9], [bx, ry + 3, 9], [bx, ry + 3, 12.5], [bx, ry - 3, 12.5]]);
+      g.fillStyle = 'rgba(200,220,240,0.18)'; g.strokeStyle = 'rgba(235,240,250,0.9)'; g.lineWidth = 2;
+      g.beginPath(); bd.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fill(); g.stroke();
+      const sq = pts([[bx, ry - 1, 10], [bx, ry + 1, 10], [bx, ry + 1, 11.5], [bx, ry - 1, 11.5]]);
+      g.beginPath(); sq.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke();
+      // (the ring and the net)
+      const ring = [], net = [];
+      for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2; ring.push([rx + Math.cos(a) * 0.75, ry + Math.sin(a) * 0.75, 10]); net.push([rx + Math.cos(a) * 0.4, ry + Math.sin(a) * 0.4, 8.6]); }
+      const rp = pts(ring), np = pts(net);
+      g.strokeStyle = 'rgba(245,245,245,0.55)'; g.lineWidth = 1;
+      g.beginPath(); for (let i = 0; i < 24; i += 2) { g.moveTo(rp[i][0], rp[i][1]); g.lineTo(np[(i + 3) % 24][0], np[(i + 3) % 24][1]); g.moveTo(rp[i][0], rp[i][1]); g.lineTo(np[(i + 21) % 24][0], np[(i + 21) % 24][1]); } g.stroke();
+      g.strokeStyle = '#e8521f'; g.lineWidth = 3;
+      g.beginPath(); rp.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.stroke();
+      g.restore();
+    }
     drawBallShadow(g, b) {
       const p = this.proj(b.x, b.y, 0);
       const r = M.Ball.R * p.s * Math.max(0.4, 1 - b.z / 20);
@@ -626,16 +828,24 @@
       tr.ghost.forEach((P, i) => { if (i < tr.ghost.length - 1) this.drawSkeleton(g, P, `rgba(255,255,255,${0.08 + 0.05 * i})`, 1.2); });
     }
     drawLocks(g, a) {
-      const tr = this.track.get(a);
+      // heel, ball and toe contacts from the shared meter: green locked, yellow sliding, red past what viewers notice
+      const T = M.Tune.debug, mt = this.meters && this.meters.tracker(a);
+      const P = a.sk.P;
       a.feet.forEach((f, i) => {
         if (f.state === 'plant') {
-          const t = tr && tr.feet[i], sl = t ? t.slide * 12 : 0;
-          const col = sl < 0.12 ? '#3ecf8e' : sl < 0.5 ? '#f2c14e' : '#ff5a5f';
+          let worst = 0;
+          if (mt) for (let q = i * 3; q < i * 3 + 3; q++) { const pt = mt.pts[q]; if (pt.on) worst = Math.max(worst, pt.cur * 12); }
+          const col = worst < T.slideOkIn ? '#3ecf8e' : worst < T.slideBadIn ? '#f2c14e' : '#ff5a5f';
           const p = this.proj(f.x, f.y, 0), x = p.x, y = p.y, top = this.proj(f.x, f.y, 1.1);
           g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(top.x, top.y); g.stroke();
           g.fillStyle = col; g.beginPath(); g.arc(top.x, top.y, 4.5, 0, Math.PI * 2); g.fill();
-          g.beginPath(); g.ellipse(x, y, 9, 3.5, 0, 0, Math.PI * 2); g.stroke();
-          if (sl >= 0.05) { g.font = '11px ui-monospace, monospace'; g.fillText(sl.toFixed(2) + '"', top.x + 7, top.y + 4); }
+          if (worst >= 0.05) { g.font = '11px ui-monospace, monospace'; g.fillText(worst.toFixed(2) + '"', top.x + 7, top.y + 4); }
+          if (mt) for (let q = i * 3; q < i * 3 + 3; q++) {
+            const pt = mt.pts[q]; if (!pt.on) continue;
+            const j = M.Debug.POINTS[q].j * 3, c = pt.cur * 12, pp = this.proj(P[j], P[j + 1], 0);
+            g.fillStyle = c < T.slideOkIn ? '#3ecf8e' : c < T.slideBadIn ? '#f2c14e' : '#ff5a5f';
+            g.beginPath(); g.arc(pp.x, pp.y, 3, 0, Math.PI * 2); g.fill();
+          }
         } else if (f.state === 'swing' && f.tx != null) {
           const p = this.proj(f.tx, f.ty, 0);
           g.strokeStyle = 'rgba(160,200,255,0.8)'; g.setLineDash([4, 3]); g.lineWidth = 1.5;
@@ -776,6 +986,7 @@
       const pl = this.el('div', { class: 'sec' }, [this.el('h2', { text: 'Player' })]);
       const inch = (v) => Math.floor(v / 12) + "'" + (v % 12) + '"';
       pl.appendChild(this.slider('Height', 'height', 68, 88, 1, inch, () => this.restartSoon()));
+      pl.appendChild(this.slider('Height (second player)', 'height2', 68, 88, 1, inch, () => this.restartSoon()));
       pl.appendChild(this.slider('Speed', 'speed', 30, 99, 1, (v) => String(v), () => this.restartSoon()));
       pl.appendChild(this.slider('Agility', 'agility', 30, 99, 1, (v) => String(v), () => this.restartSoon()));
       const hand = this.el('select', { onchange: (e) => { set.hand = e.target.value; save(); L.rebuild(0); this.sync(); } }, [this.el('option', { value: 'R', text: 'Right-handed' }), this.el('option', { value: 'L', text: 'Left-handed' })]);
@@ -843,7 +1054,7 @@
     }
     restartSoon() { clearTimeout(this._rt); this._rt = setTimeout(() => { this.lab.rebuild(0); this.sync(); }, 180); }
     preset(ang, h) { set.cam = ang; set.camH = h; save(); this.syncSliders(); }
-    syncSliders() { for (const k of ['cam', 'camH', 'dist', 'height', 'speed', 'agility']) { const s = this['s_' + k]; if (s) { s.inp.value = set[k]; s.val.textContent = s.fmt(set[k]); } } }
+    syncSliders() { for (const k of ['cam', 'camH', 'dist', 'height', 'height2', 'speed', 'agility']) { const s = this['s_' + k]; if (s) { s.inp.value = set[k]; s.val.textContent = s.fmt(set[k]); } } }
     togglePlay() {
       const L = this.lab;
       if (!L.playing && L.simT >= L.sc.dur - 1e-6) L.rebuild(0);
@@ -881,16 +1092,18 @@
         lines.push('step    ' + step.toFixed(2) + ' ft = ' + (step / leg).toFixed(2) + ' x leg (' + leg.toFixed(2) + ' ft)');
         lines.push('support flight ' + Math.round(fl * 100) + '%  double ' + Math.round(db * 100) + '%  (last 2 s)');
       } else lines.push('gait    <span class="dim">off (standing)</span>');
+      const T = M.Tune.debug, mt = this.lab.meters && this.lab.meters.tracker(a);
+      const cls = (v) => (v < T.slideOkIn ? 'ok' : v < T.slideBadIn ? 'warn' : 'bad');
       const fs = a.feet.map((f, i) => {
-        const t = tr && tr.feet[i];
         if (f.state === 'plant') {
-          const sl = t ? t.slide * 12 : 0;
-          return (i ? 'R' : 'L') + ' <span class="' + (sl < 0.12 ? 'ok' : sl < 0.5 ? 'warn' : 'bad') + '">planted ' + sl.toFixed(2) + '"</span>';
+          let sl = 0;
+          if (mt) for (let q = i * 3; q < i * 3 + 3; q++) if (mt.pts[q].on) sl = Math.max(sl, mt.pts[q].cur * 12);
+          return (i ? 'R' : 'L') + ' <span class="' + cls(sl) + '">planted ' + sl.toFixed(2) + '"</span>';
         }
         return (i ? 'R' : 'L') + ' ' + f.state + (f.mode ? '/' + f.mode : '') + (f.sw != null && f.state === 'swing' ? ' ' + Math.round(f.sw * 100) + '%' : '');
       });
       lines.push('feet    ' + fs.join('   '));
-      if (tr) lines.push('slide   worst so far ' + '<span class="' + (tr.maxSlide * 12 < 0.12 ? 'ok' : tr.maxSlide * 12 < 0.5 ? 'warn' : 'bad') + '">' + (tr.maxSlide * 12).toFixed(2) + ' in</span>');
+      if (this.lab.meters) { const w = this.lab.meters.S.slideWorst; lines.push('slide   worst so far (heel, ball or toe) ' + '<span class="' + cls(w) + '">' + w.toFixed(2) + ' in</span>'); }
       const cl = a.clip ? a.clip.clip.name + ' ' + Math.min(a.clip.t, a.clip.clip.dur).toFixed(2) + ' / ' + a.clip.clip.dur.toFixed(2) : '-';
       const up = a.upper ? a.upper.clip.name + ' ' + a.upper.t.toFixed(2) : '-';
       lines.push('clip    ' + cl + '   upper ' + up);

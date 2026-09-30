@@ -1,0 +1,7 @@
+Trial 2: the other ways to watch (seed 21, 2x, 70 s each, the arena's sound on, the booth off)
+
+the retro court                            OK  view RetroView; court sounds 0; shot results 13, from the court 13; sounds played 16; page errors 0
+play-by-play only                          OK  view none (text); court sounds 0; shot results 8, with the text 8; sounds played 4; page errors 0
+the broadcast court with instant replays   OK  view View; replays 1 (54.54-62.57 s); court sounds 506, during a replay 0, after it 68; shot results 4; sounds played 511; page errors 0
+
+RESULT: PASS

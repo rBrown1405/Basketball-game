@@ -1,0 +1,2 @@
+# recordings stay out of git (the compressed clips are kept as .webm)
+*.wav

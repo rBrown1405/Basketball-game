@@ -176,6 +176,7 @@
     } else {
       if (key === 'switch') score = (Math.min(...top.slice(0, 6).map(p => p.r.perD)) - 55) / 5;
       else if (key === 'drop') score = (best('block') - 74) / 5;
+      else if (key === 'hedge') { const bigs = top.filter(p => C.POS_NUM[p.pos] >= 4); score = bigs.length ? (U.avg(bigs, p => (p.r.speed + p.r.agility) / 2) - 60) / 5 : -1; }
       else if (key === 'blitz' || key === 'pressure' || key === 'press') score = (avg('steal') + avg('speed') - 128) / 7;
       else if (key.startsWith('zone') || key === 'packline') score = 0.3 + (avg('intD') - 60) / 10;
       else if (key === 'nothree') score = (avg('perD') - 64) / 5;

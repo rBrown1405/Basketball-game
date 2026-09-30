@@ -1,0 +1,688 @@
+   3.770    2.691 Q1 12:00.0  court.step         v 0.12 #ref3 (speed 14.6) at 51.8, 52.6 ft +0ms late 83ms | step [take 10]→court p10 pan 0.09 -1.6dB
+   3.773    2.691 Q1 12:00.0  court.step         v 0.12 #ref2 (speed 14.1) at 42.3, -2.6 ft +0ms late 67ms | step [take 6]→court p10 pan -0.14 +2.7dB
+   4.334    3.251 Q1 12:00.0  court.step         v 0.14 #ref2 (speed 15.0) at 47.2, -2.2 ft +0ms late 16ms | step [take 9]→court p10 pan 0.01 +2.7dB
+   4.519    3.434 Q1 12:00.0  court.squeak       stop v 0.33 Payton (gait speed 2.4 (was 10.0) brake 30.0 turn 2.1 ready) at 39.8, 18.5 ft +0ms late 50ms | squeak [stop take 10]→court p18 pan -0.17 +0.8dB
+   5.104    4.023 Q1 12:00.0  game.jump_ball     UTA | booth.pbp→commentary p7 queued
+   5.142    4.061 Q1 12:00.0  court.pass         v 0.42 (ball 19 ft/s) at 47, 25, 13.6 ft +0ms | pass [rec 1/2]→court p22 pan 0 +0.7dB
+   5.497    4.412 Q1 11:59.6  court.land         v 0.74 Laurent (jump 2.2 ft) at 45.4, 25 ft +0ms late 16ms | land [take 11]→court p28 pan -0.05 +0.4dB
+   5.498    4.412 Q1 11:59.6  court.land         v 0.91 Dunn (jump 2.3 ft) at 48.5, 24.9 ft +0ms late 16ms | land [take 7]→court p28 pan 0.02 +0.4dB
+   5.702    4.621 Q1 11:59.4  court.catch        v 0.67 Mitchell (ball 27 ft/s) at 53.6, 26.1, 4.2 ft +0ms late 16ms | catch [take 10]→court p35 pan 0.13 +0.4dB
+   5.835    4.751 Q1 11:59.3  court.step         v 0.17 Mitchell (speed 13.2) at 52.3, 27.4 ft +0ms late 16ms | step [take 12]→court p10 pan 0.1 +0.2dB
+   5.877    4.792 Q1 11:59.3  court.step         v 0.17 Mills (speed 12.9) at 48, 29.2 ft +0ms late 16ms | step [take 8]→court p10 pan 0.01 0dB
+   6.078    4.992 Q1 11:59.0  court.pass         v 1 Mitchell (ball 49 ft/s) at 48.1, 30.9, 4.1 ft +0ms | pass [rec 2/2]→court p22 pan 0.03 0dB
+   6.078    4.992 Q1 11:59.0  court.step         v 0.36 Dixon (speed 16.4) at 48.7, 33.7 ft +0ms | step [take 2]→court p10 pan 0.04 -0.3dB
+   6.159    5.071 Q1 11:59.0  court.step         v 0.35 Mitchell (speed 16.3) at 48, 29.6 ft +0ms late 16ms | step [take 4]→court p10 pan 0.03 0dB
+   6.340    5.262 Q1 11:58.8  court.catch        v 1.1 Collins (ball 47 ft/s) at 51, 18.8, 4.4 ft +0ms late 16ms | catch [take 2]→court p35 pan 0.11 +1dB
+   6.378    5.291 Q1 11:58.8  court.step         v 0.47 Dixon (speed 18.4) at 44.8, 37.6 ft +0ms | step [take 11]→court p10 pan -0.03 -0.6dB
+   6.451    5.373 Q1 11:58.7  court.step         v 0.34 Mitchell (speed 16.1) at 44.2, 33.1 ft +0ms | step [take 7]→court p10 pan -0.05 -0.2dB
+   6.521    5.442 Q1 11:58.6  court.step         v 0.21 Dunn (speed 12.8) at 42.9, 21.5 ft +0ms | step [take 3]→court p10 pan -0.08 +0.6dB
+   6.586    5.500 Q1 11:58.5  court.step         v 0.21 Jordan (speed 13.7) at 33.5, 28.6 ft +0ms | step [take 10]→court p10 pan -0.28 0dB
+   6.655    5.573 Q1 11:58.5  court.step         v 0.12 Laurent (speed 12.0) at 37.8, 23.3 ft +0ms late 16ms | step [take 6]→court p10 pan -0.2 +0.5dB
+   6.833    5.753 Q1 11:58.3  court.step         v 0.14 #ref1 (speed 14.9) at 27.2, 17.8 ft +0ms | step [take 1]→court p10 pan -0.46 +0.7dB
+   6.984    5.901 Q1 11:58.1  court.dribble      v 0.44 Collins tight 0.34 at 47, 20.3 ft paint +0ms late 5ms | dribble [rec 3]→court p20 pan 0.03 +1dB
+   7.005    5.921 Q1 11:58.1  game.advance       UTA 
+   7.064    5.982 Q1 11:58.1  court.step         v 0.21 Payton (speed 14.3) at 36.2, 19.9 ft +0ms late 16ms | step [take 12]→court p10 pan -0.22 +0.7dB
+   7.221    6.142 Q1 11:57.9  court.pass         v 0.97 Collins (ball 45 ft/s) at 42.3, 21.4, 4.4 ft +0ms | pass [rec 1]→court p22 pan -0.05 +0.8dB
+   7.261    6.182 Q1 11:57.9  court.step         v 0.22 Mills (speed 13.7) at 36.3, 16.3 ft +0ms late 33ms | step [take 5]→court p10 pan -0.18 +1dB
+   7.504    6.420 Q1 11:57.7  court.catch        v 1.07 Mills (ball 43 ft/s) at 34.7, 13.1, 4.8 ft +0ms late 33ms | catch [take 4]→court p35 pan -0.15 +1.5dB
+   7.505    6.420 Q1 11:57.7  court.step         v 0.12 Ndiaye (speed 12.2) at 31.7, 35.4 ft +0ms late 16ms | step [take 9]→court p10 pan -0.18 -0.4dB
+   7.671    6.592 Q1 11:57.5  game.set           UTA 
+   7.692    6.612 Q1 11:57.5  court.step         v 0.17 Ndiaye (speed 13.0) at 26.5, 38 ft +0ms late 16ms | step [take 8]→court p10 pan -0.22 -0.6dB
+   7.868    6.780 Q1 11:57.3  court.step         v 0.5 Laurent (speed 18.0) at 25.3, 12.3 ft +0ms | step [take 2]→court p10 pan -0.26 +1.4dB
+   8.113    7.033 Q1 11:57.1  court.dribble      v 0.44 Mills tight 0.36 at 24.3, 8.6 ft +0ms late 15ms | dribble [rec 9]→court p20 pan -0.23 +2.1dB
+   8.152    7.070 Q1 11:57.1  court.step         v 0.67 Jenkins (speed 21.1) at 29.8, 11.9 ft +0ms | step [take 4]→court p10 pan -0.06 +1.5dB
+   8.446    7.361 Q1 11:56.8  court.step         v 0.14 #ref1 (speed 15.0) at 7.7, 15.6 ft +0ms | step [take 7]→court p10 pan -0.57 +1dB
+   8.481    7.401 Q1 11:56.7  court.step         v 0.51 Jenkins (speed 18.4) at 24.3, 8.4 ft +0ms | step [take 11]→court p10 pan -0.13 +1.9dB
+   8.722    7.642 Q1 11:56.5  court.step         v 0.34 Jenkins (speed 15.6) at 21.8, 8.6 ft +0ms | step [take 10]→court p10 pan -0.16 +2dB
+   8.723    7.642 Q1 11:56.5  court.squeak       slide v 0.66 Jenkins (step speed 15.6 (was 19.6) brake 7.7 turn 22.5 defense) at 21.8, 8.6 ft +0ms | squeak [slide take 8]→court p18 pan -0.16 +2dB
+   8.800    7.715 Q1 11:56.4  court.dribble      v 0.52 Mills tight 0.6 at 18.1, 13.4 ft +0ms late 6ms | dribble [rec 10]→court p20 pan -0.24 +2.1dB
+   8.872    7.790 Q1 11:56.3  court.step         v 0.13 #ref3 (speed 14.9) at 30, 52.6 ft +0ms late 16ms | step [take 3]→court p10 pan 0.07 -1.4dB
+   9.145    8.060 Q1 11:56.1  court.step         v 0.28 Jenkins (speed 14.7) at 13.7, 7.9 ft +0ms | step [take 1]→court p10 pan -0.33 +2.1dB
+   9.260    8.176 Q1 11:55.9  court.step         v 0.3 Mills (speed 15.1) at 14.5, 17.2 ft +0ms | step [take 5]→court p10 pan -0.27 +1.3dB
+   9.329    8.240 Q1 11:55.9  court.dribble      v 0.45 Mills tight 0.48 at 15.1, 20.5 ft paint +0ms late 12ms | dribble [rec 7]→court p20 pan -0.24 +0.9dB
+   9.441    8.362 Q1 11:55.8  court.step         v 0.34 Jenkins (speed 15.6) at 11, 11.6 ft +0ms late 33ms | step [take 12]→court p10 pan -0.36 +1.7dB
+   9.680    8.600 Q1 11:55.5  court.step         v 0.15 Payton (speed 13.1) at 18.9, 20.4 ft +0ms late 16ms | step [take 6]→court p10 pan -0.12 +1.1dB
+   9.849    8.763 Q1 11:55.4  court.squeak       stop v 0.23 Mills (gait speed 6.6 (was 15.6) brake 25.6 turn 0.2 dribble) at 13, 24.8 ft +0ms late 16ms | squeak [stop take 6]→court p18 pan -0.24 +0.7dB
+   9.882    8.800 Q1 11:55.3  court.dribble      v 0.54 Mills tight 0.59 at 14.8, 22.6 ft paint +0ms late 13ms | dribble [rec 5]→court p20 pan -0.21 +1.2dB
+  10.131    9.053 Q1 11:55.1  court.step         v 0.36 Jenkins (speed 16.0) at 7.3, 21.9 ft +0ms late 33ms | step [take 2]→court p10 pan -0.39 +0.9dB
+  10.132    9.053 Q1 11:55.1  court.squeak       cut v 0.23 Jenkins (gait speed 16.0 (was 17.3) brake 3.4 turn 25.2 defense) at 7.3, 21.9 ft +0ms late 33ms | squeak [cut take 7]→court p18 pan -0.39 +0.9dB
+  10.662    9.581 Q1 11:54.6  game.pass          UTA swing 
+  10.690    9.610 Q1 11:54.5  court.pass         v 0.93 Mills (ball 43 ft/s) at 16.1, 23.3, 4.2 ft +0ms | pass [rec 1/1]→court p22 pan -0.17 +1dB
+  10.889    9.805 Q1 11:54.3  court.step         v 0.16 Laurent (speed 12.6) at 17.5, 26.6 ft +0ms | step [take 9]→court p10 pan -0.14 +0.6dB
+  10.991    9.912 Q1 11:54.2  court.catch        v 1.02 Mitchell (ball 41 ft/s) at 28.8, 23, 4.6 ft +0ms late 16ms | catch [take 1]→court p35 pan 0.12 +1dB
+  11.246   10.162 Q1 11:54.0  court.step         v 0.29 Laurent (speed 14.7) at 21.6, 23.6 ft +0ms | step [take 7]→court p10 pan -0.06 +0.8dB
+  11.850   10.771 Q1 11:53.4  court.body         bump v 0.15 Payton (bump, closing at 4.3 ft/s with #3) at 27.7, 24.3, 4 ft +0ms | body [bump take 9]→court p30 pan 0.11 +0.9dB
+  12.117   11.032 Q1 11:53.1  court.body         bump v 0.15 Collins (bump, hit at 3.1 ft/s with #291) at 30.5, 23.8, 4 ft +0ms | body [bump take 1]→court p30 pan 0.19 +0.9dB
+  13.037   11.912 Q1 11:52.2  court.body         bump v 0.15 Payton (bump, hit at 3.1 ft/s with #3) at 28.9, 24.2, 4 ft +0ms | body [bump take 10]→court p30 pan 0.16 +0.9dB
+  13.655   12.530 Q1 11:51.6  game.pass          UTA swing 
+  13.678   12.550 Q1 11:51.5  court.pass         v 0.82 Mitchell (ball 38 ft/s) at 28.5, 24.7, 4 ft +0ms late 16ms | pass [rec 1/4]→court p22 pan 0.15 +0.9dB
+  14.060   12.934 Q1 11:51.1  court.step         v 0.19 Payton (speed 13.9) at 22.9, 23 ft +0ms late 33ms | step [take 4]→court p10 pan 0.04 +0.9dB
+  14.156   13.032 Q1 11:51.1  court.squeak       slide v 0.27 Laurent (gait speed 7.3 (was 10.9) brake 12.4 turn 7.8 defense) at 25.3, 30.6 ft +0ms | squeak [slide take 3]→court p18 pan 0.09 +0.3dB
+  14.348   13.221 Q1 11:50.9  court.step         v 0.21 Payton (speed 14.3) at 18.4, 22.6 ft +0ms | step [take 11]→court p10 pan -0.06 +0.9dB
+  14.659   13.531 Q1 11:50.6  court.catch        v 0.81 Mills (ball 32 ft/s) at 4.9, 45, 4.8 ft +0ms | catch [take 12]→court p35 pan -0.3 -0.7dB
+  17.602   16.480 Q1 11:47.6  game.pass          UTA lob 
+  17.628   16.501 Q1 11:47.6  court.pass         v 0.47 Mills (ball 22 ft/s) at 5.3, 43.7, 6.7 ft +0ms late 16ms | pass [rec 2/5]→court p22 pan -0.24 -0.6dB
+  17.858   16.733 Q1 11:47.4  court.squeak       stop v 0.15 Mitchell (gait speed 4.8 (was 10.4) brake 18.0 turn 14.0 stand) at 28.8, 34.6 ft +0ms | squeak [stop take 8]→court p18 pan 0.25 -0.1dB
+  18.137   17.012 Q1 11:47.1  court.squeak       slide v 0.63 Jordan (gait speed 6.1 (was 11.1) brake 18.7 turn 12.4 defense) at 23.7, 33 ft +0ms late 16ms | squeak [slide take 12]→court p18 pan 0.13 +0.1dB
+  18.400   17.281 Q1 11:46.9  court.catch        v 0.51 Collins (ball 21 ft/s) at 13.2, 32.9, 6 ft +0ms late 16ms | catch [take 7]→court p35 pan -0.11 +0.2dB
+  19.162   18.042 Q1 11:46.2  court.step         v 0.18 Laurent (speed 13.0) at 5, 25.6 ft +0ms late 16ms | step [take 3]→court p10 pan -0.3 +0.6dB
+  19.214   18.091 Q1 11:46.2  game.shot          Collins 2pt pullup UTA | booth.pbp→commentary p5 queued
+  19.606   18.480 Q1 11:46.2  court.land         v 0.32 Collins (jump 1.0 ft) at 11.5, 29.4 ft +0ms late 32ms | land [take 3]→court p28 pan -0.13 +0.4dB
+  19.607   18.480 Q1 11:46.2  court.land         v 0.35 Payton (jump 1.2 ft) at 9.4, 27.9 ft +0ms | land [take 5]→court p28 pan -0.18 +0.5dB
+  19.863   18.741 Q1 11:46.2  court.swish        v 1 (nothing but net) at 5.3, 25, 10 ft +0ms late 11ms | swish [rec 3]→court p65 pan -0.29 +0.9dB
+  20.050   18.930 Q1 11:46.2  game.shotResult    Collins swish, net (court) 
+  20.050   18.930 Q1 11:46.2  game.score         UTA +2 → 0-2 | crowd.murmur→crowd p30; booth.pbp→commentary p7 queued
+  20.374   19.252 Q1 11:46.2  live.possession    BOS ball, pnr 
+  20.586   19.461 Q1 11:46.0  court.squeak       stop v 0.15 Jordan (gait speed 5.0 (was 10.1) brake 22.4 turn 1.6 stand) at 16.1, 29.1 ft +0ms late 16ms | squeak [stop take 4]→court p18 pan 0 +0.4dB
+  20.627   19.502 Q1 11:46.0  court.squeak       slide v 0.49 Mitchell (gait speed 8.7 brake 0.0 turn 17.2 defense) at 30, 32.6 ft +0ms | squeak [slide take 1]→court p18 pan 0.31 0dB
+  20.800   19.676 Q1 11:45.9  court.bounce       v 0.9 (down at 22.7 ft/s) at 5.6, 24.3 ft paint +0ms late 24ms | bounce [rec 3]→court p25 pan -0.23 +1.3dB
+  20.878   19.751 Q1 11:45.8  court.step         v 0.3 Mills (speed 15.1) at 12.8, 47 ft +0ms late 16ms | step [take 10]→court p10 pan -0.04 -0.9dB
+  20.878   19.751 Q1 11:45.8  court.step         v 0.14 Mitchell (speed 12.6) at 31.8, 30.4 ft +0ms | step [take 8]→court p10 pan 0.39 +0.2dB
+  20.952   19.833 Q1 11:45.7  court.catch        v 0.29 Laurent (ball 12 ft/s) at 5.6, 24.2, 2.6 ft +0ms | catch [take 9]→court p35 pan -0.22 +0.8dB
+  21.077   19.952 Q1 11:45.6  court.step         v 0.12 Dixon (speed 12.2) at 34.4, 26.4 ft +0ms | step [take 1]→court p10 pan 0.5 +0.4dB
+  21.163   20.042 Q1 11:45.6  court.step         v 0.34 Dunn (speed 14.6) at 13.5, 19.3 ft +0ms late 16ms | step [take 12]→court p10 pan 0 +1.1dB
+  21.204   20.082 Q1 11:45.5  court.step         v 0.53 Mills (speed 18.8) at 17.5, 44.2 ft +0ms late 16ms | step [take 6]→court p10 pan 0.09 -0.8dB
+  21.402   20.283 Q1 11:45.4  court.step         v 0.24 Jenkins (speed 14.1) at 12.6, 38.2 ft +0ms late 16ms | step [take 2]→court p10 pan 0 -0.4dB
+  21.440   20.320 Q1 11:45.4  court.step         v 0.36 Collins (speed 16.8) at 19.4, 26.2 ft +0ms | step [take 9]→court p10 pan 0.17 +0.5dB
+  21.473   20.352 Q1 11:45.3  court.step         v 0.65 Dunn (speed 18.7) at 18.8, 21.1 ft +0ms | step [take 7]→court p10 pan 0.17 +0.9dB
+  21.709   20.582 Q1 11:45.1  court.step         v 0.51 Jenkins (speed 18.4) at 17.7, 39.9 ft +0ms | step [take 4]→court p10 pan 0.12 -0.6dB
+  21.873   20.753 Q1 11:45.0  court.step         v 0.47 Jordan (speed 18.1) at 28.2, 37.8 ft +0ms late 16ms | step [take 3]→court p10 pan 0.36 -0.5dB
+  22.092   20.971 Q1 11:44.8  court.step         v 0.46 Dixon (speed 18.1) at 49.1, 27.6 ft +0ms late 16ms | step [take 11]→court p10 pan 0.8 -5.3dB
+  22.266   21.142 Q1 11:44.7  court.squeak       stop v 0.16 Collins (gait speed 10.3 (was 17.3) brake 20.5 turn 11.8 defense) at 31.6, 19.9 ft +0ms late 16ms | squeak [stop take 7]→court p18 pan 0.5 +0.6dB
+  22.338   21.211 Q1 11:44.6  court.step         v 0.87 Mills (speed 24.5) at 42.7, 37.3 ft +0ms late 16ms | step [take 8]→court p10 pan 0.65 -1.5dB
+  22.492   21.371 Q1 11:44.5  court.step         v 0.39 Dixon (speed 16.9) at 57.5, 26.2 ft +0ms late 16ms | step [take 1]→court p10 pan 0.8 -5.5dB
+  22.794   21.670 Q1 11:44.3  court.step         v 0.63 Jordan (speed 20.9) at 46.1, 43.6 ft +0ms late 16ms | step [take 5]→court p10 pan 0.65 -2.1dB
+  22.831   21.711 Q1 11:44.3  court.squeak       stop v 0.15 Ndiaye (gait speed 16.2 (was 20.9) brake 18.2 turn 0.1 stand) at 52, 28.9 ft +0ms late 16ms | squeak [stop take 2]→court p18 pan 0.8 -5.5dB
+  22.890   21.769 Q1 11:44.2  court.step         v 0.41 Mills (speed 16.9) at 55.3, 37.7 ft +0ms | step [take 10]→court p10 pan 0.8 -6.2dB
+  23.076   21.952 Q1 11:44.0  court.step         v 0.37 Jordan (speed 16.4) at 51.5, 44.7 ft +0ms late 16ms | step [take 6]→court p10 pan 0.74 -4.3dB
+  23.076   21.952 Q1 11:44.0  court.squeak       stop v 0.15 Jordan (gait speed 16.4 (was 20.9) brake 20.2 turn 1.6 stand) at 51.5, 44.7 ft +0ms late 16ms | squeak [stop take 3]→court p18 pan 0.74 -4.3dB
+  23.174   22.050 Q1 11:44.0  game.inbound       BOS 
+  23.286   22.161 Q1 11:43.9  court.step         v 0.59 Jenkins (speed 19.7) at 49.6, 45.3 ft +0ms late 16ms | step [take 12]→court p10 pan 0.69 -3.1dB
+  23.340   22.219 Q1 11:43.8  court.pass         v 0.6 Laurent (ball 28 ft/s) at 1.3, 17.5, 4.1 ft +0ms | pass [rec 1/3]→court p22 pan -0.29 +1dB
+  23.405   22.282 Q1 11:43.7  court.squeak       stop v 0.24 Mills (gait speed 4.9 (was 13.4) brake 25.3 turn 5.5 ready) at 60.6, 34.9 ft +0ms | squeak [stop take 1]→court p18 pan 0.8 -6.1dB
+  23.579   22.451 Q1 11:43.6  court.step         v 0.33 Jenkins (speed 15.5) at 54.5, 45.1 ft +0ms late 16ms | step [take 9]→court p10 pan 0.74 -4.3dB
+  23.688   22.561 Q1 11:43.5  court.step         v 0.31 Jordan (speed 15.4) at 61.7, 45 ft +0ms | step [take 2]→court p10 pan 0.8 -6.6dB
+  23.791   22.671 Q1 11:43.4  court.catch        v 0.64 Payton (ball 26 ft/s) at 12.9, 15.1, 4.3 ft +0ms | catch [take 11]→court p35 pan -0.14 +1.3dB
+  23.892   22.770 Q1 11:43.3  court.step         v 0.13 #ref1 (speed 14.6) at 39.6, 13.2 ft +0ms | step [take 4]→court p10 pan 0.5 +1.1dB
+  24.118   22.982 Q1 11:43.0  court.step         v 0.19 Mills (speed 13.2) at 62.4, 35.8 ft +0ms | step [take 3]→court p10 pan 0.8 -5.1dB
+  24.419   23.252 Q1 11:42.7  court.step         v 0.23 Dunn (speed 13.2) at 25.3, 23.2 ft +0ms | step [take 11]→court p10 pan -0.04 +0.5dB
+  24.486   23.322 Q1 11:42.7  court.dribble      v 0.42 Payton tight 0.25 at 19, 13.6 ft +0ms late 30ms | dribble [rec 12]→court p20 pan -0.23 +1.7dB
+  24.566   23.403 Q1 11:42.6  court.step         v 0.28 Collins (speed 15.3) at 35.7, 17.7 ft +0ms | step [take 1]→court p10 pan 0.16 +0.9dB
+  24.869   23.690 Q1 11:42.3  court.step         v 0.26 Ndiaye (speed 14.6) at 83.1, 30.2 ft +0ms late 32ms | step [take 5]→court p10 pan 0.8 -6dB
+  25.241   24.070 Q1 11:41.9  court.step         v 0.14 #ref1 (speed 15.0) at 59.5, 14.8 ft +0ms late 15ms | step [take 8]→court p10 pan 0.59 +0.9dB
+  25.269   24.091 Q1 11:41.9  court.step         v 0.32 Jenkins (speed 15.4) at 80.6, 45.8 ft +0ms late 16ms | step [take 7]→court p10 pan 0.8 -6.4dB
+  25.269   24.091 Q1 11:41.9  court.dribble      v 0.45 Payton tight 0.44 at 25.9, 15 ft +0ms late 4ms | dribble [rec 4]→court p20 pan -0.26 +1dB
+  25.331   24.160 Q1 11:41.8  court.step         v 0.13 Mills (speed 12.3) at 78.2, 36.8 ft +0ms | step [take 6]→court p10 pan 0.8 -6dB
+  25.515   24.340 Q1 11:41.6  court.squeak       pivot v 0.15 Mitchell (gait speed 1.4 (was 4.9) brake 9.7 turn 11.1 yaw 5.2 ready) at 74.4, 32.1 ft +0ms | squeak [pivot take 12]→court p18 pan 0.75 -3.8dB
+  25.563   24.393 Q1 11:41.6  court.step         v 0.14 #ref1 (speed 15.0) at 64.5, 15.5 ft +0ms late 15ms | step [take 12]→court p10 pan 0.63 +0.4dB
+  25.921   24.752 Q1 11:41.2  court.dribble      v 0.43 Payton tight 0.3 at 31.1, 15.9 ft +0ms late 15ms | dribble [rec 8]→court p20 pan -0.26 +1.3dB
+  26.677   25.501 Q1 11:40.5  court.dribble      v 0.42 Payton tight 0.28 at 37, 16.8 ft +0ms late 11ms | dribble [rec 2]→court p20 pan -0.23 +1.2dB
+  27.450   26.282 Q1 11:39.7  court.dribble      v 0.42 Payton tight 0.27 at 42.7, 17.6 ft +0ms late 23ms | dribble [rec 6]→court p20 pan -0.19 +1.2dB
+  28.215   27.043 Q1 11:38.9  court.dribble      v 0.42 Payton tight 0.25 at 48.1, 18.5 ft +0ms late 10ms | dribble [rec 3]→court p20 pan -0.14 +1.4dB
+  28.654   27.481 Q1 11:38.5  game.advance       BOS 
+  29.024   27.852 Q1 11:38.1  court.dribble      v 0.43 Payton tight 0.35 at 54.1, 20.7 ft +0ms late 14ms | dribble [rec 9]→court p20 pan -0.11 +0.1dB
+  29.165   27.992 Q1 11:38.0  court.step         v 0.21 Laurent (speed 13.4) at 49.3, 24.1 ft +0ms | step [take 2]→court p10 pan -0.24 +0.4dB
+  29.166   27.992 Q1 11:38.0  court.body         bump v 0.15 Payton (bump, hit at 4.1 ft/s with #293) at 54.6, 22.9, 4 ft +0ms | body [bump take 3]→court p30 pan -0.12 +0.7dB
+  29.200   28.032 Q1 11:38.0  court.step         v 0.14 Ndiaye (speed 12.5) at 86.1, 32.3 ft +0ms late 32ms | step [take 10]→court p10 pan 0.56 -0.4dB
+  29.369   28.192 Q1 11:37.8  game.set           BOS 
+  29.429   28.253 Q1 11:37.7  court.step         v 0.13 Jordan (speed 12.2) at 66.2, 37.3 ft +0ms | step [take 4]→court p10 pan 0.1 -0.5dB
+  29.460   28.291 Q1 11:37.7  court.step         v 0.17 Mills (speed 12.9) at 88, 36.3 ft +0ms late 15ms | step [take 11]→court p10 pan 0.56 -0.7dB
+  29.530   28.360 Q1 11:37.6  court.step         v 0.23 Laurent (speed 13.7) at 53.9, 22.5 ft +0ms late 15ms | step [take 3]→court p10 pan -0.2 +0.6dB
+  29.531   28.360 Q1 11:37.6  court.step         v 0.21 Ndiaye (speed 13.7) at 81.5, 31.1 ft +0ms | step [take 9]→court p10 pan 0.44 -0.2dB
+  29.568   28.392 Q1 11:37.6  court.step         v 0.24 Mills (speed 14.1) at 86.8, 32.7 ft +0ms late 15ms | step [take 8]→court p10 pan 0.55 -0.4dB
+  29.756   28.581 Q1 11:37.4  court.dribble      v 0.43 Payton tight 0.5 at 59.8, 23.9 ft +0ms late 30ms | dribble [rec 1]→court p20 pan -0.08 +0.3dB
+  29.789   28.613 Q1 11:37.4  court.step         v 0.13 Jordan (speed 12.3) at 63.1, 34.3 ft +0ms late 15ms | step [take 5]→court p10 pan 0 -0.2dB
+  30.043   28.871 Q1 11:37.1  court.squeak       slide v 0.5 Mitchell (gait speed 9.0 (was 12.6) brake 8.4 turn 15.1 defense) at 63.6, 31.6 ft +0ms | squeak [slide take 9]→court p18 pan -0.01 +0.1dB
+  30.074   28.900 Q1 11:37.1  court.step         v 0.25 Dixon (speed 14.5) at 74.4, 26.4 ft +0ms | step [take 7]→court p10 pan 0.24 +0.4dB
+  30.236   29.063 Q1 11:36.9  court.step         v 0.2 Laurent (speed 13.2) at 63.4, 20.2 ft +0ms | step [take 6]→court p10 pan -0.03 +1dB
+  30.278   29.100 Q1 11:36.9  game.pass          BOS chest 
+  30.296   29.121 Q1 11:36.9  court.pass         v 0.3 Payton (ball 9 ft/s) at 60.8, 29.2, 3.5 ft +0ms | pass [rec 2]→court p22 pan -0.09 +0.4dB
+  30.421   29.251 Q1 11:36.8  court.step         v 0.19 Jenkins (speed 13.2) at 88.4, 28.2 ft +0ms | step [take 2]→court p10 pan 0.55 +0.1dB
+  30.516   29.341 Q1 11:36.7  court.catch        v 0.07 Jordan (ball 4 ft/s (a loose ball, picked up)) at 61.3, 28.6, 4.6 ft +0ms | catch [take 6]→court p35 pan -0.08 +0.5dB
+  30.582   29.411 Q1 11:36.6  court.step         v 0.2 Laurent (speed 13.2) at 68.1, 19.8 ft +0ms | step [take 12]→court p10 pan 0.08 +1.1dB
+  30.793   29.623 Q1 11:36.4  court.step         v 0.19 Jenkins (speed 13.2) at 88.7, 23.5 ft +0ms | step [take 10]→court p10 pan 0.57 +0.5dB
+  30.810   29.640 Q1 11:36.4  game.turnover      out_of_bounds Laurent | booth.pbp→commentary p4 queued
+  30.854   29.681 Q1 11:36.4  court.whistle      out v 1 #ref3 (out) at 58.7, 52.4, 6.2 ft +0ms | whistle [out take 8]→arena p90 pan -0.12 -1.2dB
+  30.940   29.771 Q1 11:36.4  court.pass         v 0.94 Jordan (ball 43 ft/s) at 61.3, 28.3, 4.3 ft +0ms late 15ms | pass [rec 2/1]→court p22 pan -0.09 +0.6dB
+  31.017   29.841 Q1 11:36.4  court.squeak       stop v 0.15 Dunn (gait speed 9.1 (was 13.2) brake 18.7 turn 3.7 stand) at 70.9, 19.8 ft +0ms late 15ms | squeak [stop take 11]→court p18 pan 0.14 +1.1dB
+  31.089   29.910 Q1 11:36.4  court.squeak       stop v 0.2 Jenkins (gait speed 6.6 (was 13.2) brake 24.5 turn 1.3 stand) at 89.5, 20.8 ft +0ms late 15ms | squeak [stop take 12]→court p18 pan 0.6 +0.8dB
+  31.256   30.081 Q1 11:36.4  court.catch        v 1.03 Laurent (ball 41 ft/s) at 71.4, 20.3, 4.9 ft +0ms late 32ms | catch [take 8]→court p35 pan 0.13 +1.3dB
+  31.563   30.392 Q1 11:36.4  court.pass         v 0.59 Laurent (ball 27 ft/s) at 74.4, 19.8, 3.5 ft +0ms late 15ms | pass [rec 2/3]→court p22 pan 0.18 +1.3dB
+  32.168   30.993 Q1 11:36.4  live.possession    UTA ball, post 
+  32.690   31.521 Q1 11:36.4  court.catch        v 0.58 #ref1 (ball 23 ft/s) at 93.7, 16.4, 4.4 ft +0ms late 32ms | catch [take 3]→court p35 pan 0.59 +1.3dB
+  32.691   31.521 Q1 11:36.4  court.pass         v 0.72 #ref1 (ball 33 ft/s) at 93.7, 16.4, 4.4 ft +0ms late 15ms | pass [rec 2/4]→court p22 pan 0.59 +1.3dB
+  32.802   31.631 Q1 11:36.4  court.step         v 0.13 Payton (speed 12.6) at 54.2, 24.4 ft +0ms late 32ms | step [take 11]→court p10 pan -0.44 +0.6dB
+  32.802   31.631 Q1 11:36.4  court.step         v 0.22 Laurent (speed 13.5) at 64.1, 19.1 ft +0ms | step [take 3]→court p10 pan -0.21 +1.1dB
+  32.891   31.721 Q1 11:36.4  court.step         v 0.18 Collins (speed 13.4) at 62.7, 20.8 ft +0ms | step [take 4]→court p10 pan -0.24 +1dB
+  32.956   31.782 Q1 11:36.3  court.step         v 0.28 Jordan (speed 15.0) at 55, 27.6 ft +0ms | step [take 8]→court p10 pan -0.41 +0.3dB
+  32.956   31.782 Q1 11:36.3  court.step         v 0.11 Ndiaye (speed 12.0) at 66.2, 29 ft +0ms | step [take 1]→court p10 pan -0.14 +0.3dB
+  33.003   31.832 Q1 11:36.3  court.step         v 0.19 Jenkins (speed 13.1) at 82.4, 25.4 ft +0ms late 15ms | step [take 9]→court p10 pan 0.25 +0.6dB
+  33.211   32.041 Q1 11:36.3  court.step         v 0.29 Collins (speed 15.5) at 59.1, 17.8 ft +0ms late 15ms | step [take 6]→court p10 pan -0.35 +1.1dB
+  33.469   32.290 Q1 11:36.3  court.step         v 0.38 Laurent (speed 16.1) at 55.2, 14.4 ft +0ms late 32ms | step [take 5]→court p10 pan -0.46 +1.3dB
+  33.627   32.453 Q1 11:36.3  court.step         v 0.62 Ndiaye (speed 20.7) at 56.1, 31.2 ft +0ms late 15ms | step [take 2]→court p10 pan -0.36 0dB
+  33.788   32.612 Q1 11:36.3  court.catch        v 0.72 #ref2 (ball 29 ft/s) at 69.4, 2.6, 4.5 ft +0ms | catch [take 5]→court p35 pan -0.08 +2.7dB
+  33.860   32.691 Q1 11:36.3  court.step         v 0.56 Collins (speed 20.6) at 50, 12.3 ft +0ms late 15ms | step [take 12]→court p10 pan -0.6 +1.3dB
+  34.042   32.871 Q1 11:36.3  court.step         v 0.63 Mills (speed 20.6) at 65.3, 7.7 ft +0ms | step [take 7]→court p10 pan -0.18 +1.9dB
+  34.263   33.091 Q1 11:36.3  court.step         v 0.77 Jenkins (speed 22.7) at 61.9, 16.6 ft +0ms late 15ms | step [take 11]→court p10 pan -0.25 +1dB
+  34.419   33.245 Q1 11:36.3  court.step         v 0.29 Collins (speed 15.5) at 40.1, 8 ft +0ms | step [take 3]→court p10 pan -0.8 -3.8dB
+  34.676   33.501 Q1 11:36.3  court.step         v 0.65 Mills (speed 20.9) at 52.2, 5.2 ft +0ms | step [take 4]→court p10 pan -0.55 +1.8dB
+  34.855   33.681 Q1 11:36.3  court.step         v 0.14 #ref1 (speed 15.0) at 72.2, 15.8 ft +0ms | step [take 10]→court p10 pan 0.01 +1.1dB
+  35.052   33.881 Q1 11:36.3  court.step         v 0.18 Collins (speed 13.5) at 30.5, 6.2 ft +0ms late 15ms | step [take 1]→court p10 pan -0.8 -4.1dB
+  35.263   34.093 Q1 11:36.3  court.step         v 0.34 Mills (speed 15.7) at 40.6, 4.8 ft +0ms late 15ms | step [take 6]→court p10 pan -0.8 -3.6dB
+  35.459   34.281 Q1 11:36.3  court.step         v 0.86 Jenkins (speed 24.1) at 37.4, 8.5 ft +0ms | step [take 8]→court p10 pan -0.8 -4dB
+  35.750   34.580 Q1 11:36.3  court.step         v 0.7 Jenkins (speed 21.6) at 30.7, 9.6 ft +0ms late 15ms | step [take 9]→court p10 pan -0.8 -4.3dB
+  35.751   34.580 Q1 11:36.3  court.squeak       cut v 0.16 Jenkins (gait speed 21.6 (was 24.3) brake 13.4 turn 19.0 ready) at 30.7, 9.6 ft +0ms late 15ms | squeak [cut take 6]→court p18 pan -0.8 -4.3dB
+  35.932   34.760 Q1 11:36.2  court.step         v 0.32 Mills (speed 15.4) at 30.2, 4.5 ft +0ms late 15ms | step [take 2]→court p10 pan -0.8 -4dB
+  36.013   34.842 Q1 11:36.2  court.step         v 0.34 Jenkins (speed 15.6) at 25.7, 10.1 ft +0ms late 15ms | step [take 7]→court p10 pan -0.8 -4.5dB
+  36.274   35.103 Q1 11:36.2  court.step         v 0.32 Mills (speed 15.4) at 24.9, 4.7 ft +0ms | step [take 5]→court p10 pan -0.8 -4.2dB
+  36.431   35.262 Q1 11:36.2  court.squeak       stop v 0.15 Jenkins (gait speed 6.6 (was 14.1) brake 13.8 turn 12.8 ready) at 22.7, 11.7 ft +0ms late 15ms | squeak [stop take 9]→court p18 pan -0.8 -4.8dB
+  36.626   35.451 Q1 11:36.2  court.step         v 0.31 Mills (speed 15.2) at 19.7, 4.1 ft +0ms | step [take 3]→court p10 pan -0.8 -4.4dB
+  36.764   35.590 Q1 11:36.2  court.pass         v 0.36 #ref2 (ball 17 ft/s bounce pass) at 68.5, 2.1, 4.1 ft +0ms | pass [rec 2/2]→court p22 pan -0.09 +2.5dB
+  36.968   35.791 Q1 11:36.2  court.bounce       v 0.84 (down at 21.3 ft/s) at 69.5, 1.2 ft +0ms late 29ms | bounce [rec 7]→court p25 pan -0.06 +2.6dB
+  36.968   35.791 Q1 11:36.2  court.step         v 0.32 Mills (speed 15.4) at 14.4, 4.4 ft +0ms | step [take 11]→court p10 pan -0.8 -4.7dB
+  37.106   35.933 Q1 11:36.2  court.catch        v 0.51 Dunn (ball 20 ft/s) at 70.1, 0.6, 3.6 ft +0ms | catch [take 4]→court p35 pan -0.05 +2.6dB
+  37.164   35.991 Q1 11:36.2  court.step         v 0.14 #ref1 (speed 14.9) at 42.5, 16.5 ft +0ms | step [take 12]→court p10 pan -0.71 -1.6dB
+  37.330   36.162 Q1 11:36.2  court.step         v 0.15 Mills (speed 12.6) at 9.5, 3.8 ft +0ms late 15ms | step [take 1]→court p10 pan -0.8 -4.9dB
+  37.528   36.351 Q1 11:36.2  court.step         v 0.14 #ref1 (speed 15.0) at 37.6, 16.1 ft +0ms late 15ms | step [take 4]→court p10 pan -0.8 -4.5dB
+  37.841   36.670 Q1 11:36.2  court.step         v 0.14 #ref1 (speed 15.0) at 32.5, 16.4 ft +0ms | step [take 6]→court p10 pan -0.8 -4.7dB
+  38.056   36.882 Q1 11:36.2  game.inbound       UTA 
+  38.171   37.001 Q1 11:36.0  court.step         v 0.14 #ref1 (speed 15.0) at 27.5, 16 ft +0ms | step [take 9]→court p10 pan -0.8 -4.8dB
+  38.204   37.030 Q1 11:36.0  court.pass         v 0.44 Dunn (ball 20 ft/s) at 71.9, 0.7, 4.8 ft +0ms | pass [rec 1/5]→court p22 pan 0.03 +2.7dB
+  38.539   37.361 Q1 11:35.7  court.catch        v 0.49 Mitchell (ball 20 ft/s) at 73, 7.1, 4.6 ft +0ms | catch [take 2]→court p35 pan 0.16 +2dB
+  39.149   37.970 Q1 11:35.1  court.step         v 0.21 Jordan (speed 13.7) at 53.2, 13 ft +0ms | step [take 2]→court p10 pan -0.2 +1.3dB
+  39.205   38.031 Q1 11:35.0  court.dribble      v 0.46 Mitchell tight 0.3 at 70.1, 11.8 ft +0ms late 25ms | dribble [rec 10]→court p20 pan 0.25 +1.7dB
+  39.397   38.220 Q1 11:34.8  court.step         v 0.43 Jordan (speed 17.6) at 50.3, 15.2 ft +0ms late 15ms | step [take 10]→court p10 pan -0.21 +1.1dB
+  39.422   38.252 Q1 11:34.8  court.step         v 0.19 Mitchell (speed 13.4) at 65.7, 10.8 ft +0ms | step [take 8]→court p10 pan 0.19 +1.5dB
+  39.449   38.272 Q1 11:34.8  court.step         v 0.24 Dunn (speed 13.3) at 69.2, 12 ft +0ms | step [take 3]→court p10 pan 0.29 +1.3dB
+  39.678   38.502 Q1 11:34.5  court.step         v 0.41 Jordan (speed 17.1) at 45.5, 16.7 ft +0ms | step [take 7]→court p10 pan -0.24 +1dB
+  39.732   38.563 Q1 11:34.5  court.step         v 0.28 Laurent (speed 14.5) at 55, 14.3 ft +0ms | step [take 12]→court p10 pan 0.01 +1.2dB
+  39.789   38.612 Q1 11:34.4  court.step         v 0.18 Mitchell (speed 13.2) at 61.3, 12.5 ft +0ms late 15ms | step [take 5]→court p10 pan 0.19 +1.3dB
+  39.921   38.751 Q1 11:34.3  court.dribble      v 0.44 Mitchell tight 0.17 at 58.5, 14.5 ft +0ms late 25ms | dribble [rec 7]→court p20 pan 0.16 +1.4dB
+  39.922   38.751 Q1 11:34.3  court.step         v 0.18 Jordan (speed 13.1) at 42.5, 16.2 ft +0ms late 15ms | step [take 11]→court p10 pan -0.24 +1dB
+  40.122   38.951 Q1 11:34.1  court.step         v 0.16 Mitchell (speed 12.9) at 56.8, 13.2 ft +0ms | step [take 4]→court p10 pan 0.17 +1.3dB
+  40.470   39.294 Q1 11:33.8  court.step         v 0.13 Mitchell (speed 12.5) at 52.5, 14.7 ft +0ms | step [take 9]→court p10 pan 0.15 +1.2dB
+  40.614   39.442 Q1 11:33.6  court.step         v 0.23 Dunn (speed 13.1) at 63.1, 22.6 ft +0ms late 15ms | step [take 6]→court p10 pan 0.41 +0.4dB
+  40.792   39.622 Q1 11:33.4  court.dribble      v 0.45 Mitchell tight 0.25 at 47.8, 16.8 ft +0ms late 6ms | dribble [rec 11]→court p20 pan 0.11 +1.3dB
+  40.938   39.761 Q1 11:33.3  court.step         v 0.39 Dunn (speed 15.2) at 57.8, 23 ft +0ms | step [take 10]→court p10 pan 0.36 +0.4dB
+  40.999   39.822 Q1 11:33.2  court.step         v 0.14 Laurent (speed 12.3) at 47.1, 21 ft +0ms late 15ms | step [take 2]→court p10 pan 0.13 +0.7dB
+  41.173   40.002 Q1 11:33.0  court.step         v 0.18 Laurent (speed 13.0) at 42.9, 23.4 ft +0ms | step [take 3]→court p10 pan 0.06 +0.5dB
+  41.323   40.150 Q1 11:32.9  court.step         v 0.2 Dunn (speed 12.7) at 52.6, 23.9 ft +0ms late 15ms | step [take 1]→court p10 pan 0.31 +0.4dB
+  41.361   40.191 Q1 11:32.9  game.advance       UTA 
+  41.547   40.371 Q1 11:32.7  court.dribble      v 0.44 Mitchell tight 0.26 at 40.4, 18.8 ft +0ms late 1ms | dribble [rec 5]→court p20 pan 0.09 +1dB
+  41.547   40.371 Q1 11:32.7  court.step         v 0.12 #ref3 (speed 14.5) at 47.8, 52.6 ft +0ms | step [take 7]→court p10 pan 0.2 -1.6dB
+  41.668   40.493 Q1 11:32.6  court.step         v 0.24 Dunn (speed 13.2) at 47.7, 23.6 ft +0ms | step [take 12]→court p10 pan 0.28 +0.4dB
+  41.868   40.690 Q1 11:32.4  court.step         v 0.13 #ref2 (speed 14.6) at 55.6, -2.2 ft +0ms late 15ms | step [take 11]→court p10 pan 0.7 +0.6dB
+  41.900   40.731 Q1 11:32.3  court.squeak       stop v 0.15 Laurent (gait speed 3.4 (was 10.1) brake 20.4 turn 10.0 defense) at 37.4, 23.3 ft +0ms late 15ms | squeak [stop take 10]→court p18 pan 0.1 +0.5dB
+  42.068   40.890 Q1 11:32.2  court.step         v 0.24 Dunn (speed 13.2) at 43.1, 24.7 ft +0ms late 15ms | step [take 4]→court p10 pan 0.26 +0.4dB
+  42.068   40.890 Q1 11:32.2  court.body         bump v 0.15 Laurent (bump, closing at 4.3 ft/s with #291) at 36.9, 22.3, 4 ft +0ms | body [bump take 7]→court p30 pan 0.11 +0.8dB
+  42.255   41.082 Q1 11:32.0  court.dribble      v 0.56 Mitchell tight 0.71 at 33.2, 24.1 ft +0ms late 29ms | dribble [rec 8]→court p20 pan 0.06 +0.2dB
+  42.255   41.082 Q1 11:32.0  court.step         v 0.26 Mitchell (speed 14.6) at 33.4, 23.5 ft +0ms late 15ms | step [take 9]→court p10 pan 0.07 +0.6dB
+  42.431   41.262 Q1 11:31.8  court.step         v 0.21 Dunn (speed 12.9) at 38.1, 24.9 ft +0ms late 15ms | step [take 6]→court p10 pan 0.21 +0.5dB
+  42.625   41.451 Q1 11:31.6  court.dribble      v 0.41 Mitchell tight 0.56 at 27.8, 29.9 ft +0ms | dribble [rec 4]→court p20 pan -0.01 +0.1dB
+  42.656   41.482 Q1 11:31.6  court.step         v 0.26 Jordan (speed 14.5) at 28.9, 28.2 ft +0ms late 15ms | step [take 10]→court p10 pan 0.02 +0.3dB
+  42.795   41.622 Q1 11:31.5  court.step         v 0.2 Dunn (speed 12.7) at 33.3, 25.2 ft +0ms | step [take 5]→court p10 pan 0.14 +0.5dB
+  43.183   42.011 Q1 11:31.1  court.step         v 0.23 Dunn (speed 13.2) at 28.8, 23.5 ft +0ms | step [take 8]→court p10 pan 0.07 +0.8dB
+  43.228   42.051 Q1 11:31.0  court.step         v 0.36 Mitchell (speed 16.5) at 24.5, 36.9 ft +0ms | step [take 2]→court p10 pan -0.02 -0.2dB
+  43.271   42.101 Q1 11:31.0  court.dribble      v 0.44 Mitchell tight 0.51 at 21.8, 38.6 ft +0ms late 9ms | dribble [rec 12]→court p20 pan -0.07 -0.1dB
+  43.471   42.301 Q1 11:30.8  court.step         v 0.12 Payton (speed 12.6) at 18.9, 10.8 ft +0ms late 32ms | step [take 7]→court p10 pan -0.15 +1.9dB
+  43.696   42.522 Q1 11:30.5  court.step         v 0.27 Laurent (speed 14.3) at 20.6, 27 ft +0ms late 32ms | step [take 3]→court p10 pan -0.07 +0.5dB
+  43.696   42.522 Q1 11:30.5  court.squeak       cut v 0.15 Laurent (gait speed 14.3 brake 0.0 turn 18.3 defense) at 20.6, 27 ft +0ms late 32ms | squeak [cut take 8]→court p18 pan -0.07 +0.5dB
+  43.953   42.783 Q1 11:30.3  court.dribble      v 0.42 Mitchell tight 0.52 at 23.1, 41.3 ft +0ms late 30ms | dribble [rec 2]→court p20 pan 0 -0.5dB
+  44.269   43.090 Q1 11:30.0  court.step         v 0.16 Collins (speed 13.1) at 8.6, 3.3 ft +0ms late 15ms | step [take 1]→court p10 pan -0.45 +2.5dB
+  44.373   43.201 Q1 11:29.9  court.dribble      v 0.54 Mitchell tight 0.67 at 24.6, 42.4 ft +0ms | dribble [rec 3]→court p20 pan 0.03 -0.5dB
+  44.658   43.482 Q1 11:29.6  court.step         v 0.16 Collins (speed 13.0) at 4.2, 2 ft +0ms late 32ms | step [take 12]→court p10 pan -0.58 +2.5dB
+  44.659   43.482 Q1 11:29.6  court.step         v 0.19 Dunn (speed 12.6) at 14.9, 27.5 ft +0ms late 15ms | step [take 11]→court p10 pan -0.18 +0.5dB
+  44.814   43.642 Q1 11:29.4  court.dribble      v 0.6 Mitchell tight 0.67 at 24.7, 43.5 ft +0ms late 6ms | dribble [rec 1]→court p20 pan 0.04 -0.5dB
+  44.861   43.691 Q1 11:29.4  court.step         v 0.17 Mills (speed 12.9) at 14.5, 13.5 ft +0ms late 32ms | step [take 9]→court p10 pan -0.22 +1.7dB
+  44.941   43.773 Q1 11:29.3  court.squeak       stop v 0.35 Payton (gait speed 3.3 (was 11.5) brake 27.5 turn 13.4 ready) at 2.1, 8.1 ft +0ms late 15ms | squeak [stop take 5]→court p18 pan -0.59 +1.9dB
+  45.322   44.153 Q1 11:28.9  court.dribble      v 0.43 Mitchell tight 0.38 at 19.6, 43.1 ft +0ms late 34ms | dribble [rec 9]→court p20 pan -0.04 -1dB
+  45.322   44.153 Q1 11:28.9  court.step         v 0.16 Dixon (speed 12.9) at 16.3, 31.2 ft +0ms late 32ms | step [take 4]→court p10 pan -0.13 +0.2dB
+  45.643   44.472 Q1 11:28.6  court.step         v 0.15 Dixon (speed 12.8) at 18.7, 27.4 ft +0ms | step [take 6]→court p10 pan -0.07 +0.5dB
+  45.854   44.681 Q1 11:28.4  court.dribble      v 0.89 Mitchell tight 0.67 at 25.3, 43.2 ft +0ms late 21ms | dribble [rec 6]→court p20 pan 0.07 -0.6dB
+  46.194   45.021 Q1 11:28.0  court.dribble      v 0.42 Mitchell tight 0.34 at 26, 41.4 ft +0ms late 24ms | dribble [rec 11]→court p20 pan 0.08 -0.6dB
+  46.701   45.531 Q1 11:27.6  game.set           UTA 
+  46.922   45.752 Q1 11:27.5  court.pass         v 0.89 Mitchell (ball 41 ft/s) at 22.5, 41.6, 4 ft +0ms late 31ms | pass [rec 1/1]→court p22 pan 0.02 -0.4dB
+  47.146   45.973 Q1 11:27.5  court.catch        v 0.96 Dixon (ball 38 ft/s) at 23.7, 33, 5.7 ft +0ms late 15ms | catch [take 10]→court p35 pan 0.05 +0.2dB
+  47.146   45.973 Q1 11:27.5  court.pass         v 1 (ball 68 ft/s) at 23.7, 33, 5.7 ft +0ms late 15ms | pass [rec 1/2]→court p22 pan 0.05 +0.2dB
+  47.856   46.681 Q1 11:27.4  game.turnover      bad_pass Dixon 
+  49.258   48.083 Q1 11:27.4  live.possession    BOS ball, pnr 
+  49.957   48.782 Q1 11:27.4  court.step         v 0.24 Collins (speed 14.5) at 12.9, 5.3 ft +0ms | step [take 8]→court p10 pan -0.03 +2.4dB
+  49.993   48.823 Q1 11:27.4  court.step         v 0.27 Dixon (speed 14.9) at 33.7, 18.7 ft +0ms late 15ms | step [take 10]→court p10 pan 0.52 +1dB
+  49.993   48.823 Q1 11:27.4  court.step         v 0.27 Mitchell (speed 14.9) at 30, 40.8 ft +0ms late 15ms | step [take 7]→court p10 pan 0.34 -0.6dB
+  49.994   48.823 Q1 11:27.4  court.step         v 0.18 Dunn (speed 12.5) at 13, 30.8 ft +0ms | step [take 2]→court p10 pan -0.03 +0.2dB
+  50.073   48.901 Q1 11:27.4  court.step         v 0.16 Jordan (speed 12.8) at 30.3, 40.1 ft +0ms | step [take 3]→court p10 pan 0.34 -0.6dB
+  50.188   49.012 Q1 11:27.4  court.step         v 0.33 Laurent (speed 15.3) at 14.8, 27.7 ft +0ms late 15ms | step [take 5]→court p10 pan 0 +0.4dB
+  50.361   49.191 Q1 11:27.4  court.step         v 0.56 Dunn (speed 17.4) at 18.4, 30.3 ft +0ms | step [take 12]→court p10 pan 0.08 +0.2dB
+  50.678   49.502 Q1 11:27.4  court.step         v 0.89 Dunn (speed 21.8) at 24.6, 29.2 ft +0ms | step [take 1]→court p10 pan 0.22 +0.2dB
+  50.775   49.601 Q1 11:27.4  court.step         v 0.32 Collins (speed 16.1) at 26.9, 12.2 ft +0ms | step [take 11]→court p10 pan 0.32 +1.5dB
+  51.004   49.830 Q1 11:27.4  court.step         v 1.11 Dunn (speed 24.6) at 32.3, 29 ft +0ms late 15ms | step [take 9]→court p10 pan 0.38 0dB
+  51.051   49.882 Q1 11:27.4  court.catch        v 0.07 #ref1 (ball 0 ft/s (a loose ball, picked up)) at -6.9, -4, 3 ft +0ms | catch [take 12]→court p35 pan -0.77 -0.7dB
+  51.052   49.882 Q1 11:27.4  court.pass         v 1 #ref1 (ball 59 ft/s) at -6.9, -4, 3 ft +0ms | pass [rec 1]→court p22 pan -0.77 -0.7dB
+  51.256   50.083 Q1 11:27.4  court.squeak       stop v 0.27 Collins (gait speed 4.9 (was 12.5) brake 19.7 turn 19.3 defense) at 29.7, 16.9 ft +0ms late 15ms | squeak [stop take 8]→court p18 pan 0.35 +1dB
+  51.294   50.120 Q1 11:27.4  court.step         v 0.82 Dunn (speed 20.9) at 38.5, 28.5 ft +0ms late 15ms | step [take 8]→court p10 pan 0.51 -0.1dB
+  51.294   50.120 Q1 11:27.4  court.squeak       stop v 0.15 Jordan (gait speed 16.2 (was 20.9) brake 19.1 turn 2.0 stand) at 51.7, 44.7 ft +0ms | squeak [stop take 4]→court p18 pan 0.7 -3.2dB
+  51.294   50.120 Q1 11:27.4  court.squeak       stop v 0.26 Mitchell (gait speed 17.6 (was 27.0) brake 26.9 turn 2.0 ready) at 58.6, 33.1 ft +0ms | squeak [stop take 7]→court p18 pan 0.8 -5.9dB
+  51.395   50.222 Q1 11:27.4  court.step         v 0.96 Mills (speed 26.7) at 48.7, 34.7 ft +0ms late 15ms | step [take 6]→court p10 pan 0.69 -2.3dB
+  51.581   50.411 Q1 11:27.4  court.step         v 1.07 Dunn (speed 24.1) at 45.8, 28.1 ft +0ms | step [take 4]→court p10 pan 0.66 -1.2dB
+  51.769   50.590 Q1 11:27.4  court.step         v 0.69 Laurent (speed 20.9) at 45.9, 29 ft +0ms | step [take 10]→court p10 pan 0.66 -1.1dB
+  51.975   50.802 Q1 11:27.3  court.step         v 0.36 Jenkins (speed 16.1) at 52.4, 44.9 ft +0ms | step [take 7]→court p10 pan 0.69 -3.1dB
+  52.150   50.974 Q1 11:27.3  court.catch        v 1.1 #ref3 (ball 50 ft/s) at 18.9, 46.1, 4.3 ft +0ms late 15ms | catch [take 9]→court p35 pan 0.06 -1dB
+  52.238   51.061 Q1 11:27.3  court.step         v 0.84 Dunn (speed 21.1) at 60.6, 28.2 ft +0ms late 15ms | step [take 3]→court p10 pan 0.8 -5.6dB
+  52.466   51.293 Q1 11:27.3  court.squeak       slide v 0.59 Dixon (gait speed 10.1 (was 14.6) brake 18.3 turn 8.4 defense) at 34, 34.3 ft +0ms | squeak [slide take 10]→court p18 pan 0.37 -0.4dB
+  52.526   51.351 Q1 11:27.3  court.step         v 0.39 Dunn (speed 15.2) at 66.1, 29 ft +0ms late 15ms | step [take 12]→court p10 pan 0.8 -5.9dB
+  52.618   51.441 Q1 11:27.3  court.step         v 0.32 Jenkins (speed 15.4) at 62.7, 45.3 ft +0ms | step [take 2]→court p10 pan 0.8 -6.7dB
+  52.761   51.592 Q1 11:27.3  court.squeak       stop v 0.2 Dunn (gait speed 9.3 (was 17.5) brake 23.3 turn 5.2 ready) at 67.5, 31.5 ft +0ms | squeak [stop take 2]→court p18 pan 0.8 -6.1dB
+  52.979   51.801 Q1 11:27.3  court.step         v 0.31 Jenkins (speed 15.1) at 67.9, 44.7 ft +0ms | step [take 11]→court p10 pan 0.8 -6.8dB
+  53.068   51.891 Q1 11:27.3  court.step         v 0.33 Laurent (speed 15.3) at 67.2, 29.6 ft +0ms late 15ms | step [take 5]→court p10 pan 0.8 -5.9dB
+  53.322   52.152 Q1 11:27.3  court.step         v 0.26 Jenkins (speed 14.4) at 73.1, 45.5 ft +0ms | step [take 1]→court p10 pan 0.8 -7dB
+  53.405   52.230 Q1 11:27.3  court.step         v 0.33 Laurent (speed 15.3) at 72.5, 29.7 ft +0ms | step [take 8]→court p10 pan 0.8 -6.1dB
+  53.677   52.500 Q1 11:27.3  court.step         v 0.32 Jenkins (speed 15.4) at 78.2, 45.3 ft +0ms late 15ms | step [take 9]→court p10 pan 0.8 -7.1dB
+  53.762   52.590 Q1 11:27.3  court.step         v 0.34 Laurent (speed 15.4) at 77.7, 29.2 ft +0ms late 15ms | step [take 4]→court p10 pan 0.8 -6.3dB
+  54.007   52.831 Q1 11:27.3  court.step         v 0.3 Jenkins (speed 15.0) at 83.4, 45.8 ft +0ms | step [take 7]→court p10 pan 0.8 -7.3dB
+  54.164   52.991 Q1 11:27.3  court.step         v 0.14 #ref1 (speed 15.0) at 23.3, 4 ft +0ms | step [take 10]→court p10 pan 0.21 +2.1dB
+  54.294   53.121 Q1 11:27.3  court.squeak       stop v 0.17 Jenkins (gait speed 8.5 (was 15.4) brake 23.1 turn 4.7 ready) at 86.4, 46.5 ft +0ms late 14ms | squeak [stop take 6]→court p18 pan 0.8 -7.4dB
+  54.518   53.342 Q1 11:27.3  court.step         v 0.14 #ref1 (speed 15.0) at 28.1, 5.5 ft +0ms late 15ms | step [take 12]→court p10 pan 0.34 +1.9dB
+  54.856   53.653 Q1 11:27.3  court.step         v 0.14 #ref1 (speed 15.0) at 33.1, 6.3 ft +0ms late 15ms | step [take 2]→court p10 pan 0.47 +1.7dB
+  55.181   53.972 Q1 11:27.3  court.step         v 0.14 #ref1 (speed 15.0) at 37.9, 7.8 ft +0ms late 14ms | step [take 3]→court p10 pan 0.6 +1.5dB
+  55.501   54.291 Q1 11:27.3  court.step         v 0.14 #ref1 (speed 15.0) at 42.8, 8.5 ft +0ms | step [take 11]→court p10 pan 0.72 -1.1dB
+  55.828   54.610 Q1 11:27.3  court.step         v 0.14 #ref1 (speed 15.0) at 47.6, 10 ft +0ms | step [take 1]→court p10 pan 0.8 -4dB
+  56.145   54.933 Q1 11:27.2  court.pass         v 0.54 #ref3 (ball 25 ft/s bounce pass) at 19.3, 46.8, 4 ft +0ms | pass [rec 1/4]→court p22 pan 0.06 -1.1dB
+  56.170   54.950 Q1 11:27.2  court.step         v 0.14 #ref1 (speed 15.0) at 52.6, 10.8 ft +0ms | step [take 5]→court p10 pan 0.8 -4.2dB
+  56.286   55.072 Q1 11:27.2  court.bounce       v 1.02 (down at 25.7 ft/s) at 18, 48.5 ft +0ms late 10ms | bounce [rec 10]→court p25 pan 0.04 -1.3dB
+  56.481   55.272 Q1 11:27.2  court.catch        v 0.34 Ndiaye (ball 14 ft/s) at 17.2, 49.5, 3.3 ft +0ms | catch [take 11]→court p35 pan 0.02 -1.3dB
+  56.507   55.293 Q1 11:27.2  court.step         v 0.14 #ref1 (speed 15.0) at 57.4, 12.3 ft +0ms | step [take 6]→court p10 pan 0.8 -4.5dB
+  56.842   55.632 Q1 11:27.2  court.step         v 0.14 #ref1 (speed 15.0) at 62.4, 13.1 ft +0ms | step [take 8]→court p10 pan 0.8 -4.8dB
+  57.123   55.911 Q1 11:27.2  court.step         v 0.11 Dixon (speed 12.0) at 35.5, 47.3 ft +0ms | step [take 4]→court p10 pan 0.36 -1.3dB
+  57.313   56.102 Q1 11:27.2  court.squeak       stop v 0.15 Dixon (gait speed 7.5 (was 12.0) brake 19.9 turn 1.2 ready) at 35.7, 43.5 ft +0ms | squeak [stop take 1]→court p18 pan 0.38 -1.1dB
+  57.414   56.201 Q1 11:27.2  game.inbound       BOS 
+  57.582   56.372 Q1 11:27.1  court.pass         v 0.44 Ndiaye (ball 21 ft/s) at 16, 49.4, 4.4 ft +0ms | pass [rec 1/3]→court p22 pan -0.03 -1.3dB
+  57.913   56.700 Q1 11:26.7  court.catch        v 0.49 Payton (ball 20 ft/s) at 15.9, 42.9, 4.3 ft +0ms | catch [take 7]→court p35 pan -0.16 -0.8dB
+  58.100   56.886 Q1 11:26.5  court.step         v 0.14 Laurent (speed 12.3) at 85, 34.5 ft +0ms late 14ms | step [take 7]→court p10 pan 0.8 -6.4dB
+  58.434   57.223 Q1 11:26.2  court.step         v 0.2 Laurent (speed 13.2) at 84.3, 29.7 ft +0ms | step [take 12]→court p10 pan 0.8 -6dB
+  58.456   57.240 Q1 11:26.2  court.step         v 0.22 Ndiaye (speed 13.8) at 17.5, 42.7 ft +0ms | step [take 2]→court p10 pan -0.27 -1dB
+  58.561   57.350 Q1 11:26.1  court.dribble      v 0.45 Payton tight 0.43 at 19.6, 38.5 ft +0ms late 23ms | dribble [rec 10]→court p20 pan -0.27 +0.1dB
+  58.675   57.461 Q1 11:26.0  court.step         v 0.31 Collins (speed 16.0) at 37.6, 35.4 ft +0ms | step [take 9]→court p10 pan 0.07 -0.4dB
+  58.795   57.583 Q1 11:25.8  court.step         v 0.23 Ndiaye (speed 14.0) at 17.9, 37.7 ft +0ms late 14ms | step [take 3]→court p10 pan -0.36 -0.7dB
+  58.841   57.632 Q1 11:25.8  court.step         v 0.15 Dixon (speed 12.8) at 32.5, 40.3 ft +0ms | step [take 11]→court p10 pan -0.07 -0.8dB
+  58.913   57.702 Q1 11:25.7  court.step         v 0.21 Payton (speed 14.2) at 25.2, 39.2 ft +0ms late 14ms | step [take 1]→court p10 pan -0.23 -0.7dB
+  58.936   57.722 Q1 11:25.7  court.step         v 0.47 Collins (speed 18.9) at 43, 34.8 ft +0ms | step [take 6]→court p10 pan 0.13 -0.4dB
+  59.171   57.963 Q1 11:25.5  court.step         v 0.43 Dixon (speed 17.6) at 33.4, 35.4 ft +0ms late 14ms | step [take 10]→court p10 pan -0.12 -0.4dB
+  59.172   57.963 Q1 11:25.5  court.dribble      v 0.44 Payton tight 0.33 at 30.4, 36.3 ft +0ms late 5ms | dribble [rec 5]→court p20 pan -0.18 -0.4dB
+  59.279   58.061 Q1 11:25.4  court.step         v 0.2 Payton (speed 14.0) at 30.2, 38 ft +0ms late 14ms | step [take 4]→court p10 pan -0.2 -0.6dB
+  59.464   58.250 Q1 11:25.2  court.step         v 0.3 Dixon (speed 15.4) at 34.5, 29.9 ft +0ms | step [take 8]→court p10 pan -0.16 0dB
+  59.715   58.503 Q1 11:24.9  court.step         v 0.15 Dixon (speed 12.7) at 36.4, 30.1 ft +0ms | step [take 5]→court p10 pan -0.17 -0.1dB
+  59.831   58.622 Q1 11:24.8  court.dribble      v 0.58 Payton tight 0.6 at 38.7, 35.9 ft +0ms late 15ms | dribble [rec 7]→court p20 pan -0.13 -0.7dB
+  59.858   58.642 Q1 11:24.8  court.step         v 0.26 Ndiaye (speed 14.6) at 24.7, 27.3 ft +0ms | step [take 7]→court p10 pan -0.45 0dB
+  60.118   58.900 Q1 11:24.5  court.step         v 0.14 Dixon (speed 12.5) at 40.8, 25.8 ft +0ms | step [take 2]→court p10 pan -0.15 +0.3dB
+  60.260   59.051 Q1 11:24.4  court.dribble      v 0.44 Payton tight 0.44 at 45, 35.6 ft +0ms late 9ms | dribble [rec 8]→court p20 pan -0.08 -0.6dB
+  60.432   59.222 Q1 11:24.2  court.step         v 0.28 Dixon (speed 15.0) at 45.3, 24.2 ft +0ms late 14ms | step [take 3]→court p10 pan -0.12 +0.4dB
+  60.509   59.292 Q1 11:24.1  court.step         v 0.35 Ndiaye (speed 16.0) at 35.9, 25.9 ft +0ms | step [take 9]→court p10 pan -0.34 +0.2dB
+  60.745   59.530 Q1 11:23.9  court.step         v 0.39 Dixon (speed 16.8) at 50.4, 26.1 ft +0ms | step [take 11]→court p10 pan -0.06 +0.3dB
+  60.869   59.652 Q1 11:23.8  court.step         v 0.24 Ndiaye (speed 14.1) at 41.3, 26.1 ft +0ms late 14ms | step [take 1]→court p10 pan -0.29 +0.2dB
+  60.907   59.693 Q1 11:23.7  game.advance       BOS 
+  60.951   59.742 Q1 11:23.7  court.dribble      v 0.45 Payton tight 0.44 at 52.7, 33.9 ft +0ms late 22ms | dribble [rec 12]→court p20 pan -0.05 -0.3dB
+  61.042   59.832 Q1 11:23.6  court.squeak       slide v 0.48 Dixon (gait speed 12.0 (was 17.2) brake 15.2 turn 7.7 defense) at 54.8, 27.2 ft +0ms | squeak [slide take 2]→court p18 pan -0.03 +0.2dB
+  61.073   59.861 Q1 11:23.6  court.step         v 0.13 #ref3 (speed 15.0) at 45.2, 52.4 ft +0ms late 14ms | step [take 12]→court p10 pan -0.2 -1.6dB
+  61.556   60.343 Q1 11:23.1  court.step         v 0.11 Payton (speed 12.4) at 57.5, 28.8 ft +0ms | step [take 10]→court p10 pan -0.09 +0.1dB
+  61.556   60.343 Q1 11:23.1  court.step         v 0.18 Ndiaye (speed 13.2) at 50.6, 25.8 ft +0ms | step [take 8]→court p10 pan -0.25 +0.3dB
+  61.585   60.372 Q1 11:23.1  court.dribble      v 0.43 Payton tight 0.5 at 59.4, 28.2 ft +0ms late 14ms | dribble [rec 2]→court p20 pan -0.05 +0.2dB
+  61.927   60.711 Q1 11:22.7  court.step         v 0.17 Ndiaye (speed 12.9) at 55.2, 25.3 ft +0ms late 14ms | step [take 5]→court p10 pan -0.21 +0.4dB
+  61.959   60.740 Q1 11:22.7  court.squeak       slide v 0.64 Mitchell (gait speed 5.0 (was 11.9) brake 18.4 turn 16.0 defense) at 68.9, 41.9 ft +0ms | squeak [slide take 7]→court p18 pan 0.09 -0.7dB
+  62.120   60.912 Q1 11:22.5  court.step         v 0.11 #ref1 (speed 13.9) at 85.5, 15.8 ft +0ms late 14ms | step [take 7]→court p10 pan 0.54 +1.1dB
+  62.217   61.002 Q1 11:22.4  court.dribble      v 0.41 Payton tight 0.44 at 63.5, 26.2 ft +0ms late 25ms | dribble [rec 3]→court p20 pan -0.05 +0.8dB
+  62.218   61.002 Q1 11:22.4  court.step         v 0.21 Dixon (speed 13.7) at 63.4, 25 ft +0ms | step [take 2]→court p10 pan -0.05 +0.6dB
+  62.260   61.051 Q1 11:22.4  court.step         v 0.21 Ndiaye (speed 13.7) at 59.6, 26.8 ft +0ms | step [take 6]→court p10 pan -0.15 +0.4dB
+  62.612   61.402 Q1 11:22.1  court.step         v 0.22 Ndiaye (speed 13.8) at 64.4, 28 ft +0ms | step [take 9]→court p10 pan -0.06 +0.4dB
+  62.688   61.472 Q1 11:22.0  court.step         v 0.2 Jordan (speed 13.6) at 65.4, 36.1 ft +0ms late 31ms | step [take 3]→court p10 pan -0.04 -0.2dB
+  63.230   62.018 Q1 11:21.7  court.dribble      v 0.4 Payton tight 0.36 at 69.1, 21.8 ft +0ms late 27ms | dribble [rec 9]→court p20 pan 0.02 +0.8dB
+  63.276   62.061 Q1 11:21.6  court.step         v 0.37 Dunn (speed 14.9) at 90.7, 28 ft +0ms late 64ms | step [take 1]→court p10 pan 0.51 +0.2dB
+  63.276   62.061 Q1 11:21.6  court.step         v 0.13 Jordan (speed 12.3) at 65, 31.8 ft +0ms late 31ms | step [take 11]→court p10 pan -0.08 +0.2dB
+  63.311   62.102 Q1 11:21.6  court.squeak       stop v 0.15 Jenkins (gait speed 10.3 (was 13.7) brake 18.4 turn 0.2 stand) at 78.9, 45.1 ft +0ms | squeak [stop take 12]→court p18 pan 0.2 -0.8dB
+  63.550   62.334 Q1 11:21.4  court.step         v 0.21 Payton (speed 14.3) at 72, 18.3 ft +0ms | step [take 4]→court p10 pan 0.07 +1.3dB
+  63.592   62.380 Q1 11:21.3  court.step         v 0.19 Dixon (speed 13.5) at 73.4, 25.6 ft +0ms | step [take 8]→court p10 pan 0.1 +0.7dB
+  63.708   62.491 Q1 11:21.2  court.step         v 0.2 Mitchell (speed 13.7) at 67.3, 26.2 ft +0ms | step [take 12]→court p10 pan -0.05 +0.6dB
+  63.785   62.572 Q1 11:21.1  court.squeak       stop v 0.23 Dunn (gait speed 3.2 (was 11.8) brake 24.4 turn 1.7 ready) at 86.6, 31.7 ft +0ms | squeak [stop take 11]→court p18 pan 0.37 +0.1dB
+  63.858   62.642 Q1 11:21.0  court.dribble      v 0.52 Payton tight 0.76 at 73.9, 15.9 ft +0ms late 31ms | dribble [rec 4]→court p20 pan 0.1 +1.3dB
+  63.858   62.642 Q1 11:21.0  court.step         v 0.32 Payton (speed 16.5) at 75.7, 15 ft +0ms late 14ms | step [take 10]→court p10 pan 0.15 +1.5dB
+  64.171   62.961 Q1 11:20.7  court.step         v 0.32 Payton (speed 16.5) at 80.2, 12.2 ft +0ms late 14ms | step [take 2]→court p10 pan 0.25 +1.8dB
+  64.172   62.961 Q1 11:20.7  court.squeak       slide v 0.61 Mitchell (gait speed 5.9 (was 13.0) brake 21.2 turn 6.8 defense) at 67.4, 20.2 ft +0ms | squeak [slide take 4]→court p18 pan -0.1 +1.1dB
+  64.310   63.100 Q1 11:20.6  court.dribble      v 0.45 Payton tight 0.69 at 83, 8.6 ft +0ms late 25ms | dribble [rec 6]→court p20 pan 0.32 +2.5dB
+  64.347   63.132 Q1 11:20.6  court.step         v 0.16 Collins (speed 13.1) at 83.8, 12.2 ft +0ms | step [take 5]→court p10 pan 0.32 +1.7dB
+  64.486   63.271 Q1 11:20.4  court.step         v 0.32 Payton (speed 16.5) at 84.3, 8.8 ft +0ms | step [take 6]→court p10 pan 0.33 +2dB
+  64.749   63.533 Q1 11:20.2  court.step         v 0.23 Collins (speed 14.4) at 89.1, 9.7 ft +0ms | step [take 9]→court p10 pan 0.42 +1.9dB
+  64.824   63.611 Q1 11:20.1  court.dribble      v 0.42 Payton tight 0.56 at 90.2, 3.5 ft +0ms late 14ms | dribble [rec 1]→court p20 pan 0.47 +3.1dB
+  65.080   63.869 Q1 11:19.8  court.squeak       stop v 0.17 Payton (gait speed 8.6 (was 16.5) brake 24.0 turn 0.0 dribble) at 91.5, 3.9 ft +0ms | squeak [stop take 9]→court p18 pan 0.44 +2.5dB
+  65.234   64.020 Q1 11:19.7  game.set           BOS 
+  65.254   64.041 Q1 11:19.6  court.squeak       slide v 0.26 Collins (gait speed 4.9 (was 11.3) brake 8.8 turn 12.0 defense) at 93.2, 5.7 ft +0ms | squeak [slide take 11]→court p18 pan 0.44 +2.3dB
+  65.386   64.171 Q1 11:19.5  court.dribble      v 0.64 Payton tight 0.72 at 93.3, 4.2 ft +0ms late 33ms | dribble [rec 5]→court p20 pan 0.43 +3dB
+  65.752   64.543 Q1 11:19.1  court.dribble      v 0.43 Payton tight 0.53 at 94.6, 3.4 ft apron +0ms late 24ms | dribble [rec 11]→court p20 pan 0.43 +2.8dB
+  66.157   64.940 Q1 11:18.8  game.pass          BOS chest 
+  66.177   64.961 Q1 11:18.8  court.pass         v 0.87 Payton (ball 40 ft/s) at 90.8, 4.4, 3.4 ft +0ms | pass [rec 2/5]→court p22 pan 0.3 +2.7dB
+  67.015   65.802 Q1 11:17.9  court.catch        v 0.86 Jordan (ball 35 ft/s) at 67.2, 22.4, 4.6 ft +0ms | catch [take 6]→court p35 pan -0.25 +1dB
+  67.065   65.852 Q1 11:17.9  game.step          BOS 
+  67.662   66.453 Q1 11:17.3  court.dribble      v 0.57 Jordan tight 0.61 at 66.7, 21.7 ft +0ms late 40ms | dribble [rec 10]→court p20 pan -0.24 +0.4dB
+  67.848   66.633 Q1 11:17.1  court.step         v 0.14 Dixon (speed 12.6) at 71.9, 25.1 ft +0ms late 14ms | step [take 3]→court p10 pan -0.11 +0.7dB
+  68.070   66.853 Q1 11:16.9  court.dribble      v 0.67 Jordan tight 0.65 at 66.9, 24.6 ft +0ms late 25ms | dribble [rec 12]→court p20 pan -0.23 +1.2dB
+  68.175   66.961 Q1 11:16.8  court.step         v 0.14 Ndiaye (speed 12.4) at 71.5, 25.4 ft +0ms | step [take 11]→court p10 pan -0.12 +0.7dB
+  68.225   67.013 Q1 11:16.7  game.screen        BOS ball 
+  68.470   67.262 Q1 11:16.5  court.dribble      v 0.51 Jordan tight 0.57 at 66.1, 26 ft +0ms late 19ms | dribble [rec 7]→court p20 pan -0.24 +1.3dB
+  68.893   67.680 Q1 11:16.0  court.dribble      v 0.69 Jordan tight 0.67 at 62.2, 21.5 ft +0ms | dribble [rec 2]→court p20 pan -0.33 +0.7dB
+  68.984   67.770 Q1 11:16.0  game.step          BOS 
+  69.288   68.072 Q1 11:15.7  court.body         bump v 0.15 Jordan (bump, closing at 4.0 ft/s with #291) at 64.9, 21.2, 4 ft +0ms | body [bump take 8]→court p30 pan -0.26 +1.1dB
+  69.354   68.142 Q1 11:15.6  court.dribble      v 0.43 Jordan tight 0.35 at 63.9, 18.9 ft +0ms late 4ms | dribble [rec 3]→court p20 pan -0.29 +0.7dB
+  69.502   68.293 Q1 11:15.5  game.move          Jordan BOS 
+  69.663   68.452 Q1 11:15.4  court.step         v 0.36 Ndiaye (speed 16.3) at 80.6, 24.7 ft +0ms late 14ms | step [take 7]→court p10 pan 0.13 +0.7dB
+  69.766   68.551 Q1 11:15.3  court.step         v 0.24 Dixon (speed 14.2) at 73, 21.9 ft +0ms | step [take 1]→court p10 pan -0.06 +1dB
+  69.956   68.743 Q1 11:15.1  court.step         v 0.21 Ndiaye (speed 13.6) at 85.6, 25.7 ft +0ms | step [take 12]→court p10 pan 0.24 +0.6dB
+  69.990   68.780 Q1 11:15.0  court.dribble      v 0.65 Jordan tight 0.66 at 69, 19 ft +0ms late 18ms | dribble [rec 4]→court p20 pan -0.17 +0.7dB
+  70.074   68.862 Q1 11:15.0  court.step         v 0.14 Mills (speed 12.3) at 84, 33.1 ft +0ms late 31ms | step [take 10]→court p10 pan 0.18 +0.1dB
+  70.075   68.862 Q1 11:15.0  court.step         v 0.3 Dixon (speed 15.4) at 77.5, 23.5 ft +0ms | step [take 2]→court p10 pan 0.04 +0.8dB
+  70.247   69.030 Q1 11:14.8  court.squeak       stop v 0.15 Ndiaye (gait speed 7.5 (was 15.4) brake 21.1 turn 3.0 ready) at 88.5, 26.8 ft +0ms late 31ms | squeak [stop take 3]→court p18 pan 0.29 +0.5dB
+  70.332   69.120 Q1 11:14.7  court.step         v 0.15 Jordan (speed 12.6) at 72.4, 16.8 ft +0ms late 14ms | step [take 8]→court p10 pan -0.09 +1.4dB
+  70.378   69.161 Q1 11:14.6  court.dribble      v 0.42 Jordan tight 0.47 at 74.4, 17.1 ft +0ms late 6ms | dribble [rec 8]→court p20 pan -0.04 +1.2dB
+  70.420   69.207 Q1 11:14.6  court.step         v 0.12 Dixon (speed 12.2) at 82.3, 23.7 ft +0ms late 14ms | step [take 5]→court p10 pan 0.15 +0.8dB
+  70.568   69.352 Q1 11:14.5  game.step          BOS 
+  70.992   69.782 Q1 11:14.0  court.dribble      v 0.54 Jordan tight 0.61 at 76.7, 18.1 ft paint +0ms late 15ms | dribble [rec 1]→court p20 pan 0.02 +1dB
+  71.558   70.342 Q1 11:13.5  court.dribble      v 0.42 Jordan tight 0.25 at 75.9, 17.2 ft paint +0ms late 17ms | dribble [rec 5]→court p20 pan 0.02 +1.2dB
+  71.633   70.420 Q1 11:13.4  game.move          Jordan BOS 
+  71.662   70.452 Q1 11:13.4  court.step         v 0.13 Mills (speed 12.2) at 78.1, 29.7 ft +0ms late 14ms | step [take 9]→court p10 pan 0.07 +0.3dB
+  71.863   70.653 Q1 11:13.2  court.squeak       slide v 0.67 Dunn (gait speed 4.7 (was 9.9) brake 20.4 turn 1.3 defense) at 90, 30.4 ft +0ms | squeak [slide take 8]→court p18 pan 0.34 +0.2dB
+  71.944   70.731 Q1 11:13.1  court.dribble      v 0.89 Jordan tight 0.66 at 76.8, 18.7 ft paint +0ms late 26ms | dribble [rec 6]→court p20 pan 0.05 +0.9dB
+  72.250   71.041 Q1 11:12.8  game.pass          BOS kick 
+  72.282   71.070 Q1 11:12.8  court.pass         v 0.7 Jordan (ball 32 ft/s) at 76.9, 23.6, 3.9 ft +0ms late 14ms | pass [rec 2]→court p22 pan 0.05 +1dB
+  72.885   71.671 Q1 11:12.6  court.step         v 0.2 Jenkins (speed 13.3) at 79, 44.8 ft +0ms late 31ms | step [take 6]→court p10 pan 0.07 -0.8dB
+  72.886   71.671 Q1 11:12.6  court.step         v 0.19 Dunn (speed 12.5) at 85.3, 22.6 ft +0ms late 14ms | step [take 4]→court p10 pan 0.24 +0.9dB
+  73.059   71.843 Q1 11:12.6  court.catch        v 0.7 Jenkins (ball 28 ft/s) at 80.1, 44.7, 4.8 ft +0ms late 14ms | catch [take 1]→court p35 pan 0.09 -0.7dB
+  73.351   72.141 Q1 11:12.5  court.squeak       stop v 0.19 Jenkins (step speed 0.3 (was 11.4) brake 24.0 turn 2.3 ready) at 83.2, 46.6 ft +0ms | squeak [stop take 8]→court p18 pan 0.14 -0.9dB
+  73.573   72.362 Q1 11:12.4  court.squeak       slide v 0.57 Dixon (gait speed 5.4 (was 9.2) brake 9.0 turn 15.6 defense) at 85.1, 25.5 ft +0ms late 14ms | squeak [slide take 6]→court p18 pan 0.22 +0.6dB
+  73.798   72.583 Q1 11:12.4  game.shot          Jenkins 3pt catch_shoot BOS | booth.pbp→commentary p5 queued
+  73.989   72.771 Q1 11:12.2  court.step         v 0.2 Mitchell (speed 13.7) at 74.7, 24.2 ft +0ms | step [take 11]→court p10 pan -0.03 +0.8dB
+  74.155   72.902 Q1 11:12.1  court.land         v 0.34 Jenkins (jump 0.9 ft) at 81.7, 47.2 ft +0ms late 30ms | land [take 8]→court p28 pan 0.11 -0.9dB
+  74.854   73.601 Q1 11:11.6  court.step         v 0.26 Payton (speed 15.2) at 88.6, 9.5 ft +0ms | step [take 1]→court p10 pan 0.33 +2dB
+  75.033   73.781 Q1 11:11.5  game.shotResult    Jenkins miss, rim (court) | crowd.ooh→crowd p50
+  75.055   73.802 Q1 11:11.5  court.rim          front v 0.96 (front at 24 ft/s (-0.62 ft along the shot)) at 88.5, 25.6, 10.3 ft +0ms late 4ms | rim [front take 7]→court p60 pan 0.28 +0.9dB
+  75.144   73.892 Q1 11:11.4  court.step         v 0.25 Jordan (speed 14.4) at 75.5, 23.9 ft +0ms late 30ms | step [take 7]→court p10 pan -0.05 +0.8dB
+  75.184   73.932 Q1 11:11.4  court.step         v 0.18 Payton (speed 13.7) at 87.6, 14.3 ft +0ms | step [take 10]→court p10 pan 0.27 +1.6dB
+  75.439   74.182 Q1 11:11.2  court.step         v 0.26 Jordan (speed 14.5) at 80.5, 24.5 ft +0ms late 14ms | step [take 2]→court p10 pan 0.07 +0.8dB
+  75.679   74.423 Q1 11:11.1  court.catch        v 0.25 Dunn (ball 10 ft/s) at 85.4, 30.4, 12.2 ft +0ms late 14ms | catch [take 3]→court p35 pan 0.18 +0.6dB
+  75.680   74.432 Q1 11:11.1  court.squeak       stop v 0.36 Jordan (gait speed 6.7 (was 16.4) brake 30.2 turn 0.2 stand) at 83.3, 24.2 ft +0ms | squeak [stop take 10]→court p18 pan 0.13 +0.8dB
+  75.700   74.452 Q1 11:11.1  game.rebound       def. Dunn 
+  76.019   74.762 Q1 11:11.0  court.land         v 0.71 Dunn (jump 1.7 ft) at 84.8, 31.3 ft +0ms late 30ms | land [take 9]→court p28 pan 0.15 +0.2dB
+  76.056   74.800 Q1 11:11.0  court.land         v 0.46 Laurent (jump 1.3 ft) at 88.4, 28.9 ft +0ms | land [take 12]→court p28 pan 0.24 +0.4dB
+  76.057   74.800 Q1 11:11.0  court.body         boxout v 0.15 Ndiaye (boxout, closing at 3.0 ft/s with #287) at 86.7, 27.9, 4 ft +0ms | body [boxout take 3]→court p30 pan 0.2 +0.6dB
+  76.265   75.012 Q1 11:11.0  live.possession    UTA ball, pnr 
+  76.602   75.352 Q1 11:10.9  court.step         v 0.15 Dixon (speed 12.6) at 82.1, 29.8 ft +0ms late 30ms | step [take 3]→court p10 pan 0.07 +0.3dB
+  76.731   75.482 Q1 11:10.9  court.squeak       pivot v 0.81 Dunn (step speed 0.0 brake 0.0 turn 0.0 yaw 8.6 stand) at 84.1, 31.4 ft +0ms late 14ms | squeak [pivot take 4]→court p18 pan 0.1 +0.2dB
+  76.827   75.572 Q1 11:10.8  court.step         v 0.14 Payton (speed 12.8) at 83.9, 15.1 ft +0ms | step [take 8]→court p10 pan 0.11 +1.5dB
+  76.827   75.572 Q1 11:10.8  court.step         v 0.39 Dixon (speed 17.0) at 78, 29.9 ft +0ms | step [take 12]→court p10 pan -0.05 +0.3dB
+  76.871   75.622 Q1 11:10.8  court.step         v 0.22 Collins (speed 14.2) at 82, 11.2 ft +0ms late 30ms | step [take 5]→court p10 pan 0.05 +1.9dB
+  77.013   75.761 Q1 11:10.7  court.step         v 0.33 Jordan (speed 15.8) at 74.7, 24 ft +0ms late 14ms | step [take 4]→court p10 pan -0.15 +0.7dB
+  77.014   75.761 Q1 11:10.7  court.step         v 0.22 Mitchell (speed 14.1) at 69.4, 26.9 ft +0ms | step [take 11]→court p10 pan -0.27 +0.5dB
+  77.146   75.892 Q1 11:10.7  court.step         v 0.46 Collins (speed 18.8) at 77.7, 9 ft +0ms late 14ms | step [take 1]→court p10 pan -0.1 +2dB
+  77.258   76.002 Q1 11:10.6  court.step         v 0.2 Laurent (speed 13.2) at 81.1, 27.8 ft +0ms late 14ms | step [take 6]→court p10 pan -0.01 +0.4dB
+  77.438   76.182 Q1 11:10.5  court.step         v 0.57 Collins (speed 20.8) at 72, 7.6 ft +0ms late 14ms | step [take 9]→court p10 pan -0.29 +2dB
+  77.576   76.321 Q1 11:10.5  game.pass          UTA outlet 
+  77.594   76.341 Q1 11:10.5  court.pass         v 1 Dunn (ball 51 ft/s) at 80.8, 32.7, 6.6 ft +0ms | pass [rec 2/4]→court p22 pan -0.01 +0.1dB
+  77.740   76.489 Q1 11:10.3  court.step         v 0.57 Collins (speed 20.9) at 65.9, 5.9 ft +0ms late 14ms | step [take 10]→court p10 pan -0.42 +2dB
+  77.852   76.603 Q1 11:10.2  court.step         v 0.8 Payton (speed 29.5) at 61.5, 11.7 ft +0ms | step [take 7]→court p10 pan -0.47 +1.4dB
+  78.070   76.817 Q1 11:010.0 court.step         v 0.61 Dixon (speed 20.9) at 56.7, 42 ft +0ms | step [take 2]→court p10 pan -0.35 -0.9dB
+  78.255   77.000 Q1 11:09.8  court.step         v 0.93 Jordan (speed 29.8) at 44.2, 31.1 ft +0ms | step [take 8]→court p10 pan -0.56 -0.3dB
+  78.441   77.192 Q1 11:09.6  court.step         v 0.84 Jenkins (speed 23.8) at 55.2, 29.9 ft +0ms late 14ms | step [take 5]→court p10 pan -0.19 0dB
+  78.564   77.311 Q1 11:09.5  court.squeak       cut v 0.36 Payton (gait speed 27.0 (was 29.9) brake 13.4 turn 28.1 ready) at 40.6, 13.1 ft +0ms | squeak [cut take 2]→court p18 pan -0.48 +1.2dB
+  78.686   77.433 Q1 11:09.4  court.step         v 0.62 Dixon (speed 20.9) at 43.8, 44.2 ft +0ms | step [take 4]→court p10 pan -0.21 -1dB
+  78.872   77.621 Q1 11:09.2  court.step         v 0.64 Mills (speed 20.7) at 51.9, 11.4 ft +0ms | step [take 12]→court p10 pan 0.1 +1.5dB
+  78.958   77.703 Q1 11:09.1  court.catch        v 1.1 Mitchell (ball 44 ft/s) at 24.7, 44.2, 4.6 ft +0ms | catch [take 8]→court p35 pan -0.4 -1dB
+  79.079   77.825 Q1 11:09.0  court.step         v 0.72 Ndiaye (speed 22.4) at 49.8, 28.8 ft +0ms late 14ms | step [take 3]→court p10 pan 0.2 +0.1dB
+  79.233   77.981 Q1 11:08.8  court.step         v 0.92 Jordan (speed 26.0) at 18.8, 44.3 ft +0ms late 14ms | step [take 11]→court p10 pan -0.35 -1.1dB
+  79.233   77.981 Q1 11:08.8  court.squeak       stop v 0.2 Jordan (gait speed 26.0 (was 29.6) brake 19.1 turn 15.7 defense) at 18.8, 44.3 ft +0ms late 14ms | squeak [stop take 4]→court p18 pan -0.35 -1.1dB
+  79.386   78.132 Q1 11:08.7  court.squeak       cut v 0.37 Payton (gait speed 18.2 (was 21.3) brake 0.9 turn 31.5 ready) at 26.1, 15.5 ft +0ms late 14ms | squeak [cut take 9]→court p18 pan -0.19 +1.2dB
+  79.427   78.173 Q1 11:08.6  court.step         v 0.6 Mitchell (speed 20.8) at 13.3, 47 ft +0ms late 14ms | step [take 6]→court p10 pan -0.37 -1.2dB
+  79.588   78.333 Q1 11:08.5  court.dribble      v 0.48 Mitchell tight 0.6 at 8.9, 51.2 ft apron +0ms late 21ms | dribble [rec 11]→court p20 pan -0.38 -1.3dB
+  79.660   78.408 Q1 11:08.4  court.step         v 0.93 Ndiaye (speed 26.6) at 36.2, 33.8 ft +0ms late 14ms | step [take 9]→court p10 pan 0.19 -0.2dB
+  79.754   78.501 Q1 11:08.3  court.squeak       stop v 0.19 Collins (gait speed 10.3 (was 19.5) brake 23.8 turn 6.9 stand) at 25.1, 5 ft +0ms | squeak [stop take 7]→court p18 pan -0.03 +2.3dB
+  79.871   78.623 Q1 11:08.2  court.step         v 0.7 Jenkins (speed 21.6) at 25.4, 11.2 ft +0ms late 14ms | step [take 10]→court p10 pan 0.02 +1.7dB
+  80.005   78.750 Q1 11:08.0  court.dribble      v 0.73 Mitchell tight 0.59 at 7.6, 51 ft apron +0ms late 5ms | dribble [rec 12]→court p20 pan -0.31 -1dB
+  80.038   78.782 Q1 11:08.0  court.step         v 0.14 #ref2 (speed 15.0) at 52.8, -2.2 ft +0ms late 14ms | step [take 7]→court p10 pan 0.8 -2.7dB
+  80.251   79.000 Q1 11:07.8  court.step         v 0.54 Dixon (speed 19.5) at 11.3, 45.6 ft +0ms | step [take 1]→court p10 pan -0.21 -0.9dB
+  80.442   79.192 Q1 11:07.6  court.dribble      v 0.56 Mitchell tight 0.52 at 7.7, 51.2 ft apron +0ms late 21ms | dribble [rec 7]→court p20 pan -0.25 -0.9dB
+  80.486   79.232 Q1 11:07.6  court.step         v 0.65 Mills (speed 20.9) at 20, 4.7 ft +0ms late 14ms | step [take 5]→court p10 pan -0.02 +2.5dB
+  80.656   79.401 Q1 11:07.4  court.step         v 0.29 Laurent (speed 14.6) at 28.5, 28.3 ft +0ms | step [take 4]→court p10 pan 0.19 +0.4dB
+  80.789   79.531 Q1 11:07.3  court.squeak       stop v 0.15 Ndiaye (gait speed 20.5 (was 25.6) brake 17.9 turn 5.3 defense) at 8.3, 42.3 ft +0ms late 14ms | squeak [stop take 6]→court p18 pan -0.24 -0.6dB
+  80.853   79.601 Q1 11:07.2  court.step         v 0.23 Jenkins (speed 13.9) at 9.7, 13.7 ft +0ms | step [take 8]→court p10 pan -0.28 +1.6dB
+  80.895   79.642 Q1 11:07.2  court.dribble      v 0.67 Mitchell tight 0.6 at 11.4, 48 ft +0ms late 20ms | dribble [rec 2]→court p20 pan -0.16 -1.4dB
+  81.036   79.781 Q1 11:07.0  court.step         v 0.14 #ref2 (speed 15.0) at 37.7, -2.6 ft +0ms | step [take 2]→court p10 pan 0.6 +3dB
+  81.184   79.932 Q1 11:06.9  court.squeak       stop v 0.15 Jenkins (gait speed 8.6 (was 14.5) brake 19.4 turn 0.0 ready) at 6.1, 13.9 ft +0ms late 14ms | squeak [stop take 1]→court p18 pan -0.36 +1.6dB
+  81.264   80.010 Q1 11:06.8  court.step         v 0.14 #ref1 (speed 15.0) at 32.8, 15.8 ft +0ms late 14ms | step [take 12]→court p10 pan 0.35 +1.4dB
+  81.334   80.083 Q1 11:06.7  court.dribble      v 0.5 Mitchell tight 0.39 at 18.2, 44.5 ft +0ms late 14ms | dribble [rec 10]→court p20 pan -0.03 -1.6dB
+  81.470   80.222 Q1 11:06.6  court.step         v 0.45 Mitchell (speed 18.0) at 19.6, 45.5 ft +0ms late 13ms | step [take 6]→court p10 pan 0 -0.8dB
+  81.747   80.492 Q1 11:06.3  court.step         v 0.65 Mitchell (speed 21.7) at 23.8, 41.9 ft +0ms late 14ms | step [take 3]→court p10 pan 0.08 -0.6dB
+  81.764   80.512 Q1 11:06.3  game.advance       UTA 
+  81.916   80.660 Q1 11:06.1  court.step         v 0.13 #ref1 (speed 14.7) at 22.8, 15.6 ft +0ms late 13ms | step [take 9]→court p10 pan 0.06 +1.5dB
+  81.917   80.660 Q1 11:06.1  court.dribble      v 0.49 Mitchell tight 0.22 at 28.3, 36.6 ft +0ms late 9ms | dribble [rec 4]→court p20 pan 0.17 -0.1dB
+  82.367   81.110 Q1 11:05.7  court.step         v 0.46 Jordan (speed 17.9) at 8.8, 35.3 ft +0ms late 30ms | step [take 10]→court p10 pan -0.25 -0.1dB
+  82.544   81.290 Q1 11:05.5  court.dribble      v 0.77 Mitchell tight 0.6 at 28.5, 34.8 ft +0ms late 12ms | dribble [rec 3]→court p20 pan 0.18 -0.2dB
+  82.592   81.342 Q1 11:05.5  court.step         v 0.11 #ref1 (speed 13.9) at 14.1, 16 ft +0ms late 13ms | step [take 1]→court p10 pan -0.16 +1.5dB
+  82.641   81.392 Q1 11:05.4  court.step         v 0.66 Jordan (speed 21.4) at 13.8, 32.6 ft +0ms late 13ms | step [take 5]→court p10 pan -0.14 +0.1dB
+  82.913   81.662 Q1 11:05.2  court.step         v 0.35 Jordan (speed 16.1) at 19.2, 31.6 ft +0ms late 13ms | step [take 7]→court p10 pan -0.01 +0.2dB
+  82.914   81.662 Q1 11:05.2  court.squeak       stop v 0.18 Jordan (gait speed 16.1 (was 21.4) brake 22.0 turn 9.9 defense) at 19.2, 31.6 ft +0ms late 13ms | squeak [stop take 5]→court p18 pan -0.01 +0.2dB
+  82.914   81.662 Q1 11:05.2  court.step         v 0.11 #ref1 (speed 14.1) at 9.5, 16.4 ft +0ms | step [take 8]→court p10 pan -0.27 +1.4dB
+  82.987   81.731 Q1 11:05.1  court.dribble      v 0.48 Mitchell tight 0.38 at 25.9, 34.7 ft +0ms late 11ms | dribble [rec 1]→court p20 pan 0.13 0dB
+  83.662   82.411 Q1 11:04.4  court.dribble      v 0.46 Mitchell tight 0.52 at 25.2, 32 ft +0ms late 11ms | dribble [rec 9]→court p20 pan 0.13 +0.3dB
+  84.145   82.892 Q1 11:03.9  court.dribble      v 0.4 Mitchell tight 0.36 at 21.2, 41.7 ft +0ms late 18ms | dribble [rec 8]→court p20 pan 0.04 -0.5dB
+  84.146   82.892 Q1 11:03.9  court.squeak       slide v 0.6 Jordan (gait speed 11.1 brake 0.0 turn 20.1 defense) at 21, 37.8 ft +0ms late 13ms | squeak [slide take 12]→court p18 pan 0.04 -0.3dB
+  84.906   83.601 Q1 11:03.2  court.step         v 0.12 Dixon (speed 12.3) at 2.4, 40 ft +0ms late 13ms | step [take 11]→court p10 pan -0.35 -0.5dB
+  84.907   83.601 Q1 11:03.2  court.dribble      v 0.5 Mitchell tight 0.59 at 20.5, 42.8 ft +0ms | dribble [rec 6]→court p20 pan 0.03 -0.8dB
+  85.018   83.711 Q1 11:03.1  court.step         v 0.14 Payton (speed 12.9) at 20.5, 12.4 ft +0ms | step [take 4]→court p10 pan 0.03 +1.8dB
+  85.105   83.801 Q1 11:03.0  court.step         v 0.14 Collins (speed 12.7) at 23, 11.1 ft +0ms late 30ms | step [take 12]→court p10 pan 0.1 +1.9dB
+  85.143   83.841 Q1 11:02.9  court.step         v 0.21 Dixon (speed 13.7) at 3.3, 35.8 ft +0ms | step [take 6]→court p10 pan -0.35 -0.2dB
+  85.224   83.923 Q1 11:02.8  court.step         v 0.24 Payton (speed 14.9) at 18.3, 16.6 ft +0ms late 13ms | step [take 9]→court p10 pan -0.03 +1.4dB
+  85.224   83.923 Q1 11:02.8  court.step         v 0.17 Mills (speed 13.0) at 7.2, 8.1 ft +0ms | step [take 3]→court p10 pan -0.36 +2.1dB
+  85.342   84.042 Q1 11:02.7  court.dribble      v 0.59 Mitchell tight 0.68 at 23.4, 41.2 ft +0ms | dribble [rec 11]→court p20 pan 0.07 -0.5dB
+  85.441   84.140 Q1 11:02.6  court.step         v 0.15 Collins (speed 12.9) at 20.3, 14.4 ft +0ms late 30ms | step [take 1]→court p10 pan 0.01 +1.6dB
+  85.441   84.140 Q1 11:02.6  court.squeak       stop v 0.15 Payton (gait speed 10.4 (was 14.9) brake 21.2 turn 3.6 ready) at 17.9, 19.3 ft +0ms | squeak [stop take 11]→court p18 pan -0.05 +1.2dB
+  85.583   84.283 Q1 11:02.5  court.step         v 0.22 Mills (speed 13.7) at 8.9, 12.6 ft +0ms | step [take 2]→court p10 pan -0.3 +1.7dB
+  85.764   84.431 Q1 11:02.3  court.dribble      v 0.5 Mitchell tight 0.67 at 24.7, 35.9 ft +0ms late 55ms | dribble [rec 7]→court p20 pan 0.1 -0.1dB
+  85.764   84.431 Q1 11:02.3  court.step         v 0.11 Collins (speed 12.2) at 19.1, 18.5 ft +0ms late 13ms | step [take 5]→court p10 pan -0.02 +1.3dB
+  86.095   84.762 Q1 11:02.0  court.dribble      v 0.86 Mitchell tight 0.73 at 27.5, 31.1 ft +0ms late 10ms | dribble [rec 2]→court p20 pan 0.17 +0.1dB
+  86.095   84.762 Q1 11:02.0  court.step         v 0.29 Mitchell (speed 15.3) at 27.4, 31.8 ft +0ms | step [take 10]→court p10 pan 0.16 +0.2dB
+  86.177   84.843 Q1 11:01.9  court.step         v 0.18 Dixon (speed 13.2) at 3, 21.7 ft +0ms | step [take 11]→court p10 pan -0.42 +0.8dB
+  86.369   85.031 Q1 11:01.7  court.dribble      v 0.55 Mitchell tight 0.74 at 31.4, 26.1 ft +0ms | dribble [rec 12]→court p20 pan 0.26 +0.7dB
+  86.403   85.072 Q1 11:01.7  court.step         v 0.23 Mitchell (speed 14.1) at 29.4, 27.4 ft +0ms late 13ms | step [take 7]→court p10 pan 0.21 +0.5dB
+  86.544   85.211 Q1 11:01.5  court.step         v 0.18 Dixon (speed 13.2) at 4, 17.2 ft +0ms late 13ms | step [take 8]→court p10 pan -0.43 +1.2dB
+  86.777   85.441 Q1 11:01.3  court.dribble      v 0.6 Mitchell tight 0.68 at 28.7, 23.6 ft +0ms late 24ms | dribble [rec 5]→court p20 pan 0.21 +0.8dB
+  86.777   85.441 Q1 11:01.3  court.step         v 0.17 Collins (speed 13.2) at 12.2, 29.7 ft +0ms late 13ms | step [take 4]→court p10 pan -0.18 +0.3dB
+  87.109   85.772 Q1 11:01.0  court.dribble      v 0.85 Mitchell tight 0.67 at 29.8, 21.6 ft +0ms late 16ms | dribble [rec 4]→court p20 pan 0.25 +0.6dB
+  87.109   85.772 Q1 11:01.0  court.step         v 0.17 Collins (speed 13.2) at 10.1, 33.7 ft +0ms | step [take 12]→court p10 pan -0.21 0dB
+  87.146   85.812 Q1 11:00.9  court.step         v 0.13 Payton (speed 12.7) at 11.7, 32.8 ft +0ms | step [take 3]→court p10 pan -0.18 +0.1dB
+  87.391   86.062 Q1 11:00.7  court.squeak       slide v 0.45 Payton (gait speed 9.3 (was 12.7) brake 15.2 turn 7.8 defense) at 9, 33.6 ft +0ms late 13ms | squeak [slide take 3]→court p18 pan -0.23 0dB
+  87.424   86.091 Q1 11:00.6  court.dribble      v 0.6 Mitchell tight 0.67 at 29.8, 20.5 ft +0ms late 1ms | dribble [rec 10]→court p20 pan 0.25 +0.6dB
+  87.701   86.372 Q1 11:00.4  game.set           UTA 
+  87.895   86.561 Q1 11:00.2  court.dribble      v 0.54 Mitchell tight 0.65 at 31.5, 21.9 ft +0ms late 33ms | dribble [rec 1]→court p20 pan 0.29 +0.6dB
+  88.231   86.901 Q1 10:59.9  court.dribble      v 0.54 Mitchell tight 0.67 at 30.3, 24.3 ft +0ms | dribble [rec 9]→court p20 pan 0.25 +0.8dB
+  88.670   87.342 Q1 10:59.4  court.dribble      v 0.65 Mitchell tight 0.67 at 30.2, 22.9 ft +0ms late 13ms | dribble [rec 6]→court p20 pan 0.26 +0.6dB
+  89.006   87.673 Q1 10:59.1  court.dribble      v 0.54 Mitchell tight 0.67 at 30, 21 ft +0ms late 24ms | dribble [rec 8]→court p20 pan 0.27 +0.6dB
+  89.397   88.062 Q1 10:58.7  court.dribble      v 0.7 Mitchell tight 0.67 at 30.1, 24.3 ft +0ms late 23ms | dribble [rec 11]→court p20 pan 0.26 +0.8dB
+  89.521   88.192 Q1 10:58.6  game.step          UTA 
+  89.742   88.413 Q1 10:58.4  court.dribble      v 0.67 Mitchell tight 0.67 at 30.7, 25 ft +0ms late 11ms | dribble [rec 7]→court p20 pan 0.27 +0.8dB
+  89.774   88.442 Q1 10:58.3  court.squeak       slide v 0.57 Jordan (gait speed 2.4 (was 9.7) brake 27.5 turn 0.7 defense) at 28.8, 26.1 ft +0ms late 13ms | squeak [slide take 5]→court p18 pan 0.22 +0.6dB
+  90.104   88.773 Q1 10:58.0  court.dribble      v 0.6 Mitchell tight 0.67 at 30.5, 24.7 ft +0ms late 6ms | dribble [rec 12]→court p20 pan 0.27 +0.8dB
+  90.504   89.170 Q1 10:57.6  court.dribble      v 0.65 Mitchell tight 0.67 at 30.6, 26.3 ft +0ms late 5ms | dribble [rec 5]→court p20 pan 0.26 +0.9dB
+  90.841   89.510 Q1 10:57.3  court.dribble      v 0.54 Mitchell tight 0.67 at 30.5, 28 ft +0ms late 16ms | dribble [rec 4]→court p20 pan 0.26 +0.7dB
+  91.155   89.821 Q1 10:57.0  game.step          UTA 
+  91.272   89.942 Q1 10:56.9  court.dribble      v 0.57 Mitchell tight 0.66 at 30.4, 26.4 ft +0ms late 9ms | dribble [rec 2]→court p20 pan 0.26 +0.9dB
+  91.846   90.511 Q1 10:56.5  court.dribble      v 0.45 Mitchell tight 0.46 at 31.5, 25.6 ft +0ms late 23ms | dribble [rec 10]→court p20 pan 0.28 +0.7dB
+  92.300   90.970 Q1 10:56.2  court.squeak       slide v 0.15 Laurent (gait speed 7.4 (was 10.0) brake 12.5 turn 1.3 defense) at 27.1, 25.6 ft +0ms late 30ms | squeak [slide take 9]→court p18 pan 0.18 +0.7dB
+  92.334   91.002 Q1 10:56.1  court.dribble      v 0.54 Mitchell tight 0.67 at 30.4, 22.2 ft +0ms late 9ms | dribble [rec 9]→court p20 pan 0.27 +0.6dB
+  92.479   91.141 Q1 10:56.1  game.screen        UTA ball 
+  92.773   91.431 Q1 10:55.8  court.dribble      v 0.78 Mitchell tight 0.67 at 31.6, 26.6 ft +0ms late 20ms | dribble [rec 1]→court p20 pan 0.28 +0.7dB
+  93.107   91.771 Q1 10:55.4  game.step          UTA 
+  93.213   91.881 Q1 10:55.4  court.dribble      v 0.41 Mitchell tight 0.3 at 27.8, 30.2 ft +0ms late 8ms | dribble [rec 8]→court p20 pan 0.19 +0.2dB
+  93.303   91.971 Q1 10:55.3  court.squeak       stop v 0.15 Mitchell (gait speed 7.5 (was 11.0) brake 15.7 turn 10.5 dribble) at 27.2, 28.6 ft +0ms late 13ms | squeak [stop take 9]→court p18 pan 0.18 +0.4dB
+  93.510   92.180 Q1 10:55.1  court.step         v 0.25 Dunn (speed 13.3) at 19, 27.9 ft +0ms late 13ms | step [take 1]→court p10 pan 0 +0.5dB
+  93.620   92.288 Q1 10:55.0  game.move          Mitchell UTA 
+  93.642   92.311 Q1 10:55.0  court.body         bump v 0.15 Jordan (bump, closing at 4.9 ft/s with #291) at 27.2, 28.6, 4 ft +0ms | body [bump take 12]→court p30 pan 0.19 +0.5dB
+  93.855   92.523 Q1 10:54.8  court.step         v 0.58 Dunn (speed 17.7) at 14.1, 25.8 ft +0ms late 13ms | step [take 6]→court p10 pan -0.11 +0.7dB
+  93.953   92.621 Q1 10:54.7  court.dribble      v 0.44 Mitchell tight 0.46 at 23.7, 30.6 ft +0ms late 18ms | dribble [rec 6]→court p20 pan 0.11 +0.2dB
+  94.158   92.822 Q1 10:54.5  court.step         v 0.34 Dunn (speed 14.6) at 8.7, 24.2 ft +0ms | step [take 5]→court p10 pan -0.24 +0.7dB
+  94.225   92.891 Q1 10:54.4  court.step         v 0.24 Mitchell (speed 14.3) at 20.1, 28.2 ft +0ms | step [take 2]→court p10 pan 0.03 +0.5dB
+  94.425   93.092 Q1 10:54.2  court.step         v 0.21 Jordan (speed 13.6) at 21, 24 ft +0ms | step [take 10]→court p10 pan 0.06 +0.8dB
+  94.459   93.121 Q1 10:54.2  court.step         v 0.3 Laurent (speed 14.8) at 19.4, 28.2 ft +0ms late 13ms | step [take 9]→court p10 pan 0.03 +0.5dB
+  94.496   93.161 Q1 10:54.1  court.step         v 0.15 Jenkins (speed 12.5) at 19, 30.4 ft +0ms late 13ms | step [take 11]→court p10 pan 0.02 +0.3dB
+  94.534   93.202 Q1 10:54.1  court.dribble      v 0.51 Mitchell tight 0.65 at 14.3, 26.8 ft paint +0ms late 27ms | dribble [rec 3]→court p20 pan -0.09 +0.7dB
+  94.534   93.202 Q1 10:54.1  court.step         v 0.29 Mitchell (speed 15.3) at 15.3, 26.9 ft +0ms late 13ms | step [take 4]→court p10 pan -0.07 +0.6dB
+  94.638   93.301 Q1 10:54.0  court.step         v 0.42 Jordan (speed 17.2) at 19.1, 25.2 ft +0ms late 13ms | step [take 7]→court p10 pan 0.03 +0.7dB
+  94.784   93.452 Q1 10:53.8  court.step         v 0.4 Laurent (speed 16.5) at 14.2, 27.2 ft +0ms late 13ms | step [take 3]→court p10 pan -0.09 +0.5dB
+  94.948   93.611 Q1 10:53.7  court.squeak       jumpstop v 0.72 Mitchell (jump stop at 14.3) at 11.4, 26.2 ft +0ms late 23ms | squeak [jumpstop take 7]→court p18 pan -0.15 +0.6dB
+  94.993   93.661 Q1 10:53.6  court.squeak       slide v 0.63 Payton (gait speed 7.6 (was 14.7) brake 26.9 turn 1.0 defense) at 11.1, 35.2 ft +0ms late 13ms | squeak [slide take 2]→court p18 pan -0.14 -0.1dB
+  95.085   93.751 Q1 10:53.5  court.step         v 0.39 Jordan (speed 16.8) at 10.3, 23.3 ft +0ms late 13ms | step [take 1]→court p10 pan -0.18 +0.8dB
+  95.356   94.020 Q1 10:53.3  game.pass          UTA kick 
+  95.388   94.052 Q1 10:53.3  court.pass         v 0.69 Mitchell (ball 32 ft/s) at 10.6, 28.7, 4 ft +0ms late 30ms | pass [rec 2/2]→court p22 pan -0.16 +0.5dB
+  95.949   94.613 Q1 10:53.0  court.catch        v 0.72 Collins (ball 29 ft/s) at 11, 45.5, 4.4 ft +0ms late 30ms | catch [take 5]→court p35 pan -0.13 -0.7dB
+  96.171   94.842 Q1 10:53.0  court.squeak       cut v 0.15 Jordan (gait speed 10.1 brake 0.0 turn 21.4 defense) at 8.8, 27.4 ft +0ms late 13ms | squeak [cut take 3]→court p18 pan -0.2 +0.5dB
+  96.208   94.871 Q1 10:53.0  court.step         v 0.22 Jenkins (speed 13.7) at 21.5, 32.5 ft +0ms late 13ms | step [take 8]→court p10 pan 0.09 +0.1dB
+  96.485   95.152 Q1 10:52.9  game.shot          Collins 3pt catch_shoot UTA | booth.pbp→commentary p5 queued
+  96.514   95.181 Q1 10:52.8  court.squeak       stop v 0.15 Jenkins (gait speed 7.4 (was 14.2) brake 20.0 turn 7.5 defense) at 23.6, 34.8 ft +0ms late 13ms | squeak [stop take 3]→court p18 pan 0.13 -0.1dB
+  96.701   95.370 Q1 10:52.7  court.step         v 0.16 Mitchell (speed 13.0) at 17.2, 24.9 ft +0ms late 30ms | step [take 5]→court p10 pan -0.01 +0.7dB
+  96.800   95.469 Q1 10:52.6  court.step         v 0.14 Jordan (speed 12.4) at 15.8, 27.8 ft +0ms | step [take 2]→court p10 pan -0.04 +0.5dB
+  96.841   95.512 Q1 10:52.5  court.land         v 0.31 Collins (jump 1.0 ft) at 10.9, 47.4 ft +0ms | land [take 1]→court p28 pan -0.13 -1dB
+  97.039   95.701 Q1 10:52.4  court.step         v 0.17 Mitchell (speed 13.2) at 21.4, 23.5 ft +0ms late 30ms | step [take 12]→court p10 pan 0.09 +0.8dB
+  97.181   95.852 Q1 10:52.2  court.step         v 0.32 Mills (speed 15.4) at 19.7, 31.8 ft +0ms | step [take 6]→court p10 pan 0.05 +0.2dB
+  97.537   96.200 Q1 10:51.9  court.step         v 0.34 Mills (speed 15.7) at 14.8, 29.7 ft +0ms late 13ms | step [take 11]→court p10 pan -0.06 +0.3dB
+  97.572   96.241 Q1 10:51.9  court.body         boxout v 0.15 Laurent (boxout, closing at 3.1 ft/s with #293) at 5.2, 19.4, 4 ft +0ms | body [boxout take 8]→court p30 pan -0.31 +1.2dB
+  97.788   96.453 Q1 10:51.7  game.shotResult    Collins miss, air (court) | crowd.murmur→crowd p30
+  97.840   96.511 Q1 10:51.7  court.squeak       stop v 0.15 Payton (gait speed 6.0 (was 10.3) brake 21.9 turn 0.0 ready) at 8.4, 36.7 ft +0ms late 13ms | squeak [stop take 8]→court p18 pan -0.19 -0.2dB
+  97.874   96.543 Q1 10:51.6  court.step         v 0.2 Jenkins (speed 13.4) at 14.3, 28.9 ft +0ms late 13ms | step [take 9]→court p10 pan -0.07 +0.4dB
+  98.135   96.801 Q1 10:51.4  court.squeak       stop v 0.71 Jenkins (gait speed 3.6 (was 14.0) brake 40.4 turn 8.1 ready) at 12.4, 27.2 ft +0ms | squeak [stop take 10]→court p18 pan -0.12 +0.5dB
+  98.136   96.801 Q1 10:51.4  court.body         bump v 0.16 Jenkins (bump, closing at 5.8 ft/s with #286) at 12.2, 28.6, 4 ft +0ms | body [bump take 4]→court p30 pan -0.12 +0.5dB
+  98.419   97.083 Q1 10:51.2  court.catch        v 0.31 Mills (ball 12 ft/s) at 10.5, 28.3, 11.4 ft +0ms late 13ms | catch [take 2]→court p35 pan -0.18 +0.7dB
+  98.442   97.112 Q1 10:51.2  game.rebound       off. Mills 
+  98.753   97.422 Q1 10:50.8  court.land         v 0.55 Mills (jump 1.7 ft) at 11.4, 28.9 ft +0ms late 13ms | land [take 10]→court p28 pan -0.15 +0.4dB
+  98.883   97.553 Q1 10:50.7  court.step         v 0.15 Jordan (speed 12.6) at 37.2, 24.8 ft +0ms | step [take 4]→court p10 pan 0.47 +0.6dB
+  99.789   98.453 Q1 10:49.8  court.step         v 0.2 Ndiaye (speed 13.5) at 17.2, 14.6 ft +0ms late 13ms | step [take 3]→court p10 pan 0 +1.6dB
+  99.822   98.490 Q1 10:49.8  court.step         v 0.13 Mitchell (speed 12.5) at 34, 19.6 ft +0ms | step [take 1]→court p10 pan 0.43 +1dB
+  99.908   98.572 Q1 10:49.8  game.shot          Mills 2pt dunk UTA 
+ 100.005   98.670 Q1 10:49.8  court.step         v 0.13 Payton (speed 12.6) at 9.8, 35.2 ft +0ms late 13ms | step [take 8]→court p10 pan -0.15 -0.1dB
+ 100.038   98.702 Q1 10:49.8  court.dunk         v 1 Mills (through the rim) at 5.3, 25, 10 ft +0ms late 26ms | dunk [take 12]→court p80 pan -0.29 +0.9dB
+ 100.144   98.813 Q1 10:49.8  court.land         v 0.4 Jenkins (jump 1.1 ft) at 9.9, 24.1 ft +0ms | land [take 4]→court p28 pan -0.16 +0.8dB
+ 100.144   98.813 Q1 10:49.8  court.step         v 0.32 Mitchell (speed 15.8) at 29, 19.7 ft +0ms | step [take 5]→court p10 pan 0.31 +1.1dB
+ 100.197   98.862 Q1 10:49.8  game.shotResult    Mills dunk, net (court) 
+ 100.211   98.882 Q1 10:49.8  game.score         UTA +2 → 0-4 | crowd.groan→crowd p50; booth.pbp→commentary p9 queued; booth.color→commentary p6 queued
+ 100.271   98.940 Q1 10:49.8  court.step         v 0.25 Jordan (speed 14.4) at 28.7, 20.8 ft +0ms | step [take 7]→court p10 pan 0.3 +1dB
+ 100.272   98.940 Q1 10:49.8  court.land         v 0.83 Mills (jump 2.7 ft) at 6, 25.5 ft +0ms | land [take 11]→court p28 pan -0.25 +0.6dB
+ 100.272   98.940 Q1 10:49.8  court.body         boxout v 0.15 Jordan (boxout, closing at 2.1 ft/s with #291) at 29.2, 20.8, 4 ft +0ms | body [boxout take 10]→court p30 pan 0.32 +1.1dB
+ 100.386   99.051 Q1 10:49.8  court.body         boxout v 0.15 Laurent (boxout, closing at 2.1 ft/s with #293) at 4.2, 20.1, 4 ft +0ms | body [boxout take 4]→court p30 pan -0.32 +1.2dB
+ 100.466   99.132 Q1 10:49.8  court.squeak       stop v 0.21 Ndiaye (gait speed 4.4 (was 11.5) brake 24.0 turn 6.6 ready) at 24, 16.5 ft +0ms late 29ms | squeak [stop take 4]→court p18 pan 0.19 +1.4dB
+ 100.466   99.132 Q1 10:49.8  court.step         v 0.25 Mitchell (speed 14.6) at 24.5, 20.9 ft +0ms late 13ms | step [take 12]→court p10 pan 0.2 +1dB
+ 100.609   99.271 Q1 10:49.8  court.step         v 0.24 Jordan (speed 14.2) at 24, 21.3 ft +0ms | step [take 10]→court p10 pan 0.18 +1dB
+ 100.786   99.451 Q1 10:49.8  court.step         v 0.18 Mitchell (speed 13.4) at 19.9, 20.3 ft +0ms late 13ms | step [take 6]→court p10 pan 0.08 +1.1dB
+ 100.896   99.561 Q1 10:49.8  court.bounce       v 0.9 (down at 22.7 ft/s) at 5.2, 25.9 ft paint +0ms late 6ms | bounce [rec 2]→court p25 pan -0.27 +1.2dB
+ 100.969   99.631 Q1 10:49.8  court.step         v 0.22 Jordan (speed 13.8) at 19.1, 20.8 ft +0ms late 13ms | step [take 11]→court p10 pan 0.06 +1.1dB
+ 101.076   99.741 Q1 10:49.8  live.possession    BOS ball, iso 
+ 101.152   99.823 Q1 10:49.8  court.step         v 0.24 Dixon (speed 14.3) at 18.9, 14.7 ft +0ms late 13ms | step [take 9]→court p10 pan 0.06 +1.6dB
+ 101.394  100.061 Q1 10:49.6  court.squeak       slide v 0.73 Dixon (gait speed 6.2 (was 15.6) brake 31.8 turn 1.7 defense) at 18.8, 16.6 ft +0ms | squeak [slide take 1]→court p18 pan 0.08 +1.4dB
+ 101.463  100.130 Q1 10:49.6  court.step         v 0.26 Collins (speed 15.0) at 17.1, 32.6 ft +0ms late 13ms | step [take 3]→court p10 pan 0.04 +0.1dB
+ 101.770  100.435 Q1 10:49.5  court.step         v 0.45 Collins (speed 18.5) at 22.2, 32.3 ft +0ms late 13ms | step [take 2]→court p10 pan 0.19 +0.1dB
+ 101.871  100.542 Q1 10:49.4  court.catch        v 0.31 Laurent (ball 13 ft/s) at 5, 26.6, 2.1 ft +0ms late 13ms | catch [take 4]→court p35 pan -0.21 +0.6dB
+ 101.942  100.612 Q1 10:49.4  court.step         v 0.41 Dunn (speed 15.5) at 16.3, 21.7 ft +0ms | step [take 4]→court p10 pan 0.08 +0.9dB
+ 102.053  100.702 Q1 10:49.3  court.step         v 0.51 Collins (speed 19.6) at 27.4, 29.6 ft +0ms | step [take 1]→court p10 pan 0.35 +0.2dB
+ 102.054  100.702 Q1 10:49.3  court.squeak       cut v 0.15 Collins (gait speed 19.6 brake 0.0 turn 22.8 defense) at 27.4, 29.6 ft +0ms | squeak [cut take 4]→court p18 pan 0.35 +0.2dB
+ 102.091  100.760 Q1 10:49.3  court.step         v 0.29 Jenkins (speed 14.9) at 11.6, 16.1 ft +0ms | step [take 7]→court p10 pan -0.03 +1.4dB
+ 102.127  100.792 Q1 10:49.3  court.step         v 0.22 Mills (speed 13.8) at 13.2, 23.3 ft +0ms late 13ms | step [take 5]→court p10 pan 0.02 +0.8dB
+ 102.241  100.911 Q1 10:49.3  court.step         v 0.39 Jordan (speed 16.8) at 19.8, 30.1 ft +0ms | step [take 8]→court p10 pan 0.18 +0.2dB
+ 102.430  101.091 Q1 10:49.2  court.step         v 0.48 Jenkins (speed 18.0) at 15.2, 12.1 ft +0ms late 13ms | step [take 12]→court p10 pan 0.1 +1.6dB
+ 102.549  101.213 Q1 10:49.1  court.squeak       stop v 0.15 Dunn (gait speed 12.0 (was 19.0) brake 21.4 turn 2.9 ready) at 25.7, 25.6 ft +0ms | squeak [stop take 7]→court p18 pan 0.34 +0.4dB
+ 102.684  101.352 Q1 10:49.0  court.step         v 0.13 #ref1 (speed 14.8) at 10.9, 15.8 ft +0ms late 13ms | step [take 6]→court p10 pan -0.02 +1.2dB
+ 102.819  101.483 Q1 10:49.0  court.step         v 0.63 Ndiaye (speed 20.8) at 38.7, 19.2 ft +0ms | step [take 9]→court p10 pan 0.69 -1.1dB
+ 103.030  101.700 Q1 10:48.9  court.step         v 0.89 Mills (speed 24.8) at 28.5, 14.5 ft +0ms | step [take 3]→court p10 pan 0.45 +1.1dB
+ 103.192  101.860 Q1 10:48.8  court.step         v 0.63 Jordan (speed 20.9) at 35.1, 40.5 ft +0ms late 13ms | step [take 11]→court p10 pan 0.47 -0.9dB
+ 103.391  102.060 Q1 10:48.7  court.step         v 0.66 Jenkins (speed 20.9) at 33.1, 6 ft +0ms late 13ms | step [take 10]→court p10 pan 0.6 +1.7dB
+ 103.607  102.272 Q1 10:48.6  court.step         v 0.85 Dixon (speed 25.1) at 57.9, 18.5 ft +0ms | step [take 2]→court p10 pan 0.8 -5.1dB
+ 103.800  102.473 Q1 10:48.5  court.step         v 0.63 Jordan (speed 20.9) at 47.8, 43.5 ft +0ms late 13ms | step [take 1]→court p10 pan 0.68 -2.7dB
+ 103.850  102.522 Q1 10:48.5  court.squeak       cut v 0.15 Mills (gait speed 26.1 brake 0.0 turn 21.2 ready) at 49.8, 9.6 ft +0ms | squeak [cut take 12]→court p18 pan 0.8 -4.2dB
+ 104.003  102.673 Q1 10:48.4  court.step         v 0.66 Jenkins (speed 20.9) at 46.5, 5.2 ft +0ms | step [take 5]→court p10 pan 0.8 -3.7dB
+ 104.065  102.731 Q1 10:48.4  game.inbound       BOS 
+ 104.082  102.751 Q1 10:48.4  court.squeak       stop v 0.39 Dixon (gait speed 10.8 (was 21.1) brake 30.8 turn 5.7 ready) at 66.7, 21.4 ft +0ms | squeak [stop take 12]→court p18 pan 0.8 -5.6dB
+ 104.250  102.917 Q1 10:48.2  court.pass         v 0.67 Laurent (ball 31 ft/s) at 1.1, 16.7, 4.1 ft +0ms late 13ms | pass [rec 2/3]→court p22 pan -0.31 +1.1dB
+ 104.308  102.972 Q1 10:48.2  court.step         v 0.41 Jenkins (speed 16.9) at 52.2, 4.8 ft +0ms | step [take 4]→court p10 pan 0.8 -3.9dB
+ 104.396  103.062 Q1 10:48.1  court.step         v 0.29 Ndiaye (speed 15.0) at 66.4, 20 ft +0ms | step [take 7]→court p10 pan 0.8 -5.4dB
+ 104.676  103.340 Q1 10:47.8  court.step         v 0.14 #ref1 (speed 15.0) at 40.6, 16 ft +0ms | step [take 12]→court p10 pan 0.55 +0.8dB
+ 104.776  103.442 Q1 10:47.7  court.catch        v 0.7 Payton (ball 28 ft/s) at 15.9, 12.4, 4.3 ft +0ms | catch [take 12]→court p35 pan -0.11 +1.5dB
+ 104.929  103.590 Q1 10:47.5  court.step         v 0.19 Jenkins (speed 13.1) at 60.5, 8.9 ft +0ms | step [take 9]→court p10 pan 0.8 -4.1dB
+ 105.040  103.712 Q1 10:47.5  court.step         v 0.14 #ref1 (speed 15.0) at 45.6, 16.3 ft +0ms late 29ms | step [take 8]→court p10 pan 0.53 +0.8dB
+ 105.216  103.880 Q1 10:47.3  court.step         v 0.16 Dunn (speed 12.1) at 24.2, 22.3 ft +0ms late 13ms | step [take 6]→court p10 pan -0.06 +0.6dB
+ 105.400  104.072 Q1 10:47.1  court.step         v 0.27 Laurent (speed 14.4) at 12, 22.8 ft +0ms late 13ms | step [take 11]→court p10 pan -0.4 +0.4dB
+ 105.428  104.092 Q1 10:47.0  court.dribble      v 0.45 Payton tight 0.43 at 21.9, 11 ft +0ms late 28ms | dribble [rec 11]→court p20 pan -0.2 +1.7dB
+ 105.640  104.313 Q1 10:46.9  court.step         v 0.23 Jenkins (speed 13.9) at 65.1, 17.9 ft +0ms | step [take 3]→court p10 pan 0.8 -3.8dB
+ 105.799  104.464 Q1 10:46.7  court.step         v 0.2 Dunn (speed 12.7) at 33.4, 23.6 ft +0ms | step [take 1]→court p10 pan -0.01 +0.5dB
+ 105.918  104.583 Q1 10:46.6  court.dribble      v 0.88 Payton tight 0.67 at 27.9, 13.6 ft +0ms late 13ms | dribble [rec 5]→court p20 pan -0.18 +1.5dB
+ 105.998  104.661 Q1 10:46.5  court.step         v 0.14 #ref1 (speed 15.0) at 60.6, 15.9 ft +0ms | step [take 2]→court p10 pan 0.61 +0.8dB
+ 106.240  104.911 Q1 10:46.3  court.dribble      v 0.41 Payton tight 0.33 at 30.5, 16.1 ft +0ms | dribble [rec 4]→court p20 pan -0.19 +1.3dB
+ 106.336  105.001 Q1 10:46.1  court.step         v 0.34 Jenkins (speed 15.6) at 71, 26 ft +0ms late 13ms | step [take 4]→court p10 pan 0.71 -2.3dB
+ 106.672  105.340 Q1 10:45.8  court.step         v 0.32 Jenkins (speed 15.4) at 74.2, 30.3 ft +0ms late 12ms | step [take 7]→court p10 pan 0.69 -2.1dB
+ 106.737  105.401 Q1 10:45.8  court.step         v 0.15 Mills (speed 12.6) at 73.2, 28.6 ft +0ms | step [take 10]→court p10 pan 0.67 -1.4dB
+ 106.932  105.601 Q1 10:45.5  court.step         v 0.24 Mills (speed 14.1) at 72.7, 28.9 ft +0ms | step [take 9]→court p10 pan 0.62 -0.4dB
+ 107.018  105.683 Q1 10:45.5  court.step         v 0.32 Jenkins (speed 15.4) at 78.3, 33.7 ft +0ms late 12ms | step [take 12]→court p10 pan 0.7 -2.5dB
+ 107.081  105.752 Q1 10:45.4  court.dribble      v 0.42 Payton tight 0.26 at 38.4, 17.7 ft +0ms late 22ms | dribble [rec 2]→court p20 pan -0.17 +1.3dB
+ 107.357  106.022 Q1 10:45.1  court.step         v 0.32 Jenkins (speed 15.4) at 82, 37.5 ft +0ms | step [take 5]→court p10 pan 0.7 -2.7dB
+ 107.902  106.571 Q1 10:44.6  court.dribble      v 0.42 Payton tight 0.26 at 45.8, 19.3 ft paint +0ms late 8ms | dribble [rec 10]→court p20 pan -0.13 +1.2dB
+ 108.552  107.221 Q1 10:44.0  game.advance       BOS 
+ 108.729  107.392 Q1 10:43.8  court.dribble      v 0.42 Payton tight 0.25 at 52.2, 20.6 ft +0ms late 11ms | dribble [rec 9]→court p20 pan -0.11 +0.3dB
+ 108.918  107.581 Q1 10:43.6  court.step         v 0.12 #ref2 (speed 14.1) at 37.7, -2.2 ft +0ms late 12ms | step [take 11]→court p10 pan -0.65 +1.6dB
+ 109.270  107.941 Q1 10:43.3  court.step         v 0.19 Dixon (speed 13.5) at 83.8, 27.3 ft +0ms late 12ms | step [take 3]→court p10 pan 0.52 0dB
+ 109.316  107.981 Q1 10:43.2  court.step         v 0.23 Laurent (speed 13.7) at 51.1, 28.9 ft +0ms | step [take 1]→court p10 pan -0.23 +0.1dB
+ 109.352  108.022 Q1 10:43.1  court.step         v 0.16 Jordan (speed 12.8) at 70, 35.7 ft +0ms | step [take 2]→court p10 pan 0.17 -0.4dB
+ 109.432  108.100 Q1 10:43.1  court.step         v 0.34 Dixon (speed 16.1) at 84.6, 27.7 ft +0ms late 12ms | step [take 6]→court p10 pan 0.51 0dB
+ 109.468  108.132 Q1 10:43.0  court.step         v 0.21 Ndiaye (speed 13.6) at 85.7, 25.7 ft +0ms late 12ms | step [take 4]→court p10 pan 0.55 +0.2dB
+ 109.548  108.211 Q1 10:43.0  court.dribble      v 0.48 Payton tight 0.64 at 60.1, 23.6 ft +0ms late 5ms | dribble [rec 7]→court p20 pan -0.07 +0.4dB
+ 109.585  108.251 Q1 10:42.9  court.squeak       slide v 0.15 Dunn (gait speed 10.7 brake 0.0 turn 12.8 defense) at 57, 29.5 ft +0ms late 12ms | squeak [slide take 7]→court p18 pan -0.15 +0.1dB
+ 109.586  108.251 Q1 10:42.9  court.step         v 0.4 Dixon (speed 17.1) at 84.2, 22.1 ft +0ms | step [take 8]→court p10 pan 0.52 +0.5dB
+ 109.686  108.350 Q1 10:42.8  court.step         v 0.23 Laurent (speed 13.7) at 54.8, 32.2 ft +0ms late 12ms | step [take 7]→court p10 pan -0.21 -0.1dB
+ 109.890  108.562 Q1 10:42.6  court.squeak       stop v 0.18 Dixon (gait speed 10.4 (was 17.3) brake 23.5 turn 4.8 defense) at 86.5, 18.8 ft +0ms late 12ms | squeak [stop take 6]→court p18 pan 0.55 +0.8dB
+ 109.923  108.591 Q1 10:42.6  court.dribble      v 0.55 Payton tight 0.71 at 63.3, 23.1 ft +0ms late 19ms | dribble [rec 8]→court p20 pan -0.05 +0.6dB
+ 109.956  108.620 Q1 10:42.5  court.squeak       pivot v 0.51 Jenkins (gait speed 0.9 (was 2.1) brake 0.0 turn 5.9 yaw 7.6 ready) at 91.5, 46.9 ft +0ms late 12ms | squeak [pivot take 9]→court p18 pan 0.52 -1.2dB
+ 110.031  108.701 Q1 10:42.5  court.step         v 0.2 Laurent (speed 13.2) at 59, 34.6 ft +0ms | step [take 10]→court p10 pan -0.15 -0.2dB
+ 110.167  108.832 Q1 10:42.3  court.step         v 0.16 Ndiaye (speed 12.8) at 88.3, 16.6 ft +0ms | step [take 9]→court p10 pan 0.58 +1dB
+ 110.264  108.931 Q1 10:42.2  court.dribble      v 0.76 Payton tight 0.72 at 64.4, 23.8 ft +0ms late 8ms | dribble [rec 6]→court p20 pan -0.05 +0.8dB
+ 110.330  109.000 Q1 10:42.2  court.step         v 0.14 Jordan (speed 12.5) at 69.6, 24.7 ft +0ms late 12ms | step [take 11]→court p10 pan 0.07 +0.7dB
+ 110.600  109.264 Q1 10:41.9  court.dribble      v 0.65 Payton tight 0.72 at 64.8, 22.4 ft +0ms late 11ms | dribble [rec 12]→court p20 pan -0.06 +0.6dB
+ 110.984  109.650 Q1 10:41.5  court.dribble      v 0.53 Payton tight 0.69 at 63.7, 22.6 ft +0ms late 19ms | dribble [rec 11]→court p20 pan -0.1 +0.7dB
+ 111.017  109.682 Q1 10:41.5  court.step         v 0.15 Jordan (speed 12.7) at 71.9, 16.6 ft +0ms | step [take 12]→court p10 pan 0.11 +1.4dB
+ 111.052  109.720 Q1 10:41.5  court.squeak       slide v 0.64 Mitchell (gait speed 3.4 (was 10.6) brake 4.5 turn 24.4 defense) at 69.5, 18.3 ft +0ms | squeak [slide take 10]→court p18 pan 0.04 +1.3dB
+ 111.374  110.042 Q1 10:41.1  court.dribble      v 0.47 Payton tight 0.7 at 64.2, 24.6 ft +0ms late 13ms | dribble [rec 5]→court p20 pan -0.09 +1dB
+ 111.608  110.272 Q1 10:40.9  game.set           BOS 
+ 111.814  110.481 Q1 10:40.7  court.dribble      v 0.61 Payton tight 0.72 at 64.7, 24.2 ft +0ms | dribble [rec 3]→court p20 pan -0.09 +1dB
+ 112.130  110.803 Q1 10:40.4  court.dribble      v 0.63 Payton tight 0.72 at 64.5, 24.9 ft +0ms late 24ms | dribble [rec 1]→court p20 pan -0.1 +1.1dB
+ 112.445  111.110 Q1 10:40.1  court.dribble      v 0.68 Payton tight 0.72 at 65.1, 27.2 ft +0ms | dribble [rec 4]→court p20 pan -0.09 +1.1dB
+ 112.838  111.502 Q1 10:39.7  court.dribble      v 0.6 Payton tight 0.72 at 64.5, 27.6 ft +0ms late 20ms | dribble [rec 9]→court p20 pan -0.11 +0.9dB
+ 113.199  111.862 Q1 10:39.3  court.dribble      v 0.47 Payton tight 0.69 at 64.7, 29.1 ft +0ms late 37ms | dribble [rec 2]→court p20 pan -0.1 +0.5dB
+ 113.439  112.100 Q1 10:39.1  game.step          BOS 
+ 113.641  112.312 Q1 10:39.0  court.dribble      v 0.61 Payton tight 0.71 at 64.8, 27.1 ft +0ms late 21ms | dribble [rec 8]→court p20 pan -0.1 +1.1dB
+ 113.977  112.602 Q1 10:38.8  court.dribble      v 0.47 Payton tight 0.69 at 64.9, 29.1 ft +0ms late 15ms | dribble [rec 7]→court p20 pan -0.1 +0.5dB
+ 114.461  113.101 Q1 10:38.6  game.move          Payton BOS 
+ 114.484  113.122 Q1 10:38.5  court.dribble      v 0.52 Payton tight 0.69 at 64.8, 29.1 ft +0ms late 33ms | dribble [rec 6]→court p20 pan -0.1 +0.5dB
+ 114.927  113.531 Q1 10:38.1  court.dribble      v 0.52 Payton tight 0.69 at 64.8, 29.1 ft +0ms late 43ms | dribble [rec 12]→court p20 pan -0.1 +0.5dB
+ 115.345  113.920 Q1 10:37.7  court.dribble      v 0.53 Payton tight 0.72 at 64.5, 26.2 ft +0ms late 6ms | dribble [rec 10]→court p20 pan -0.11 +1.2dB
+ 115.672  114.251 Q1 10:37.4  game.step          BOS 
+ 115.751  114.332 Q1 10:37.3  court.dribble      v 0.4 Payton tight 0.41 at 62.8, 25.5 ft +0ms late 24ms | dribble [rec 11]→court p20 pan -0.15 +0.8dB
+ 116.078  114.651 Q1 10:37.0  game.foul          personal foul Dixon (UTA) 
+ 116.100  114.680 Q1 10:36.9  court.whistle      foul v 1 #ref3 (foul) at 62, 52.4, 6.2 ft +0ms | whistle [foul take 1]→arena p90 pan -0.13 -1.2dB
+ 116.305  114.881 Q1 10:36.9  court.pass         v 0.7 Payton (ball 32 ft/s) at 65.2, 28.7, 3.7 ft +0ms late 12ms | pass [rec 1/5]→court p22 pan -0.09 +0.5dB
+ 116.764  115.342 Q1 10:36.9  court.step         v 0.13 Laurent (speed 12.2) at 74.1, 40.2 ft +0ms late 12ms | step [take 3]→court p10 pan 0.11 -0.4dB
+ 116.862  115.441 Q1 10:36.9  court.step         v 0.18 Ndiaye (speed 13.1) at 88.6, 9.3 ft +0ms | step [take 2]→court p10 pan 0.57 +1.8dB
+ 116.927  115.502 Q1 10:36.9  court.step         v 0.22 Mitchell (speed 13.9) at 77, 12.8 ft +0ms late 12ms | step [take 5]→court p10 pan 0.23 +1.7dB
+ 116.927  115.502 Q1 10:36.9  court.step         v 0.19 Jordan (speed 13.4) at 75.7, 13.9 ft +0ms | step [take 1]→court p10 pan 0.19 +1.6dB
+ 117.026  115.601 Q1 10:36.9  court.step         v 0.28 Mitchell (speed 15.1) at 76.8, 16.5 ft +0ms late 12ms | step [take 8]→court p10 pan 0.21 +1.4dB
+ 117.101  115.682 Q1 10:36.9  court.step         v 0.39 Laurent (speed 16.2) at 74.9, 35.4 ft +0ms | step [take 4]→court p10 pan 0.13 -0.1dB
+ 117.174  115.751 Q1 10:36.9  court.step         v 0.14 Dixon (speed 12.6) at 86.6, 22.4 ft +0ms late 12ms | step [take 7]→court p10 pan 0.44 +0.8dB
+ 117.273  115.850 Q1 10:36.9  court.catch        v 0.69 Jenkins (ball 27 ft/s) at 87, 41, 4.8 ft +0ms | catch [take 9]→court p35 pan 0.38 -0.5dB
+ 117.452  116.030 Q1 10:36.9  court.step         v 0.33 Mitchell (speed 16.0) at 82.4, 21.9 ft +0ms late 12ms | step [take 6]→court p10 pan 0.34 +0.9dB
+ 117.581  116.161 Q1 10:36.9  court.step         v 0.22 Jordan (speed 13.9) at 79.4, 23.4 ft +0ms | step [take 10]→court p10 pan 0.26 +0.8dB
+ 117.706  116.283 Q1 10:36.9  court.squeak       slide v 0.67 Dunn (gait speed 5.4 (was 9.8) brake 1.4 turn 24.7 defense) at 81.7, 31.3 ft +0ms late 12ms | squeak [slide take 11]→court p18 pan 0.29 +0.2dB
+ 117.931  116.512 Q1 10:36.9  court.step         v 0.13 Mitchell (speed 12.4) at 85.4, 28.6 ft +0ms | step [take 12]→court p10 pan 0.39 +0.3dB
+ 118.270  116.852 Q1 10:36.9  court.step         v 0.19 Jordan (speed 13.3) at 85.3, 30.2 ft +0ms | step [take 11]→court p10 pan 0.38 +0.2dB
+ 118.681  117.261 Q1 10:36.9  court.step         v 0.14 Payton (speed 12.9) at 67.8, 26 ft +0ms late 12ms | step [take 3]→court p10 pan -0.02 +0.6dB
+ 119.276  117.853 Q1 10:36.9  court.step         v 0.15 Payton (speed 13.0) at 74.5, 23 ft +0ms | step [take 9]→court p10 pan 0.14 +0.9dB
+ 119.486  118.062 Q1 10:36.9  court.step         v 0.18 Collins (speed 13.4) at 78.7, 25.8 ft +0ms late 12ms | step [take 2]→court p10 pan 0.24 +0.6dB
+ 119.576  118.152 Q1 10:36.9  court.step         v 0.22 Collins (speed 14.2) at 78.3, 24.2 ft +0ms late 12ms | step [take 1]→court p10 pan 0.23 +0.7dB
+ 120.670  119.240 Q1 10:36.9  court.squeak       pivot v 0.48 Laurent (gait speed 1.7 brake 0.0 turn 3.3 yaw 7.4 stand) at 81.5, 19.5 ft +0ms | squeak [pivot take 11]→court p18 pan 0.33 +1.1dB
+ 121.194  119.771 Q1 10:36.9  court.step         v 0.13 Dixon (speed 12.4) at 77.8, 33.6 ft +0ms | step [take 8]→court p10 pan 0.2 0dB
