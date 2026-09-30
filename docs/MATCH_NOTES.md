@@ -655,8 +655,10 @@ Asked for by the user: players in the paint should use post moves and contact to
   drive, the power dunk's hand on the rim), the contact knocks the man 6-7.5 ft/s (the drop step's seal, the spin, the power
   move, the bump before the hook), the pump fake gets him ~1.3 ft off the floor and the shoulder fake leans him; the
   shooter's joint pops are down to about what the plain finishes have (the drop step 60 to 6, the up and under 58 to 12,
-  the spin 31 to 7, the fake into the hook 67 to 16). In real games (eight quarters): 27 post-ups got to their shot, 25
-  worked a move first (8 drop steps, 9 up and unders, 2 spins, 6 fakes), no errors, the body never moved faster than a run.
+  the spin 31 to 7, the fake into the hook 67 to 16). In real games (eight quarters): 22 post-ups got to their shot and 19
+  worked a move first (7 drop steps, 6 up and unders, 6 fakes; the spin came up in the earlier runs), with 19 contacts on
+  the man guarding them; the nearest defender at the release was 4-5 ft off after a fake on an open look against 2.3-3 ft
+  on a contested or tight one; no errors, and the body never moved faster than a sprint.
 
 ### Limitations (this pass)
 
