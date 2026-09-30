@@ -200,6 +200,64 @@
     return dp;
   };
 
+  // ------------------------------------------------------------ the man on the ball against a shifty handler
+  // (a gameplay pass: he stood on the handler's own spot and speed every frame, so no probe, crossover or hesitation ever
+  // made an inch of space, and the offense never had any)
+  /** how good the handler is against him: 0 (a lockdown defender on a big who can't dribble) to 1 (the other way) */
+  P.shiftyK = function (h, d) {
+    const hd = this.rating(h.id, 'handle', 55), ag = this.rating(h.id, 'agility', 65);
+    const pd = this.rating(d.id, 'perD', 55), da = this.rating(d.id, 'agility', 65), iq = this.rating(d.id, 'defIQ', 55);
+    return U.clamp(0.5 + ((hd * 0.7 + ag * 0.3) - (pd * 0.6 + da * 0.25 + iq * 0.15)) / 50, 0, 1);
+  };
+  /** where the man on the ball sees the handler: followed a reaction behind (Tune.shifty.lagS, by shiftyK), and pulled the
+   *  way a move he bought sold him (defBite) while it lasts. Kept on the defender (a._pc) */
+  P._perceive = function (a, m, T, dt) {
+    const TS = M.Tune.shifty;
+    let pc = a._pc;
+    if (!pc || pc.man !== m || !(dt > 0) || T - pc.t > 0.25) pc = a._pc = { man: m, x: m.x, y: m.y, vx: m.vx, vy: m.vy, t: T, antK: 1, bite: null };
+    pc.t = T;
+    const k = this.shiftyK(m, a), lag = U.lerp(TS.lagS[0], TS.lagS[1], k) / this.sliderK('defIQ', 0.8, 1.2);
+    const e = 1 - Math.exp(-dt / Math.max(0.01, lag));
+    pc.vx += (m.vx - pc.vx) * e; pc.vy += (m.vy - pc.vy) * e;
+    pc.x += (m.x - pc.x) * e; pc.y += (m.y - pc.y) * e;
+    pc.antK = 1;
+    let x = pc.x, y = pc.y;
+    const bt = pc.bite;
+    if (bt && T < bt.until) {
+      // (sold: pulled the fake's way, easing in over its first fifth and back out by its end; his read of the handler's pace
+      // gone meanwhile, a hesitation's above all: he stands up)
+      const u = (T - bt.t0) / (bt.until - bt.t0), w = U.smooth(Math.min(1, u / 0.2)) * (1 - U.smooth((u - 0.45) / 0.55));
+      x += bt.dx * w; y += bt.dy * w; pc.antK = 1 - bt.antCut * w;
+    } else if (bt) pc.bite = null;
+    return { x, y };
+  };
+  /** a dribble move is made (Ball, as its bounce starts): the man on the ball buys it as much as the handler is better than
+   *  him (shiftyK; Tune.shifty): a crossover, between the legs or behind the back sells the side the ball is leaving, an in
+   *  and out the other side, a spin the way he was going, a hesitation stands him up (he gives a step and stops reading the
+   *  handler's pace). Research: space comes from a change of pace or direction the defender has to react to (coaching:
+   *  hesitation, in and out, crossover after two or three hard dribbles) */
+  P.defBite = function (h, mv, hand, toHand) {
+    if (!this.active || this.phase !== 'front' || !h || h.team !== this.off) return;
+    const d = this.guardOf(h.id);
+    if (!d || d.isBusy() || Math.hypot(d.x - h.x, d.y - h.y) > M.Tune.shifty.nearFt) return;
+    const TS = M.Tune.shifty, k = this.shiftyK(h, d), T = this.T;
+    // (a heady defender reads it now and then anyway)
+    if (Math.random() < TS.readP * (1 - k)) return;
+    const c = Math.cos(h.facing), s = Math.sin(h.facing);
+    // the handler's right (x toward his right hand side), his forward
+    const rx = s, ry = -c;
+    let dx = 0, dy = 0, ft = U.lerp(TS.biteFt[0], TS.biteFt[1], k), dur = U.lerp(TS.biteS[0], TS.biteS[1], k), antCut = 0.6;
+    const sideOf = (hh) => (hh ? 1 : -1);
+    if (mv === 'cross' || mv === 'btl' || mv === 'btb') { const sd = sideOf(hand); dx = rx * sd * ft; dy = ry * sd * ft; }
+    else if (mv === 'inout') { const sd = -sideOf(hand); dx = rx * sd * ft; dy = ry * sd * ft; }
+    else if (mv === 'spin') { const sd = sideOf(hand); dx = rx * sd * ft * 0.8; dy = ry * sd * ft * 0.8; dur *= 1.2; }
+    else if (mv === 'hesi') { const f = U.lerp(TS.hesiFt[0], TS.hesiFt[1], k); dx = -c * f; dy = -s * f; dur = U.lerp(TS.hesiS[0], TS.hesiS[1], k); antCut = 0.9; }
+    else return;
+    const pc = d._pc || (d._pc = { man: h, x: h.x, y: h.y, vx: h.vx, vy: h.vy, t: T, antK: 1, bite: null });
+    pc.bite = { t0: T, until: T + dur, dx, dy, antCut, mv };
+    this.bites = (this.bites || 0) + 1;
+  };
+
   // ------------------------------------------------------------ where a defender stands
   P.guardPos = function (a) {
     const v = this.v, b = v.ball, rim = this.rim;
@@ -223,8 +281,11 @@
     const dtg = U.clamp(T - gs.t, 0, 0.1); gs.t = T;
     if (withBall) {
       // on the ball, or closing out to where the pass to his man is going
-      const cx = closing ? pf.x : m.x, cy = closing ? pf.y : m.y;
+      let cx = closing ? pf.x : m.x, cy = closing ? pf.y : m.y;
       const dx = rim.x - cx, dy = rim.y - cy, dl = Math.hypot(dx, dy) || 1;
+      // (he reads the handler a moment late, the better the handle against his feet the later, and a move he bought
+      // takes him the wrong way for a moment: _perceive, defBite; closing out he runs at the catch)
+      if (!closing) { const pc = this._perceive(a, m, T, dtg); cx = pc.x; cy = pc.y; }
       const want = this.onBallGap(a, m, dl);
       if (!gs.on) { gs.on = true; gs.gap = closing ? want : U.clamp(Math.hypot(a.x - cx, a.y - cy), 2, 30); }
       // (closing in is free, a closeout goes straight for its spot; giving ground only ~1.5 ft/s unless the handler
@@ -233,8 +294,8 @@
       px = cx + dx / dl * gs.gap; py = cy + dy / dl * gs.gap;
       role = closing ? 'closeout' : 'onBall';
       a.setStance('defense');
-      const ant = 0.9 * this.sliderK('defIQ', 0.7, 1.15);
-      out.vx = closing ? 0 : m.vx * ant; out.vy = closing ? 0 : m.vy * ant;
+      const ant = 0.9 * this.sliderK('defIQ', 0.7, 1.15) * (closing ? 1 : a._pc ? a._pc.antK : 1);
+      out.vx = closing ? 0 : (a._pc ? a._pc.vx : m.vx) * ant; out.vy = closing ? 0 : (a._pc ? a._pc.vy : m.vy) * ant;
     } else {
       gs.on = false;
       const dp = this.defPlan();

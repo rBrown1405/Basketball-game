@@ -114,12 +114,22 @@
       this.loose_ = null;
       this.lastBounceT = -1;
       this.trail = null;
+      // the rules the players know (the gameplay pass): dribbles kept from starting again after a pick-up (double
+      // dribbles), holders stopped from walking with a picked-up ball (travels), counted for the audits
+      this.rules = { ddStopped: 0, travelStopped: 0 };
     }
 
     // ------------------------------------------------------------ control
     give(actor, hold, o) {
       // (a ball in the air or loose arriving in someone's hands: a catch, for the audio)
       if (actor && (this.state === 'flight' || this.state === 'loose') && this.view && this.view.onCue) this.view.cue('catch', actor, { from: this.state, x: this.x, y: this.y, z: this.z });
+      // the dribble rule (the gameplay pass): a dribble ended into his hands is used up until the ball leaves him (a pass,
+      // a shot, a fumble), he may pivot, pass or shoot but not dribble again (Ball.dribble) or walk with it (Actor: the
+      // steps he gets to stop); a ball that comes to someone new is his to dribble
+      if (actor) {
+        if (this.holder === actor && this.state === 'dribble') { actor.dribUsed = true; actor.dribUsedAt = this.time; actor.dribUsedX = actor.x; actor.dribUsedY = actor.y; }
+        else if (this.holder !== actor) actor.dribUsed = false;
+      }
       if (this.holder && this.holder !== actor) { this.holder.hasBall = false; this.holder.dribble = null; }
       this.holder = actor;
       this.state = actor ? 'held' : 'dead';
@@ -187,9 +197,11 @@
       if (this.holder) { this.holder.hasBall = false; this.holder.dribble = null; }
       this.holder = null;
     }
-    /** start (or continue) dribbling with hand 0/1 */
+    /** start (or continue) dribbling with hand 0/1. A dribble he has ended himself is not started again (the double
+     *  dribble rule, see give; o.free: a bounce the rules do not count, a free throw's routine): returns false then */
     dribble(actor, hand, o) {
       o = o || {};
+      if (this.holder === actor && this.state === 'held' && actor.dribUsed && !o.free) { this.rules.ddStopped++; actor._ddStopT = this.time; return false; }
       // (a pass just caught is secured first, Tune.pass.secureS: the catch gives, the hands taking it in toward the chest,
       // and the dribble goes from that hold; started on the next frame, the dribbling hand was still out at the catch spot
       // and reached for its spot ~5-10 in behind it through the first push, and over half of the first pushes after a
@@ -865,7 +877,12 @@
         if (!d.pendingMove && !d.move && d.nextMove) { const nm = d.nextMove; d.nextMove = null; nm.toHand = nm.same ? d.hand : 1 - d.hand; d.pendingMove = nm; }
         d.planned = false;
       }
-      if (!d.planned && d.pendingMove && !d.move && !(d.pull && d.pull.on) && (d.pendingMove.urgent || this._moveOnBeat(d, a))) { d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = true; }
+      if (!d.planned && d.pendingMove && !d.move && !(d.pull && d.pull.on) && (d.pendingMove.urgent || this._moveOnBeat(d, a))) {
+        d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = true;
+        // (the man on the ball reads it, and may buy it: Director.defBite, the gameplay pass)
+        const dir = this.view && this.view.director;
+        if (dir && dir.defBite) { const mv = d.move, h0 = d.hand; U.safe(() => dir.defBite(a, mv.spin ? 'spin' : mv.type, h0, mv.toHand), null, 'defBite'); }
+      }
       if (!d.planned) {
         if (d.plan) d.plan.hang = null;
         this._planBounce(d, a); d.planned = true;
@@ -1011,14 +1028,21 @@
       // forward roll spin
       this.setSpinAlong(a.vx || 0.01, a.vy || 0, -(a.speed + 3) / R * 0.4);
       // --- the dribbling hand (wrist IK target + wrist angle); the other hand takes over on a crossover
-      const pr = R + 0.01 * H;
-      const handOn = (bx, by, bz, handSign, o) => {
-        // palm (finger pads) on the top-back-outside of the ball; the actor corrects its wrist so the hand
-        // lands exactly here (bx is the signed body-local x of the ball centre); handSign between -1 and 1 (a palm
-        // rolling over the top), the spot kept on the ball's surface
-        const hx = handSign * 0.3, k = pr / Math.sqrt(hx * hx + 0.28 * 0.28 + 0.91 * 0.91);
-        o.x = bx + hx * k; o.y = by - 0.28 * k; o.z = bz + 0.91 * k;
+      const pr = R + 0.01 * H, THf = M.Tune.handle;
+      const handOn = (bx, by, bz, handSign, o, deg) => {
+        // palm (finger pads) on the top-back of the ball, round toward the outside by deg (palmDir: it rolls in over the
+        // top as the hand rides the ball up and pushes it down, Tune.handle.roll*); the actor corrects its wrist so the
+        // hand lands exactly here (bx is the signed body-local x of the ball centre); handSign between -1 and 1 (a palm
+        // rolling over the top to the other side), the spot kept on the ball's surface
+        const q = palmDir(handSign, deg == null ? THf.rollTopDeg : deg, PD);
+        o.x = bx + q[0] * pr; o.y = by + q[1] * pr; o.z = bz + q[2] * pr;
         return o;
+      };
+      // (an in and out's palm on the inside of the ball, t deg round, rs the hand's side: facing more down than round at it,
+      // Tune.handle.rollInFaceDeg; turned out as far as the spot, the forearm went past its range and the hand off the ball)
+      const inFace = (t, rs) => {
+        const tn = t * rs < 0 ? Math.sign(t) * Math.min(Math.abs(t), THf.rollInFaceDeg) : t, q = palmDir(1, tn, TMP3);
+        NB[0] = -q[0]; NB[1] = -q[1]; NB[2] = -q[2];
       };
       const hd = a.dribble && a.dribble.ball === this ? a.dribble : (a.dribble = { ball: this, w: 1 });
       hd.ball = this; hd.w = 1; hd.u = u; hd.ph = ph; hd.s = s; hd.carry = cr ? cr.t / cr.dur : null;
@@ -1029,28 +1053,42 @@
       let wr; // wrist flexion (deg; + = flexed / fingers down, - = cocked back)
       // the fingers (curl 0 open .. 1 fist): spread to take the ball as it comes up, snapping down with the wrist through the
       // push, easing off after the release (Tune.handle.fingSpread, fingSnap, fingRest)
-      const THf = M.Tune.handle;
-      let fing;
+      let fing, wrX; // (wrX: the wrist flexed this far past the palm facing the ball, deg; see the actor's _faceBall)
       if (ph === 'push') {
-        handOn(sd * lx, ly, lz, sd, ACT);
+        // (the pads rolling on in over the top as it goes down, the wrist snapping past the palm facing it)
+        handOn(sd * lx, ly, lz, sd, ACT, cr ? THf.rollTopDeg : U.lerp(THf.rollTopDeg, THf.rollRelDeg, U.smooth(s)));
+        NB[0] = -PD[0]; NB[1] = -PD[1]; NB[2] = -PD[2];
         // (carried out of the hands the wrist is near straight, cocking back as the carry ends: fully cocked with the palm
         // rolling over the top, the forearm angled down into the ball, Trial 8)
         wr = cr ? U.lerp(THf.carryWrF, -32, U.smooth(cr.t / cr.dur)) : U.lerp(-32, 26, U.smooth(s));
+        wrX = cr ? 0 : THf.snapDeg * U.smooth(s);
         fing = U.lerp(THf.fingSpread, THf.fingSnap, U.smooth(s));
         hd.hand = d.hand; hd.act = 1;
       } else if (ph === 'ride') {
         // (in and out: the palm from the inside of the ball, where it took it, back over the top as it rides it out)
-        handOn(sd * lx, ly, lz, pl.inout ? pl.rside * U.lerp(-1, 1, U.smooth(s)) : pl.rside, ACT);
+        // (taken on its upper outside, the pads roll in over the top as the hand rides it up: the forearm turning in)
+        handOn(sd * lx, ly, lz, pl.inout ? pl.rside * U.lerp(-1, 1, U.smooth(s)) : pl.rside, ACT, U.lerp(pl.inout ? THf.rollInDeg : pl.rollC != null ? pl.rollC : THf.rollCatchDeg, THf.rollTopDeg, U.smooth(s)));
+        NB[0] = -PD[0]; NB[1] = -PD[1]; NB[2] = -PD[2];
+        if (pl.inout) inFace(pl.rside * U.lerp(-1, 1, U.smooth(s)) * U.lerp(THf.rollInDeg, THf.rollTopDeg, U.smooth(s)), pl.rside);
         wr = U.lerp(-18, -34, U.smooth(s));
+        wrX = 0;
         fing = THf.fingSpread;
         hd.hand = endHand; hd.act = 1;
       } else {
         // free flight: the hand follows through a little, then waits low and rises to meet the ball
         const f = (u - uP) / (uC - uP);
-        const rel = handOn(sd * pl.rx, fwd(pl.ry), pl.rel, sd, RCV);
-        const rx0 = rel.x, ry0 = rel.y, rz0 = rel.z;
+        const rel = handOn(sd * pl.rx, fwd(pl.ry), pl.rel, sd, RCV, THf.rollRelDeg);
+        const rx0 = rel.x, ry0 = rel.y, rz0 = rel.z, qr0 = PD[0], qr1 = PD[1], qr2 = PD[2];
         // (the hand goes to where the ball will be caught, the floor ahead of the shoulder already in it: see _airW)
-        const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], worldAir ? cq[1] : fwd(cq[1]), pl.ccatch, pl.inout ? -pl.rside : pl.rside, ACT);
+        const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], worldAir ? cq[1] : fwd(cq[1]), pl.ccatch, pl.inout ? -pl.rside : pl.rside, ACT, pl.inout ? THf.rollInDeg : pl.rollC != null ? pl.rollC : THf.rollCatchDeg);
+        if (pl.inout) inFace(-pl.rside * THf.rollInDeg, pl.rside);
+        const qc0 = pl.inout ? -NB[0] : PD[0], qc1 = pl.inout ? -NB[1] : PD[1], qc2 = pl.inout ? -NB[2] : PD[2];
+        // (off the ball the palm turns from the way it faced at the release to the way it will face at the catch, eased
+        // over the flight as the hand goes there: it does not follow the ball itself, which drops away at up to ~25 ft/s
+        // and turned the forearm with it in a few frames)
+        const eN = U.smooth(U.clamp((f - 0.12) / 0.78, 0, 1));
+        NB[0] = -U.lerp(qr0, qc0, eN); NB[1] = -U.lerp(qr1, qc1, eN); NB[2] = -U.lerp(qr2, qc2, eN);
+        if (moving && d.move.toHand !== d.hand) { NB[0] = -qc0; NB[1] = -qc1; NB[2] = -qc2; }
         if (moving && d.move.toHand !== d.hand) {
           // crossover / between the legs / behind the back: from the release the new hand has the dribble, on its way to
           // the catch since the push (_moveHands), and the old hand follows through and lets go (hd.aux)
@@ -1059,18 +1097,41 @@
         } else {
           const e = U.smooth(U.clamp((f - 0.12) / 0.78, 0, 1));
           const dip = 0.035 * H * Math.sin(Math.PI * U.clamp(f / 0.3, 0, 1));
-          ACT.x = U.lerp(rx0, cat.x, e); ACT.y = U.lerp(ry0, cat.y, e); ACT.z = U.lerp(rz0, cat.z, e) - dip;
+          // (round the outside to the catch, not straight back up the push's line: the hand swings out and comes in over
+          // the ball as it takes it, Tune.handle.rollArcH; an in and out's round the inside, where it takes it)
+          const arc = THf.rollArcH * H * Math.sin(Math.PI * e) * (pl.inout ? -sd : sd);
+          ACT.x = U.lerp(rx0, cat.x, e) + arc; ACT.y = U.lerp(ry0, cat.y, e); ACT.z = U.lerp(rz0, cat.z, e) - dip;
           hd.hand = d.hand; hd.act = 1;
         }
         wr = f < 0.3 ? U.lerp(26, 8, f / 0.3) : U.lerp(8, -18, U.smooth((f - 0.3) / 0.7));
         fing = f < 0.3 ? U.lerp(THf.fingSnap, THf.fingRest, U.smooth(f / 0.3)) : U.lerp(THf.fingRest, THf.fingSpread, U.smooth((f - 0.3) / 0.7));
-        if (moving && d.move.toHand !== d.hand) { wr = -18; fing = THf.fingSpread; hd.act = 1; }
+        // (the snap follows through a little and eases off by the catch, the palm facing the ball as it comes up)
+        wrX = snapOff(f);
+        if (moving && d.move.toHand !== d.hand) { wr = -18; wrX = 0; fing = THf.fingSpread; hd.act = 1; }
       }
       const w = (a.localD || a.local).call(a, ACT.x, ACT.y, ACT.z, TC);
       // (in the ball's flight the hand's path goes round it, not through it: a hand waiting for a crossover's catch was
       // in its way as it fell, Trial 8)
       if (ph === 'down' || ph === 'up') keepOff(w, this, pr + M.Tune.handle.offClearFt);
       hd.wx = w[0]; hd.wy = w[1]; hd.wz = w[2]; hd.wrF = wr; hd.fing = fing; hd.palm = 1;
+      // (the palm faces the ball, the forearm turning with it: the actor's _faceBall; wrF is the old fixed schedule's)
+      // (running with it the palm faces it less, the old palm-down pitch mostly kept: the hand reaching out ahead for the catch,
+      // a flush palm had the arm straight and the elbow jolted as the ride took the ball up)
+      let fw = 1 - THf.faceFastK * U.smooth((a.speed - THf.rollFastFrom) / Math.max(0.1, THf.rollFastTo - THf.rollFastFrom));
+      // (a move from hand to hand: the palm facing it eases off over the push, stays off through the flight and comes back
+      // over the new hand's ride, Tune.handle.faceMoveK: the catch at the knees with a flush palm had the arm straight and
+      // the new hand jolted as the ride took the ball up)
+      if (moving && d.move.toHand !== d.hand) {
+        const bump = cr ? 0 : u < uP ? U.smooth(u / Math.max(1e-3, uP)) : u < uC ? 1 : 1 - U.smooth((u - uC) / Math.max(1e-3, 1 - uC));
+        fw *= 1 - (1 - THf.faceMoveK) * bump;
+      }
+      hd.face = THf.faceBall ? fw : 0; hd.wrX = wrX;
+      {
+        // (the way the palm faces, the dribble's frame to the world's: localD's turn)
+        const f = a.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f), nl = Math.hypot(NB[0], NB[1], NB[2]) || 1;
+        const pn = hd.pn || (hd.pn = [0, 0, -1]);
+        pn[0] = (sf * NB[0] + cf * NB[1]) / nl; pn[1] = (-cf * NB[0] + sf * NB[1]) / nl; pn[2] = NB[2] / nl;
+      }
       // a move from hand to hand, the other hand (hd.aux, Trial 8): before the release the receiving hand reaching for
       // the catch on the path it then keeps as the dribbling hand; after it the old hand following through and letting
       // go over the ball's flight (they used to trade the dribble halfway through the flight, each in ~0.08 s)
@@ -1081,11 +1142,12 @@
           // (where the pushing palm is, frame by frame, for its follow-through from the release)
           const mv = d.move, hp = a.handLocal ? a.handLocal(d.hand, TD) : null;
           if (hp) mv.hp = [hp[0], hp[1], hp[2]];
-          const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], worldAir ? cq[1] : fwd(cq[1]), pl.ccatch, pl.rside, HO3);
+          const cq = this._catchLocal(d, a, pl, TW3), cat = handOn(sd * cq[0], worldAir ? cq[1] : fwd(cq[1]), pl.ccatch, pl.rside, HO3, THf.rollMoveDeg);
           this._moveHand(d, pl, a, u, uC, cat, HO4);
           const wq = (a.localD || a.local).call(a, HO4.x, HO4.y, HO4.z, TD);
           keepOff(wq, this, pr + M.Tune.handle.offClearFt);
-          aux.hand = endHand; aux.act = HO4.act; aux.wrF = -18;
+          aux.hand = endHand; aux.act = HO4.act; aux.wrF = -18; aux.face = hd.face; aux.wrX = 0;
+          { const f = a.facing + (a.dribbleYaw || 0), cf = Math.cos(f), sf = Math.sin(f), pn = aux.pn || (aux.pn = [0, 0, -1]); pn[0] = -(sf * PD[0] + cf * PD[1]); pn[1] = -(-cf * PD[0] + sf * PD[1]); pn[2] = -PD[2]; }
           aux.x = wq[0]; aux.y = wq[1]; aux.z = wq[2];
         } else {
           // (the old hand: from where it let the ball go, carried on by its speed there and slowing (Tune.handle.followS),
@@ -1103,7 +1165,8 @@
           const k = TH.followS * (1 - Math.exp(-tr / TH.followS)) * Math.min(1, TH.followMaxFt / Math.max(1e-6, vr * TH.followS));
           const wq = (a.localD || a.local).call(a, r0[0] + r0[3] * k, r0[1] + r0[4] * k, r0[2] + r0[5] * k - 0.04 * H * U.smooth(f), TD);
           keepOff(wq, this, pr + M.Tune.handle.offClearFt);
-          aux.hand = d.hand; aux.act = 1 - U.smooth(f); aux.wrF = U.lerp(26, 8, U.smooth(f));
+          aux.hand = d.hand; aux.act = 1 - U.smooth(f); aux.wrF = U.lerp(26, 8, U.smooth(f)); aux.face = hd.face; aux.wrX = snapOff(f);
+          { const q = palmDir(sd, THf.rollRelDeg, TMP3), fr = a.facing + (a.dribbleYaw || 0), cf = Math.cos(fr), sf = Math.sin(fr), pn = aux.pn || (aux.pn = [0, 0, -1]); pn[0] = -(sf * q[0] + cf * q[1]); pn[1] = -(-cf * q[0] + sf * q[1]); pn[2] = -q[2]; }
           aux.x = wq[0]; aux.y = wq[1]; aux.z = wq[2];
         }
       }
@@ -1118,7 +1181,7 @@
           const bx = sd * lx, dx = cr.off0[0] - bx, dy = cr.off0[1] - ly, dz = cr.off0[2] - lz, dl = Math.hypot(dx, dy, dz), need = pr + TH.offClearFt;
           const q = dl < need ? need / Math.max(1e-4, dl) : 1;
           const wq = (a.localD || a.local).call(a, bx + dx * q, ly + dy * q, lz + dz * q, TD);
-          aux.hand = oh; aux.act = act; aux.wrF = null;
+          aux.hand = oh; aux.act = act; aux.wrF = null; aux.face = 0;
           aux.x = wq[0]; aux.y = wq[1]; aux.z = wq[2];
         }
       }
@@ -1379,14 +1442,25 @@
       // both where the hand can get to them (Trial 8: running, the ball pushed out ahead was released past the reach of
       // the arm pushing it, and below it, the palm inches off the ball): each palm spot is brought toward its shoulder
       // until it is in reach (the release higher and nearer: out in front at the waist), before the timing is solved
+      let pl0RollC = moving ? M.Tune.handle.rollMoveDeg : M.Tune.handle.rollCatchDeg;
       if (a.armReach) {
-        const pr = R + 0.01 * H, P3 = TP3;
-        P3[0] = side * (rx + 0.3 * pr); P3[1] = ry - 0.28 * pr; P3[2] = rel + 0.91 * pr;
-        if (toReach(a.armReach(d.hand, AR), P3) > 0) { rx = P3[0] * side - 0.3 * pr; ry = P3[1] + 0.28 * pr; rel = Math.max(R + 0.05 * H, P3[2] - 0.91 * pr); }
-        P3[0] = side * qxo + rside * 0.3 * pr; P3[1] = qy - 0.28 * pr; P3[2] = ccatch + 0.91 * pr;
-        if (toReach(a.armReach(recv, AR), P3) > 0) { qxo = (P3[0] - rside * 0.3 * pr) * side; qy = P3[1] + 0.28 * pr; ccatch = Math.min(ctop - 0.02 * H, P3[2] - 0.91 * pr); }
+        // (the palm's spots as _dribble puts them: palmDir, at the release and at the catch)
+        const pr = R + 0.01 * H, P3 = TP3, THp = M.Tune.handle;
+        // (the release's reach as at the top of the ride: the palm rolls on over the top from there as it pushes, a little
+        // nearer the shoulder, and the plan is the one the moves' footwork was tuned on, Trial 8)
+        let q = palmDir(1, THp.rollTopDeg, PD);
+        const oX = q[0] * pr, oY = q[1] * pr, oZ = q[2] * pr;
+        P3[0] = side * (rx + oX); P3[1] = ry + oY; P3[2] = rel + oZ;
+        if (toReach(a.armReach(d.hand, AR), P3) > 0) { rx = P3[0] * side - oX; ry = P3[1] - oY; rel = Math.max(R + 0.05 * H, P3[2] - oZ); }
+        // (this bounce's catch round the ball: a move's as it always was, a running dribble's less, pl.rollC)
+        pl0RollC = moving ? THp.rollMoveDeg : U.lerp(THp.rollCatchDeg, THp.rollFastDeg, U.smooth((a.speed - THp.rollFastFrom) / Math.max(0.1, THp.rollFastTo - THp.rollFastFrom)));
+        q = palmDir(1, pl0RollC, PD);
+        const cX = q[0] * pr, cY = q[1] * pr, cZ = q[2] * pr;
+        P3[0] = side * qxo + rside * cX; P3[1] = qy + cY; P3[2] = ccatch + cZ;
+        if (toReach(a.armReach(recv, AR), P3) > 0) { qxo = (P3[0] - rside * cX) * side; qy = P3[1] - cY; ccatch = Math.min(ctop - 0.02 * H, P3[2] - cZ); }
       }
       const pl = d.plan || (d.plan = {});
+      pl.rollC = pl0RollC;
       // where the previous bounce's ride ended (in this bounce's side convention): the push starts there
       const hadPrev = pl.ctop != null && d.planActor === a;
       // (the first push out of his hands starts where the ball is)
@@ -1590,6 +1664,26 @@
     if (dl >= min || dl < 1e-6) return;
     const k = min / dl;
     w[0] = b.x + dx * k; w[1] = b.y + dy * k; w[2] = b.z + dz * k;
+  }
+  // the dribbling palm's spot on the ball (Tune.handle.roll*): the way from the ball's centre to it, body frame (x toward the
+  // hand's own side for hs +1), round from the top toward the outside by deg, and back from the top by an angle that goes
+  // with it (rollBack*: further back on the ball's outside where it is taken, forward over the top as it is pushed, so
+  // the pads roll on a slant across it and the hand goes round in the side view too; at the top of the ride on the top
+  // back of the ball, as they always were: 0.3, -0.28, 0.91); hs between -1 and 1 goes over the top
+  const PD = [0, 0, 0], NB = [0, 0, -1];
+  function palmDir(hs, deg, o) {
+    const TH = M.Tune.handle, a = Math.abs(hs * deg);
+    const bk = (a <= TH.rollTopDeg ? U.lerp(TH.rollBackRelDeg, TH.rollBackTopDeg, U.clamp((a - TH.rollRelDeg) / Math.max(1e-3, TH.rollTopDeg - TH.rollRelDeg), 0, 1))
+      : U.lerp(TH.rollBackTopDeg, TH.rollBackCatchDeg, U.clamp((a - TH.rollTopDeg) / Math.max(1e-3, TH.rollCatchDeg - TH.rollTopDeg), 0, 1))) * U.DEG;
+    const t = hs * deg * U.DEG, cb = Math.cos(bk);
+    o[0] = Math.sin(t) * cb; o[1] = -Math.sin(bk); o[2] = Math.cos(t) * cb;
+    return o;
+  }
+  /** after the release, f of the way to the catch: the wrist's snap past the palm facing the ball (deg), following through
+   *  a little further and easing off by the catch */
+  function snapOff(f) {
+    const TH = M.Tune.handle, top = TH.snapDeg + 8;
+    return f < 0.25 ? U.lerp(TH.snapDeg, top, U.smooth(f / 0.25)) : top * (1 - U.smooth((f - 0.25) / 0.75));
   }
   /** a palm spot p (body frame) brought straight toward the arm's shoulder until it is within Tune.handle.reachK of the
    *  arm's reach (ar: armReach); returns how far it was moved (0: already in reach) */

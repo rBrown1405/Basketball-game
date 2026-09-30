@@ -47,6 +47,8 @@
       this.ei = 0; this.T = v.time; this.T0 = v.time; this.g = 0; this.jobs = []; this.beat = null; this.wrap = null;
       this.done = false; this.frozen = false; this.resumeReq = false;
       this.active = true;
+      // (the game's urgency, Actor.setUrgency: quicker orders and harder starts than the labs' scripted bodies)
+      for (const id in v.actors) { const a = v.actors[id]; if (a && a.kind === 'player' && a.setUrgency && !(a.urgK > 1)) a.setUrgency(true); }
       this.off = poss.off === 1 ? 1 : 0; this.def = 1 - this.off;
       this.period = poss.period || 1;
       this.dir = v.attacksRight(this.off, this.period) ? 1 : -1;
@@ -692,7 +694,8 @@
         const eff = 1 + this.intensity() * 0.14;
         // (on a break the heady ones fly up the floor; a player who doesn't read it jogs)
         const oa = this.tempo === 'push' ? this.aware(a, 'off') : 0.5;
-        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, (0.82 + 0.2 * oa) * eff) : lane === 'run' ? Math.min(a.maxSpeed * 0.8, 19) * eff : lane ? 13 * eff : (d > 14 ? 12 : d > 4 ? 8 : 5) * eff;
+        // (off the ball they get there at a jog, not a stroll: 15 / 13 / 9 were 12 / 8 / 5 ft/s, the gameplay pass)
+        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, (0.82 + 0.2 * oa) * eff) : lane === 'run' ? Math.min(a.maxSpeed * 0.8, 19) * eff : lane ? 15 * eff : (d > 14 ? 15 : d > 4 ? 13 : 9) * eff;
         this._why = lane ? 'fill lane' : 'spacing';
         a.moveTo(tx, ty, { speed: sp, face: d > 3 ? 'move' : { x: b.x, y: b.y }, stance: d > 5 ? 'stand' : 'ready' });
         a.lookAt({ x: b.x, y: b.y });
@@ -711,14 +714,17 @@
       }
       this.paintContact();
       // ball holder dribbles when moving
-      // (not the inbounder carrying it out to his spot)
-      if (b.holder && b.state === 'held' && !b.holder.isBusy() && !b.holder.throwing() && b.holder.speed > 1.8 && b.holder.team === this.off && !(this.beat && this.beat.type === 'inbound' && !this.beat.fired && this.beat.by === b.holder) && !(b.holder.holdBallUntil > this.T)) b.dribble(b.holder);
+      // (not the inbounder carrying it out to his spot; nor one who has picked up his dribble: that ball is dead until it
+      // leaves his hands, Ball.dribble, and his feet stop with it, Actor._steer)
+      if (b.holder && b.state === 'held' && !b.holder.isBusy() && !b.holder.throwing() && b.holder.speed > 1.8 && b.holder.team === this.off && !b.holder.dribUsed && !(this.beat && this.beat.type === 'inbound' && !this.beat.fired && this.beat.by === b.holder) && !(b.holder.holdBallUntil > this.T)) b.dribble(b.holder);
       // camera focus
       v.focus = { x: b.x, vx: b.vx };
     }
-    /** pick the next off-ball action: v-cut, lift/drift toward the ball side, relocation, or a short hold */
+    /** pick the next off-ball action: v-cut, lift/drift toward the ball side, relocation, or a short hold (the holds kept
+     *  short and the moves real, a gameplay pass: players stood ~1-3 s between small shuffles and read as slow; the
+     *  shares of the old holds and lengths: Tune.urgency.offHoldK, offMoveK) */
     offBallAction(a, r) {
-      const T = this.T, b = this.v.ball;
+      const T = this.T, b = this.v.ball, TU = M.Tune.urgency, hk = TU.offHoldK, mk = TU.offMoveK;
       if (this.tempo === 'push') { r.jx = (Math.random() - 0.5) * 2; r.jy = (Math.random() - 0.5) * 2; r.next = T + 1.2 + Math.random(); return; }
       const su = this.U_(r.spot.x), sv = r.spot.y;
       const roll = Math.random();
@@ -726,7 +732,7 @@
       if (r.phase === 'out') {
         // come back out to the spot (v-cut return / pop)
         r.jx = (Math.random() - 0.5) * 1.5; r.jy = (Math.random() - 0.5) * 1.5; r.phase = null;
-        r.next = T + 0.9 + Math.random() * 1.4;
+        r.next = T + (0.9 + Math.random() * 1.4) * hk;
         return;
       }
       if (big) {
@@ -738,25 +744,25 @@
         } else {
           r.jx = this.X(su + 6 + Math.random() * 4) - r.spot.x; r.jy = (25 - sv) * 0.35 + (b.y < 25 ? -1 : 1) * 2; r.phase = 'out';
         }
-        r.next = T + 1.0 + Math.random() * 1.4;
+        r.next = T + (1.0 + Math.random() * 1.4) * hk;
         return;
       }
       if (roll < 0.4) {
         // v-cut: sink toward the basket then pop back out
         const dx = this.rim.x - r.spot.x, dy = this.rim.y - r.spot.y, dl = Math.hypot(dx, dy) || 1;
-        const k = 4 + Math.random() * 3;
+        const k = (4 + Math.random() * 3) * mk;
         r.jx = dx / dl * k; r.jy = dy / dl * k; r.phase = 'out';
-        r.next = T + 0.7 + Math.random() * 0.4;
+        r.next = T + (0.7 + Math.random() * 0.4) * hk;
       } else if (roll < 0.7) {
         // lift / drift with the ball side
         const lift = su < 6 ? 8 : -3;
         r.jx = this.X(su + lift) - r.spot.x; r.jy = (b.y - sv) * 0.12 + (Math.random() - 0.5) * 3;
-        r.next = T + 1.3 + Math.random() * 1.5;
+        r.next = T + (1.3 + Math.random() * 1.5) * hk;
       } else {
         // relocation along the arc / hold the spot ready to catch
-        const ang = Math.random() * Math.PI * 2, k = 1.6 + Math.random() * 2.4;
+        const ang = Math.random() * Math.PI * 2, k = (1.6 + Math.random() * 2.4) * mk;
         r.jx = Math.cos(ang) * k; r.jy = Math.sin(ang) * k;
-        r.next = T + 0.9 + Math.random() * 1.4;
+        r.next = T + (0.9 + Math.random() * 1.4) * hk;
       }
     }
     /** release per-beat locks so nobody freezes after a dead ball / free throws */
@@ -770,10 +776,10 @@
       const b = this.v.ball;
       // wander near the handler spot while dribbling; face the basket
       if (!r.spot) r.spot = this.spotPt('top');
-      if (this.T > r.next) { r.jx = (Math.random() - 0.5) * 6; r.jy = (Math.random() - 0.5) * 6; r.next = this.T + 1.5 + Math.random() * 1.5; }
+      if (this.T > r.next) { const TU = M.Tune.urgency; r.jx = (Math.random() - 0.5) * 6 * TU.offMoveK; r.jy = (Math.random() - 0.5) * 6 * TU.offMoveK; r.next = this.T + (1.5 + Math.random() * 1.5) * TU.offHoldK; }
       const tx = r.spot.x + r.jx, ty = U.clamp(r.spot.y + r.jy, 2, 48);
       const d = Math.hypot(tx - a.x, ty - a.y);
-      a.moveTo(tx, ty, { speed: this.tempo === 'push' ? 20 : d > 8 ? 15 : 7, face: d > 6 ? 'move' : this.rim, stance: 'dribble' });
+      a.moveTo(tx, ty, { speed: this.tempo === 'push' ? 20 : d > 8 ? 15 : 9, face: d > 6 ? 'move' : this.rim, stance: 'dribble' });
       if (b.state === 'held' && b.holder === a && !a.throwing() && !(a.holdBallUntil > this.T) && (a.speed > 1 || Math.random() < 0.02)) b.dribble(a);
       a.lookAt(null);
     }
@@ -1352,7 +1358,16 @@
         if (r) r.until = fireAt;
         const go = () => {
           const eta = fireAt - this.T;
-          h.moveTo(cross.x + this.dir * (push ? 8 : 4), cross.y, { by: this.T + eta * 1.1, speed: push ? h.maxSpeed : 17, face: 'move', stance: 'dribble', pace: 7 });
+          if (push) h.moveTo(cross.x + this.dir * 8, cross.y, { by: this.T + eta * 1.1, speed: h.maxSpeed, face: 'move', stance: 'dribble', pace: 7 });
+          else {
+            // a walked-up ball comes up at a jog, on to the top of the key where the handler sets it up (it was timed
+            // to the engine's crossing: crept up at walking pace, 7 ft/s, then stood at half court until the beat);
+            // quicker still when the beat is near
+            const TU = M.Tune.urgency, sp0 = r && r.spot ? r.spot : this.spotPt('top');
+            const tu = Math.max(this.U_(sp0.x), TU.advanceTopU), tx = this.X(Math.min(tu, 40)), ty = U.lerp(cross.y, sp0.y, 0.7);
+            const want = Math.max(TU.advanceFtps * h.goalK, Math.abs(h.x - cross.x) / Math.max(0.4, eta) * 1.05);
+            h.moveTo(tx, ty, { speed: Math.min(h.maxSpeed * 0.8, want) / h.goalK, face: 'move', stance: 'dribble' });
+          }
           if (v.ball.holder === h) v.ball.dribble(h);
         };
         if (extra > 0) this.at(this.T + extra, go, 'advance go'); else go();
@@ -1634,7 +1649,13 @@
           a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
           this.at(Math.max(this.T + extra, fireAt - 0.8), () => { if (b.holder === a) { b.dribble(a); b.dribbleMove('btl'); } }, 'sizeup');
         } else if (mv === 'jab') {
-          this.at(Math.max(this.T + extra, fireAt - 0.2), () => { if (b.holder === a && b.state === 'dribble') b.give(a, 'triple'); a.ballHold = 'triple'; a.setStance('triple'); a.play('jab', { facing: this.rimAngleFrom(a.x, a.y) }); }, 'jab');
+          // (the rules: a jab out of the triple threat is his before he has dribbled; already dribbling, picking the ball up
+          // to jab left him a dead dribble, and the drive or move after it was a double dribble: a dribbler's jab is a
+          // hesitation, the ball kept alive)
+          this.at(Math.max(this.T + extra, fireAt - 0.2), () => {
+            if (b.holder === a && b.state === 'dribble') { a.hesitate(); return; }
+            a.ballHold = 'triple'; a.setStance('triple'); a.play('jab', { facing: this.rimAngleFrom(a.x, a.y) });
+          }, 'jab');
         } else if (mv === 'spin') {
           // the spin move, built for his own feet (plant, reverse pivot, step through), timed so it is done when
           // the move lands; he comes out of it going at the rim
@@ -2151,7 +2172,10 @@
         // wherever he happens to be; an alley-oop's jump is timed to the lob in the air and cannot wait
         const tryClip = () => {
           const off = Math.hypot(sh.x - origin.x, sh.y - origin.y);
-          if (((dunkWait && (off > 3 || !this.inPaint(sh, 0))) || (layWait && off > 2.2)) && this.T < clipStart + 2.0) {
+          // (the rules: a shooter who has picked up his dribble can neither put it back on the floor to get to his spot nor
+          // walk there with it: he goes up from where his gather steps took him)
+          const deadDrib = b.holder === sh && b.state === 'held' && sh.dribUsed;
+          if (((dunkWait && (off > 3 || !this.inPaint(sh, 0))) || (layWait && off > 2.2)) && this.T < clipStart + 2.0 && !deadDrib) {
             dk.waiting = true;
             const rw = this.role[sh.id];
             if (rw) { rw.until = Math.max(rw.until || 0, this.T + 0.5); rw.probe = null; rw.probeAnchor = null; rw.path = null; }
@@ -2160,7 +2184,7 @@
             return;
           }
           const TSj = M.Tune.shot;
-          if (jumpWait && off > TSj.jumpSlipFt && this.T < clipStart + TSj.jumpWaitS && !(catchAndShoot && b.holder !== sh)) {
+          if (jumpWait && off > TSj.jumpSlipFt && this.T < clipStart + TSj.jumpWaitS && !(catchAndShoot && b.holder !== sh) && !deadDrib) {
             dk.waiting = true;
             const rw = this.role[sh.id];
             if (rw) { rw.until = Math.max(rw.until || 0, this.T + 0.5); rw.probe = null; rw.probeAnchor = null; rw.path = null; }
@@ -2639,17 +2663,38 @@
         if (a.team === this.off) this.lockOff(a, 1.4); else this.lockDef(a, 1.4);
         a.moveTo(a.x + Math.cos(ang) * go, a.y + Math.sin(ang) * go, { speed: 15, face: () => Math.atan2(ball.y - a.y, ball.x - a.x), stance: 'ready' });
       }
-      // (the nearest of the other side goes up with them, the hand on the ball's side up at it, a step behind: Trial 11)
-      const opp = cand.find((c) => c.a.team !== pr.actor.team && c.dd < 5.5);
-      if (opp && Math.random() < 0.6 && pr.tGrabT != null && pr.style !== 'floor' && pr.style !== 'long') {
+      // (the nearest of the other side goes up with them, the hand on the ball's side up at it, a step behind: Trial 11; and the
+      // next nearest now and then, a crowd going up for it: Tune.glass.contestUpFt, contestUpP, contestUp2P)
+      const TGl = M.Tune.glass, opps = cand.filter((c) => c.a.team !== pr.actor.team && c.dd < TGl.contestUpFt).slice(0, 2);
+      opps.forEach((opp, i) => {
+        if (Math.random() >= (i ? TGl.contestUp2P : TGl.contestUpP) || pr.tGrabT == null || pr.style === 'floor' || pr.style === 'long') return;
         const clip = M.Anims.get('contestJump'), up = clip.events.set || 0.18;
-        this.at(Math.max(this.T + 0.05, pr.tGrabT - up - 0.12), () => {
+        this.at(Math.max(this.T + 0.05, pr.tGrabT - up - 0.12 + i * 0.06), () => {
           const a = opp.a;
           if (a.isBusy() || !this.pendingRebound) return;
           const side = a.contestSide(ball);
           a.play('contestJump', { mirror: side === 0, facing: Math.atan2(pr.y - a.y, pr.x - a.x) });
           a.contestBall(ball, pr.tGrabT, { side });
         }, 'rebound contest');
+      });
+      // (and the crowd under the rim goes up for it as it comes off, whether it comes their way or not: whoever else is
+      // within Tune.glass.crowdFt of the rim, a hand up at it, up to crowdMax of them, each crowdP of the time; a scramble,
+      // not a crowd standing and watching it go by, the gameplay pass)
+      if (pr.tContactT != null) {
+        let n = 0;
+        const crowd = this.offActors().concat(this.defActors()).filter((q) => q !== pr.actor && !q.isBusy() && !opps.some((o) => o.a === q) && Math.hypot(q.x - this.rim.x, q.y - this.rim.y) < TGl.crowdFt);
+        crowd.sort((p, q) => Math.hypot(p.x - ball.x, p.y - ball.y) - Math.hypot(q.x - ball.x, q.y - ball.y));
+        for (const q of crowd) {
+          if (n >= TGl.crowdMax) break;
+          if (Math.random() >= TGl.crowdP) continue;
+          n++;
+          this.at(this.T + 0.03 + n * 0.06, () => {
+            if (q.isBusy() || !this.pendingRebound || ball.holder) return;
+            const side = q.contestSide(ball);
+            q.play('contestJump', { mirror: side === 0, facing: Math.atan2(ball.y - q.y, ball.x - q.x) });
+            q.contestBall(ball, this.T + 0.28, { side });
+          }, 'rebound crowd');
+        }
       }
     }
     reportScore(ev) {
@@ -3063,6 +3108,9 @@
       for (const d of this.defActors()) this.dtask[d.id] = { until: this.T + 5 };
       for (const o of this.offActors()) { const r = this.role[o.id]; if (r) r.until = this.T + 5; }
       this.flipAfterChange(st);
+      // (a steal is his ball to dribble: he takes it away on the dribble, never runs off with it in his hands)
+      const bs = this.v.ball;
+      if (bs.holder === st && bs.state === 'held') bs.dribble(st);
       st.moveTo(st.x - this.dir * 12, st.y, { speed: st.maxSpeed, face: 'move' });
     }
     /** a swipe at the ball in someone's hands or dribble (Trial 11): from t0, once the ball is within their reach (Tune.glass.

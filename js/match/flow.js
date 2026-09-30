@@ -204,7 +204,7 @@
     const brush = { x: sPt.x + (this.X(E[0]) - sPt.x) * 0.12, y: sPt.y + (E[1] - sPt.y) * 0.12 };
     const ePt = this.ptUV(E[0], E[1]);
     this.setPath(user, [
-      { x: setup.x, y: setup.y, speed: 7, wait: tArrive - 0.25, wx: setup.x, wy: setup.y, tol: 1.3 },
+      { x: setup.x, y: setup.y, speed: 9, wait: tArrive - 0.25, wx: setup.x, wy: setup.y, tol: 1.3 },
       { x: brush.x, y: brush.y, speed: 14, tol: 1.6 },
       { x: ePt.x, y: ePt.y, speed: 12.5, stance: 'ready', hold: 0.5, face: 'move' },
     ], E, null, 'offscreen');
@@ -227,7 +227,7 @@
     const rimPt = this.ptUV(rimU + 3.5, 25 + (me.v < 25 ? -2.5 : 2.5));
     const exPt = this.ptUV(ex[0], ex[1]);
     this.setPath(a, [
-      { x: away.x, y: away.y, speed: denied ? 9 : 7, tol: 1.2 },
+      { x: away.x, y: away.y, speed: denied ? 10 : 9, tol: 1.2 },
       { x: rimPt.x, y: rimPt.y, speed: 14, tol: 2.2 },
       { x: exPt.x, y: exPt.y, speed: 10.5 },
     ], ex, null, 'cut');
@@ -249,8 +249,8 @@
     const jab = this.ptUV(me.u - du / dl * 1.8, me.v - dv / dl * 1.8);
     const pt = this.ptUV(spot[0], spot[1]);
     this.setPath(a, [
-      { x: jab.x, y: jab.y, speed: 8, tol: 0.9 },
-      { x: pt.x, y: pt.y, speed: 10, stance: 'ready', hold: 0.3 },
+      { x: jab.x, y: jab.y, speed: 10, tol: 0.9 },
+      { x: pt.x, y: pt.y, speed: 12, stance: 'ready', hold: 0.3 },
     ], spot, null, 'relocate');
     return true;
   };
@@ -319,7 +319,9 @@
   // ------------------------------------------------------------ handler probing
   P.flowHandler = function (a, r) {
     const b = this.v.ball, T = this.T;
-    const pr = this.flowProfile();
+    const pr = this.flowProfile(), TS = M.Tune.shifty;
+    // (how shifty: his handle, 45 nothing to 90 all of it; the gameplay pass)
+    const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
     if (!r.probe || T > r.probe.end) {
       r.probe = null;
       if (T < (r.probeNext || 0)) return false;
@@ -335,22 +337,30 @@
         const go = r.probeAnchor ? 3 + Math.random() * 3 : 5 + Math.random() * 4;
         const inPt = this.ptUV(me.u + du / dl * go, me.v + dv / dl * go + side);
         const outPt = this.ptUV(me.u + du / dl * (go - 5), me.v + dv / dl * (go - 5) + side * 0.5);
-        r.probe = { pts: [[inPt, 11, 'move'], [outPt, 6.5, 'rim']], i: 0, end: T + 3.4, cross: Math.random() < 0.6 };
+        r.probe = { pts: [[inPt, TS.probeFtps, 'move'], [outPt, TS.retreatFtps, 'rim']], i: 0, end: T + 3.4, cross: Math.random() < U.lerp(0.6, 0.9, hk) };
+        // (a shifty one sells it first: a hesitation, then the burst at the gap)
+        if (b.holder === a && b.state === 'dribble' && Math.random() < 0.45 * hk) a.hesitate();
       } else {
         // change sides along the arc with a crossover
         const sw = r.probeAnchor ? 3 + Math.random() * 3 : 7 + Math.random() * 5;
         const tv = me.v < 25 ? me.v + sw : me.v - sw;
         const pt = this.ptUV(Math.max(22, me.u + (Math.random() - 0.5) * 4), tv);
-        r.probe = { pts: [[pt, 8.5, 'rim']], i: 0, end: T + 2.6, cross: true };
+        r.probe = { pts: [[pt, TS.swingFtps, 'rim']], i: 0, end: T + 2.6, cross: true };
       }
     }
     const pb = r.probe;
     const cur = pb.pts[pb.i];
-    if (!cur) { r.probe = null; r.probeNext = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()); return false; }
+    if (!cur) { r.probe = null; r.probeNext = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) * U.lerp(TS.restK[0], TS.restK[1], hk); return false; }
     const [pt, sp, face] = cur;
     if (Math.hypot(pt.x - a.x, pt.y - a.y) < 1.2) {
       pb.i++;
-      if (pb.cross && b.holder === a && b.state === 'dribble' && b.dr && !b.dr.move && !b.dr.pendingMove) b.dribbleMove('cross');
+      // (at the turn a move to lose his man: the better the handle the more often and the more of them, an in and out, a
+      // hesitation, between the legs or behind the back as well as the crossover; each one sells the man on him, defBite)
+      if (pb.cross && b.holder === a && b.state === 'dribble' && b.dr && !b.dr.move && !b.dr.pendingMove && Math.random() < U.lerp(TS.moveP[0], TS.moveP[1], hk) + (hk < 0.2 ? 0.3 : 0)) {
+        const q = Math.random();
+        const mv = hk > 0.5 && q < 0.25 ? 'inout' : hk > 0.35 && q < 0.42 ? 'hesi' : hk > 0.65 && q < 0.6 ? (Math.random() < 0.5 ? 'btl' : 'btb') : 'cross';
+        if (mv === 'hesi') a.hesitate(); else b.dribbleMove(mv);
+      }
       return true;
     }
     a.moveTo(pt.x, pt.y, { speed: sp, face: face === 'rim' ? this.rim : 'move', stance: 'dribble' });

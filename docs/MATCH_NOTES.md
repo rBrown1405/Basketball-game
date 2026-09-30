@@ -346,3 +346,63 @@ set by the engine's own sliders. The director reads them through `Director.slide
   [0.13, 0.2, 0.53] H) and its elbows follow the pose (`armIK.fkPole`); stances with a ball side (`triple`,
   `shotPocket`) are mirrored for left-handers, pose and feet (`stanceOf`, `Poses.lib.tripleL` / `shotPocketL`), and so
   is the pivot (grip `hipL`).
+
+## The gameplay pass: urgency, the dribble's rules, shifty handlers, the boards, the dribbling hand
+
+Asked for by the user: players walked the ball up and moved slowly, double dribbled, rarely jumped for rebounds, the
+guards made no space, and the dribbling hand went straight up and down like a paddle.
+
+* **Urgency** (`Tune.urgency`, `Actor.setUrgency`, `Director.start`): in a game every order's speed goes `goalK` (1.22)
+  times what it asks instead of the labs' `baseK` (1.1), and a start pushes off harder (`startFtps2` + `startPerFtps` per
+  ft/s wanted, against the old 4.5 + 1.8; a defender sliding or backpedalling out of the stance keeps the old one, which
+  his footwork was built on). The labs and the audits' scripted bodies keep the old pace, so their scenarios stay what
+  they measure. A walked-up ball comes up at `advanceFtps` or more (a jog) to the top of the key (`advanceTopU`) instead of
+  being timed to the engine's crossing at the 7 ft/s floor; off the ball in the half court the holds between cuts, lifts
+  and relocations are `offHoldK` of what they were and the moves `offMoveK` longer, and the small moves go 9 and 13 ft/s
+  (were 5 and 8).
+* **The dribble's rules** (`Tune.rules`, `Ball.give`, `Ball.dribble`, `Actor._steer`): a dribble ended into the dribbler's
+  own hands is used up until the ball leaves him (a pass, a shot, a fumble): `Ball.dribble` refuses to start it again
+  (`rules.ddStopped` counts the tries; `o.free` for a scripted restart), and his feet get `gatherS` or `gatherFt`, whichever
+  comes first, to stop (the gather and two steps), then he only pivots (`rules.travelStopped`). A ball that comes to someone
+  new is theirs to dribble. The call sites know it too: a jab by a dribbler is a hesitation (the ball kept alive), a
+  steal starts dribbling before the stealer runs, a jumper or layup waiting on its approach does not wait on a dead
+  dribble, and the "holder dribbles when moving" rule skips a used one.
+* **Shifty handlers** (`Tune.shifty`, `Director.shiftyK`, `_perceive`, `defBite` in `defense.js`; `flowHandler` in
+  `flow.js`): the man on the ball used to stand on the handler's own spot and speed every frame, so nothing made space.
+  He now follows the handler a reaction behind (`lagS`, by how good the handler's handle and quickness are against his
+  perimeter defense, quickness and head), and every dribble move the ball makes (Ball tells the Director as its bounce
+  starts) sells him the wrong way for a moment: a crossover, between the legs or behind the back the side the ball is
+  leaving, an in and out the other side, a spin the way he was going, a hesitation stands him up (he gives ground and
+  stops reading the handler's pace). A defender as good as the handler reads it now and then (`readP`). The handler's
+  probes are quicker (`probeFtps`, `retreatFtps`, `swingFtps`), a good handler rests less between them (`restK`), sells the
+  attack with a hesitation first, and at the turn works a move more often and more kinds of them (`moveP`: in and out,
+  hesitation, between the legs, behind the back, the crossover).
+* **The boards** (`Tune.glass`, `rebound.js`, `choreo.js chaseCarom`): a contested carom (anyone of the other side within
+  `contestFt`, 10 ft, and nearer the rim than `highFt`) is taken at the top of a full jump, the rest with a real jump
+  (`midJumpFt` 1.3 ft, was a 0.6 ft hop); long caroms start at `longFt` 10.5 ft (was 9); the carom may hang a little longer
+  (`caromT`) so more are taken in the air. The nearest of the other side goes up with the rebounder `contestUpP` of the time
+  (within `contestUpFt`) and the next nearest `contestUp2P`, and the crowd under the rim (`crowdFt`, up to `crowdMax`,
+  `crowdP` each) goes up for it with a hand at it as it comes off, whether it comes their way or not.
+* **The dribbling hand** (`Tune.handle.roll*`, `face*`, `snapDeg`; `palmDir` and `_dribble` in `ball.js`; `_faceBall`,
+  `_forearmClear` in `actor.js`): the palm goes round the ball instead of pumping straight up and down on its top, the
+  forearm turning in with it (skilled dribblers keep the ball in the hand longer with the forearm's turn and the shoulder's:
+  ISBS 2008, "Comparison of the hand-dribbling motion between skilled and unskilled subjects"). The pads take the ball
+  coming up on its upper outside (`rollCatchDeg`, a little further back on it, `rollBackCatchDeg`), roll in over the top as
+  the hand rides it up (`rollTopDeg`) and push it down from the top (`rollRelDeg`), the wrist snapping `snapDeg` past the
+  palm facing it; off the ball the hand swings back out round the outside (`rollArcH`) to the next catch, the palm turning
+  from the way it faced at the release to the way it will face at the catch. The palm faces the ball: each frame the
+  forearm's turn and the wrist's bend that face it are worked out from the arm as last solved (`_faceBall`, the wrist bent
+  back no further than `faceWrFMinDeg`), and if that brings the forearm into the ball (a ball carried down from the chest)
+  the wrist flexes on until it clears (`_forearmClear`, `faceClearIn`). Running with it the hand stays behind the ball: the
+  catch rolls less (`rollFastDeg`) and the palm keeps more of the old pitch (`faceFastK`); a move from hand to hand is
+  taken as it always was (`rollMoveDeg`) and an in and out's palm on the inside of the ball faces mostly down
+  (`rollInDeg`, `rollInFaceDeg`). `faceBall: false` gives back the old fixed forearm (palm down) and wrist schedule.
+* **Measured** (one real-engine quarter each of seeds 7 and 21 headless, the old code against the new): double dribbles
+  that got through 33 and 25 against 0 (the rule stops the tries; the AI's "dribble when moving" no longer tries a used
+  dribble); moves that sold the man on the ball 0 against 129 and 192; players going up at a carom 5 against 25 and 32
+  (the rebounder's own jumps 4 and 3 against 5 and 6: many caroms still come down far from the engine's rebounder, 13 to
+  22 ft away, and are run down off the floor or caught long); the handler bringing it up 9.3 and 10.2 ft/s against 10.9
+  and 12.2, walking it 21 and 17 % of the way against 16 and 8.5 %; off the ball in the half court 5.0 and 5.4 ft/s against
+  5.5 and 6.1, at a jog or faster 34 and 37 % of the time against 39 and 45 %. The handle audit (`tools/audit/handle.js`,
+  14 scenarios): every contact on the ball, the ball through nobody, no hand or elbow pops but the spin's (fewer than
+  before), on four other random states as well; the gauntlet (`tools/audit/check.js`) 144 of 144.

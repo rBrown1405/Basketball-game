@@ -95,7 +95,9 @@
       // ft/s^2, braking harder than that (players decelerate faster than they accelerate); all scaled by the Player
       // Speed live AI slider, which also scales how fast the director moves them (goalK)
       this.paceK = this.kind === 'ref' ? 1 : paceOf(view);
-      this.goalK = this.kind === 'ref' ? 1 : 1.1 * this.paceK;
+      // (every speed an order asks for, times this: Tune.urgency.baseK, and in a game its goalK, setUrgency)
+      this.urgK = 1;
+      this.goalK = this.kind === 'ref' ? 1 : M.Tune.urgency.baseK * this.paceK;
       this.maxSpeed = this.kind === 'ref' ? 16 : (20 + this.rSpeed * 8) * this.paceK;
       // (Trial 4: a heavier body pushes and turns less for its weight, Tune.weight)
       const TW = M.Tune.weight;
@@ -991,6 +993,16 @@
           if (g.pace && dist > 1) want = Math.max(want, Math.min(g.pace, g.speed));
         }
         want = Math.min(want, this.maxSpeed * 1.08);
+        // the traveling rule (the gameplay pass): his dribble picked up and the ball in his hands, he gets the steps it
+        // takes to stop (Tune.rules: gather steps, a stride or two past the pick-up) and then only pivots; an order to go
+        // somewhere with it is not taken (walking on with it was a travel), a clip's own steps aside (a layup, a jumper)
+        if (this.dribUsed && this.hasBall && !this.clip) {
+          const vb = this.view && this.view.ball, TR = M.Tune.rules;
+          if (vb && vb.holder === this && vb.state === 'held' && (this.time - (this.dribUsedAt || 0) > TR.gatherS || Math.hypot(this.x - (this.dribUsedX == null ? this.x : this.dribUsedX), this.y - (this.dribUsedY == null ? this.y : this.dribUsedY)) > TR.gatherFt)) {
+            if (want > 0.5 && dist > 0.5 && !this._travelHeld) { vb.rules.travelStopped++; this._travelHeld = true; }
+            want = 0; tvx = 0; tvy = 0;
+          } else this._travelHeld = false;
+        }
         if (g.arrive) want = Math.min(want, Math.sqrt(2 * this.decel * (g.mode === 'move' && g.brakeK ? g.brakeK : 0.8) * Math.max(0, dist - 0.05)));
         if (dist < 0.15 && Math.hypot(tvx, tvy) < 0.5) want = 0;
         if (dist > 1e-4) { dvx = dx / dist * want; dvy = dy / dist * want; }
@@ -1021,7 +1033,10 @@
       // how hard a player pushes off depends on how fast he wants to go: a walk starts gently (walking speed within
       // a step or two), a sprint with everything he has (every start used to be a sprinter's push, even into a
       // walk, and the upper body lurched ahead of the legs)
-      const accelNow = Math.min(this.accel, 4.5 + 1.8 * Math.max(Math.hypot(dvx, dvy), spd));
+      // (the harder push of Tune.urgency's starts is for a player on the move; one sliding or backpedalling out of the
+      // defensive stance keeps the gentler one his footwork was built on, Trial 5: pushed harder, a hip popped)
+      const TUr = M.Tune.urgency, stA = A.STANCE[this.stance], hard = this.urgK > 1 && !(stA && stA.slide);
+      const accelNow = Math.min(this.accel, (hard ? TUr.startFtps2 : TUr.slideStartFtps2) + (hard ? TUr.startPerFtps : TUr.slideStartPerFtps) * Math.max(Math.hypot(dvx, dvy), spd));
       // the body is a mass (Trial 4): the push toward the wanted velocity builds up and eases off at a human rate of
       // force development (Tune.weight.jerkFtps3) instead of switching on and off in one step, and eases off as the
       // velocity gets there so it is spent just as it arrives (a little overshoot, then it settles)
@@ -3683,6 +3698,37 @@
         tx = vb.x + s * ix + c * iy; ty = vb.y - c * ix + s * iy; tz = vb.z + iz;
       }
       this.palmMiss = this._palmTo(side, tx, ty, tz, d.ph === 'push' || d.ph === 'ride');
+      // (the palm facing the ball with the wrist bent back can bring the forearm down into it, the ball carried out of the
+      // hands at the chest above all: the wrist flexed on until the forearm clears it, _forearmClear)
+      if (d.face) this._forearmClear(side, tx, ty, tz, vb, d.ph === 'push' || d.ph === 'ride');
+    }
+    /** the dribbling forearm off the ball (a gameplay pass: the palm facing the ball, _faceBall, with the wrist bent back
+     *  brought the forearm ~0.5 in into it as the ball came down from the chest): from the arm as solved, the wrist flexed
+     *  on in steps until the forearm is Tune.handle.faceClearIn clear of the ball (a capsule of Tune.debug.bodyR.forearm),
+     *  the palm put back on its spot each time; the flexion kept for the next frames (this._lift, eased off in _armTargets
+     *  over Tune.handle.faceLiftS) so it is there before the solve */
+    _forearmClear(side, tx, ty, tz, vb, onB) {
+      const TH = M.Tune.handle, P = this.sk.P, p = this.sk.pose, iW = CH[(side ? 'r' : 'l') + 'WrF'];
+      const e = (side ? RG.J.R_EL : RG.J.L_EL) * 3, w = (side ? RG.J.R_WR : RG.J.L_WR) * 3;
+      const need = M.Ball.R + M.Tune.debug.bodyR.forearm * this.H + TH.faceClearIn / 12;
+      const clear = () => {
+        const ax = P[e], ay = P[e + 1], az = P[e + 2], bx = P[w] - ax, by = P[w + 1] - ay, bz = P[w + 2] - az, l2 = bx * bx + by * by + bz * bz;
+        const t = l2 > 1e-9 ? U.clamp(((vb.x - ax) * bx + (vb.y - ay) * by + (vb.z - az) * bz) / l2, 0, 1) : 0;
+        return Math.hypot(vb.x - ax - bx * t, vb.y - ay - by * t, vb.z - az - bz * t);
+      };
+      if (clear() >= need) return;
+      const w0 = p[iW], lift = this._lift || (this._lift = [0, 0]);
+      let best = 0, bestD = -1;
+      for (const dg of TH.faceClearStepsDeg) {
+        p[iW] = w0 + dg * D;
+        this._palmTo(side, tx, ty, tz, onB);
+        const dd = clear();
+        if (dd > bestD) { bestD = dd; best = dg; }
+        if (dd >= need) break;
+      }
+      if (p[iW] !== w0 + best * D) { p[iW] = w0 + best * D; this.palmMiss = this._palmTo(side, tx, ty, tz, onB); }
+      else this.palmMiss = this._palmTo(side, tx, ty, tz, onB);
+      lift[side] = Math.min(TH.faceLiftMaxDeg, lift[side] + best);
     }
     /** one arm's palm onto a spot (Trial 8): the arm's IK target is the wrist and the palm is most of a hand's length on,
      *  turned with the forearm, so the wrist is solved for: damped Newton steps on that arm alone (its 3x3 Jacobian by
@@ -4226,6 +4272,39 @@
       return d;
     }
 
+    /** in a game (Director.start), the urgency of the gameplay pass: every order's speed goes Tune.urgency.goalK instead of
+     *  baseK times what it asks, and a start pushes off harder (startFtps2, startPerFtps). The labs and the audits' scripted
+     *  bodies keep the old pace their scenarios were built on */
+    setUrgency(on) {
+      if (this.kind === 'ref') return;
+      const TU = M.Tune.urgency;
+      this.urgK = on ? TU.goalK / TU.baseK : 1;
+      this.goalK = TU.baseK * this.paceK * this.urgK;
+    }
+    /** the forearm's turn and the wrist's bend (rad; out[0], out[1]) that face this arm's palm the way n (world, unit: the
+     *  dribble's plan, Ball._dribble) or else from (px, py, pz) toward the ball's centre, from the arm as last solved (the
+     *  upper arm's frame and the forearm's long axis: neither moves with the turn or the bend); out[2] how well they are
+     *  defined (0 for a palm to face straight along the forearm, 1 well off it). False with no way to face */
+    _faceBall(side, px, py, pz, vb, out, n) {
+      const Rm = this.sk.R, ua = (side ? RG.F.R_UA : RG.F.L_UA) * 9, fa = ua + 9;
+      let nx = n ? n[0] : vb.x - px, ny = n ? n[1] : vb.y - py, nz = n ? n[2] : vb.z - pz;
+      const nl = Math.hypot(nx, ny, nz);
+      if (!(nl > 1e-4)) return false;
+      nx /= nl; ny /= nl; nz /= nl;
+      // (the forearm's frame before its turn: x, the upper arm's, which the elbow's hinge leaves alone; z, the forearm's
+      // own axis; y = z cross x; the palm faces +y turned about z by the turn, then about x by the bend)
+      const ax = Rm[ua], ay = Rm[ua + 3], az = Rm[ua + 6], cx = Rm[fa + 2], cy = Rm[fa + 5], cz = Rm[fa + 8];
+      const bx = cy * az - cz * ay, by = cz * ax - cx * az, bz = cx * ay - cy * ax;
+      const lx = ax * nx + ay * ny + az * nz, ly = bx * nx + by * ny + bz * nz, lz = cx * nx + cy * ny + cz * nz;
+      let pro = (side ? 1 : -1) * Math.atan2(-lx, ly);
+      // (the way round nearer its range, -14 to 168 deg)
+      if (pro < -1.8) pro += 2 * Math.PI;
+      // (the wrist bent back no further than Tune.handle.faceWrFMinDeg for it: a low catch with the forearm pointing down wanted
+      // it bent back to its limit, and a palm held there jolted as the ride took the ball up)
+      out[0] = pro; out[1] = Math.max(M.Tune.handle.faceWrFMinDeg * U.DEG, Math.asin(U.clamp(lz, -1, 1))); out[2] = U.smooth((Math.hypot(lx, ly) - 0.15) / 0.25);
+      return true;
+    }
+
     _armTargets(dtI) {
       const sk = this.sk, H = this.H;
       const grip = this._grip || (this._grip = [0, 0]);
@@ -4273,9 +4352,17 @@
           ik.x += s * hw[0] + c * hw[1]; ik.y += -c * hw[0] + s * hw[1]; ik.z += hw[2];
         }
         const pp = this.pose;
-        pp[CH[pre + 'WrF']] = U.lerp(pp[CH[pre + 'WrF']], (d.wrF || 0) * D, wAll);
-        pp[CH[pre + 'Pro']] = U.lerp(pp[CH[pre + 'Pro']], 150 * D, wAll);
-        pp[CH[pre + 'WrD']] = U.lerp(pp[CH[pre + 'WrD']], 8 * D, wAll);
+        // the palm facing the ball (d.face, Tune.handle.faceBall): the forearm's turn and the wrist's bend that face it from
+        // its spot, the wrist then flexed d.wrX past that (the push's snap); as the spot rolls in over the top of the ball
+        // the forearm turns in with it (_faceBall). Else the old fixed turn, palm down
+        let wrF = (d.wrF || 0) * D, pro = 150 * D;
+        // (and flexed on what the forearm needed to clear the ball, _forearmClear, easing off)
+        const lift = this._lift || (this._lift = [0, 0]);
+        if (dtI > 0) { const k = Math.exp(-dtI / M.Tune.handle.faceLiftS); lift[0] *= k; lift[1] *= k; }
+        if (d.face && this._faceBall(hand, d.wx, d.wy, d.wz, vb, FB, d.pn)) { const k = FB[2] * d.face; pro = U.lerp(pro, FB[0], k); wrF = U.lerp(wrF, FB[1] + ((d.wrX || 0) + lift[hand]) * D, k); }
+        pp[CH[pre + 'WrF']] = U.lerp(pp[CH[pre + 'WrF']], wrF, wAll);
+        pp[CH[pre + 'Pro']] = U.lerp(pp[CH[pre + 'Pro']], pro, wAll);
+        pp[CH[pre + 'WrD']] = U.lerp(pp[CH[pre + 'WrD']], (d.face ? M.Tune.handle.faceWrD : 8) * D, wAll);
         pp[CH[pre + 'Fing']] = U.lerp(pp[CH[pre + 'Fing']], d.fing != null ? d.fing : 0.12, wAll);
         // a move from hand to hand (crossover, between the legs, behind the back), the other hand (d.aux): reaching for the
         // catch while this one still pushes the ball, or letting go of it over the flight after (Trial 8)
@@ -4329,9 +4416,11 @@
           }
           // (the dribbling hand's shape, but not for a hand letting go of a hold, wrF null: that keeps its own)
           if (rv.wrF != null) {
-            pp[CH[rp + 'WrF']] = U.lerp(pp[CH[rp + 'WrF']], rv.wrF * D, rAct);
-            pp[CH[rp + 'Pro']] = U.lerp(pp[CH[rp + 'Pro']], 150 * D, rAct);
-            pp[CH[rp + 'WrD']] = U.lerp(pp[CH[rp + 'WrD']], 8 * D, rAct);
+            let wrR = rv.wrF * D, proR = 150 * D;
+            if (rv.face && this._faceBall(rh, rv.x, rv.y, rv.z, vb, FB, rv.pn)) { const k = FB[2] * rv.face; proR = U.lerp(proR, FB[0], k); wrR = U.lerp(wrR, FB[1] + (rv.wrX || 0) * D, k); }
+            pp[CH[rp + 'WrF']] = U.lerp(pp[CH[rp + 'WrF']], wrR, rAct);
+            pp[CH[rp + 'Pro']] = U.lerp(pp[CH[rp + 'Pro']], proR, rAct);
+            pp[CH[rp + 'WrD']] = U.lerp(pp[CH[rp + 'WrD']], (rv.face ? M.Tune.handle.faceWrD : 8) * D, rAct);
             pp[CH[rp + 'Fing']] = U.lerp(pp[CH[rp + 'Fing']], 0.12, rAct);
           }
         }
@@ -4708,6 +4797,8 @@
   const DRIB_STANCES = new Set(['dribble', 'postUp', 'triple']);
   // dribbling elbow swivel: behind the elbow with a small outward bias (x = outward, y = forward, z = up)
   const DRIB_POLE = [0.28, -0.85, -0.45];
+  // (_faceBall's answer: the forearm's turn, the wrist's bend, how well defined)
+  const FB = [0, 0, 0];
   // the off arm's bar against a reach: the elbow down and a little out
   const BAR_POLE = [0.45, -0.1, -0.9];
   // the stagger for moves between the legs standing (H): the lead foot this far forward, the other this far back

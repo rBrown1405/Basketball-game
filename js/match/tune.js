@@ -401,14 +401,18 @@
       // the natural mean for the shot's distance, 1/distK x to distK x), the one the rebounder can get to, as near the natural
       // as can be
       coneDeg: 70, distK: 2.2,
-      caromT: [0.45, 0.03, 0.9, 0.08], // its time from the rim to the take: between [0] + [1] x its distance (ft) and [2] + [3] x (s)
+      caromT: [0.45, 0.03, 0.98, 0.085], // its time from the rim to the take: between [0] + [1] x its distance (ft) and [2] + [3] x (s)
       caromSpeedK: [0.2, 0.75],     // its speed off the rim between these shares of the speed the shot came in with, and no
       caromUpFt: 5,                 // higher than this over where it came off
-      longFt: 9,                    // a carom this far from the rim is a long one: run to it and caught on the way down
+      longFt: 10.5,                 // a carom this far from the rim is a long one: run to it and caught on the way down
       longTakeH: 0.72,              // ...at the chest (heights; the catch clip's ball)
-      highFt: 7,                    // a carom nearer than this with a man of the other side within contestFt of it is taken at
-      contestFt: 7,                 // the top of a full jump, two hands high; the rest with a smaller one (midJumpFt)
-      midJumpFt: 0.6,
+      highFt: 10,                   // a carom nearer than this with a man of the other side within contestFt of it is taken at
+      contestFt: 10,                // the top of a full jump, two hands high; the rest with a smaller one, still a real jump
+      midJumpFt: 1.3,               // (midJumpFt: they go up for it, not a hop; a gameplay pass, the boards had ~3 jumps in 25)
+      contestUpFt: 8,               // the nearest of the other side within this of where it comes down goes up with them this
+      contestUpP: 0.9,              // often, and the next nearest this often (a crowd going up for it)
+      contestUp2P: 0.5,
+      crowdFt: 9, crowdMax: 2, crowdP: 0.65, // the crowd under the rim goes up for it too (choreo chaseCarom)
       runK: 0.8,                    // after it: a run at this share of top speed (braking first what they have going the other
       runStartS: 0.1,               // way), its first runStartS to get going...
       travelFt: 4,                  // ...and up to this far in the jump itself (a running jump: the push off the floor over
@@ -663,6 +667,34 @@
       retreatLow: 0.6,              // ...the ball this low (0 hip, 1 knee), beside the back knee
       fingSpread: 0.04, fingSnap: 0.24, fingRest: 0.1, // the dribbling fingers' curl (0 open, 1 fist): spread to take the
                                     // ball, snapped down through the push with the wrist, easing off after the release
+      // the palm goes round the ball, the forearm turning in with it (not a paddle going straight up and down: skilled
+      // dribblers keep the ball in the hand longer with the forearm's turn and the shoulder's, ISBS 2008, "hand-dribbling
+      // motion between skilled and unskilled subjects"; coaching: finger pads on the ball, the hand cupped, the wrist
+      // going down with it)
+      rollCatchDeg: 62,             // the pads take the ball coming up on its upper outside, this far round from the top (deg)...
+      rollInDeg: 30,                // (an in and out's, taken on the inside of the ball: this far round, the other way, the palm
+      rollInFaceDeg: 8,             // facing no further round than this there)
+      rollMoveDeg: 18,              // (a move from hand to hand's, the other hand taking it: this far round, as it always was)
+      rollFastDeg: 26, rollFastFrom: 8, rollFastTo: 17, // (running with it, the hand behind the ball: taken this far round at
+                                    // rollFastTo ft/s and on, eased from rollCatchDeg at rollFastFrom; the catch out on the side
+                                    // had the arm straight at a sprint and the ride jolted)
+      rollTopDeg: 18,               // ...roll in over it as the hand rides it up, this far round at the top of the ride...
+      rollRelDeg: 2,                // ...and push it down from the top, this far round at the release (deg)
+      rollBackCatchDeg: 28, rollBackTopDeg: 16.3, rollBackRelDeg: 6, // ...and back from the top of the ball this far, where
+                                    // it is taken, at the top of the ride, at the release (deg)
+      rollArcH: 0.045,               // off the ball the hand swings back out round the outside to the next catch, this far out
+                                    // past the straight way there (H)
+      snapDeg: 38,                  // the wrist flexes this much past the palm facing the ball by the release (deg), easing back
+                                    // over the flight; the palm faces the ball otherwise (its forearm turn and wrist bend
+                                    // worked out from the arm every frame)
+      faceBall: true,               // false: the old fixed forearm turn (palm down, 150 deg) and wrist schedule
+      faceClearIn: 0.1,             // ...the forearm kept this clear of the ball (in), the wrist flexed on in these steps (deg)
+      faceClearStepsDeg: [5, 10, 16, 24, 34], // until it is (_forearmClear), and that kept for the next frames, easing off over
+      faceLiftS: 0.12, faceLiftMaxDeg: 40, // faceLiftS (s), this much at most (deg)
+      faceFastK: 0.6,               // ...running with it (rollFastFrom to rollFastTo ft/s) this much less of it...
+      faceMoveK: 0.35,              // ...and a move from hand to hand only this much of it through its flight
+      faceWrFMinDeg: -50,           // ...the wrist bent back no further than this for it (deg; its range goes to -75)
+      faceWrD: 25,                   // ...the dribbling wrist turned this far toward the thumb (deg): the fingers pointing on ahead
       moveSyncK: 0.4,               // moving, a move's period is stretched or shortened by up to this share to put its bounce
                                     // on a footfall
       dribWS: 0.05,                 // a dribbling arm's IK weight moves at most a whole in this long (s; other arms 0.12 s)
@@ -770,6 +802,53 @@
       swingFixGain: 1.5,            // ...each lifting it this many times its depth
       swingMinClearFt: 0.08,        // every swinging foot's lowest point clears the floor by this at mid-swing (ft, ~1 in;
                                     // sin^2 over the swing); people clear it by ~1.3 cm at the lowest point of a swing
+    },
+
+    // ---------------------------------------------------------------- urgency (the gameplay pass: everyone moved slowly)
+    // Off the ball the game averaged 5.5 ft/s with 35% of the time at a jog or faster, against ~6.5 ft/s (4.3-4.6 mph)
+    // in the NBA's tracking; the ball was walked up the floor at the 7 ft/s floor between walking and jogging (the NBA
+    // brings it over half court in ~4-5 s, a jog); every start eased in like a walk.
+    urgency: {
+      baseK: 1.1,                   // every speed an order asks for goes this much quicker (the labs' and audits' bodies)...
+      goalK: 1.22,                  // ...and in a game this much (was 1.1; Actor.setUrgency), at the Player Speed slider's 50 (it
+                                    // scales these on)
+      startFtps2: 6.5,              // the push off into a move is this hard at least (ft/s^2)...
+      startPerFtps: 2.3,            // ...and this much more per ft/s of the speed wanted, up to his acceleration (was 4.5 +
+                                    // 1.8 v: a first step into a jog pushed like a stroll)
+      slideStartFtps2: 4.5, slideStartPerFtps: 1.8, // (out of the defensive stance, a slide or a backpedal, and the labs'
+                                    // bodies: as it was)
+      advanceFtps: 10.5,            // a walked-up ball comes up the floor at least this fast (ft/s, before goalK: ~13 ft/s, a
+                                    // jog), on to the top of the key where the handler sets it up (it used to be timed to the
+                                    // engine's crossing, crept up at 7 ft/s and waited at half court)
+      advanceTopU: 27,              // ...there, this far from the baseline he attacks at least (ft; the top spot or further out)
+      offHoldK: 0.5,                // off the ball in the half court the holds between a player's cuts, lifts and relocations
+                                    // are this share of what they were (~1-3 s standing between small shuffles)...
+      offMoveK: 1.35,               // ...and the moves themselves this much longer (a v-cut 5-9 ft, a relocation 2-5 ft)
+    },
+
+    // ---------------------------------------------------------------- shifty handlers (the gameplay pass: the man on the ball
+    // mirrored the handler with no delay and no move made space). How good the handler is against him (Director.shiftyK: his
+    // handle and quickness against the defender's perimeter defense, quickness and head) sets each of these between its ends
+    shifty: {
+      lagS: [0.05, 0.2],            // he follows the handler this far behind (s, a reaction; less for a sharp defender, defIQ)
+      nearFt: 9,                    // a move sells the man on the ball within this of the handler...
+      biteFt: [0.6, 2.8],           // ...pulling him this far the way it sells (ft)...
+      biteS: [0.3, 0.65],           // ...for this long (s): a crossover, between the legs or behind the back the side the ball
+                                    // is leaving, an in and out the other side, a spin the way he was going
+      hesiFt: [0.5, 1.8], hesiS: [0.3, 0.6], // a hesitation stands him up: he gives this much ground (ft) for this long (s)
+      readP: 0.35,                  // a defender as good as the handler reads it and does not bite this often (none for one much worse)
+      moveP: [0.45, 0.9],           // a probe's turn, the handler works a move this often (by his handle)...
+      restK: [1.25, 0.55],          // ...and rests between probes this share of his offense's rest (a shifty guard keeps at it)
+      probeFtps: 13,                // a probe's attack goes this fast (ft/s before the pace factor; was 11), its retreat
+      retreatFtps: 9, swingFtps: 11, // this fast (was 6.5) and a change of sides this fast (was 8.5)
+    },
+
+    // ---------------------------------------------------------------- the rules the players know (the gameplay pass)
+    rules: {
+      gatherS: 0.5,                 // his dribble picked up, a player gets this long (s)...
+      gatherFt: 5,                  // ...or this far past where he picked it up (ft), whichever comes first, to stop: the
+                                    // gather and two steps; then he only pivots until he passes or shoots (a walk with a held
+                                    // ball is a travel). A dribble he has ended is never started again (Ball.dribble)
     },
 
     // ---------------------------------------------------------------- body segment masses (center of mass)
