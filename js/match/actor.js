@@ -530,6 +530,9 @@
       if (h && h.t < 0.2 && h.s >= s) return;
       // (how much it shows: a brush barely, a real collision clearly; up to ~0.5 ft off his line)
       const air = (this.jumpZ || 0) > 0.15;
+      // (a knock still under way plays out under the new one: taken over outright, its push stopped in one step, a jump in
+      // the body's speed, and the lean it gave went in one frame)
+      if (h && h.t < 0.6) { const o = this._hitsOld || (this._hitsOld = []); o.push(h); if (o.length > 3) o.shift(); }
       this.hit = { nx, ny, s, k: U.smooth((s - 2.5) / 7), t: 0, air };
       // knocked hard enough, he has to catch his balance: a quick step the way he was pushed (in the air, when he
       // comes down)
@@ -921,27 +924,26 @@
       if (this._retreatWait && !(this.dribble && (this.dribble.ph === 'down' || this.dribble.ph === 'up'))) { const o = this._retreatWait; this._retreatWait = null; this.retreat(o); }
       // (the speed a knock's push gave the body last step, for a move starting this step to carry on from, see _updateClip)
       this._hitPrevVx = this._hitVx || 0; this._hitPrevVy = this._hitVy || 0;
-      const hit = this.hit;
-      if (hit) {
-        const t0 = hit.t;
-        hit.t += dt;
-        if (hit.t > 0.6) this.hit = null;
-        else {
-          // knocked off his line: up to ~0.5 ft over Tune.weight.hitPushS, the push building up and easing off
-          // (smootherstep: no jump in speed; before, the whole knock started at full speed in one step, Trial 4)
-          const T = M.Tune.weight.hitPushS, S = (u) => { u = U.clamp(u, 0, 1); return u * u * u * (u * (u * 6 - 15) + 10); };
-          const push = hit.k * 0.5 * (S(hit.t / T) - S(t0 / T));
-          if (this.clip) { this.clip.ox += hit.nx * push; this.clip.oy += hit.ny * push; }
-          else { this.x += hit.nx * push; this.y += hit.ny * push; }
-          // (its speed, for a move starting now to carry on from: see _updateClip)
-          this._hitVx = !this.clip && dt > 0 ? hit.nx * push / dt : 0; this._hitVy = !this.clip && dt > 0 ? hit.ny * push / dt : 0;
-          // (the push's own acceleration this step comes out of what the steering may use, Actor._steer: on top of a
-          // full push of his own it made ~65 ft/s^2)
-          this._hitA = dt > 0 ? Math.abs(push - (hit.lastPush || 0)) / (dt * dt) : 0;
-          hit.lastPush = push;
-        }
+      if (this.hit || (this._hitsOld && this._hitsOld.length)) {
+        // knocked off his line: up to ~0.5 ft over Tune.weight.hitPushS, the push building up and easing off
+        // (smootherstep: no jump in speed; before, the whole knock started at full speed in one step, Trial 4), a knock
+        // taken over by a new one still playing out under it
+        const T = M.Tune.weight.hitPushS, S = (u) => { u = U.clamp(u, 0, 1); return u * u * u * (u * (u * 6 - 15) + 10); };
+        let px = 0, py = 0;
+        const step = (hit) => { const t0 = hit.t; hit.t += dt; const push = hit.k * 0.5 * (S(hit.t / T) - S(t0 / T)); px += hit.nx * push; py += hit.ny * push; return hit.t <= 0.6; };
+        if (this._hitsOld) this._hitsOld = this._hitsOld.filter(step);
+        if (this.hit && !step(this.hit)) this.hit = null;
+        if (this.clip) { this.clip.ox += px; this.clip.oy += py; }
+        else { this.x += px; this.y += py; }
+        // (its speed, for a move starting now to carry on from: see _updateClip)
+        this._hitVx = !this.clip && dt > 0 ? px / dt : 0; this._hitVy = !this.clip && dt > 0 ? py / dt : 0;
+        // (the push's own acceleration this step comes out of what the steering may use, Actor._steer: on top of a
+        // full push of his own it made ~65 ft/s^2)
+        const lp = this._hitLastP || [0, 0];
+        this._hitA = dt > 0 ? Math.hypot(px - lp[0], py - lp[1]) / (dt * dt) : 0;
+        this._hitLastP = [px, py];
       }
-      if (!this.hit) { this._hitA = 0; this._hitVx = 0; this._hitVy = 0; }
+      if (!this.hit && !(this._hitsOld && this._hitsOld.length)) { this._hitA = 0; this._hitVx = 0; this._hitVy = 0; this._hitLastP = null; }
       // (a move that moves and turns the body this step: the steering takes over next step, or the body moved and
       // turned twice in one step, a jump in its speed and its turn; a move that ends before it moves the body, its
       // fade done, leaves this step to the steering, or the body stood still for a step, Trial 4)
@@ -3305,8 +3307,8 @@
       // the head gets there at a human pace
       this._applyLook(p);
       // 5b. knocked off balance by a contact: the torso goes with the push, the head lags, the arms come out
-      const hit = this.hit;
-      if (hit) {
+      const hits = this._hitsOld && this._hitsOld.length ? this._hitsOld.concat(this.hit ? [this.hit] : []) : this.hit ? [this.hit] : null;
+      if (hits) for (const hit of hits) {
         const a = hit.t < 0.07 ? hit.t / 0.07 : Math.exp(-(hit.t - 0.07) / 0.18);
         const k = hit.k * a;
         const c = Math.cos(this.facing), sn = Math.sin(this.facing);

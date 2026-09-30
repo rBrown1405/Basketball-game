@@ -683,3 +683,73 @@ balls: Hoop Tactics on loose ball recovery, Coach's Clipboard on hustle. The con
 courtside report. Post moves: Basketball For Coaches (post moves, the drop step, the dream shake), Breakthrough Basketball
 (the drop step, power post moves), Hooper University (five post moves), Coach's Clipboard (post play), Jr. NBA (the drop
 step layup with a defender), the NBPA's post moves with Bam Adebayo.
+
+## Quicker decisions: the ball does not sit
+
+Asked for by the user: the players have to make every decision faster (take the shot, drive, pass, the layup, the dunk).
+Measured first: on the court the catch already went straight into the next thing (0.4-0.5 s from the catch to his first
+action, the median 0.07 s); the waiting was in the engine's timelines, which the court plays. After the ball came up the
+floor the handler stood with it 4.3 s on average (9.3 s at the 90th percentile) before anything happened, a called play's
+steps were stretched out to fill the time to the shot, and a pass came 5.5 s after the catch on average: 1.9 passes a
+possession, 4.9 s a touch (NBA tracking has ~2.8 s a touch across the league, the 2014-15 Warriors' 2.4 s the quickest,
+and 270-330 passes a game, about 3 a possession).
+
+* **Quick touches** (`flowTouches` in `sim.js`, `Sim.K.flow*`): the time between the ball coming up and the play, and the
+  time a play would otherwise be stretched over, is played the way "0.5" teams play it (catch, read, and in about half a
+  second shoot, drive or move it on): the ball goes from man to man, each touch 1.0-2.1 s from the release of the pass
+  before (so ~0.5-1.5 s in his hands; the Shoot When Open slider makes them quicker still), the perimeter first, the bigs
+  less, rarely straight back to the man who just passed it; now and then (`flowDriveP`, x how much of a driver he is) a
+  hard drive at the gap and the kick out of it. The chain ends with the ball in the hands of the man the play starts with,
+  as the play is called. With room for one touch only and the ball already his, the handler attacks his man with a move
+  (a hesitation, a crossover, a drive) instead of standing. The first read comes 0.15-0.5 s after the ball is up
+  (`flowLeadS`).
+* **Plays at their own speed** (`Sim.K.playStretch`, `playCallS`, `spanMax`): a called play's steps are never stretched past
+  0.9 x their drawn length (1.25 before), the call comes 1.4 s before its first step (1.8), and a generated play takes at
+  most 4-5 s from its call to its shot; the time before it is the quick touches'.
+* **Before turnovers too**: a possession that ends in a turnover moves the ball the same way before it, the ball ending with
+  the man who loses it (after a reset, from where the new action starts, so the events stay in time order).
+* **Only the live game**: the quick touches are events for the court; the engine draws the shot's time, its kind, the
+  contest and the result as before, and the season's simulated games (no events) never run them, so the league's numbers
+  do not move.
+* **A second knock** (`Actor.impact`): a body knocked again while the first knock still pushed it had that push stopped in
+  one step (a jump in his speed, the lean gone in a frame; the quicker ball movement brought one into the gauntlet's first
+  minute). The knock under way now plays out under the new one, its push and its lean.
+
+### Measured (this pass)
+
+* **The engine** (16 games, the same seeds before and after): a touch (the catch to the ball leaving his hands) 4.9 s on
+  average before, 2.9 s now (the median 2.9 to 1.8 s, the 90th percentile 12.7 to 6.6 s); a touch that ends in a pass 5.5
+  to 3.0 s (the median 3.9 to 1.9 s); a touch that ends in a shot, the median 1.2 to 0.6 s. The wait after the ball comes up
+  4.3 to 1.9 s (the 90th percentile 9.3 to 2.8 s). Passes a possession 1.9 to 3.9 (touches 3.0 to 5.0), a little more
+  than the NBA's most passing teams. The time to the shot is drawn as before (14.7 s and 14.5 s over the 16 games).
+* **The court** (a quarter each of two games): a touch 3.9 s on average before, 2.5 s now (the median 2.4 to 1.65 s, the
+  90th percentile 9.6 to 6.0 s); a touch that ends in a pass 4.4 to 2.6 s (the median 3.0 to 1.7 s). The catch to his
+  first action stays 0.4-0.5 s on average. A touch that ends in a shot is now 1.4-2.1 s at the median (0.8-1.2 s before):
+  more of the shots come from the man the play is run for, who gets the ball as it is called and runs it (a pick and roll,
+  an isolation) instead of having held it since the ball came up; a catch and shoot is as quick as before (0.5 s at the
+  10th percentile).
+* **Keeping up**: the court plays 86% of the passes in the time the engine gives them (80% before; the rest 0.75 s over, as
+  before). The call of a play, now right after the last quick pass is caught, runs 0.35 s over on average while the players
+  go to their spots; over a quarter the court needs about 2% longer than before.
+* **Event order**: in four games (844 possessions) every possession's events are in time order but two heaves at the end
+  of a quarter (their time drawn ahead of an outlet or an advance, as before this pass).
+* **The gauntlet**: 152/152.
+
+### Limitations (this pass)
+
+* The quick touches are the court's picture of the possession: the engine does not count them (no assists or turnovers
+  come of them, the box score's passes are not tracked) and the shot's openness is drawn as before, not from how the ball
+  moved.
+* The ball moves a little more than in the NBA (3.9 passes a possession against ~3): quicker decisions in the same length
+  of possession mean more passes.
+* The call of a play comes as the last quick pass is caught, so the players walk to their spots while it starts (the
+  0.35 s above).
+
+### Sources
+
+The "0.5" rule (shoot, drive or pass within half a second of the catch): PGC Basketball (pass it or shoot it), KU Sports on
+Bill Self's point-five approach, Hooper University (playing point five basketball). Touch time: NBA player tracking
+(Wikipedia; NBA.com's touch time splits), Sheridan Hoops on the 2014-15 Warriors (2.39 s a touch, the league's lowest),
+Coaching Toolbox on shooting by touch time (an effective field goal percentage of .54 under 2 s against .44 for 2-6 s),
+Frontiers in Psychology (touch time and shooting success). Passes a game: PerThirtySix team passing (2024). The release:
+the Spalding smart basketball (why release time matters). Pace: inpredictable.

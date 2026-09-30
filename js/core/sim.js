@@ -19,6 +19,16 @@
     // free throw, a turnover, a steal or a block, and how quickly it settles back to where he came in (s of his minutes)
     confMake: 0.14, confFtMake: 0.1, confUse: 0.22, confShot: 0.42, confFt: 0.14, confTo: 0.07, confStl: 0.05, confBlk: 0.05,
     confTau: 360, confCarry: 0.35,
+    // the ball does not sit (the user: "the players need to make all decisions faster"; the "0.5" game: catch, read, and in
+    // about half a second shoot, drive or move it on): the time between the ball coming up the floor and the play, and the
+    // time a play would otherwise be stretched over, is played as quick touches of flowTouchS each (s, from the release of
+    // the pass before; the Shoot When Open slider quickens them), a quick drive and kick in flowDriveP of them (x how much
+    // of a driver he is), the first read flowLeadS after the ball is up; only when there is flowMinS of room. A called
+    // play's steps at most playStretch x their drawn length (was 1.25), called playCallS before its first step (was 1.8), a
+    // generated play at most spanMax s from its call to its shot. Live games only: the events are the court's, the results
+    // and the season's numbers are not touched
+    flowTouchS: [1.0, 2.1], flowMinS: 1.5, flowLeadS: [0.15, 0.5], flowDriveP: 0.2, playStretch: 0.9, playCallS: 1.4,
+    spanMax: { pnr: 4.5, iso: 4.5, post: 4.5, spot: 4, offscreen: 5, handoff: 4.5, cut: 4 },
   };
   Sim.debug = null;
   Sim.debugConf = null; // ([sum, n, sum of squares] of the shooters' confidence as they shoot, when set)
@@ -1439,12 +1449,53 @@
     let dSum = 0;
     for (let k = 0; k <= k1; k++) dSum += play.steps[k].d;
     const room = Math.max(0.2, tEnd - t0 - 0.9);
-    const s = U.clamp(room / dSum, 0.2, 1.25);
+    const s = U.clamp(room / dSum, 0.2, Sim.K.playStretch);
     const tStart = Math.max(t0 + 0.2, tEnd - dSum * s);
     const T = [];
     let acc = tStart;
     for (let k = 0; k <= k1; k++) { T.push(acc); acc += play.steps[k].d * s; }
-    return { s, T, tStart, tEnd: acc, tSet: Math.max(t0 + 0.05, tStart - 1.8) };
+    return { s, T, tStart, tEnd: acc, tSet: Math.max(t0 + 0.05, tStart - Sim.K.playCallS) };
+  }
+  /**
+   * Quick touches (Sim.K.flow*): from `from` at tFrom, the ball moved on from man to man, each catch read and the ball
+   * passed on within a touch (now and then a hard drive at the gap and the kick out of it), ending with the ball in `to`'s
+   * hands at tTo. The perimeter gets it first, the bigs less, and rarely straight back to the man who just passed it.
+   * Live games only; returns who has the ball after (`from` when there is not the room).
+   */
+  function flowTouches(ctx, from, tFrom, tTo, to) {
+    const g = ctx.g, O = ctx.O, idx = O.idx, K = Sim.K;
+    if (g.lite || !from || !to || O.on.length < 2) return from;
+    const room = tTo - tFrom;
+    if (!(room >= K.flowMinS)) return from;
+    const quick = (g.sl && g.sl.quick) || 1;
+    const lo = K.flowTouchS[0] / quick, hi = K.flowTouchS[1] / quick;
+    let n = Math.max(1, Math.floor(room / ((lo + hi) / 2)));
+    // (the ball has to end with `to`: from him and back to him takes two; with the room for one only, he keeps it and
+    // attacks his man with a move instead of standing with it)
+    if (to === from && n < 2) {
+      evAt(ctx, U.round(tFrom + room * U.range(0.25, 0.5), 2), 'move', { player: from.id, move: U.pick(['hesi', 'crossover', 'hesi', 'drive']), team: idx });
+      return from;
+    }
+    const lens = [];
+    let sum = 0;
+    for (let i = 0; i < n; i++) { const d = U.range(lo, hi); lens.push(d); sum += d; }
+    const k = room / sum;
+    const W = (c, h, prev) => c === h ? 0 : (c.posN <= 3 ? 1 : c.posN === 4 ? 0.55 : 0.3) * (c === prev ? 0.35 : 1);
+    let h = from, prev = null, t = tFrom, drove = false;
+    for (let i = 0; i < n; i++) {
+      const last = i === n - 1;
+      // (the man before the last pass is not `to` himself: the last pass goes to him)
+      const r = last ? to : U.pickW(O.on, c => W(c, h, prev) * (i === n - 2 && c === to ? 0 : 1));
+      const dur = lens[i] * k;
+      if (!r || r === h) { t += dur; continue; }
+      // a hard drive at the gap and the kick out of it, by a man who can put it on the floor
+      const dk = h.posN >= 4 ? 0.25 : U.clamp(((h.r.handle + h.r.speed) / 2 - 50) / 30, 0.2, 1);
+      drove = !last && dur > 1.1 && U.chance(K.flowDriveP * dk);
+      if (drove) evAt(ctx, U.round(t + dur * 0.3, 2), 'move', { player: h.id, move: 'drive', team: idx });
+      evAt(ctx, U.round(t + dur, 2), 'pass', { from: h.id, to: r.id, kind: drove ? 'kick' : 'swing', team: idx });
+      prev = h; h = r; t += dur;
+    }
+    return h;
   }
   const EV_FRAC = { move: 0.3, pass: 0.45, handoff: 0.6, screen: 0.6 };
   const KICKS = { kick: 1 };
@@ -1475,6 +1526,12 @@
     let holder = ctx.handler;
     const tSet = U.round(Math.min(tl.tSet, cut - 0.1), 2);
     if (tSet < pb.t0) return holder;
+    // (the time before the call is played as quick touches, the ball ending with the man the play starts with, as the call
+    // comes; before a turnover or a foul too, when the play gets that far)
+    if (first) {
+      const tf = Math.max(pb.t0, ctx.advT || 0) + U.range(Sim.K.flowLeadS[0], Sim.K.flowLeadS[1]);
+      holder = flowTouches(ctx, holder, tf, Math.min(tSet - 0.1, cut - 0.4), first);
+    }
     evAt(ctx, tSet, 'set', {
       play: info.play, setName: info.setName, handler: first ? first.id : holder.id, screener: info.screener ? info.screener.id : undefined, target: sh ? sh.id : undefined, team: idx,
       pb: { id: play.id, name: play.name, side: pb.side, roles: ids, align, cov: rx ? rx.cov : PBC.PlayCall.coverage(ctx.D), opt: o ? { label: o.label, at: o.at, i: play.opts.indexOf(o), read: pb.rec.read } : null, last: play.last, why: pb.rec.why, user: pb.rec.user ? true : undefined },
@@ -1912,10 +1969,18 @@
     const g = ctx.g;
     if (g.lite) return;
     const O = ctx.O, idx = O.idx;
-    const t0 = Math.max(ctx.t, ctx.advT);
+    let t0 = Math.max(ctx.t, ctx.advT);
+    const handler = info.handler || ctx.handler;
+    // (the play itself at most spanMax from its call to its shot: the time before it is played as quick touches, the ball
+    // ending with the man the play is run for as it is called; a transition or a putback is its own quick thing)
+    const sMax = Sim.K.spanMax[info.play];
+    if (sMax && tShot - t0 > sMax + Sim.K.flowMinS && handler && ctx.handler) {
+      const tf = t0 + U.range(Sim.K.flowLeadS[0], Sim.K.flowLeadS[1]), tp = tShot - sMax;
+      const h = flowTouches(ctx, ctx.handler, tf, tp - 0.1, handler);
+      if (h === handler) t0 = tp;
+    }
     const span = Math.max(0.3, tShot - t0);
     const at = f => U.round(t0 + span * f, 2);
-    const handler = info.handler || ctx.handler;
     const setEv = f => evAt(ctx, at(f), 'set', { play: info.play, setName: info.setName, handler: handler.id, screener: info.screener ? info.screener.id : undefined, target: plan.shooter.id, team: idx });
     // the last pass reaches the shooter later with a quicker trigger (Shoot When Open slider): he catches and lets it
     // fly instead of holding it while the defense recovers (timing only, the shot itself is already decided)
@@ -2475,6 +2540,8 @@
   }
   function turnover(ctx, info, t, forceKind) {
     const g = ctx.g, O = ctx.O, D = ctx.D;
+    // (where this part of the possession began: after a reset, the play before it already has its events up to here)
+    const tSeg = Math.max(ctx.t, ctx.advT || 0);
     ctx.t = Math.min(t, g.clock);
     // (offensive three seconds: ~0.07 per team per game in recent seasons, about 0.5% of turnovers)
     const kinds = { bad_pass: 40, lost_ball: 33, offensive_foul: 11, travel: 7, out_of_bounds: 5, shot_clock: 2.5, three_seconds: 0.5 };
@@ -2503,7 +2570,11 @@
       r.tok = kind; r.toScr = kind === 'offensive_foul' && !!who && who === info.screener; r.passStep = pbPassStep(info.pb.play, r.step);
     }
     else if (info.play && !info.noSet && info.play !== 'transition' && info.play !== 'putback' && !g.lite && ctx.t - Math.max(ctx.t, ctx.advT) >= 0) {
-      if (ctx.t - ctx.advT > 1.5) evAt(ctx, U.round(ctx.advT + 0.4, 2), 'set', { play: info.play, setName: info.setName, handler: handler.id, team: O.idx });
+      if (ctx.t - tSeg > 1.5) {
+        evAt(ctx, U.round(tSeg + 0.4, 2), 'set', { play: info.play, setName: info.setName, handler: handler.id, team: O.idx });
+        // (the ball moved on quickly meanwhile, ending with the man who loses it: Sim.K.flow*)
+        if (who) flowTouches(ctx, ctx.handler, tSeg + 0.4 + U.range(Sim.K.flowLeadS[0], Sim.K.flowLeadS[1]), ctx.t - 0.5, who);
+      }
     }
     const ss = g.sl.stl;   // steals slider: share of live-ball turnovers that are steals
     const stolen = (kind === 'bad_pass' && U.chance(ss === 1 ? Sim.K.stlBad : 1 - Math.pow(1 - Sim.K.stlBad, ss))) || (kind === 'lost_ball' && U.chance(ss === 1 ? Sim.K.stlLost : 1 - Math.pow(1 - Sim.K.stlLost, ss)));
