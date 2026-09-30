@@ -691,6 +691,10 @@
       for (const a of list) if (a && a.kind === 'player' && a.sk && !a.hidden) pl.push(a);
       // --- a flight begins (a new list of segments): a shot's release (the contest), a miss or a block (the choreographer's
       // shotCue: a carom to come), a ball knocked loose
+      // (a free ball come off someone's trunk or head, rebound.js ballBodies: the same carom or loose ball going on, not a new one)
+      const bodyHit = (ball.bodyHits || 0) !== (GL.bodyHits || 0);
+      GL.bodyHits = ball.bodyHits || 0;
+      if (bodyHit && segs) { GL.segs = segs; if (GL.reb) GL.reb.hits = (GL.reb.hits || 0) + 1; }
       if ((st === 'flight' || st === 'loose') && segs && segs !== GL.segs) {
         GL.segs = segs;
         const sh = GL.prevHolder, cue = ball.shotCue;
@@ -844,7 +848,7 @@
     }
     _glRebEnd(r) {
       const Tn = TU(), f2 = (v, k) => (v == null || !isFinite(v) ? null : +v.toFixed(k == null ? 2 : k));
-      const rec = { kind: r.kind, t0: f2(r.t0, 3), shooter: r.shooter, contactS: f2(r.tContact - r.t0, 3), bendMaxIn: f2(r.bendMax * IN, 2), taken: !!r.taker };
+      const rec = { kind: r.kind, t0: f2(r.t0, 3), shooter: r.shooter, contactS: f2(r.tContact - r.t0, 3), bendMaxIn: f2(r.bendMax * IN, 2), taken: !!r.taker, hits: r.hits || 0 };
       // the box-outs (while it was up)
       rec.box = [...r.box.values()].map(b => this._glBoxEnd(b, r));
       if (r.taker) {

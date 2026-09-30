@@ -337,6 +337,7 @@
    *  (They used to run to the ball's own point at full speed, through it, and the catch's hands were 2-4 ft off it) */
   P.runDown = function (a, pk) {
     const b = this.v.ball, T = TG();
+    a._chaseT = this.T;
     if (pk.t != null) {
       if (this.T >= pk.t - 0.1 && this.handsOn(a, b, T.takeGapIn)) {
         this.giveBall(a, 'chest', { absorb: true });
@@ -386,6 +387,53 @@
   };
   /** the old name (callers from before runDown) */
   P.pickUp = function (a, pk) { return this.runDown(a, pk); };
+  /** once a step: a free ball (a carom off the rim or the glass, a make coming down out of the net, a blocked or a loose ball)
+   *  coming into someone's trunk or head (at Tune.glass.bodyHitFtps or more) comes off them: the way it hit them, with most of
+   *  its speed along the hit gone into the body (bodyE of it back) and some of the rest (bodyMu), and on as a loose ball; whoever
+   *  is after it plans again (runDown), a rebound in the air becomes one off the floor. Not the arms (a hand on it takes it or
+   *  tips it), not the legs (a ball rolling or bouncing through them was kicked on along the floor, ~3 times in a third of a
+   *  second by one runner), and not whoever is reaching for it or running it down. (A make coming down out of the net and a
+   *  carom used to fall on through a dunker's head or a box-out pair's shoulders, Trial 11) */
+  P.ballBodies = function () {
+    const b = this.v.ball, T = TG();
+    if (!b || b.holder || !b.segs || !(b.z < T.bodyHitMaxFt)) return;
+    const s0 = b.segs[0], sc = b.segs[b.segI];
+    if (!(b.state === 'loose' || (b.state === 'flight' && s0 && s0.shot && b.segI >= 1 && sc && !sc.score))) return;
+    const L = this.v.bodies ? this.v.bodies() : this.v.list || [];
+    for (const a of L) {
+      if (!a || a.kind !== 'player' || a.hidden || Math.abs(a.x - b.x) > 3 || Math.abs(a.y - b.y) > 3) continue;
+      if (a._reach && a._reach.b === b && this.T <= a._reach.until) continue;
+      if (a._chaseT != null && this.T - a._chaseT < 0.2) continue;
+      if (a._bhT != null && this.T - a._bhT < T.bodyHitS && this.T >= a._bhT) continue;
+      const d = a.ballHit(b.x, b.y, b.z, R, BN, false);
+      if (!(d > T.bodyHitMinFt)) continue;
+      const v = b._segVel(sc, b.time, BV);
+      const bx = a.vx || 0, by = a.vy || 0;
+      const rx = v[0] - bx, ry = v[1] - by, rz = v[2], vn = rx * BN[0] + ry * BN[1] + rz * BN[2];
+      if (!(vn < -T.bodyHitFtps)) continue;
+      // (into them: the part along the hit comes back bodyE of it, the part across keeps 1 - bodyMu)
+      const tx = rx - vn * BN[0], ty = ry - vn * BN[1], tz = rz - vn * BN[2], k = 1 - T.bodyMu;
+      const ox = bx + tx * k - T.bodyE * vn * BN[0], oy = by + ty * k - T.bodyE * vn * BN[1], oz = tz * k - T.bodyE * vn * BN[2];
+      b.x += BN[0] * (d + 0.01); b.y += BN[1] * (d + 0.01); b.z = Math.max(R, b.z + BN[2] * (d + 0.01));
+      a._bhT = this.T;
+      // (off the floor, a little hop: from a standstill on it, its first moment dipped under it)
+      b.loose([ox, oy, b.z <= R + 0.01 ? Math.max(1, oz) : oz]);
+      b.bodyHits = (b.bodyHits || 0) + 1;
+      // (a rebound they were to take in the air is now one to run down)
+      const pr = this.pendingRebound;
+      if (pr && !pr.grabbed && pr.style !== 'floor') { pr.style = 'floor'; pr.floor = true; }
+      return;
+    }
+  };
+  const BN = new Float64Array(3), BV = new Float64Array(3);
+  /** a reach short of (x, y) on their side of it (the pick-up move's own ball in front of them): where they stop for a ball
+   *  there, not on top of it */
+  P.standOff = function (a, x, y) {
+    const pc = M.Anims.get('pickup'), k = (pc.ballKeys ? pc.ballKeys[1](pc.events.grab) : 0.3) * a.H;
+    const dx = x - a.x, dy = y - a.y, dl = Math.hypot(dx, dy);
+    const ux = dl > 1e-3 ? dx / dl : Math.cos(a.facing), uy = dl > 1e-3 ? dy / dl : Math.sin(a.facing);
+    return { x: x - ux * k, y: y - uy * k };
+  };
 
   /** the rebound beat waits until the ball is in their hands: taken in the air, caught on the run, or picked up off the
    *  floor after they run it down (the ball never goes to them from where it is) */

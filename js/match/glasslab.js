@@ -23,6 +23,10 @@
     // (no half-court offense to go back into after an offensive rebound, and nothing to unlock)
     D.assignSpots = () => {};
     D.unlockAll = () => {};
+    // (a free ball off whoever is in its way, once a step, as Director.update has it in the game)
+    const step = (M.Tune && M.Tune.clock.step) || 1 / 60;
+    const bodies = () => { if (D.ballBodies) D.ballBodies(); at(now() + step, bodies); };
+    at(now() + step, bodies);
     return D;
   }
 

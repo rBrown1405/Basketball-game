@@ -388,8 +388,9 @@
   };
   /** on a miss a defender boxes out a man who can get to the glass (inside ~17 ft or coming in); on a man who stays
    *  out he takes a step toward where a long rebound comes instead of boxing out 25 ft from the rim */
-  P.crashBoards = function (sh, quick) {
-    base.crashBoards.call(this, sh, quick);
+  P.crashBoards = function (sh, quick, blocked) {
+    // (all of it passed on: a blocked shot has no box-out, Trial 11; dropped here, its defenders boxed out anyway)
+    base.crashBoards.call(this, sh, quick, blocked);
     const pr = this.pendingRebound;
     this.at(this.T + (quick ? 0.25 : 0.45), () => {
       const rim = this.rim;

@@ -450,7 +450,7 @@
       // arm reaches and contestGapFt short of the ball at most (the hand ~0.12 heights past the wrist), up over contestLeadS
       // before the release, held contestHoldS after, down over contestDownS
       contestReachK: 0.97, contestGapFt: 0.35, contestLeadS: 0.25, contestHoldS: 0.25, contestDownS: 0.45,
-      lateContestFt: 6, lateLeadS: 0.12, // any other defender this close as it goes up gets a hand up at it over lateLeadS
+      lateContestFt: 6, lateLeadS: 0.2,  // any other defender this close as it goes up gets a hand up at it over lateLeadS
       contestInS: 0.2,              // a contest's jump (or the wall at the rim) fades in over this (the arms coming up to it)
       wallLeadS: 0.36,              // the wall at the rim goes up this long before the release, both arms over it
       contestSwapS: 0.12,           // the ball gone from the shooter's hands, the hand goes from their release point onto where it went
@@ -463,6 +463,10 @@
       blockFaceFt: 2.2, blockMinS: 0.04, blockMaxS: 0.3, blockInFt: 0.3, shoulderH: 0.82, shoulderInH: 0.1, touchWristFt: 0.3, blockReachS: 0.22,
       blockConeDeg: 60, blockSpeedK: 1.1,
       blockLateS: 0.6,              // not in their reach by blockMaxS: met further up its way while they are still up, this long at most
+      // a free ball (a carom, a make down out of the net, a blocked or loose ball) coming into someone's trunk or head at
+      // bodyHitFtps or more (more than bodyHitMinFt in, below bodyHitMaxFt) comes off them: bodyE of its speed along the hit back,
+      // 1 - bodyMu of the rest kept (their own speed added); once per bodyHitS each
+      bodyE: 0.35, bodyMu: 0.3, bodyHitFtps: 2, bodyHitMinFt: 0.02, bodyHitMaxFt: 9.5, bodyHitS: 0.15,
       releaseWaitS: 2.5,            // a contest or a block waits for the shot's own release up to this long past the plan
       // a steal: the swipe's hand on the ball's side onto the ball where it is; poked, it squirts off the hand the way the hand
       // was going at ~pokeFtps, and they run it down (caught or picked up by hand), the man who lost it and the nearest of their

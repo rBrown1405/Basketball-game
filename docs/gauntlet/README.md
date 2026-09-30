@@ -25,6 +25,7 @@ criteria with measured proof, and every trial re-runs the earlier ones (regressi
 | 8 The Handle | PASS in the lab (live-game contacts off the ball and the ball in a body carried to Trials 6, 7, 10 and 13) | [TRIAL_08_HANDLE.md](TRIAL_08_HANDLE.md) |
 | 9 The Shot | PASS in the lab (live: 71 of 75 jump shots with every phase, 41 of 42 layups and 13 of 14 dunks with the right footwork, 28 of 28 free throws with a routine; the live misses carried to Trials 7 and 13, the defensive slide pops to Trial 6) | [TRIAL_09_SHOT.md](TRIAL_09_SHOT.md) |
 | 10 The Pass and the Catch | PASS in the lab (live-game items carried to Trials 6, 13 and the Final Eye Test; arm pops while moving and head and neck pops in games above Trial 8's, open) | [TRIAL_10_PASS.md](TRIAL_10_PASS.md) |
+| 11 The Glass and the Contest | PASS (lab: 15 of 15 scenarios; live: 0 caroms steered or pulled in three quarters, 95 of 96 contests and 7 of 7 blocks toward the ball, box-outs in contact 76 of 88; open: live blocks mostly short of the ball, carried to Trial 6; 5 to 13 % more frames of the ball in a body, carried to Trial 12) | [TRIAL_11_GLASS.md](TRIAL_11_GLASS.md) |
 
 Merges:
 

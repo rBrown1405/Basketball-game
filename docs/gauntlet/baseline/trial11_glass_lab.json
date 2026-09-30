@@ -1,0 +1,4593 @@
+[
+ {
+  "id": "rebDef",
+  "name": "a missed jumper from the wing: the bigs box out, the defense's big takes it under the rim",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 1,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 1,
+    "p50": 0.799,
+    "p90": 0.799,
+    "p99": 0.799,
+    "max": 0.799
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": 0.03,
+    "p90": 0.03,
+    "p99": 0.03,
+    "max": 0.03
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 0.17,
+    "p90": 0.17,
+    "p99": 0.17,
+    "max": 0.17
+   },
+   "twoHands": 1,
+   "takeGapIn": {
+    "n": 1,
+    "p50": 1.4,
+    "p90": 1.4,
+    "p99": 1.4,
+    "max": 1.4
+   },
+   "jumped": 1,
+   "timed": 1,
+   "apexS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 20.6,
+    "p90": 20.6,
+    "p99": 20.6,
+    "max": 20.6
+   },
+   "chinned": 1,
+   "chinS": {
+    "n": 1,
+    "p50": 0.167,
+    "p90": 0.167,
+    "p99": 0.167,
+    "max": 0.167
+   },
+   "chinHoldS": {
+    "n": 1,
+    "p50": 0.083,
+    "p90": 0.083,
+    "p99": 0.083,
+    "max": 0.083
+   },
+   "elbowSpanMax": {
+    "n": 1,
+    "p50": 1.84,
+    "p90": 1.84,
+    "p99": 1.84,
+    "max": 1.84
+   },
+   "floorTouch": 0,
+   "othersNear": 1,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 1,
+   "boxLetGo": 0,
+   "boxContact": 1,
+   "boxContactS": {
+    "n": 1,
+    "p50": 0.617,
+    "p90": 0.617,
+    "p99": 0.617,
+    "max": 0.617
+   },
+   "boxHoldPct": {
+    "n": 1,
+    "p50": 100,
+    "p90": 100,
+    "p99": 100,
+    "max": 100
+   },
+   "boxGapIn": {
+    "n": 1,
+    "p50": -0.6,
+    "p90": -0.6,
+    "p99": -0.6,
+    "max": -0.6
+   },
+   "boxBehindDeg": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 1,
+    "p50": 1.32,
+    "p90": 1.32,
+    "p99": 1.32,
+    "max": 1.32
+   },
+   "boxWide": 1,
+   "boxElbowX": {
+    "n": 1,
+    "p50": 2.45,
+    "p90": 2.45,
+    "p99": 2.45,
+    "max": 2.45
+   },
+   "boxArmsOut": 1,
+   "boxKneeDeg": {
+    "n": 1,
+    "p50": 75,
+    "p90": 75,
+    "p99": 75,
+    "max": 75
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 8.4,
+    "p90": 8.4,
+    "p99": 8.4,
+    "max": 8.4
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 8.4,
+    "p90": 8.4,
+    "p99": 8.4,
+    "max": 8.4
+   },
+   "contestByLevel": {
+    "contested": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 8.4,
+     "angBestDeg": 8.4,
+     "handBallFt": 2.33,
+     "handOverHeadFt": 0.71,
+     "distFt": 4.8
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.483,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "contested",
+    "distFt": 4.8,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 8.4,
+    "handBallFt": 2.33,
+    "handOverHeadFt": 0.71,
+    "angBestDeg": 8.4
+   },
+   {
+    "kind": "miss",
+    "t0": 1.483,
+    "shooter": "s0",
+    "contactS": 1.051,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [
+     {
+      "id": "s3",
+      "man": "s2",
+      "startS": 0.35,
+      "contactS": 0.617,
+      "holdPct": 100,
+      "gapIn": -0.6,
+      "behindDeg": 0,
+      "baseX": 1.32,
+      "elbowX": 2.45,
+      "kneeDeg": 75
+     }
+    ],
+    "id": "s3",
+    "off": false,
+    "air": true,
+    "plan": {
+     "style": "high",
+     "tC": 0.68,
+     "dRun": 2.21,
+     "d0": 6.2,
+     "dist": 6.2,
+     "actor": "s3"
+    },
+    "takeS": 1.166,
+    "takeZ": 10.39,
+    "gapLIn": 1.4,
+    "gapRIn": 1.1,
+    "pullFt": 0.17,
+    "bendTakeIn": 0,
+    "onsetS": 0.799,
+    "preCloseFt": 0.03,
+    "d0Ft": 2.18,
+    "dContactFt": 1.67,
+    "jumpIn": 20.6,
+    "apexS": 0.017,
+    "chinS": 0.167,
+    "chinHoldS": 0.083,
+    "elbowSpanMax": 1.84,
+    "others": [
+     {
+      "id": "s2",
+      "onsetS": null,
+      "preCloseFt": 0.05
+     }
+    ]
+   }
+  ],
+  "popsN": 31
+ },
+ {
+  "id": "rebOff",
+  "name": "the same miss: the offense's big beats the box-out for it",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 1,
+   "floor": 0,
+   "offensive": 1,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": -0.06,
+    "p90": -0.06,
+    "p99": -0.06,
+    "max": -0.06
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 0.27,
+    "p90": 0.27,
+    "p99": 0.27,
+    "max": 0.27
+   },
+   "twoHands": 1,
+   "takeGapIn": {
+    "n": 1,
+    "p50": 1.3,
+    "p90": 1.3,
+    "p99": 1.3,
+    "max": 1.3
+   },
+   "jumped": 1,
+   "timed": 1,
+   "apexS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 20.3,
+    "p90": 20.3,
+    "p99": 20.3,
+    "max": 20.3
+   },
+   "chinned": 1,
+   "chinS": {
+    "n": 1,
+    "p50": 0.15,
+    "p90": 0.15,
+    "p99": 0.15,
+    "max": 0.15
+   },
+   "chinHoldS": {
+    "n": 1,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "elbowSpanMax": {
+    "n": 1,
+    "p50": 1.85,
+    "p90": 1.85,
+    "p99": 1.85,
+    "max": 1.85
+   },
+   "floorTouch": 0,
+   "othersNear": 1,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 1,
+   "boxLetGo": 0,
+   "boxContact": 1,
+   "boxContactS": {
+    "n": 1,
+    "p50": 0.617,
+    "p90": 0.617,
+    "p99": 0.617,
+    "max": 0.617
+   },
+   "boxHoldPct": {
+    "n": 1,
+    "p50": 100,
+    "p90": 100,
+    "p99": 100,
+    "max": 100
+   },
+   "boxGapIn": {
+    "n": 1,
+    "p50": -0.6,
+    "p90": -0.6,
+    "p99": -0.6,
+    "max": -0.6
+   },
+   "boxBehindDeg": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 1,
+    "p50": 1.31,
+    "p90": 1.31,
+    "p99": 1.31,
+    "max": 1.31
+   },
+   "boxWide": 1,
+   "boxElbowX": {
+    "n": 1,
+    "p50": 2.45,
+    "p90": 2.45,
+    "p99": 2.45,
+    "max": 2.45
+   },
+   "boxArmsOut": 1,
+   "boxKneeDeg": {
+    "n": 1,
+    "p50": 75,
+    "p90": 75,
+    "p99": 75,
+    "max": 75
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 8.4,
+    "p90": 8.4,
+    "p99": 8.4,
+    "max": 8.4
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 8.4,
+    "p90": 8.4,
+    "p99": 8.4,
+    "max": 8.4
+   },
+   "contestByLevel": {
+    "contested": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 8.4,
+     "angBestDeg": 8.4,
+     "handBallFt": 2.33,
+     "handOverHeadFt": 0.71,
+     "distFt": 4.8
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.483,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "contested",
+    "distFt": 4.8,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 8.4,
+    "handBallFt": 2.33,
+    "handOverHeadFt": 0.71,
+    "angBestDeg": 8.4
+   },
+   {
+    "kind": "miss",
+    "t0": 1.483,
+    "shooter": "s0",
+    "contactS": 1.051,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [
+     {
+      "id": "s3",
+      "man": "s2",
+      "startS": 0.35,
+      "contactS": 0.617,
+      "holdPct": 100,
+      "gapIn": -0.6,
+      "behindDeg": 0,
+      "baseX": 1.31,
+      "elbowX": 2.45,
+      "kneeDeg": 75
+     }
+    ],
+    "id": "s2",
+    "off": true,
+    "air": true,
+    "plan": {
+     "style": "high",
+     "tC": 0.68,
+     "dRun": 1.73,
+     "d0": 6.2,
+     "dist": 6.2,
+     "actor": "s2"
+    },
+    "takeS": 1.166,
+    "takeZ": 10.26,
+    "gapLIn": 0.7,
+    "gapRIn": 1.3,
+    "pullFt": 0.27,
+    "bendTakeIn": 0,
+    "onsetS": null,
+    "preCloseFt": -0.06,
+    "d0Ft": 1.35,
+    "dContactFt": 1.37,
+    "jumpIn": 20.3,
+    "apexS": 0.017,
+    "chinS": 0.15,
+    "chinHoldS": 0.1,
+    "elbowSpanMax": 1.85,
+    "others": [
+     {
+      "id": "s3",
+      "onsetS": null,
+      "preCloseFt": -0.04
+     }
+    ]
+   }
+  ],
+  "popsN": 26
+ },
+ {
+  "id": "rebGlass",
+  "name": "a miss off the glass from the left baseline, taken by the defense's big",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 1,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 1,
+    "p50": 0.36,
+    "p90": 0.36,
+    "p99": 0.36,
+    "max": 0.36
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": 0.05,
+    "p90": 0.05,
+    "p99": 0.05,
+    "max": 0.05
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 0.32,
+    "p90": 0.32,
+    "p99": 0.32,
+    "max": 0.32
+   },
+   "twoHands": 1,
+   "takeGapIn": {
+    "n": 1,
+    "p50": 1.7,
+    "p90": 1.7,
+    "p99": 1.7,
+    "max": 1.7
+   },
+   "jumped": 1,
+   "timed": 1,
+   "apexS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 20.6,
+    "p90": 20.6,
+    "p99": 20.6,
+    "max": 20.6
+   },
+   "chinned": 1,
+   "chinS": {
+    "n": 1,
+    "p50": 0.167,
+    "p90": 0.167,
+    "p99": 0.167,
+    "max": 0.167
+   },
+   "chinHoldS": {
+    "n": 1,
+    "p50": 0.083,
+    "p90": 0.083,
+    "p99": 0.083,
+    "max": 0.083
+   },
+   "elbowSpanMax": {
+    "n": 1,
+    "p50": 1.84,
+    "p90": 1.84,
+    "p99": 1.84,
+    "max": 1.84
+   },
+   "floorTouch": 0,
+   "othersNear": 1,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 2,
+   "boxLetGo": 0,
+   "boxContact": 2,
+   "boxContactS": {
+    "n": 2,
+    "p50": 0.983,
+    "p90": 0.983,
+    "p99": 0.983,
+    "max": 0.983
+   },
+   "boxHoldPct": {
+    "n": 2,
+    "p50": 100,
+    "p90": 100,
+    "p99": 100,
+    "max": 100
+   },
+   "boxGapIn": {
+    "n": 2,
+    "p50": -1,
+    "p90": -1,
+    "p99": -1,
+    "max": -1
+   },
+   "boxBehindDeg": {
+    "n": 2,
+    "p50": 1,
+    "p90": 1,
+    "p99": 1,
+    "max": 1
+   },
+   "boxBaseX": {
+    "n": 2,
+    "p50": 1.12,
+    "p90": 1.12,
+    "p99": 1.12,
+    "max": 1.12
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 2,
+    "p50": 2.44,
+    "p90": 2.44,
+    "p99": 2.44,
+    "max": 2.44
+   },
+   "boxArmsOut": 2,
+   "boxKneeDeg": {
+    "n": 2,
+    "p50": 88,
+    "p90": 88,
+    "p99": 88,
+    "max": 88
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 8.1,
+    "p90": 8.1,
+    "p99": 8.1,
+    "max": 8.1
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 8.1,
+    "p90": 8.1,
+    "p99": 8.1,
+    "max": 8.1
+   },
+   "contestByLevel": {
+    "contested": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 8.1,
+     "angBestDeg": 8.1,
+     "handBallFt": 2.32,
+     "handOverHeadFt": 0.71,
+     "distFt": 4.8
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.483,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "contested",
+    "distFt": 4.8,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 8.1,
+    "handBallFt": 2.32,
+    "handOverHeadFt": 0.71,
+    "angBestDeg": 8.1
+   },
+   {
+    "kind": "miss",
+    "t0": 1.483,
+    "shooter": "s0",
+    "contactS": 0.873,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [
+     {
+      "id": "s1",
+      "man": "s0",
+      "startS": 0.35,
+      "contactS": 0.983,
+      "holdPct": 0,
+      "gapIn": -3.3,
+      "behindDeg": 0,
+      "baseX": 1.12,
+      "elbowX": 2.43,
+      "kneeDeg": 88
+     },
+     {
+      "id": "s3",
+      "man": "s2",
+      "startS": 0.35,
+      "contactS": 0.617,
+      "holdPct": 100,
+      "gapIn": -1,
+      "behindDeg": 1,
+      "baseX": 1.03,
+      "elbowX": 2.44,
+      "kneeDeg": 79
+     }
+    ],
+    "id": "s3",
+    "off": false,
+    "air": true,
+    "plan": {
+     "style": "high",
+     "tC": 0.68,
+     "dRun": 2.89,
+     "d0": 5,
+     "dist": 5,
+     "actor": "s3"
+    },
+    "takeS": 0.727,
+    "takeZ": 10.33,
+    "gapLIn": 0.4,
+    "gapRIn": 1.7,
+    "pullFt": 0.32,
+    "bendTakeIn": 0,
+    "onsetS": 0.36,
+    "preCloseFt": 0.05,
+    "d0Ft": 2.67,
+    "dContactFt": 2.41,
+    "jumpIn": 20.6,
+    "apexS": 0.017,
+    "chinS": 0.167,
+    "chinHoldS": 0.083,
+    "elbowSpanMax": 1.84,
+    "others": [
+     {
+      "id": "s2",
+      "onsetS": null,
+      "preCloseFt": 0.06
+     }
+    ]
+   }
+  ],
+  "popsN": 38
+ },
+ {
+  "id": "rebLong",
+  "name": "a missed three from the top: a long rebound, caught by the guard at the free throw line",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 1,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 1,
+    "p50": 0.863,
+    "p90": 0.863,
+    "p99": 0.863,
+    "max": 0.863
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 0.74,
+    "p90": 0.74,
+    "p99": 0.74,
+    "max": 0.74
+   },
+   "twoHands": 1,
+   "takeGapIn": {
+    "n": 1,
+    "p50": 0.2,
+    "p90": 0.2,
+    "p99": 0.2,
+    "max": 0.2
+   },
+   "jumped": 1,
+   "timed": 1,
+   "apexS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 7.2,
+    "p90": 7.2,
+    "p99": 7.2,
+    "max": 7.2
+   },
+   "chinned": 1,
+   "chinS": {
+    "n": 1,
+    "p50": 0.15,
+    "p90": 0.15,
+    "p99": 0.15,
+    "max": 0.15
+   },
+   "chinHoldS": {
+    "n": 1,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "elbowSpanMax": {
+    "n": 1,
+    "p50": 1.89,
+    "p90": 1.89,
+    "p99": 1.89,
+    "max": 1.89
+   },
+   "floorTouch": 0,
+   "othersNear": 1,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 1,
+    "p50": 0.463,
+    "p90": 0.463,
+    "p99": 0.463,
+    "max": 0.463
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 8.5,
+    "p90": 8.5,
+    "p99": 8.5,
+    "max": 8.5
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 8.5,
+    "p90": 8.5,
+    "p99": 8.5,
+    "max": 8.5
+   },
+   "contestByLevel": {
+    "contested": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 8.5,
+     "angBestDeg": 8.5,
+     "handBallFt": 2.51,
+     "handOverHeadFt": 0.62,
+     "distFt": 4.98
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.483,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "contested",
+    "distFt": 4.98,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 8.5,
+    "handBallFt": 2.51,
+    "handOverHeadFt": 0.62,
+    "angBestDeg": 8.5
+   },
+   {
+    "kind": "miss",
+    "t0": 1.483,
+    "shooter": "s0",
+    "contactS": 1.254,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [],
+    "id": "s2",
+    "off": false,
+    "air": true,
+    "plan": {
+     "style": "mid",
+     "tC": 1.143,
+     "dRun": 5.31,
+     "d0": 8,
+     "dist": 8,
+     "actor": "s2"
+    },
+    "takeS": 1.179,
+    "takeZ": 8.55,
+    "gapLIn": 0.1,
+    "gapRIn": 0.2,
+    "pullFt": 0.74,
+    "bendTakeIn": 0,
+    "onsetS": 0.863,
+    "preCloseFt": 0,
+    "d0Ft": 7.13,
+    "dContactFt": 5.88,
+    "jumpIn": 7.2,
+    "apexS": 0.017,
+    "chinS": 0.15,
+    "chinHoldS": 0.1,
+    "elbowSpanMax": 1.89,
+    "others": [
+     {
+      "id": "s1",
+      "onsetS": 0.463,
+      "preCloseFt": 0
+     }
+    ]
+   }
+  ],
+  "popsN": 21
+ },
+ {
+  "id": "rebWeak",
+  "name": "a missed corner three: it comes off the far side to the weak-side defender",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 1,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": -0.04,
+    "p90": -0.04,
+    "p99": -0.04,
+    "max": -0.04
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 0.28,
+    "p90": 0.28,
+    "p99": 0.28,
+    "max": 0.28
+   },
+   "twoHands": 1,
+   "takeGapIn": {
+    "n": 1,
+    "p50": 1.9,
+    "p90": 1.9,
+    "p99": 1.9,
+    "max": 1.9
+   },
+   "jumped": 1,
+   "timed": 1,
+   "apexS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 20.1,
+    "p90": 20.1,
+    "p99": 20.1,
+    "max": 20.1
+   },
+   "chinned": 1,
+   "chinS": {
+    "n": 1,
+    "p50": 0.15,
+    "p90": 0.15,
+    "p99": 0.15,
+    "max": 0.15
+   },
+   "chinHoldS": {
+    "n": 1,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "elbowSpanMax": {
+    "n": 1,
+    "p50": 1.86,
+    "p90": 1.86,
+    "p99": 1.86,
+    "max": 1.86
+   },
+   "floorTouch": 0,
+   "othersNear": 1,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 1,
+   "boxLetGo": 0,
+   "boxContact": 1,
+   "boxContactS": {
+    "n": 1,
+    "p50": 0.6,
+    "p90": 0.6,
+    "p99": 0.6,
+    "max": 0.6
+   },
+   "boxHoldPct": {
+    "n": 1,
+    "p50": 100,
+    "p90": 100,
+    "p99": 100,
+    "max": 100
+   },
+   "boxGapIn": {
+    "n": 1,
+    "p50": -0.9,
+    "p90": -0.9,
+    "p99": -0.9,
+    "max": -0.9
+   },
+   "boxBehindDeg": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 1,
+    "p50": 1.23,
+    "p90": 1.23,
+    "p99": 1.23,
+    "max": 1.23
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 1,
+    "p50": 2.45,
+    "p90": 2.45,
+    "p99": 2.45,
+    "max": 2.45
+   },
+   "boxArmsOut": 1,
+   "boxKneeDeg": {
+    "n": 1,
+    "p50": 77,
+    "p90": 77,
+    "p99": 77,
+    "max": 77
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 4.3,
+    "p90": 4.3,
+    "p99": 4.3,
+    "max": 4.3
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 4.3,
+    "p90": 4.3,
+    "p99": 4.3,
+    "max": 4.3
+   },
+   "contestByLevel": {
+    "contested": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 4.3,
+     "angBestDeg": 4.3,
+     "handBallFt": 2.43,
+     "handOverHeadFt": 0.74,
+     "distFt": 4.98
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.483,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "contested",
+    "distFt": 4.98,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 4.3,
+    "handBallFt": 2.43,
+    "handOverHeadFt": 0.74,
+    "angBestDeg": 4.3
+   },
+   {
+    "kind": "miss",
+    "t0": 1.483,
+    "shooter": "s0",
+    "contactS": 1.232,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [
+     {
+      "id": "s3",
+      "man": "s2",
+      "startS": 0.35,
+      "contactS": 0.6,
+      "holdPct": 100,
+      "gapIn": -0.9,
+      "behindDeg": 0,
+      "baseX": 1.23,
+      "elbowX": 2.45,
+      "kneeDeg": 77
+     }
+    ],
+    "id": "s3",
+    "off": false,
+    "air": true,
+    "plan": {
+     "style": "high",
+     "tC": 0.68,
+     "dRun": 0.79,
+     "d0": 6.2,
+     "dist": 6.2,
+     "actor": "s3"
+    },
+    "takeS": 0.718,
+    "takeZ": 10.21,
+    "gapLIn": 1.4,
+    "gapRIn": 1.9,
+    "pullFt": 0.28,
+    "bendTakeIn": 0,
+    "onsetS": null,
+    "preCloseFt": -0.04,
+    "d0Ft": 0.65,
+    "dContactFt": 0.75,
+    "jumpIn": 20.1,
+    "apexS": 0.017,
+    "chinS": 0.15,
+    "chinHoldS": 0.1,
+    "elbowSpanMax": 1.86,
+    "others": [
+     {
+      "id": "s2",
+      "onsetS": null,
+      "preCloseFt": -0.02
+     }
+    ]
+   }
+  ],
+  "popsN": 34
+ },
+ {
+  "id": "box3",
+  "name": "three on three: every defender boxes out their man, the middle one takes it",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 1,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 1,
+    "p50": 0.356,
+    "p90": 0.356,
+    "p99": 0.356,
+    "max": 0.356
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": -0.04,
+    "p90": -0.04,
+    "p99": -0.04,
+    "max": -0.04
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 0.36,
+    "p90": 0.36,
+    "p99": 0.36,
+    "max": 0.36
+   },
+   "twoHands": 1,
+   "takeGapIn": {
+    "n": 1,
+    "p50": 1.8,
+    "p90": 1.8,
+    "p99": 1.8,
+    "max": 1.8
+   },
+   "jumped": 1,
+   "timed": 1,
+   "apexS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   },
+   "jumpIn": {
+    "n": 1,
+    "p50": 20.6,
+    "p90": 20.6,
+    "p99": 20.6,
+    "max": 20.6
+   },
+   "chinned": 1,
+   "chinS": {
+    "n": 1,
+    "p50": 0.167,
+    "p90": 0.167,
+    "p99": 0.167,
+    "max": 0.167
+   },
+   "chinHoldS": {
+    "n": 1,
+    "p50": 0.083,
+    "p90": 0.083,
+    "p99": 0.083,
+    "max": 0.083
+   },
+   "elbowSpanMax": {
+    "n": 1,
+    "p50": 1.84,
+    "p90": 1.84,
+    "p99": 1.84,
+    "max": 1.84
+   },
+   "floorTouch": 0,
+   "othersNear": 2,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 1,
+   "boxLetGo": 1,
+   "boxContact": 1,
+   "boxContactS": {
+    "n": 1,
+    "p50": 0.617,
+    "p90": 0.617,
+    "p99": 0.617,
+    "max": 0.617
+   },
+   "boxHoldPct": {
+    "n": 1,
+    "p50": 87,
+    "p90": 87,
+    "p99": 87,
+    "max": 87
+   },
+   "boxGapIn": {
+    "n": 1,
+    "p50": -0.9,
+    "p90": -0.9,
+    "p99": -0.9,
+    "max": -0.9
+   },
+   "boxBehindDeg": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 1,
+    "p50": 1.24,
+    "p90": 1.24,
+    "p99": 1.24,
+    "max": 1.24
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 1,
+    "p50": 2.45,
+    "p90": 2.45,
+    "p99": 2.45,
+    "max": 2.45
+   },
+   "boxArmsOut": 1,
+   "boxKneeDeg": {
+    "n": 1,
+    "p50": 78,
+    "p90": 78,
+    "p99": 78,
+    "max": 78
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 8.6,
+    "p90": 8.6,
+    "p99": 8.6,
+    "max": 8.6
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 8.6,
+    "p90": 8.6,
+    "p99": 8.6,
+    "max": 8.6
+   },
+   "contestByLevel": {
+    "contested": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 8.6,
+     "angBestDeg": 8.6,
+     "handBallFt": 2.33,
+     "handOverHeadFt": 0.71,
+     "distFt": 4.8
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.483,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "contested",
+    "distFt": 4.8,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 8.6,
+    "handBallFt": 2.33,
+    "handOverHeadFt": 0.71,
+    "angBestDeg": 8.6
+   },
+   {
+    "kind": "miss",
+    "t0": 1.483,
+    "shooter": "s0",
+    "contactS": 1.127,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [
+     {
+      "id": "s3",
+      "man": "s2",
+      "startS": 0.35,
+      "manLeft": true,
+      "contactS": null,
+      "holdPct": 0,
+      "gapIn": 8.4,
+      "behindDeg": 83,
+      "baseX": 1.27,
+      "elbowX": 2.32,
+      "kneeDeg": 72
+     },
+     {
+      "id": "s5",
+      "man": "s4",
+      "startS": 0.35,
+      "contactS": 0.617,
+      "holdPct": 87,
+      "gapIn": -0.9,
+      "behindDeg": 0,
+      "baseX": 1.24,
+      "elbowX": 2.45,
+      "kneeDeg": 78
+     }
+    ],
+    "id": "s5",
+    "off": false,
+    "air": true,
+    "plan": {
+     "style": "high",
+     "tC": 0.68,
+     "dRun": 4,
+     "d0": 6.2,
+     "dist": 6.2,
+     "actor": "s5"
+    },
+    "takeS": 0.723,
+    "takeZ": 10.43,
+    "gapLIn": 1.8,
+    "gapRIn": 1,
+    "pullFt": 0.36,
+    "bendTakeIn": 0,
+    "onsetS": 0.356,
+    "preCloseFt": -0.04,
+    "d0Ft": 3.65,
+    "dContactFt": 3.68,
+    "jumpIn": 20.6,
+    "apexS": 0.017,
+    "chinS": 0.167,
+    "chinHoldS": 0.083,
+    "elbowSpanMax": 1.84,
+    "others": [
+     {
+      "id": "s1",
+      "onsetS": null,
+      "preCloseFt": 0
+     },
+     {
+      "id": "s4",
+      "onsetS": null,
+      "preCloseFt": -0.05
+     }
+    ]
+   }
+  ],
+  "popsN": 39
+ },
+ {
+  "id": "rebFloor",
+  "name": "a miss nobody gets to in the air: it bounces and the guard runs it down",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 0,
+   "floor": 1,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 1.1,
+    "p90": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 1,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 0,
+   "contestToward": 0,
+   "contestAtRelease": 0,
+   "contestAngDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestAngBestDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestByLevel": {},
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "miss",
+    "t0": 1.5,
+    "shooter": "s0",
+    "contactS": 1.228,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [],
+    "id": "s2",
+    "off": false,
+    "air": false,
+    "plan": {
+     "style": "floor",
+     "tC": 1.071,
+     "dRun": 19.69,
+     "d0": 8,
+     "dist": 8,
+     "actor": "s2"
+    },
+    "takeS": 2.539,
+    "takeZ": 3.29,
+    "gapLIn": 2.8,
+    "gapRIn": 3,
+    "pullFt": 1.1,
+    "bendTakeIn": 0,
+    "onsetS": null,
+    "preCloseFt": 0,
+    "d0Ft": 15.69,
+    "dContactFt": 13.29,
+    "jumpIn": 0,
+    "apexS": null,
+    "chinS": 0.183,
+    "chinHoldS": 0.2,
+    "elbowSpanMax": 1.65,
+    "others": []
+   }
+  ],
+  "popsN": 0
+ },
+ {
+  "id": "contestTight",
+  "name": "a tight closeout on a jumper: the high hand up at the ball as it goes",
+  "glass": {
+   "caroms": 0,
+   "taken": 0,
+   "air": 0,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 0,
+   "read": 0,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 0,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 2,
+    "p90": 2,
+    "p99": 2,
+    "max": 2
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 2,
+    "p90": 2,
+    "p99": 2,
+    "max": 2
+   },
+   "contestByLevel": {
+    "tight": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 2,
+     "angBestDeg": 2,
+     "handBallFt": 2.4,
+     "handOverHeadFt": 0.73,
+     "distFt": 4.05
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.467,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "tight",
+    "distFt": 4.05,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 2,
+    "handBallFt": 2.4,
+    "handOverHeadFt": 0.73,
+    "angBestDeg": 2
+   }
+  ],
+  "popsN": 9
+ },
+ {
+  "id": "contestMid",
+  "name": "a contested three: the closeout, the hand up toward the release",
+  "glass": {
+   "caroms": 0,
+   "taken": 0,
+   "air": 0,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 0,
+   "read": 0,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 0,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 1.1,
+    "p90": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 1.1,
+    "p90": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "contestByLevel": {
+    "contested": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 1.1,
+     "angBestDeg": 1.1,
+     "handBallFt": 3.32,
+     "handOverHeadFt": 0.36,
+     "distFt": 5.75
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.483,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "contested",
+    "distFt": 5.75,
+    "clip": "contestUp",
+    "jumpIn": 0,
+    "angDeg": 1.1,
+    "handBallFt": 3.32,
+    "handOverHeadFt": 0.36,
+    "angBestDeg": 1.1
+   }
+  ],
+  "popsN": 5
+ },
+ {
+  "id": "contestRim",
+  "name": "verticality at the rim: the big goes straight up with both hands at the ball",
+  "glass": {
+   "caroms": 0,
+   "taken": 0,
+   "air": 0,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 0,
+   "read": 0,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 0,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 10.6,
+    "p90": 10.6,
+    "p99": 10.6,
+    "max": 10.6
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 10.1,
+    "p90": 10.1,
+    "p99": 10.1,
+    "max": 10.1
+   },
+   "contestByLevel": {
+    "open": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 10.6,
+     "angBestDeg": 10.1,
+     "handBallFt": 0.49,
+     "handOverHeadFt": 0.68,
+     "distFt": 1.42
+    }
+   },
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 2.4,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "layup",
+    "level": "open",
+    "distFt": 1.42,
+    "clip": "wallUp",
+    "jumpIn": 13.7,
+    "angDeg": 10.6,
+    "handBallFt": 0.49,
+    "handOverHeadFt": 0.68,
+    "angBestDeg": 10.1
+   }
+  ],
+  "popsN": 21
+ },
+ {
+  "id": "blockRim",
+  "name": "a layup blocked at the rim by the help big: the hand meets the ball, it is swatted away",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 0,
+   "floor": 1,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 1.5,
+    "p90": 1.5,
+    "p99": 1.5,
+    "max": 1.5
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 1,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 6.8,
+    "p90": 6.8,
+    "p99": 6.8,
+    "max": 6.8
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 3.3,
+    "p90": 3.3,
+    "p99": 3.3,
+    "max": 3.3
+   },
+   "contestByLevel": {
+    "tight": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 6.8,
+     "angBestDeg": 3.3,
+     "handBallFt": 0.23,
+     "handOverHeadFt": 1.71,
+     "distFt": 2.09
+    }
+   },
+   "blocks": 1,
+   "blockOnBall": 1,
+   "blockToward": 1,
+   "blockArmDeg": {
+    "n": 1,
+    "p50": 3.1,
+    "p90": 3.1,
+    "p99": 3.1,
+    "max": 3.1
+   },
+   "blockGapIn": {
+    "n": 1,
+    "p50": -3.6,
+    "p90": -3.6,
+    "p99": -3.6,
+    "max": -3.6
+   },
+   "blockApexS": {
+    "n": 1,
+    "p50": -0.15,
+    "p90": -0.15,
+    "p99": -0.15,
+    "max": -0.15
+   },
+   "blockSwatDeg": {
+    "n": 1,
+    "p50": 98,
+    "p90": 98,
+    "p99": 98,
+    "max": 98
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 2.4,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "layup",
+    "level": "tight",
+    "distFt": 2.09,
+    "clip": "block",
+    "jumpIn": 8.9,
+    "angDeg": 6.8,
+    "handBallFt": 0.23,
+    "handOverHeadFt": 1.71,
+    "angBestDeg": 3.3
+   },
+   {
+    "kind": "block",
+    "t": 2.483,
+    "id": "s1",
+    "shooter": "s0",
+    "gapIn": -3.6,
+    "armDeg": 3.1,
+    "jumpIn": 18.5,
+    "apexS": -0.15,
+    "swatDeg": 98,
+    "clip": "block"
+   },
+   {
+    "kind": "blocked",
+    "t0": 2.4,
+    "shooter": "s0",
+    "contactS": 0.073,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [],
+    "id": "s2",
+    "off": false,
+    "air": false,
+    "plan": {
+     "style": "floor",
+     "tC": 1.062,
+     "dRun": 9.8,
+     "d0": 8.04,
+     "dist": 8.04,
+     "actor": "s2"
+    },
+    "takeS": 2.127,
+    "takeZ": 1.9,
+    "gapLIn": 1.2,
+    "gapRIn": 2.9,
+    "pullFt": 1.5,
+    "bendTakeIn": 0,
+    "onsetS": null,
+    "preCloseFt": 0,
+    "d0Ft": 8.11,
+    "dContactFt": 8.11,
+    "jumpIn": 0,
+    "apexS": null,
+    "chinS": null,
+    "chinHoldS": 0,
+    "elbowSpanMax": 1.91,
+    "others": []
+   }
+  ],
+  "popsN": 19
+ },
+ {
+  "id": "blockJumper",
+  "name": "a jumper blocked by the closeout: the hand up to the ball just after it leaves",
+  "glass": {
+   "caroms": 1,
+   "taken": 1,
+   "air": 0,
+   "floor": 1,
+   "offensive": 0,
+   "allOk": 1,
+   "read": 1,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 1,
+    "p50": 1.67,
+    "p90": 1.67,
+    "p99": 1.67,
+    "max": 1.67
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 1,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 1,
+   "contestToward": 1,
+   "contestAtRelease": 1,
+   "contestAngDeg": {
+    "n": 1,
+    "p50": 7.2,
+    "p90": 7.2,
+    "p99": 7.2,
+    "max": 7.2
+   },
+   "contestAngBestDeg": {
+    "n": 1,
+    "p50": 1.3,
+    "p90": 1.3,
+    "p99": 1.3,
+    "max": 1.3
+   },
+   "contestByLevel": {
+    "tight": {
+     "n": 1,
+     "toward": 1,
+     "atRelease": 1,
+     "angDeg": 7.2,
+     "angBestDeg": 1.3,
+     "handBallFt": 0.72,
+     "handOverHeadFt": 1.09,
+     "distFt": 2.97
+    }
+   },
+   "blocks": 1,
+   "blockOnBall": 1,
+   "blockToward": 1,
+   "blockArmDeg": {
+    "n": 1,
+    "p50": 1.4,
+    "p90": 1.4,
+    "p99": 1.4,
+    "max": 1.4
+   },
+   "blockGapIn": {
+    "n": 1,
+    "p50": -0.1,
+    "p90": -0.1,
+    "p99": -0.1,
+    "max": -0.1
+   },
+   "blockApexS": {
+    "n": 1,
+    "p50": -0.15,
+    "p90": -0.15,
+    "p99": -0.15,
+    "max": -0.15
+   },
+   "blockSwatDeg": {
+    "n": 1,
+    "p50": 16,
+    "p90": 16,
+    "p99": 16,
+    "max": 16
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "contest",
+    "t": 1.467,
+    "id": "s1",
+    "planned": true,
+    "shooter": "s0",
+    "shot": "jumpshot",
+    "level": "tight",
+    "distFt": 2.97,
+    "clip": "block",
+    "jumpIn": 8.5,
+    "angDeg": 7.2,
+    "handBallFt": 0.72,
+    "handOverHeadFt": 1.09,
+    "angBestDeg": 1.3
+   },
+   {
+    "kind": "block",
+    "t": 1.55,
+    "id": "s1",
+    "shooter": "s0",
+    "gapIn": -0.1,
+    "armDeg": 1.4,
+    "jumpIn": 17.6,
+    "apexS": -0.15,
+    "swatDeg": 16,
+    "clip": "block"
+   },
+   {
+    "kind": "blocked",
+    "t0": 1.467,
+    "shooter": "s0",
+    "contactS": 0.073,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [],
+    "id": "s2",
+    "off": false,
+    "air": false,
+    "plan": {
+     "style": "floor",
+     "tC": 1.063,
+     "dRun": 16.32,
+     "d0": 9.19,
+     "dist": 9.19,
+     "actor": "s2"
+    },
+    "takeS": 3.677,
+    "takeZ": 2.06,
+    "gapLIn": 2.6,
+    "gapRIn": 1.3,
+    "pullFt": 1.67,
+    "bendTakeIn": 0,
+    "onsetS": null,
+    "preCloseFt": 0,
+    "d0Ft": 26.73,
+    "dContactFt": 26.73,
+    "jumpIn": 0,
+    "apexS": null,
+    "chinS": null,
+    "chinHoldS": 0,
+    "elbowSpanMax": 1.9,
+    "others": []
+   }
+  ],
+  "popsN": 27
+ },
+ {
+  "id": "stealPoke",
+  "name": "a poke steal: the ball knocked loose off the dribble, the defender runs it down",
+  "glass": {
+   "caroms": 0,
+   "taken": 0,
+   "air": 0,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 0,
+   "read": 0,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 0,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 1,
+   "looseTaken": 1,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 1,
+    "p50": 0.33,
+    "p90": 0.33,
+    "p99": 0.33,
+    "max": 0.33
+   },
+   "looseOnsetS": {
+    "n": 1,
+    "p50": 0.383,
+    "p90": 0.383,
+    "p99": 0.383,
+    "max": 0.383
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 0,
+   "contestToward": 0,
+   "contestAtRelease": 0,
+   "contestAngDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestAngBestDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestByLevel": {},
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 1,
+   "swipeToBall": 1,
+   "swipeMinFt": {
+    "n": 1,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "swipe",
+    "t": 0.983,
+    "id": "s1",
+    "startFt": 2.36,
+    "minFt": 0.1,
+    "atEventFt": 0.38
+   },
+   {
+    "kind": "loose",
+    "t0": 1.2,
+    "shooter": "s0",
+    "contactS": 0,
+    "bendMaxIn": 0,
+    "taken": true,
+    "hits": 0,
+    "box": [],
+    "id": "s1",
+    "off": false,
+    "air": false,
+    "plan": null,
+    "takeS": 2.85,
+    "takeZ": 0.66,
+    "gapLIn": -0.3,
+    "gapRIn": 1,
+    "pullFt": 0.33,
+    "bendTakeIn": 0,
+    "onsetS": 0.383,
+    "preCloseFt": -0.1,
+    "d0Ft": 17.74,
+    "dContactFt": 17.84,
+    "jumpIn": 0,
+    "apexS": null,
+    "chinS": null,
+    "chinHoldS": 0,
+    "elbowSpanMax": 1.92,
+    "others": []
+   }
+  ],
+  "popsN": 8
+ },
+ {
+  "id": "stealPass",
+  "name": "a bad pass read and picked off in the lane",
+  "glass": {
+   "caroms": 0,
+   "taken": 0,
+   "air": 0,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 0,
+   "read": 0,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 0,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 0,
+   "contestToward": 0,
+   "contestAtRelease": 0,
+   "contestAngDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestAngBestDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestByLevel": {},
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 0,
+   "swipeToBall": 0,
+   "swipeMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 1,
+   "interceptionTwoHands": 1,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 1,
+    "p50": 0.92,
+    "p90": 0.92,
+    "p99": 0.92,
+    "max": 0.92
+   }
+  },
+  "recs": [
+   {
+    "kind": "interception",
+    "t": 1.667,
+    "id": "s2",
+    "passer": "s0",
+    "gapLIn": 2,
+    "gapRIn": 2.2,
+    "pullFt": 0.92,
+    "takeZ": 4.67
+   }
+  ],
+  "popsN": 1
+ },
+ {
+  "id": "reachIn",
+  "name": "a reach-in on the dribbler: the hand at the ball, the whistle",
+  "glass": {
+   "caroms": 0,
+   "taken": 0,
+   "air": 0,
+   "floor": 0,
+   "offensive": 0,
+   "allOk": 0,
+   "read": 0,
+   "onsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "preCloseFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "steered": 0,
+   "bendMaxIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pulled": 0,
+   "pullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "twoHands": 0,
+   "takeGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumped": 0,
+   "timed": 0,
+   "apexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "jumpIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinned": 0,
+   "chinS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "chinHoldS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "elbowSpanMax": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "floorTouch": 0,
+   "othersNear": 0,
+   "othersEarly": 0,
+   "othersOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "loose": 0,
+   "looseTaken": 0,
+   "loosePulled": 0,
+   "loosePullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "looseOnsetS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxouts": 0,
+   "boxLetGo": 0,
+   "boxContact": 0,
+   "boxContactS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxHoldPct": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBehindDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxBaseX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxWide": 0,
+   "boxElbowX": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "boxArmsOut": 0,
+   "boxKneeDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contests": 0,
+   "contestToward": 0,
+   "contestAtRelease": 0,
+   "contestAngDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestAngBestDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "contestByLevel": {},
+   "blocks": 0,
+   "blockOnBall": 0,
+   "blockToward": 0,
+   "blockArmDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockGapIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockApexS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "blockSwatDeg": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "swipesAway": 0,
+   "swipes": 1,
+   "swipeToBall": 1,
+   "swipeMinFt": {
+    "n": 1,
+    "p50": -0.07,
+    "p90": -0.07,
+    "p99": -0.07,
+    "max": -0.07
+   },
+   "intercepts": 0,
+   "interceptMinFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "interceptions": 0,
+   "interceptionTwoHands": 0,
+   "interceptionPulled": 0,
+   "interceptionPullFt": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "recs": [
+   {
+    "kind": "swipe",
+    "t": 1.5,
+    "id": "s1",
+    "startFt": 1.9,
+    "minFt": -0.07,
+    "atEventFt": 0.73
+   }
+  ],
+  "popsN": 10
+ }
+]

@@ -266,11 +266,12 @@
      *  never onto it (Tune.glass.contestGapFt short of it), and stays up where the ball left their hands; up over
      *  Tune.glass.contestLeadS before tRel, held contestHoldS after, then let down. (It used to follow the ball itself, through
      *  the shooter's dip and push and on up after it in the air at ~25 ft/s, and the arm popped.) o: { sh, lead, hold, both
-     *  (both hands: verticality at the rim) } */
+     *  (both hands: verticality at the rim), at (a point in the world to go up at instead: a late contest, where the ball will be
+     *  as the hand gets there) } */
     contestBall(b, tRel, o) {
       o = o || {};
       const TG = M.Tune.glass, side = o.side != null ? o.side : this.contestSide(b);
-      this._contest = { b, sh: o.sh || null, fr: null, t1: tRel, lead: o.lead || TG.contestLeadS, hold: o.hold != null ? o.hold : TG.contestHoldS, sides: o.both ? [0, 1] : [side] };
+      this._contest = { b, sh: o.sh || null, at: o.at || null, fr: null, t1: tRel, lead: o.lead || TG.contestLeadS, hold: o.hold != null ? o.hold : TG.contestHoldS, sides: o.both ? [0, 1] : [side] };
     }
     /** where the ball leaves their hands in the shot they are in: the move's ball at its release, the body where the move has it
      *  then, up in its jump; not in a shot, over their head. out: [x, y, z] */
@@ -4210,6 +4211,20 @@
       out[0] = x + s * dx + c * dy; out[1] = y - c * dx + s * dy; out[2] = z + dz;
       return Math.hypot(dx, dy, dz);
     }
+    /** how far a free ball (world centre x, y, z, radius r) is inside their trunk and head (with legs, the legs and feet too) as last solved
+     *  (not the arms: a hand on it takes it or tips it), and the way out of them, out: [nx, ny, nz] (the world's axes, unit
+     *  length); 0 when it is clear (Trial 11: a carom or a make coming down out of the net comes off whoever is in its way) */
+    ballHit(x, y, z, r, out, legs) {
+      if (!this._body) return 0;
+      const c = Math.cos(this.facing), s = Math.sin(this.facing), rx = x - this.x, ry = y - this.y, l = TCB;
+      l[0] = rx * s - ry * c; l[1] = rx * c + ry * s; l[2] = z - this.jumpZ;
+      const x0 = l[0], y0 = l[1], z0 = l[2];
+      const d = this.clearBall(l, r, !!legs);
+      if (!(d > 1e-6)) return 0;
+      const lx = (l[0] - x0) / d, ly = (l[1] - y0) / d, lz = (l[2] - z0) / d;
+      out[0] = s * lx + c * ly; out[1] = -c * lx + s * ly; out[2] = lz;
+      return d;
+    }
 
     _armTargets(dtI) {
       const sk = this.sk, H = this.H;
@@ -4467,6 +4482,7 @@
             const u = U.smooth((t - ctb.frT) / TG.contestSwapS);
             q[0] = rx + ctb.from[0] + (ctb.fr[0] - ctb.from[0]) * u; q[1] = ry + ctb.from[1] + (ctb.fr[1] - ctb.from[1]) * u; q[2] = rz + ctb.from[2] + (ctb.fr[2] - ctb.from[2]) * u;
           } else if (ctb.sh && b.holder === ctb.sh) ctb.sh.releasePoint(q);
+          else if (ctb.at && t < ctb.t1) { q[0] = ctb.at[0]; q[1] = ctb.at[1]; q[2] = ctb.at[2]; }
           else if (!ctb.sh && t < ctb.t1) { q[0] = b.x; q[1] = b.y; q[2] = b.z; }
           else {
             ctb.fr = [b.x - rx, b.y - ry, b.z - rz]; ctb.frT = t;
