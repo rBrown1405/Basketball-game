@@ -396,7 +396,9 @@
     for (const d of this.defActors()) { const dd = Math.hypot(d.x - h.x, d.y - h.y); if (dd < near) near = dd; }
     const g = this.guardOf(h.id), ux = (rim.x - h.x) / dR, uy = (rim.y - h.y) / dR;
     const along = g ? (g.x - h.x) * ux + (g.y - h.y) * uy : -99, across = g ? Math.abs((g.x - h.x) * -uy + (g.y - h.y) * ux) : 99;
-    const beaten = !g || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt);
+    // (or his man is sold on a move, pulled the wrong way by more than biteBeatFt: the dribble breakdown, the moment to go)
+    const sold = g && g._pc && g._pc.man === h && g._pc.bite && T < g._pc.bite.until ? g._pc.bite : null;
+    const beaten = !g || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt) || (!!sold && Math.hypot(sold.dx, sold.dy) > TR.biteBeatFt);
     const open = near >= TR.openFt, wide = near >= TR.wideFt && dR < TR.wideRangeFt;
     h._openFt = near; h._beaten = beaten;
     if (!open && !beaten) return;

@@ -26,7 +26,7 @@
   function playerLook(p, teamIdx) {
     return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle,
       // (the court's defense and offense read these: cushion by shooting, help by awareness, roles for bigs)
-      three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, offIQ: Math.round(p.r.shotIQ * 0.55 + p.r.vision * 0.45), defIQ: Math.round(p.r.helpD * 0.7 + p.r.hustle * 0.3),
+      three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, strength: p.r.strength, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, offIQ: Math.round(p.r.shotIQ * 0.55 + p.r.vision * 0.45), defIQ: Math.round(p.r.helpD * 0.7 + p.r.hustle * 0.3),
       expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral' };
   }
   UI.matchContext = function (S, g) {

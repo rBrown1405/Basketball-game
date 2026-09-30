@@ -432,6 +432,15 @@
       if (o.mirror == null) o.mirror = this.lefty && clip.handed !== false;
       const cs = new ClipState(clip, Object.assign({ x: this.x, y: this.y, facing: this.facing }, o));
       cs.v0x = this.vx; cs.v0y = this.vy;
+      // (o.ballFromPrev: a move taking over from one still under way, the post moves' parts: the ball fades in from where the
+      // move before had it, not from the stance's hold, which lags a hold changed a frame ago (the ball jumped ~0.7 ft)
+      // (and the body fades in from the pose the move before had it in, not from the stance's: a hand-over from one move to the
+      // next went back toward the stance's pose for its first frames, the knees ~30 deg and the hands ~0.5 ft at once)
+      const pc = this.clip;
+      if (o.ballFromPrev && clip.mask === 'full' && pc && !pc.done) {
+        if (clip.ballKeys && pc.lastBallL && Math.abs(U.wrapPi((o.facing != null ? o.facing : this.facing) - this.facing)) < 0.2) cs.ball0 = pc.lastBallL.slice();
+        if (this.pose) cs.pose0 = Float32Array.from(this.pose);
+      }
       if (clip.mask === 'full') {
         cs.offX = this.x - cs.ox; cs.offY = this.y - cs.oy;
         // make the offset relative to the clip's root at t0
@@ -492,6 +501,13 @@
     /** a hesitation (Trial 8): the body rises and the eyes come up (the 'hesi' clip) while the dribble floats up higher
      *  and slower into the hand, then a low quick bounce goes with the burst (coaching: slow the dribble, raise up a
      *  little, look up to sell it, then explode with the ball pushed out in front) */
+    /** a burst (the dribble breakdown: out of a move his man bought, the first steps past him): for dur s his top speed is
+     *  Tune.shifty.burstVK x k higher and his push off the floor burstAK x k harder (k 0-1) */
+    burst(dur, k) {
+      const TS = M.Tune.shifty, kk = U.clamp(k, 0, 1);
+      this._burst = { until: (this.time || 0) + dur, vK: 1 + TS.burstVK * kk, aK: 1 + TS.burstAK * kk };
+      return this;
+    }
     hesitate() {
       const b = this.view && this.view.ball;
       if (b && b.state === 'dribble' && b.dr && b.dr.actor === this && !b.dr.move && !b.dr.pendingMove) {
@@ -555,9 +571,14 @@
      */
     pivotTo(angle, o) {
       o = o || {};
-      const delta = U.wrapPi(angle - this.facing);
+      let delta = U.wrapPi(angle - this.facing);
       if (Math.abs(delta) < 0.55) { this.setFace(angle); return false; }
-      const side = delta > 0 ? 0 : 1; // turning left: pivot on the left foot
+      // (o.dir: the way round, +1 left / -1 right, a post move's drop step toward the baseline; a turn the short way the
+      // other way round goes the long way instead)
+      if (o.dir && Math.sign(delta) !== Math.sign(o.dir)) delta += Math.sign(o.dir) * U.TAU;
+      // turning left: pivot on the left foot (a front turn); o.reverse: on the other one, the free foot swung round behind
+      // (the drop step: the baseline foot dropped back past his man, a reverse pivot)
+      const side = (delta > 0) !== !!o.reverse ? 0 : 1;
       const pf = this.feet[side], ff = this.feet[1 - side];
       if (pf.state !== 'plant' || ff.state === 'air') { this.setFace(angle); return false; }
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
@@ -565,29 +586,38 @@
       const P = loc(pf.x, pf.y), F0 = loc(ff.x, ff.y);
       // rotate a clip-frame point about the pivot by phi (+ = left): in (fwd, lat), a left turn takes fwd toward -lat
       const rot = (q, phi) => { const dx = q[0] - P[0], dy = q[1] - P[1], cp = Math.cos(phi), sp = Math.sin(phi); return [P[0] + dx * cp + dy * sp, P[1] - dx * sp + dy * cp]; };
-      const dur = 0.2 + 0.26 * Math.abs(delta) / Math.PI * (1.15 - 0.3 * (this.rAgi || 0.5));
+      const dur = (0.2 + 0.26 * Math.abs(delta) / Math.PI * (1.15 - 0.3 * (this.rAgi || 0.5))) * (o.quick || 1);
+      // (o.end: the world point the hips end the turn over, the post moves' (a drop step or spin ~1.5 ft on toward the rim, a
+      // face-up where he stands): a turn round one foot of a wide stance alone carries the hips ~2-3 ft round it, off the way
+      // the move goes. The pivot foot keeps its spot, the free foot lands under the hips' new place)
+      let sh0 = [0, 0];
+      if (o.end) { const e = loc(o.end.x, o.end.y), r1 = rot([0, 0], delta); sh0 = [e[0] - r1[0], e[1] - r1[1]]; }
       const n = 4, root = [], yaw = [];
       for (let i = 0; i <= n; i++) {
         const u = i / n, ue = U.smooth(u), phi = delta * ue;
         const r = rot([0, 0], phi);
-        root.push([dur * u, r[0], r[1]]);
+        root.push([dur * u, r[0] + sh0[0] * ue, r[1] + sh0[1] * ue]);
         yaw.push([dur * u, phi / D]);
       }
       root.push([dur + 0.12, root[n][1], root[n][2]]); yaw.push([dur + 0.12, delta / D]);
       const big = Math.abs(delta) > 2.0;
       const steps = [];
       const fSide = side ? 'l' : 'r';
+      const plus = (q, k) => [q[0] + sh0[0] * k, q[1] + sh0[1] * k];
       if (big) {
-        const m = rot(F0, delta * 0.5), e = rot(F0, delta);
+        const m = plus(rot(F0, delta * 0.5), 0.6), e = plus(rot(F0, delta), 1);
         steps.push({ t0: 0.03, t1: dur * 0.5, foot: fSide, to: m, yaw: delta * 0.5 / D, lift: 0.05 });
         steps.push({ t0: dur * 0.52, t1: dur, foot: fSide, to: e, yaw: delta / D, lift: 0.05 });
       } else {
-        steps.push({ t0: 0.03, t1: dur, foot: fSide, to: rot(F0, delta), yaw: delta / D, lift: 0.06 });
+        steps.push({ t0: 0.03, t1: dur, foot: fSide, to: plus(rot(F0, delta), 1), yaw: delta / D, lift: 0.06 });
       }
       const noBall = o.ball === false;
       const hold0 = noBall ? this.stance : o.hold || 'triple';
       const hold = noBall ? (A.STANCE[hold0] || A.STANCE.stand).pose : this.lefty && HANDED[hold0] ? HANDED[hold0] : hold0, bm = this.lefty ? -1 : 1;
       const tw = delta > 0 ? 1 : -1;
+      // (the ball at the hip in the triple threat; chinned at the chest for a hold at the chest, a post move's)
+      const chin = hold0 === 'holdChest' || hold0 === 'postHold';
+      const bA = chin ? [0, 0.17, 0.62] : [0.13 * bm, 0.2, 0.53], bB = chin ? [0, 0.17, 0.61] : [0.13 * bm, 0.21, 0.55], gB = chin ? 'hold' : this.lefty ? 'hipL' : 'hip';
       const clip = A.buildClip({
         name: noBall ? 'turn' : 'pivot', dur: dur + 0.12, events: {}, root, yaw, steps,
         pivot: { side, t0: 0, t1: dur + 0.12 },
@@ -597,17 +627,64 @@
           { t: dur * 0.5, p: { base: hold, rootZ: -0.04, chTwist: tw * 9, nkTwist: tw * 12, hdTwist: tw * 4 } },
           { t: dur + 0.12, p: hold },
         ] : [
-          { t: 0, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
-          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: tw * 12, nkTwist: tw * 10 }, ball: [0.13 * bm, 0.21, 0.55], grip: this.lefty ? 'hipL' : 'hip' },
-          { t: dur + 0.12, p: hold, ball: [0.13 * bm, 0.2, 0.53], grip: this.lefty ? 'hipL' : 'hip' },
+          { t: 0, p: hold, ball: bA, grip: gB },
+          { t: dur * 0.5, p: { base: hold, rootZ: -0.06, chTwist: tw * 12, nkTwist: tw * 10 }, ball: bB, grip: gB },
+          { t: dur + 0.12, p: hold, ball: bA, grip: gB },
         ],
       });
-      if (!noBall) this.ballHold = 'triple';
+      if (!noBall) this.ballHold = chin ? 'chest' : 'triple';
       // (built for this player's own feet and turn: never mirrored for a lefty)
-      const cs = this.play(clip, { x: this.x, y: this.y, facing: this.facing, fadeIn: 0.08, mirror: false });
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: this.facing, fadeIn: o.fadeIn || 0.08, mirror: false, ballFromPrev: !!o.ballFromPrev });
       if (cs && noBall) { cs.autoTurn = true; cs.onEnd = () => { this.setStance(hold0); }; }
       else if (cs) cs.onEnd = () => { this.setStance(hold0); this.setFace(o.faceAfter != null ? o.faceAfter : angle); };
       return !!cs;
+    }
+    /** how long pivotTo takes to turn to `angle` (o: its dir and quick) */
+    pivotDur(angle, o) {
+      o = o || {};
+      let delta = U.wrapPi(angle - this.facing);
+      if (Math.abs(delta) < 0.55) return 0;
+      if (o.dir && Math.sign(delta) !== Math.sign(o.dir)) delta += Math.sign(o.dir) * U.TAU;
+      return (0.2 + 0.26 * Math.abs(delta) / Math.PI * (1.15 - 0.3 * (this.rAgi || 0.5))) * (o.quick || 1) + 0.12;
+    }
+    /**
+     * The step through of an up and under (the post moves: after a pump fake got his man up): the free foot crosses over past
+     * his man's hip to `o.to` (a world point ~2 ft on), the hips going with it and turning toward `o.face`, the pivot foot
+     * keeping its spot (it may come up only as he goes up to shoot, the rules); the ball ripped low across the body away from
+     * the man coming down, then up to the chest for the finish. Returns the clip state (null: not now).
+     */
+    stepThrough(o) {
+      const b = this.view && this.view.ball;
+      const c = Math.cos(this.facing), s = Math.sin(this.facing);
+      const loc = (x, y) => [(x - this.x) * c + (y - this.y) * s, (x - this.x) * s - (y - this.y) * c]; // [fwd, lat]
+      const to = loc(o.to.x, o.to.y);
+      // (a crossover step: stepping to his left the right foot goes, the left keeps its spot, and the other way round)
+      const cross = to[1] < 0 ? 1 : 0;
+      const ff = this.feet[cross], pf = this.feet[1 - cross];
+      if (pf.state !== 'plant' || ff.state === 'air') return null;
+      const dur = o.dur || 0.34;
+      const turn = o.face != null ? U.clamp(U.wrapPi(o.face - this.facing), -1.2, 1.2) : 0;
+      const P = loc(pf.x, pf.y);
+      // (the hips end over the step, most of the way from the pivot foot: the weight onto it, loaded to go up)
+      const rE = [P[0] + (to[0] - P[0]) * 0.78, P[1] + (to[1] - P[1]) * 0.78];
+      // (eased in off the planted feet and into the step)
+      const root = [[0, 0, 0], [dur * 0.2, rE[0] * 0.06, rE[1] * 0.06], [dur * 0.55, rE[0] * 0.5, rE[1] * 0.5], [dur, rE[0], rE[1]], [dur + 0.06, rE[0], rE[1]]];
+      const yaw = [[0, 0], [dur * 0.5, turn * 0.45 / D], [dur, turn / D], [dur + 0.06, turn / D]];
+      const steps = [{ t0: 0.02, t1: dur - 0.02, foot: cross ? 'r' : 'l', to, yaw: turn / D, lift: 0.07 }];
+      const sg = to[1] < 0 ? -1 : 1;
+      const low = { base: 'holdChest', rootZ: -0.14, pelPitch: 30, spFlex: 12, chTwist: -sg * 14, nkFlex: -22, both: { ShF: 22, ShA: 22, ShT: 30, ElF: 96, HipF: 56, HipA: 10, Knee: 76, Ank: 20 } };
+      const set = { base: 'holdChest', rootZ: -0.12, pelPitch: 24, spFlex: 9, nkFlex: -20, both: { HipF: 48, HipA: 10, Knee: 70, Ank: 18 } };
+      const keys = [
+        { t: 0, p: { base: 'holdChest', rootZ: -0.1, pelPitch: 24, spFlex: 8, both: { ShA: 34, HipF: 46, HipA: 10, Knee: 62, Ank: 16 } }, ball: [0.0, 0.17, 0.62], grip: 'hold' },
+        { t: dur * 0.5, p: low, ball: [0.12 * sg, 0.2, 0.5], grip: 'hold' },
+        { t: dur, p: set, ball: [0.02, 0.18, 0.58], grip: 'hold' },
+        { t: dur + 0.06, p: set, ball: [0.02, 0.18, 0.58], grip: 'hold' },
+      ];
+      const clip = A.buildClip({ name: 'stepThrough', dur: dur + 0.06, events: { plant: dur }, root, yaw, steps, keys, pivot: { side: 1 - cross, t0: 0, t1: dur + 0.06 } });
+      if (b && b.holder === this && b.state === 'dribble') b.give(this, 'chest');
+      const cs = this.play(clip, { x: this.x, y: this.y, facing: this.facing, fadeIn: 0.08, mirror: false, ballFromPrev: true });
+      if (cs) cs.onEnd = () => { this.setStance('holdChest'); if (o.face != null) this.setFace(o.face); };
+      return cs || null;
     }
     /**
      * The spin move off the dribble, built for this player's own feet (no canned motion): a hard plant of the foot on
@@ -1009,7 +1086,9 @@
           want = left > 0.05 ? Math.min(g.speed * 1.25, Math.max(dist / left * 1.12, dist > 0.5 ? 2.5 : 0)) : g.speed * 1.2;
           if (g.pace && dist > 1) want = Math.max(want, Math.min(g.pace, g.speed));
         }
-        want = Math.min(want, this.maxSpeed * 1.08);
+        // (a burst past his man: a moment quicker than he can run otherwise, Actor.burst)
+        const bu = this._burst && this.time < this._burst.until ? this._burst : null, bvK = bu ? bu.vK : 1;
+        want = Math.min(want, this.maxSpeed * 1.08 * bvK);
         // the traveling rule (the gameplay pass): his dribble picked up and the ball in his hands, he gets the steps it
         // takes to stop (Tune.rules: gather steps, a stride or two past the pick-up) and then only pivots; an order to go
         // somewhere with it is not taken (walking on with it was a travel), a clip's own steps aside (a layup, a jumper)
@@ -1025,7 +1104,7 @@
         if (dist > 1e-4) { dvx = dx / dist * want; dvy = dy / dist * want; }
         dvx += tvx; dvy += tvy;
         const dl = Math.hypot(dvx, dvy);
-        if (dl > this.maxSpeed * 1.1) { dvx *= this.maxSpeed * 1.1 / dl; dvy *= this.maxSpeed * 1.1 / dl; }
+        if (dl > this.maxSpeed * 1.1 * bvK) { dvx *= this.maxSpeed * 1.1 * bvK / dl; dvy *= this.maxSpeed * 1.1 * bvK / dl; }
         const av = this._avoid(dvx, dvy);
         dvx = av[0]; dvy = av[1];
         // the lines ahead (the gameplay pass): with the ball he brakes for a sideline or a baseline in time to stop
@@ -1067,7 +1146,8 @@
       // (the harder push of Tune.urgency's starts is for a player on the move; one sliding or backpedalling out of the
       // defensive stance keeps the gentler one his footwork was built on, Trial 5: pushed harder, a hip popped)
       const TUr = M.Tune.urgency, stA = A.STANCE[this.stance], hard = this.urgK > 1 && !(stA && stA.slide);
-      const accelNow = Math.min(this.accel, (hard ? TUr.startFtps2 : TUr.slideStartFtps2) + (hard ? TUr.startPerFtps : TUr.slideStartPerFtps) * Math.max(Math.hypot(dvx, dvy), spd));
+      const bA = this._burst && this.time < this._burst.until ? this._burst.aK : 1;
+      const accelNow = Math.min(this.accel * bA, ((hard ? TUr.startFtps2 : TUr.slideStartFtps2) + (hard ? TUr.startPerFtps : TUr.slideStartPerFtps) * Math.max(Math.hypot(dvx, dvy), spd)) * bA);
       // the body is a mass (Trial 4): the push toward the wanted velocity builds up and eases off at a human rate of
       // force development (Tune.weight.jerkFtps3) instead of switching on and off in one step, and eases off as the
       // velocity gets there so it is spent just as it arrives (a little overshoot, then it settles)
@@ -2823,8 +2903,10 @@
         if (cs === this.clip) dz = Math.min(0, q[CH.rootZ] - this.clipPose[CH.rootZ]) * H * 0.9;
         else { dz = -Math.max(0, -q[CH.rootZ] - 0.03) * H * 0.85; dy = Math.sin(Math.max(0, q[CH.pelPitch] + q[CH.spFlex] - 14 * D)) * 0.3 * H; }
         const L = BL;
-        L[0] = U.lerp(base[0], bx * H, w); L[1] = U.lerp(base[1], by * H + dy, w); L[2] = U.lerp(base[2], bz * H + dz, w);
+        const b0 = cs.ball0 && w < 1 ? cs.ball0 : base;
+        L[0] = U.lerp(b0[0], bx * H, w); L[1] = U.lerp(b0[1], by * H + dy, w); L[2] = U.lerp(b0[2], bz * H + dz, w);
         this.clearBall(L, BALL_R, true);
+        if (cs === this.clip) cs.lastBallL = [L[0], L[1], L[2]];
         this.local(L[0], L[1], L[2], out);
         // going up to the rim: the ball ends the rise at the spot, as close as the arm reaches
         const r = cs.reach;
@@ -3152,7 +3234,10 @@
         if (cs.mirror) { RG.mirrorPose(this.clipPose, this.tmpPose); this.clipPose.set(this.tmpPose); }
         const w = U.smooth(cs.w);
         const mask = maskOf(cs.clip.mask);
-        for (const i of mask) p[i] += (this.clipPose[i] - p[i]) * w;
+        // (a move taken over from another, play's ballFromPrev: from that move's last pose)
+        const q0 = cs.pose0 && w < 1 ? cs.pose0 : null;
+        if (q0) for (const i of mask) p[i] = q0[i] + (this.clipPose[i] - q0[i]) * w;
+        else for (const i of mask) p[i] += (this.clipPose[i] - p[i]) * w;
       }
       // landing from a jump: the legs give under the weight, deeper the harder he comes down (~0.1 ft at 10 ft/s, the
       // lowest ~0.08 s after touching down, then back up) with the trunk folding a little over the hips, on top of
@@ -4688,7 +4773,8 @@
           const wf = fit ? this._wrFix || (this._wrFix = [new Float64Array(3), new Float64Array(3)]) : null;
           // (coming in over a plain hold turned with the chest, _holdLocal, the grips turn back to the hips' frame as the clip
           // does: switched at once, a passer holding it with the chest turned to a decoy had the hands ~3 in off it, Trial 10)
-          const fy = this.facing + this._holdYaw() * (1 - U.clamp(cs.w, 0, 1)), c = Math.cos(fy), s = Math.sin(fy);
+          // (a move taking over from another, ball0: it comes in over that move's hands, not a hold's)
+          const fy = this.facing + (cs.ball0 ? 0 : this._holdYaw() * (1 - U.clamp(cs.w, 0, 1))), c = Math.cos(fy), s = Math.sin(fy);
           for (let side = 0; side < 2; side++) {
             const g = mir ? (side ? gi.l : gi.r) : (side ? gi.r : gi.l), w = mir ? (side ? gi.wl : gi.wr) : (side ? gi.wr : gi.wl);
             if (!g || w <= 0.001) continue;

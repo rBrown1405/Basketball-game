@@ -376,6 +376,66 @@
       g.globalAlpha = 1;
       y += lh;
     }
+    return { x: x0, y: y0, w: W, h };
+  }
+
+  /**
+   * the last shot's aim (Match.Aim), for a few seconds after it goes up: the rim from above with the shooter below it, the
+   * shooter's scatter (one and two spreads), where this ball crossed the rim's plane (the ball to scale, green in, red out)
+   * and their last few shots, the glass, and in words: how it came down and how it went in or out
+   */
+  function aimInset(g, d, view, box) {
+    const a = d.lastAim;
+    if (!a || d.T - a.T > 5 || a.T > d.T + 0.01) return;
+    const hist = d._aimHist || (d._aimHist = []);
+    if (!hist.length || hist[hist.length - 1] !== a) { hist.push(a); if (hist.length > 40) hist.shift(); }
+    const S = 3.2, W = 190, H = 196;
+    const x0 = box ? box.x : 10, y0 = box && box.y + box.h + 8 + H < view.cssH ? box.y + box.h + 8 : Math.max(10, view.cssH - H - 10);
+    const fade = Math.min(1, (5 - (d.T - a.T)) / 0.6);
+    g.save();
+    g.globalAlpha = fade;
+    g.fillStyle = 'rgba(8,10,16,0.78)'; rrect(g, x0, y0, W, H, 6); g.fill();
+    const cx = x0 + W / 2, cy = y0 + 96;
+    // (the shot's frame: the shooter's left to the left, long up the page)
+    const P = (l, dd) => [cx - l * S, cy - dd * S];
+    // the glass
+    if (a.kb != null) {
+      const nl = a.kl, nd = a.kb, q0 = P(15 * nl - 36 * -nd, 15 * nd - 36 * nl), q1 = P(15 * nl + 36 * -nd, 15 * nd + 36 * nl);
+      g.strokeStyle = 'rgba(206,212,218,0.7)'; g.lineWidth = 2; g.beginPath(); g.moveTo(q0[0], q0[1]); g.lineTo(q1[0], q1[1]); g.stroke();
+    }
+    // the ring (18 in inside, its tube)
+    g.strokeStyle = '#ff922b'; g.lineWidth = Math.max(1.5, 0.625 * S);
+    g.beginPath(); g.arc(cx, cy, (9 + 0.3125) * S, 0, Math.PI * 2); g.stroke();
+    // the scatter: one spread and two
+    const m = P(a.muL, a.muD);
+    for (const [k, dash] of [[1, null], [2, [3, 3]]]) {
+      g.strokeStyle = 'rgba(165,216,255,0.8)'; g.lineWidth = 1; if (dash) g.setLineDash(dash);
+      g.beginPath(); g.ellipse(m[0], m[1], Math.max(1, a.sdL * k * S), Math.max(1, a.sdD * k * S), 0, 0, Math.PI * 2); g.stroke();
+      g.setLineDash([]);
+    }
+    // this shooter's last shots, then this one (the ball to scale)
+    for (const h of hist) {
+      if (h === a || h.shooter !== a.shooter) continue;
+      const q = P(h.l, h.d);
+      g.fillStyle = h.made ? 'rgba(140,233,154,0.45)' : 'rgba(255,168,168,0.45)';
+      g.beginPath(); g.arc(q[0], q[1], 2.2, 0, Math.PI * 2); g.fill();
+    }
+    const q = P(a.l, a.d);
+    g.fillStyle = a.made ? 'rgba(140,233,154,0.35)' : 'rgba(255,168,168,0.35)'; g.strokeStyle = a.made ? '#8ce99a' : '#ffa8a8'; g.lineWidth = 1.5;
+    g.beginPath(); g.arc(q[0], q[1], 4.7 * S, 0, Math.PI * 2); g.fill(); g.stroke();
+    // the shooter below
+    g.fillStyle = '#ced4da'; g.font = '700 9px "Helvetica Neue", Arial, sans-serif'; g.textAlign = 'center';
+    g.fillText('SHOOTER', cx, y0 + H - 44);
+    g.textAlign = 'left';
+    const lk = d.v.look(a.shooter), who = lk ? (lk.last || lk.name || '') : '';
+    g.font = '700 11px "Helvetica Neue", Arial, sans-serif'; g.fillStyle = '#ffffff';
+    g.fillText(fit(g, 'AIM ' + who + '  ' + a.deg.toFixed(0) + '\u00b0 in (their arc ' + a.arc.toFixed(0) + '\u00b0)', W - 12), x0 + 6, y0 + 13);
+    g.font = '500 10px "Helvetica Neue", Arial, sans-serif'; g.fillStyle = a.made ? '#8ce99a' : '#ffa8a8';
+    const w = M.Aim.words(a, a.made), cut = w.indexOf(': ');
+    g.fillText(fit(g, cut > 0 ? w.slice(cut + 2) : w, W - 12), x0 + 6, y0 + H - 26);
+    g.fillStyle = '#adb5bd';
+    g.fillText(fit(g, (cut > 0 ? w.slice(0, cut).replace(/ at \d+ deg$/, '') : '') + '  \u00b7 ' + Math.round(a.pm * 100) + '% look, spread ' + a.sdD.toFixed(1) + ' in', W - 12), x0 + 6, y0 + H - 12);
+    g.restore();
   }
 
   // ------------------------------------------------------------ the overlay
@@ -420,7 +480,8 @@
         tag(g, q.x, q.y + 16, 'REBOUND: ' + nm(d, pr.actor.id) + ' (' + (pr.style || 'jump') + ')', '#ff922b');
       }
       const bp = cam.project(b.x, b.y, b.z, PT);
-      panel(g, d, view, L, bp.x);
+      const box = panel(g, d, view, L, bp.x);
+      if (M.Aim) aimInset(g, d, view, box);
       g.restore();
     },
   };

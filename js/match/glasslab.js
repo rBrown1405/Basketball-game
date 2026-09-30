@@ -76,8 +76,11 @@
     // defender a man)
     const roles = (c) => { for (const p of c.a) { if (p.team === 0) c.D.role[p.id] = { until: 0 }; } };
     const man = (c, d, m) => { c.D.matchup[d.id] = m.id; };
-    // (a miss off the given contact, for a scenario about it: the choreographer's own draw otherwise)
-    const miss = (c, contact) => { const f = c.D.shotResult; c.D.shotResult = function (ev, sh, spot, kind) { const r = f.call(this, ev, sh, spot, kind); if (r && !r.made && !r.blocked && contact) { r.type = 'miss'; r.contact = contact; r.rattle = false; } return r; }; };
+    // (a miss off the given contact, for a scenario about it: the choreographer's own draw otherwise; its arc a typical one,
+    // 48 deg, and off the front or the back of the ring a typical depth, so that the ball comes off the rim when and where
+    // the scenario has it, whatever the shooter's own aim would make of it)
+    const AT = { front: -7.4, back: 7.9 };
+    const miss = (c, contact) => { const f = c.D.shotResult; c.D.shotResult = function (ev, sh, spot, kind) { const r = f.call(this, ev, sh, spot, kind); if (r && !r.made && !r.blocked && contact) { r.type = 'miss'; r.contact = contact; r.rattle = false; r.aimArc = 48; r.aimAt = AT[contact]; } return r; }; };
 
     // --- rebounds and box-outs
     // a missed jumper from the right wing: the defense's big boxes out the offense's big on the weak side and takes it

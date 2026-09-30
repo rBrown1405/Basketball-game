@@ -807,6 +807,27 @@
     ],
   });
 
+  // the post moves (the user: "players in the paint should be using post moves to get an opening, and using contact"; the
+  // coaching: "shot-fake to get the defender to jump... once straightened up, or in the air, he is easier to beat", "a
+  // shoulder fake to the middle sets up the drop step", Hakeem's dream shake: "head and shoulder fakes one way to get the
+  // defender leaning, then the other way")
+  // the pump fake: from the ball chinned at the chest, taken up the jump shot's own line to its set point (the same fitted arms and grips, so it reads as
+  // the start of his real shot), the eyes up at the rim and the body rising onto the balls of the feet, but the knees stay
+  // bent (the coaching: "keep the legs loaded on the fake so you can explode"); a beat at the top, then the ball ripped back
+  // down to the chest and the hips sink, loaded for the step through
+  clip('pumpFake', {
+    dur: 0.6, events: { up: 0.16, fake: 0.26, down: 0.52 },
+    keys: [
+      { t: 0, p: { base: 'holdChest', rootZ: -0.08, pelPitch: 20, spFlex: 7, chFlex: 3, nkFlex: -16, both: { ShA: 30, HipF: 40, HipA: 10, Knee: 52, Ank: 14 } }, ball: [0.0, 0.17, 0.62], grip: 'hold' },
+      { t: 0.08, p: { base: 'shotPocket', rootZ: -0.07, pelPitch: 18, spFlex: 6, nkFlex: -14, both: { HipF: 34, HipA: 8, Knee: 44, Ank: 12 } }, ball: [0.06, 0.19, 0.63], grip: 'hold' },
+      { t: 0.16, p: arms('rise', { rootZ: -0.055, pelPitch: 12, spFlex: 4, chFlex: 0, nkFlex: -12, both: { HipF: 30, HipA: 8, Knee: 38, Ank: 10 } }), ball: SB.rise, grip: 'jsRise' },
+      { t: 0.26, p: arms('set', { rootZ: -0.035, pelPitch: 6, spFlex: 0, chFlex: -4, nkFlex: -12, hdFlex: -3, both: { HipF: 22, HipA: 6, Knee: 28, Ank: -6 } }), ball: SB.set, grip: 'jsSet' },
+      { t: 0.34, p: arms('set', { rootZ: -0.04, pelPitch: 7, spFlex: 0, chFlex: -4, nkFlex: -13, hdFlex: -3, both: { HipF: 24, HipA: 6, Knee: 30, Ank: -4 } }), ball: SB.set, grip: 'jsSet' },
+      { t: 0.42, p: arms('rise', { rootZ: -0.07, pelPitch: 14, spFlex: 4, chFlex: 0, nkFlex: -14, both: { HipF: 34, HipA: 8, Knee: 46, Ank: 10 } }), ball: SB.rise, grip: 'jsRise' },
+      { t: 0.52, p: { base: 'holdChest', rootZ: -0.1, pelPitch: 24, spFlex: 8, chFlex: 4, nkFlex: -18, both: { ShA: 34, HipF: 46, HipA: 10, Knee: 62, Ank: 16 } }, ball: [0.0, 0.17, 0.62], grip: 'hold' },
+      { t: 0.6, p: { base: 'holdChest', rootZ: -0.1, pelPitch: 24, spFlex: 8, chFlex: 4, nkFlex: -18, both: { ShA: 34, HipF: 46, HipA: 10, Knee: 62, Ank: 16 } }, ball: [0.0, 0.17, 0.62], grip: 'hold' },
+    ],
+  });
   // ------------------------------------------------------------ reactions
   clip('fistPump', {
     dur: 1.2, mask: 'upper',
@@ -996,6 +1017,9 @@
   L.screen = P({ rootZ: -0.06, pelPitch: 10, spFlex: 4, chFlex: -2, nkFlex: -8, both: { ShF: 30, ShA: -4, ShT: 60, ElF: 110, Pro: 60, WrF: 0, Fing: 1, HipF: 24, HipA: 16, HipT: -10, Knee: 30, Ank: 10 } }, M.Poses.BASE);
   L.boxout = P({ rootZ: -0.1, pelPitch: 30, spFlex: 6, chFlex: -6, nkFlex: -30, hdFlex: -10, both: { ShF: 60, ShA: 70, ShT: 20, ElF: 80, Pro: 30, WrF: -10, Fing: 0.1, HipF: 50, HipA: 20, HipT: -10, Knee: 62, Ank: 18 } }, M.Poses.BASE);
   L.postUp = P({ rootZ: -0.09, pelPitch: 26, spFlex: 6, chFlex: -2, nkFlex: -20, nkTwist: 30, lShF: 60, lShA: 60, lShT: 20, lElF: 80, rShF: 150, rShA: 30, rElF: 30, rPro: 0, rWrF: -20, both: { HipF: 46, HipA: 20, HipT: -10, Knee: 58, Ank: 16 } }, M.Poses.BASE);
+  // (the post-up with the ball in his hands, not dribbling: the post-up's low, wide base, the ball chinned at the chest, the
+  // elbows out; the post moves are worked from it)
+  L.postHold = P({ rootZ: -0.09, pelPitch: 26, spFlex: 6, chFlex: -2, nkFlex: -18, nkTwist: 24, both: { ShF: 34, ShA: 40, ShT: 38, ElF: 100, Pro: 5, WrF: -30, Fing: 0.15, HipF: 46, HipA: 20, HipT: -10, Knee: 58, Ank: 16 } }, M.Poses.BASE);
   L.postD = P({ rootZ: -0.09, pelPitch: 26, spFlex: 6, chFlex: -2, nkFlex: -24, lShF: 70, lShA: 30, lElF: 40, lPro: 0, rShF: 140, rShA: 30, rElF: 30, both: { HipF: 46, HipA: 20, HipT: -10, Knee: 58, Ank: 16 } }, M.Poses.BASE);
   L.inbound = P({ rootZ: -0.01, pelPitch: 4, spFlex: -2, nkFlex: -8, both: { ShF: 160, ShA: 22, ElF: 70, Pro: 10, WrF: -30, HipF: 8, HipA: 6, Knee: 12 } }, M.Poses.BASE);
   L.handsKnees = P({ rootZ: -0.08, pelPitch: 40, spFlex: 20, chFlex: 8, nkFlex: -30, both: { ShF: 40, ShA: 10, ShT: 20, ElF: 10, Pro: 60, WrF: 10, HipF: 50, HipA: 8, Knee: 40, Ank: 14 } }, M.Poses.BASE);
@@ -1009,10 +1033,37 @@
     boxout: { pose: 'boxout', L: [-0.19, 0.085], R: [0.19, 0.085], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
     postUp: { pose: 'postUp', L: [-0.16, 0.085], R: [0.16, 0.085], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
     postD: { pose: 'postD', L: [-0.15, 0.105], R: [0.15, 0.065], yaw: 16, gaitArms: 0.1, gaitTorso: 0.3, slide: true },
+    postHold: { pose: 'postHold', L: [-0.16, 0.085], R: [0.16, 0.085], yaw: 16, gaitArms: 0.05, gaitTorso: 0.3, slide: true },
     inbound: { pose: 'inbound', L: [-0.08, 0.115], R: [0.08, 0.055], yaw: 10, gaitArms: 0.1, gaitTorso: 0.8 },
     handsKnees: { pose: 'handsKnees', L: [-0.09, 0.085], R: [0.09, 0.085], yaw: 10, gaitArms: 0.8, gaitTorso: 0.8 },
     refStand: { pose: 'refStand', L: [-0.075, 0.085], R: [0.075, 0.085], yaw: 9, gaitArms: 1, gaitTorso: 1 },
     dribble: { pose: 'dribbleLow', L: [-0.125, 0.16], R: [0.125, 0.07], yaw: 12, gaitArms: 0.4, gaitTorso: 0.45 },
+  });
+
+  // the shoulder fake out of the post (the post moves; back to the basket, the ball held at the chest; after the stances, its
+  // pose is one of them): the head and shoulders snap round over
+  // the right shoulder as if turning that way, the ball swung with them and the weight onto the right leg, then back through
+  // the middle and a little the other way, which is where he goes (mirrored for a fake over the left shoulder); the feet stay
+  clip('postFake', {
+    dur: 0.42, events: { fake: 0.16 },
+    keys: [
+      { t: 0, p: 'postHold', ball: [0.0, 0.17, 0.62], grip: 'hold' },
+      { t: 0.16, p: { base: 'postHold', rootZ: -0.1, pelTwist: -8, spTwist: -10, chTwist: -16, nkTwist: -30, hdTwist: -8, lHipF: 40, lKnee: 50, rHipF: 52, rKnee: 66 }, ball: [0.1, 0.15, 0.63], grip: 'hold' },
+      { t: 0.3, p: { base: 'postHold', rootZ: -0.09, pelTwist: 3, spTwist: 4, chTwist: 7, nkTwist: 12 }, ball: [-0.02, 0.17, 0.62], grip: 'hold' },
+      { t: 0.42, p: 'postHold', ball: [0.0, 0.17, 0.62], grip: 'hold' },
+    ],
+  });
+  // the shoulder into his man's chest with the ball chinned (the back-down's bump, the ball in the hands, a post move's first
+  // beat): a step back into him, the hips and the shoulder first, the elbows out over the ball
+  clip('postBump', {
+    dur: 0.7, events: { bump: 0.3 },
+    root: [[0, 0, 0], [0.3, -0.9, 0], [0.7, -1.0, 0]],
+    steps: [{ t0: 0.06, t1: 0.28, foot: 'l', to: [-0.9, -0.95], lift: 0.04 }, { t0: 0.3, t1: 0.52, foot: 'r', to: [-0.8, 0.95], lift: 0.04 }],
+    keys: [
+      { t: 0.0, p: 'postHold', ball: [0.0, 0.17, 0.62], grip: 'hold' },
+      { t: 0.3, p: { base: 'postHold', rootZ: -0.12, pelPitch: 22, spFlex: 4, chFlex: -6, both: { ShA: 48 } }, ball: [0.0, 0.17, 0.61], grip: 'hold' },
+      { t: 0.7, p: 'postHold', ball: [0.0, 0.17, 0.62], grip: 'hold' },
+    ],
   });
 
   // ------------------------------------------------------------ the free throw's routine (Trial 9)

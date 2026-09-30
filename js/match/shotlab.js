@@ -127,7 +127,7 @@
     add('postFade', 'turnaround post fade from the left block, back to the basket', 3.8, one(), (c) => {
       const p = c.a[0], s = spot(9, -45);
       stand(c, p, s, rimA(s.x, s.y) + Math.PI); p.setStance('postUp'); c.hold(p, 'chest');
-      c.shoot({ at: 0.6, ev: { shooter: p.id, kind: 'fadeaway', x: s.x, y: s.y, made: true, pts: 2 } });
+      c.shoot({ at: 0.6, ev: { shooter: p.id, kind: 'fadeaway', x: s.x, y: s.y, made: true, pts: 2, postMove: 'none' } });
     });
     // (shooter A both times, so the page and the audit, whose players' ids and so their drawn forms differ, show the same shot)
     add('open', 'open jumper, the defender back (to compare with the contested one)', 3.6, [{ team: 0, h: 78, form: 'A' }, { team: 1, h: 78 }], (c) => {
@@ -212,6 +212,48 @@
       c.at(0.3, () => { const t = spot(6, 20); p.moveTo(t.x, t.y, { speed: 16, face: 'move' }); });
       c.pass(q, p, { kind: 'lob', at: 1.0, cs: spot(4, 10), run: false });
       c.shoot({ at: 1.0 + 1e-10, ev: { shooter: p.id, kind: 'alley', x: RIM.x - 2.5, y: RIM.y - 1, made: true, pts: 2 } });
+    });
+    // the post moves (the shot physics pass: "post moves in the paint to get an opening, with contact"; Director.postPlan): a big
+    // posted up on the block with his back to the basket, his man on his back between him and the rim; ev.postMove picks
+    // the move, the engine's contest sets how his man reacts
+    const post = (c, deg, d0) => {
+      const p = c.a[0], d = c.a[1], s = spot(d0 || 7.5, deg), ra = rimA(s.x, s.y);
+      stand(c, p, s, ra + Math.PI); p.setStance('postHold'); c.hold(p, 'chest');
+      const ds = { x: s.x + Math.cos(ra) * 2.1, y: s.y + Math.sin(ra) * 2.1 };
+      stand(c, d, ds, ra + Math.PI); d.setStance('postD');
+      return { p, d, s };
+    };
+    const bigs = [{ team: 0, h: 82, vert: 70 }, { team: 1, h: 82 }];
+    add('postDrop', 'post move: the drop step on the right block (a shoulder into him, the drop step baseline, sealed, up strong)', 4.4, bigs, (c) => {
+      const { p, d, s } = post(c, 55);
+      c.shoot({ at: 0.5, ev: { shooter: p.id, kind: 'layup', x: s.x, y: s.y, made: true, pts: 2, contest: 'contested', defender: d.id, postMove: 'dropStep' } });
+    });
+    add('postUpUnder', 'post move: the up and under on the left block (face up, the pump fake, he leaves his feet, the step through)', 4.4, bigs, (c) => {
+      const { p, d, s } = post(c, -50);
+      c.shoot({ at: 0.5, ev: { shooter: p.id, kind: 'layup', x: s.x, y: s.y, made: true, pts: 2, contest: 'open', defender: d.id, postMove: 'upUnder' } });
+    });
+    add('postSpin', 'post move: the spin off his man on the right block (he leans on him, the spin, he falls into the space)', 4.4, bigs, (c) => {
+      const { p, d, s } = post(c, 50);
+      c.shoot({ at: 0.5, ev: { shooter: p.id, kind: 'layup', x: s.x, y: s.y, made: true, pts: 2, contest: 'open', defender: d.id, postMove: 'spin' } });
+    });
+    add('postHook', 'post move: a shoulder fake baseline, the drop step middle, the jump hook', 4.4, bigs, (c) => {
+      const { p, d, s } = post(c, 60, 8.5);
+      c.shoot({ at: 0.5, ev: { shooter: p.id, kind: 'hook', x: s.x, y: s.y, made: true, pts: 2, contest: 'contested', defender: d.id, postMove: 'fake' } });
+    });
+    add('postShake', 'post move: the dream shake (a shoulder fake one way, the turnaround the other) into the post fade', 4.4, bigs, (c) => {
+      const { p, d, s } = post(c, -55, 9);
+      c.shoot({ at: 0.5, ev: { shooter: p.id, kind: 'fadeaway', x: s.x, y: s.y, made: true, pts: 2, contest: 'open', defender: d.id, postMove: 'fake' } });
+    });
+    add('postPower', 'post move: the drop step into a two-hand power dunk, through contact', 4.4, [{ team: 0, h: 83, vert: 88 }, { team: 1, h: 82 }], (c) => {
+      const { p, d, s } = post(c, 40, 6.5);
+      c.shoot({ at: 0.5, ev: { shooter: p.id, kind: 'dunk', x: s.x, y: s.y, made: true, pts: 2, contest: 'tight', defender: d.id, postMove: 'dropStep' } });
+    });
+    add('faceUpUnder', 'squared up in the lane, his man in front: the pump fake, the step through, up under him', 4.0, bigs, (c) => {
+      const p = c.a[0], d = c.a[1], s = spot(8, -15), ra = rimA(s.x, s.y);
+      stand(c, p, s); p.setStance('triple'); c.hold(p, 'triple');
+      const ds = { x: s.x + Math.cos(ra) * 3, y: s.y + Math.sin(ra) * 3 };
+      stand(c, d, ds, ra + Math.PI); d.setStance('defense');
+      c.shoot({ at: 0.5, ev: { shooter: p.id, kind: 'layup', x: s.x, y: s.y, made: true, pts: 2, contest: 'open', defender: d.id, postMove: 'upUnder' } });
     });
     return S;
   }

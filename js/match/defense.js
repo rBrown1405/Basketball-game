@@ -256,6 +256,9 @@
     const pc = d._pc || (d._pc = { man: h, x: h.x, y: h.y, vx: h.vx, vy: h.vy, t: T, antK: 1, bite: null });
     pc.bite = { t0: T, until: T + dur, dx, dy, antCut, mv };
     this.bites = (this.bites || 0) + 1;
+    // (a big bite leaves him off balance: his weight goes the way it sold him, a stumble step to catch it when it is big)
+    const bl = Math.hypot(dx, dy), knock = U.lerp(TS.biteKnock[0], TS.biteKnock[1], k * Math.min(1, bl / TS.biteFt[1]));
+    if (bl > 0.3 && knock > 3) d.impact(dx / bl, dy / bl, knock);
   };
 
   /** how hard an off-ball defender one pass away denies his man (0 sagging off, 1 all over the lane): the scheme (Tune.deny.scheme)

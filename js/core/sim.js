@@ -2360,11 +2360,11 @@
     const g = ctx.g, O = ctx.O;
     let lastMade = false;
     for (let i = 1; i <= n; i++) {
-      const pFt = ftProb(ctx, c), made = U.chance(pFt);
+      const pFt = ftProb(ctx, c), made = U.chance(pFt), cf = c.conf || 0;
       confMove(ctx, c, ((made ? 1 : 0) - pFt) * Sim.K.confFt);
       c.st.fta++;
       if (made) { c.st.ftm++; c.st.pts++; }
-      evAt(ctx, t, 'ft', { shooter: c.id, made, num: i, of: n, team: O.idx, text: `${c.last} ${made ? 'makes' : 'misses'} free throw ${i} of ${n}` });
+      evAt(ctx, t, 'ft', { shooter: c.id, made, num: i, of: n, team: O.idx, pm: U.round(pFt, 3), conf: U.round(cf, 2), text: `${c.last} ${made ? 'makes' : 'misses'} free throw ${i} of ${n}` });
       if (made) addPoints(ctx, O.idx, 1);
       lastMade = made;
     }

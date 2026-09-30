@@ -29,6 +29,7 @@ Required (in this order, after the engine/UI scripts or before — the view has 
 <script src="js/match/clips.js"></script>
 <script src="js/match/actor.js"></script>
 <script src="js/match/ball.js"></script>
+<script src="js/match/aim.js"></script>      <!-- the shooter's aim: how a shot meets the rim (PBC.Match.Aim) -->
 <script src="js/match/choreo.js"></script>
 <script src="js/match/flow.js"></script>
 <script src="js/match/defense.js"></script>  <!-- half-court man-to-man defense (extends the Director) -->
@@ -77,6 +78,7 @@ contract (home attacks right in periods 1–2).
 | `clips.js` | the action library (see below) and extra stances; the jump shot builder (Trial 9: `jumperDef`, every jump shot, the post fades and the free throw built from the phases in `Tune.shot` and the shooter's own form, `shotForm`, kept per player and contest level, `shotClip`), the free throw routine (`ftRoutine`: dribbles, a spin, a deep breath, per player) |
 | `actor.js` | a person: steering as a mass (Trial 4: a push by weight and ratings that builds up at a human rate, brakes harder than it pushes off and eases into the velocity wanted; the facing turns with an angular acceleration, less for a bigger body; a move's root motion followed at a body's push; contacts and knocks inside the same limit; collision avoidance looking as far ahead as two bodies close in 1.2 s) and timed arrivals, braking and cutting shapes (quick braking steps, the braking foot out ahead, a cut pushed off the outside foot, the hips dropping below where they rode and held through the stride), pivoting facing, foot controller (Trial 5: each gait its own signature and every change of gait without a pop: the walk, jog and sprint pose mixed on a spring, a backpedal's steps toes first, a slide's feet on their own side and the crossover step when beaten, a foot lifted late given 0.2 s for its swing, landings easing from the pitch and knee turn they had in the air, a planted heel rising for reach and the planted-leg guard moving the pelvis at a limited rate; gait-phase stepping with predicted landings, heel rise/toe-off with an early toe-off for a foot left out of reach, error-driven stance steps, recovery steps, lateral step-slide that never crosses the feet, toe-first landings), pose layering (stance with blended stance settings → gait → upper-body clip → full-body clip → look-at at a human pace → inertialization), the spine as a chain (lumbar and thoracic joints share each bend and twist), the planted-leg guard (a hip never passes its range: the pelvis goes over the foot, a heel rises or the toes lift, a strained foot steps, aimed where the body will face as it lands, Trial 8), swinging feet kept out of the floor (clear of it by ~1 in at mid-swing, Trial 8), pivots on the ball of the foot with the heel up (in a move too: a planted foot the move turns the hips more than 30 deg away from pivots with them, the merge with the gameplay AI branch), heel-to-toe walking and forefoot sprinting, landings aimed inside the leg's reach and planted where the leg put them, a pelvis that comes back up on a spring and never jumps (Trial 4: the pose's own height inertialized, the legs' reach pulling it down no faster than a body crouches, past that the heel up and then a quick step), dribble arm (Trial 8: the palm put on its spot every frame by damped Newton steps on the wrist target, the carry out of a hold with the palm sliding over the ball, the off arm between the ball and the nearest defender, the body's turn predicted for the dribble's plans, the chest turning back after a ball coming up behind the shoulder; merged in: moves in place with the weight and shoulders in them, a reach at the ball answered by an urgent move and the off arm up as a bar toward the reaching hand), ball grips (smoothed around the ball, pre-reach for catches), the catch (Trial 10: the hands up as a target from the moment a pass is coming, the eyes on the passer then the ball, the body turned to a pass in the air, the hands set where it will be caught before it arrives and onto its path at the last moment, a step to meet it standing, the give into the hold; the passer's palms kept on the ball through the windup), pelvis reach clamp, momentum carried into clips |
 | `ball.js` | ball states (held with hand-over tosses, dribble synced to gait (Trial 8: at real gravity, the period met by bisecting the catch speed and the floor giving back FIBA's restitution; relaxed and high open, low and quick with a defender up close, the ball back and in; moving, a bounce every one or two steps steered onto the landing of the inside foot; the crossover, between the legs, behind the back, in and out, hesitation, retreat and spin as variations of the same cycle, each timed to a footfall, one after another through one queue (a combo, `dribbleCombo`, from hand to hand; an urgent one, away from a reach, goes first); in the air straight across the floor between spots fixed in the world, chosen against where the legs will be), flight as exact time-parameterised ballistic segments, loose bounces/rolls); passes (chest/bounce/lob…: Trial 10, planned as the passer's push begins and flown as a ballistic path with drag from the release to where the receiver's hands will be, never steered onto them; a catch keeps part of the ball's speed and gives with it into the hold; a dribble asked for as a pass is caught waits until the catch is secured), shots (swish / rim-in, some rolling around the rim / bank solved off the glass / miss front-back-side-board with rattles, carom timed to the rebounder, blocks); air drag on shots and passes, floor bounces with restitution by impact speed and spin-aware friction, rolling resistance, bounce passes solved for a real bounce; spin with rotating seams, squash, shadow |
+| `aim.js` | `Match.Aim`: where a shot's ball crosses the rim's plane and the angle it comes down at, from the shooter's own arc and habits, the hand in their face and their confidence, its scatter set so that it goes in as often as the engine said it would, drawn given the result; the ring's and the glass's geometry for a ball coming down on a line, the odds a touch of the ring goes in, words for the debug view (see "The shot at the rim" below) |
 | `choreo.js` | `Director`: possession → beats (a receiver caught on the run or into a dribble faces the way they are going after the catch, not the passer; Trial 10: a pass planned as its push begins, the passer's step into it, variations and pass fakes, a quick throw's receiver held for the catch). Each event gets a planner that plans backwards from its visible moment, runs the game/shot clock, keeps offense spots moving (one player per spot; lanes filled up the floor), man/zone/press defense tracking, closeouts, box-outs, refs, FT lane setup, subs, timeouts, tip-off, turnovers, GIM freeze/resume, watchdog |
 | `defense.js`, `offense.js`, `plays.js`, `rebound.js` | the gameplay AI (docs/GAMEPLAY_AI_PLAN.md), each extending the `Director` after `flow.js`: man-to-man defense (matchups with the engine, the cushion on the ball, closeouts, help and recover), spacing behind the arc and a job for every off-ball player, the called play's alignment, steps, screens and reads, and rebounds (Trial 11: the carom's way off settled as it comes off the rim or the glass and flown on its own, read a reaction later; the rebounder's run and running jump with both hands on the ball at the top of it and the ball chinned; a long carom caught on the run; a loose or bouncing ball run down by `runDown`, the gather planned on the ball's own way, caught at a bounce or picked up; a free ball coming into someone's trunk or head comes off them, `ballBodies`) |
 | `debugdraw.js`, `playdraw.js` | the coach's debug view (each player's job and target, the play's steps and reads; its panel moves clear of the animation tools when both are open) and the called play's paths drawn on the floor |
@@ -487,3 +489,195 @@ never took a pass away, and an open player did not look to score.
   no out-of-bounds call exists for it. A catch at a run toward a baseline can still put a foot on the line (3 or 4 steps a
   quarter), and a few standing catches from an odd angle (a lob, a whip) are still taken with a hand 2 to 3 ft off the ball
   (as in the old build).
+
+## The shot at the rim: the aim, the arcs, the ways in and out (with confidence, putbacks and quicker finishes)
+
+Asked for by the user: the ball went into the hoop the same way every time; a shooter should have their own arc (high or
+flat) and an aim at the rim set by how well they shoot, moved by the defender's hand and by a confidence system to be
+built; layups and dunks were too slow; an offensive rebounder open in the paint did not go straight back up with it.
+
+* **Confidence** (the engine: `Sim.K.conf*`; `confBase`, `confSwing`, `confMove` in `sim.js`): every player carries a
+  confidence from -1 (ice cold) to +1 (on fire). A game starts from their ego, their clutch rating and how their last games
+  went (`p.conf`, carried `confCarry` of it by `Sim.finalize`); each shot moves it by how far the result beat what was
+  expected of it (`confShot` x (made - the make's odds): a tough make lifts most, an easy miss hurts most, so it comes to
+  nothing on average), a three a little more, a block, an and-one and a dunk on top; free throws, turnovers, steals and
+  blocks move it too; a big ego swings further, a worker and a veteran stay level (`confSwing`); it settles back toward
+  where they came in over their minutes (`confTau`). It moves the make's odds (`confMake` on the logit, a free throw's
+  `confFtMake`) and how much they look for their shot (`confUse`); the play-by-play notes a player heating up or going
+  cold, the live on-court and coach rows show a fire or ice tag. The old hot-hand counter (it only ever added) is gone;
+  the zone adjustments (+0.02) and the shot time (+0.8 %) keep the league's scoring and pace where they were.
+* **The aim** (`Match.Aim`, `aim.js`; `Tune.aim`; `Director.shotAim`, `handInFace`): as the ball leaves the hand, where it
+  will cross the rim's plane (a depth along the shot, + long, and a lateral offset, inches from the middle of the ring) and
+  the angle it comes down at. It is a scatter around the shooter's own aim point: their arc (`arcDeg`, drawn per player,
+  a good shooter pulled toward `arcGood`; shot to shot `arcSdDeg`, steadier for a pure shooter), their habits (short or
+  long `depthBiasIn`, left or right `latBiasIn`; a flat shooter long and a high one short, `flatLongIn`; left-right tighter
+  than depth, `latRatio`), the hand in their face (the nearest defender's hand at the release: the scatter wider, above all
+  in depth, the shot shorter and higher, `hand*`; tracking data has a tight contest's depth varying ~56 % more and its
+  left-right ~38 % more) and how they feel (the engine's confidence: a cold shooter short, a hot one long, `conf*In`). The
+  engine has already said whether it goes in and how likely that was (`ev.pm`, now on every shot and free throw): the
+  scatter's size is solved so that the shot goes in exactly that often (`spreadFor`, capped at `sdMaxIn` so a poor look is
+  still a shot at the rim), then the shot is drawn from it given the result. So a pure shooter's makes are mostly clean and
+  their misses near misses; a poor or rushed shooter's makes come off the rim more and their misses are bigger. A miss is
+  drawn off the part of the rim its rebound (planned first, `planRebound`) can come off (`fit`): never across the ring from
+  a touch on its outside, never up from under it.
+* **The geometry** (`Aim.touch`, `pIn`): a ball (4.7 in) coming down at the entry angle clears the ring (18 in inside, a
+  5/8 in tube) when its line stays a ball's radius and the tube's off the tube all the way through: at 45 deg the middle
+  ~4.4 in of depth and ~8 in across, at 35 deg ~1 in of depth, so a flat shot has far less room. A touch of the ring goes in
+  with odds falling off with how far its centre crossed from the middle, later off the back of the ring than the front
+  (`in50In`, Noah Basketball: a shot ~2 in long of the middle is the best, a short one the worst); a long one can meet the
+  glass first; one that touches nothing and comes down outside the ring is an air ball.
+* **The arcs** (`Ball._shootAim`): the flight's time is solved so that it comes down through its crossing point at its
+  entry angle, with the air's drag: from the top of the key a 40 deg shooter's ball tops out at ~14.5 ft and is in the air
+  1.12 s, a 45 deg one ~15.4 ft and 1.22 s, a 51 deg one ~16.7 ft and 1.34 s. Floaters come down at ~60 deg, hooks ~52,
+  layups and putbacks ~61, tips ~63 (`floaterDeg`, `hookDeg`, `layupDeg`, `tipDeg`).
+* **The ways in and out** (`Ball._firstTouch`, `_caromOff`, `_clearOfRim`): what the ball meets on its way in is found on
+  the flight itself (the ring's tube or the glass, at 1 ms steps). A make that touched nothing goes on into the net; off the
+  back iron it hops up and back (higher the harder it came in) and drops through, now and then onto the front of the ring
+  first; off the front a short hop on and in; off the side (or now and then either) it rolls round the ring and falls in
+  (`rollP`); off the glass first it comes back down off it and in. A miss comes off the ring or the glass to where the
+  rebound is taken; one that nearly went in (`inOutPIn`) can roll round the ring to the side it comes off and out (in and
+  out, `inOutP`); off the front or back, a near miss can rattle (the choreographer's draw, as before). Every carom is checked
+  against the ring and the glass: one that would go through the tube, drop through the ring or into the glass pops up off
+  the ring first and out over it on the rebound's side. A ball touching the ring settles onto its ride round it rather than
+  jumping there (`ORBIT_SETTLE`).
+* **Through the net** (`Ball._throughNet`, `NET_OMEGA`, `NET_DRAG`): a make goes on into the net at the speed it came through
+  the ring (it used to stop dead at the rim and drop from there): the cords pull it back to the middle (a critically damped
+  spring) and drag its fall, so a clean one drops out of the bottom ~0.15-0.2 s later; the cloth net is pushed by the ball
+  as before, so a flat shot bellies the back of the net and a steep one pulls it straight down. A dunk's net pass starts where
+  the throw-down ends.
+* **Free throws** (`p_ft`): the same aim, from the shooter's own arc and habits and the engine's odds (`pm`, `conf` on the
+  `ft` event), nobody's hand.
+* **The debug view** (the D key): an AIM read for every shot (where it crossed, how it came down, how it went in or out, the
+  look's odds, the scatter, the hand, the mood), and for a few seconds after it a small rim from above: the shooter's
+  scatter (one and two spreads), this ball to scale (green in, red out), their last shots, the glass.
+* **Quicker finishes** (`quick()` in `clips.js`): the layup, the reverse, the dunks and the putbacks played through a time
+  map that keeps the jump's airtime (true to gravity) and takes the time out of the gather and the steps, the rear foot
+  still leaving the floor ahead of the take-off: releases from the start of the move, layups 0.83-0.9 to 0.75-0.78 s, the
+  reverse 0.92 to 0.8 s, the one-foot dunk 0.95 to 0.82 s, the two-foot dunk 0.95 to 0.85 s, putbacks 0.62 to 0.5 s; the
+  dunk's ball starts up the outside through the last step, so the swing overhead is not all left to the take-off; the
+  joint pops no more than before (dunk 19 to 16, the two-foot dunk 13 to 9, the reverse 24 to 18).
+* **Putbacks** (the engine, `rebound()` in `sim.js`): an offensive rebound near the rim goes straight back up far more
+  often (10 % plus up to 62 % by how near, more for a big and a good finisher, less off a free throw: 5 to 85 %).
+* **Putbacks on the court** (`nextBeat`, `Tune.shot.putbackGoS`): the shot straight after its shooter's own offensive
+  rebound goes up as soon as its move can be ready (plus 0.1 s), whatever time the engine gave it; the clock runs a little
+  quick meanwhile. From the rebound in his hands to the ball leaving them: 0.87 s at the median in real games (it was
+  1.37 s), and no post move first (`p_shot`: a putback is straight back up).
+
+### The loose ball: go and get it
+
+Asked for by the user: after a rebound hit the floor, players stood and watched the ball roll instead of going after it.
+
+* **Run down flat out** (`Tune.glass.chaseK`; `arriveTime`, `gatherPlan`, `runDown` in `rebound.js`): the rebounder goes
+  at a loose ball at a sprint, onto where it will be, caught at a bounce between the knees and the chest
+  (`gatherCatchLoH`) or picked up off the floor once it is below the hips (`gatherPickHiH`), stopped on the spot a moment
+  before the bend (`gatherEarlyS`, `gatherPickStopK`).
+* **Where it goes** (`floorDistK`, `floorOthersK`): a carom to the floor is sent where the engine's rebounder is nearest
+  against everyone else, from a few distances out, so the man who gets it is the one who can.
+* **Fought for** (`Director.scrambleLoose`, `scramble*`): the two nearest of each side within 16 ft go after it too, onto
+  the ball a moment ahead of where it is, a step behind the engine's rebounder (so they are right there when he takes it)
+  and never on top of him.
+* Measured: from the rim to the ball in someone's hands, 2.95 s at the median in real games before, 2.03 s after; the
+  chase audit's 40 random loose balls all taken, 2.58 s at the median (it was 3.0 s); the gauntlet's 16 all taken by hand.
+
+### The dribble breakdown: the size-up and the burst
+
+Asked for by the user: a way for the ball handler to size his man up and break him down, then blow by for a layup, a drive
+and kick, or a shot.
+
+* **The size-up** (`Director.sizeUpCombo`, `Tune.shifty.sizeUp`): a move in place before the attack is a string of dribble
+  moves (crossovers, between the legs, behind the back, in and outs, a hesitation), longer and trickier with a better handle
+  (four tiers), played on the dribble's own rhythm (`Ball.dribbleCombo`).
+* **His man bites** (`defBite`, the old shifty handler's read): each move pulls the man on the ball the way it sells; a big
+  bite knocks him off balance (`biteKnock`, a stumble step past ~6.5 ft/s).
+* **The burst** (`Director.breakdown`, `Actor.burst`): out of a move his man bought (or a step on a man he is much quicker
+  than), the first steps past him come with a burst: up to 18 % more top speed and 90 % more push for 0.9 s, by how far his
+  man was sold and how much better the handler is (`burst*`); his man stays sold a little longer and chases slower
+  (`burstHoldS`, `soldSlowK`); a man sold that far counts as beaten for the handler's read (`Tune.reads.biteBeatFt`), so he
+  goes now: the layup, the kick to the open man, or the pull-up.
+* Measured (3 real quarters): 107 drives, 34 with a burst; his man beaten 0.7 s into the drive on 47 % of the bursts
+  against 26 % without one.
+
+### Post moves: working for an opening, with contact
+
+Asked for by the user: players in the paint should use post moves and contact to get an opening to score.
+
+* **Which move** (`Director.postPlan`, `Tune.post`): a post-up with his back to the basket (or a big squared up in the lane
+  with his man in front of him) works a move before his shot. It is picked by the finish the engine gave the look (at the
+  rim, a hook, the turnaround) and by how open the engine had it come out, since the move is how he got that look: open,
+  the fake got his man off his feet or leaning; tight, his man stayed with it and he went up through him. A strong player
+  leans to the drop step, a skilled and quick one to the fakes and the spin (x (0.5 + strength), x (0.5 + post craft and
+  quickness)). A putback never works a move; a blocked shot never comes off a fake that got his man up.
+* **The drop step** (`postBump`, `postDrop`): the ball chinned, a shoulder into his man's chest (`postBump`, the back-down's
+  bump: his man knocked back toward the rim, harder for a stronger man, `bumpK` x the strength edge), then the drop step: a
+  reverse pivot, the free foot swung back past his man's leg toward the baseline (the middle when his man plays the
+  baseline side), the hips ~1.5 ft on toward the rim (`dropFt`), and the seal: his man knocked off the line round the hip
+  (`sealK`) and kept there until the finish (`sealFt`, further on an open look). Then up strong off two feet (a power
+  layup or, for a big who can get there, the two-hand power dunk), or into the hook.
+* **The up and under** (`postPump`, `postStepThrough`, `Actor.stepThrough`, the `pumpFake` clip): squared up to the rim, the
+  pump fake (the ball up the shooter's own jump shot line to his set point, the eyes on the rim, the legs kept loaded); his
+  man jumps at it on an open look (the contest jump), rises into it with his hands up on a contested one, stays down on a
+  tight one; then the step through, the free foot crossing over past his man's hip toward the rim, the ball ripped low
+  across the body away from him, the shoulder under him as he comes down (`stepK`), and up under him.
+* **The spin** (`postSpin`): a shoulder into his man, then a quick reverse spin off the contact round his hip toward the
+  rim (`spinShiftFt`); his man, who was leaning on him, has nothing to lean on: out of his post stance and knocked into the
+  space he left (`spinK`, a stumble step), left there a moment.
+* **The shoulder fake** (`postShoulderFake`, the `postFake` clip): the head and shoulders snap round over one shoulder with
+  the ball, the weight onto that leg; his man shifts to it and leans (`fakeBiteFt`, `fakeLeanK`); then the move goes the
+  other way: the drop step into the finish or the hook, or the turnaround over the other shoulder into the post fade
+  (Hakeem Olajuwon's dream shake).
+* **His man's contest** (`planContest`, `this.postHold`): held off until the move has put the shot up (a little past its
+  start, more on an open look), then contests from where the move left the two of them.
+* **The body through it** (`Actor.pivotTo` with `dir`, `reverse`, `end`; `Actor.play`'s `ballFromPrev`): the pivots turn the
+  way the move goes (a drop step or spin is a reverse pivot, a face-up a front one) and end the hips where the move takes
+  them (a turn round one foot of a wide stance alone carried the hips 2-3 ft round it, off the move's way); each part takes
+  over from the one before from that part's own pose, ball and hands (a new move used to fade in from the stance's pose,
+  the knees ~30 deg and the hands ~0.5 ft off in a frame); with the ball in his hands on the block he stands in `postHold`
+  (the post-up's base, the ball chinned, the elbows out).
+* **The Animation Lab** (the shot lab, `js/match/shotlab.js`): seven post scenarios, each move on a big posted up on the
+  block with his man on his back (the drop step, the up and under, the spin, the shoulder fake into the hook, the dream shake
+  into the turnaround, the drop step into a power dunk, the up and under from a face-up in the lane); the debug view
+  (the D key) shows a POST read for each move in a game.
+
+### Measured (this pass)
+
+* **The aim** (the gauntlet's 1,600 shots by four shooters from ten spots, flown frame by frame): every flight comes down
+  through its crossing point at its entry angle; nothing goes through the ring's tube or the glass, no miss drops through
+  the ring, every make does; every way in and out shows up (made: clean, off the back, off the front, rolled round,
+  back-then-front; missed: front, back, left, right, glass, in and out, rattled, air ball). A pure shooter's makes are
+  clean 55 % of the time against an average one's 33 %, their arc steadier (3.4 against 5.6 deg from the 10th to the 90th
+  percentile); a hand in the face brings it in higher (45.1 against 43.7 deg) and shorter (0.49 against 0.96 in); cold
+  shooters aim short (0.48 in), hot ones long (1.07 in); air balls 0.9 % of the shots.
+* **Real games** (three quarters): jump shots come down at 43.5 / 46.8 / 49.6 deg (10th / 50th / 90th percentile), free
+  throws 44.1 / 47.6 / 50.0; one air ball in 88 jump shots; no errors.
+* **The rest**: the loose balls, the putbacks, the breakdown and the post moves, as measured in their own sections above.
+* **The post moves**: in the shot lab every move plays into its shot and lets it go, the jump shot, hook and dunk checks
+  still pass on the shots after them (the turnaround's dip, rise and follow-through, the hook's take-off foot and knee
+  drive, the power dunk's hand on the rim), the contact knocks the man 6-7.5 ft/s (the drop step's seal, the spin, the power
+  move, the bump before the hook), the pump fake gets him ~1.3 ft off the floor and the shoulder fake leans him; the
+  shooter's joint pops are down to about what the plain finishes have (the drop step 60 to 6, the up and under 58 to 12,
+  the spin 31 to 7, the fake into the hook 67 to 16). In real games (eight quarters): 27 post-ups got to their shot, 25
+  worked a move first (8 drop steps, 9 up and unders, 2 spins, 6 fakes), no errors, the body never moved faster than a run.
+
+### Limitations (this pass)
+
+* The engine decides the make, the miss and how open the look was; the court's aim, arcs, ways in and out and post moves
+  only show it. The engine does not know which post move was used (the play-by-play still says "hook", "layup"), and the
+  post move is picked on the court from the look's kind and contest, not from a rating duel of its own.
+* A big pivot (the drop step, the spin, a face-up from the post) still has a foot or knee pop or two as the free foot lands
+  (the pivot's own, as the catch's face-up has); the post fade and the power dunk keep the arm pops they had before.
+* The up and under goes up off two feet (the standing power layup), never a one-foot layup off the step through.
+* A post-up whose shot comes quickly (the engine's time short) drops the shoulder bump, then the whole move, and goes
+  straight up.
+* The loose ball scramble is two of each side at most; nobody dives on the floor for it.
+
+### Sources
+
+Shot arcs and where the ball meets the rim: Noah Basketball's tracking (45 deg, ~11 in past the front of the ring, left to
+right in the middle), its coverage of the science of the swish and the teams using it; Georgia Tech on Noah's arc; the
+Spalding smart basketball on arc and accuracy; inpredictable's shot arc analysis; the Journal of Sports Analytics paper on
+in-game shot trajectories and defensive impact (a contest's depth and left-right spread, short misses). Confidence: the hot
+hand literature (Gilovich, Vallone and Tversky; the later streak mathematics). Putbacks: NBA.com's putback leaders. Loose
+balls: Hoop Tactics on loose ball recovery, Coach's Clipboard on hustle. The contest and the shot timing: NBA 2K26's
+courtside report. Post moves: Basketball For Coaches (post moves, the drop step, the dream shake), Breakthrough Basketball
+(the drop step, power post moves), Hooper University (five post moves), Coach's Clipboard (post play), Jr. NBA (the drop
+step layup with a defender), the NBPA's post moves with Bam Adebayo.

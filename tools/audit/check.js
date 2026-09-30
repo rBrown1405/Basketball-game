@@ -601,6 +601,31 @@ console.log('the shot (Trial 9)');
   ok([cA, cB].every(x => x.catchToRelS >= T9.shotCnsMinS && x.catchToRelS <= T9.shotCnsMaxS + 0.06), `catch and shoot let go ${cA.catchToRelS} s and ${cB.catchToRelS} s after the catch (NBA ~0.5-0.8 s)`);
   const op = get('open'), ct = get('contested');
   ok(ct.relIn > op.relIn + 0.5 && ct.relS < op.relS && ct.leanDeg < op.leanDeg - 3, `a contested jumper against the same one open: released higher (${ct.relIn} against ${op.relIn} in), quicker (${ct.relS} against ${op.relS} s), leaning away (${ct.leanDeg} against ${op.leanDeg} deg)`);
+  // the post moves (the shot physics pass: "post moves in the paint to get an opening, and using contact"; the lab's post-ups
+  // played by Director.postPlan and runPost): each move played into its shot and let go, the contact on his man, his reaction
+  const pmr = (id) => rows.find(r => r.id === id) || {}, PMV = { postDrop: 'dropStep', postUpUnder: 'upUnder', postSpin: 'spin', postHook: 'fake', postShake: 'fake', postPower: 'dropStep', faceUpUnder: 'upUnder' };
+  const pmBad = Object.keys(PMV).filter(id => !(pmr(id).post && pmr(id).post.move === PMV[id] && pmr(id).recs && pmr(id).recs[0] && pmr(id).recs[0].released));
+  const pmHit = ['postDrop', 'postSpin', 'postPower', 'postHook'], pmUp = ['postUpUnder', 'faceUpUnder'];
+  const hitBad = pmHit.filter(id => !(pmr(id).post && pmr(id).post.contacts >= 1 && pmr(id).post.defKnock >= 6)), upBad = pmUp.filter(id => !(pmr(id).post && pmr(id).post.defAirFt >= 0.8));
+  const shake = pmr('postShake').post || {};
+  ok(!pmBad.length && !hitBad.length && !upBad.length && shake.defKnock >= 3.5,
+    `the post moves: ${Object.keys(PMV).length - pmBad.length} of ${Object.keys(PMV).length} played into their shots (the drop step, the up and under, the spin, the shoulder fake into the hook and into the turnaround, the power move); the contact knocks his man (${pmHit.map(id => (pmr(id).post || {}).defKnock).join(', ')} ft/s), the pump fake gets him off his feet (${pmUp.map(id => (pmr(id).post || {}).defAirFt).join(', ')} ft), the shoulder fake leans him (${shake.defKnock} ft/s)${pmBad.concat(hitBad, upBad).length ? ': not ' + pmBad.concat(hitBad, upBad).join(', ') : ''}`);
+}
+
+console.log('the aim: how a shot meets the rim (the shot physics pass)');
+{
+  // (tools/audit/aim.js: 1,600 shots by four shooters from ten spots, thrown by the game's own ball, flown frame by frame)
+  const AIM = require('./aim'), ra = AIM.run(PBC, { n: 40 }), SA = AIM.summary(ra), B = SA.bad;
+  ok(!B.angle.n && !B.cleanNear.n, `every flight comes down through its crossing point at its entry angle (${B.angle.n} off by over 0.6 deg), and every clean make clears the ring and the glass (${B.cleanNear.n} came within a ball of them)`);
+  ok(!B.ringThrough.n && !B.boardThrough.n && !B.missThrough.n, `nothing goes through the ring's tube or the glass, no miss drops through the ring, every make does (${B.ringThrough.n}, ${B.boardThrough.n}, ${B.missThrough.n}${B.missThrough.n ? ': ' + B.missThrough.eg.join('; ') : ''})`);
+  ok(!B.jolt.n, 'a clean make goes on into the net at the speed it came through the ring (no jolt at the rim)');
+  const T = SA.tails, need = { made: ['clean', 'back', 'front', 'roll', 'backFront'], miss: ['front', 'back', 'left', 'right', 'board', 'inOut', 'rattle', 'air'] };
+  const lack = [].concat(need.made.filter(k => !T.made[k]).map(k => 'made ' + k), need.miss.filter(k => !T.miss[k]).map(k => 'missed ' + k));
+  ok(!lack.length, `every way in and every way out shows up: made ${need.made.map(k => k + ' ' + (T.made[k] || 0)).join(', ')}; missed ${need.miss.map(k => k + ' ' + (T.miss[k] || 0)).join(', ')}`);
+  const Sh = SA.shooters, air = ra.recs.filter(x => x.tail === 'air').length / ra.recs.length * 100;
+  ok(Sh.pure.cleanOfMakes >= Sh.average.cleanOfMakes + 8 && Sh.pure.degP90 - Sh.pure.degP10 < Sh.poor.degP90 - Sh.poor.degP10, `the shooter shows: a pure shooter's makes clean ${Sh.pure.cleanOfMakes}% against an average one's ${Sh.average.cleanOfMakes}%, their arc steadier (${(Sh.pure.degP90 - Sh.pure.degP10).toFixed(1)} against ${(Sh.poor.degP90 - Sh.poor.degP10).toFixed(1)} deg from the 10th to the 90th percentile)`);
+  ok(SA.hand.degContested > SA.hand.degOpen + 1 && SA.hand.depthContested < SA.hand.depthOpen - 0.3 && SA.conf.depthCold < SA.conf.depthHot - 0.3, `a hand in the face: higher (${SA.hand.degContested} against ${SA.hand.degOpen} deg) and aimed shorter (${SA.hand.depthContested} against ${SA.hand.depthOpen} in); cold shooters aim short (${SA.conf.depthCold} in), hot ones long (${SA.conf.depthHot} in)`);
+  ok(air <= 2, `air balls ${air.toFixed(1)}% of the shots (poor shooters' long looks included)`);
 }
 
 console.log('the glass and the contest (Trial 11)');

@@ -171,6 +171,10 @@
         catch (e) { U.warn('planner ' + ev.type, e); need = 0.05; beat.onStart = null; beat.onFire = null; beat.broken = true; }
       }
       beat.clockRuns = gap > 0.0005 && !beat.dead;
+      // (a putback, the shot right after its shooter's own offensive rebound: straight back up with it, as soon as the move can
+      // be ready, whatever time the engine gave it; the clock runs a little quick meanwhile, the shot physics pass)
+      const pe = this.ei >= 2 ? this.events[this.ei - 2] : null;
+      if (ev.type === 'shot' && !ev.pending && pe && pe.type === 'rebound' && pe.off && pe.player != null && pe.player === ev.shooter) beat.maxDur = Math.min(beat.maxDur || 30, need + M.Tune.shot.putbackGoS);
       const dur = Math.max(need, beat.clockRuns ? gap : 0);
       beat.fireAt = this.T + Math.min(dur, beat.maxDur || 30);
       beat.need = need;
@@ -1677,8 +1681,18 @@
       };
       const setup = (fireAt) => {
         if (mv === 'size_up') {
+          // the size-up (the dribble breakdown): squared up to his man and low, a string of moves in place from his handle (a poor
+          // handler a crossover or a hesitation, a good one between the legs, crossovers, behind the back, an in and out), each
+          // one selling his man (Director.defBite), done as the move comes due; one his man buys gets the burst past him that
+          // follows (onFire of the attacking move: breakdown). (It was one between the legs)
           a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
-          this.at(Math.max(this.T + extra, fireAt - 0.8), () => { if (b.holder === a) { b.dribble(a); b.dribbleMove('btl'); } }, 'sizeup');
+          const combo = this.sizeUpCombo(a), TH = M.Tune.handle;
+          const len = combo.reduce((p, m) => p + (m === 'hesi' ? TH.hesiPeriodS : TH.comboPeriodS[m] || 0.4), 0);
+          this.at(Math.max(this.T + extra, fireAt - len - 0.1), () => {
+            if (b.holder !== a || a.isBusy()) return;
+            if (b.state !== 'dribble') b.dribble(a);
+            if (b.state === 'dribble' && b.dr && !b.working()) b.dribbleCombo(combo);
+          }, 'sizeup');
         } else if (mv === 'jab') {
           // (the rules: a jab out of the triple threat is his before he has dribbled; already dribbling, picking the ball up
           // to jab left him a dead dribble, and the drive or move after it was a double dribble: a dribbler's jab is a
@@ -1725,6 +1739,8 @@
       };
       beat.onFire = () => {
         const d = this.guardOf(a.id);
+        // (the breakdown: out of a move his man bought, the first steps past him come with a burst)
+        if (mv !== 'size_up' && mv !== 'backdown' && mv !== 'jab' && mv !== 'stepback') this.breakdown(a, d, mv);
         if (mv === 'crossover' || mv === 'btl' || mv === 'btb') {
           if (b.holder === a) { if (b.state !== 'dribble') b.dribble(a); b.dribbleMove(mv === 'crossover' ? 'cross' : mv); }
           const side = (b.dr && b.dr.hand === 1) ? -1 : 1;
@@ -1777,6 +1793,9 @@
             a._drive = { st, fn, tEnd: this.T + 1.8 };
             const ra = this.role[a.id]; if (ra) ra.until = Math.max(ra.until || 0, this.T + 1.8);
             this.dtask[d.id] = { until: this.T + 1.6 };
+            // (sold on the move before it, the dribble breakdown: his first steps still go the way it sold him, and he is a
+            // step slow getting back onto the drive until he has recovered, Director.breakdown)
+            const sold = d._pc && d._pc.man === a && d._pc.bite && this.T < d._pc.bite.until ? d._pc.bite : null;
             d.track(() => {
               const k = U.smooth(U.clamp((this.T - t0) / 0.5, 0, 1));
               const aal = (a.x - ax0) * ux + (a.y - ay0) * uy, alat = (a.x - ax0) * px + (a.y - ay0) * py;
@@ -1785,8 +1804,13 @@
               const tal = Math.max(al0 + 0.8 * k, aal - 1.1);
               // (riding him: hip to hip, close enough that the bodies touch)
               const tlat = st.passed ? alat - side * 1.8 : lat0 + side * 0.5 * k;
-              return { x: ax0 + ux * tal + px * tlat, y: ay0 + uy * tal + py * tlat, vx: st.passed ? a.vx * 0.9 : 0, vy: st.passed ? a.vy * 0.9 : 0 };
-            }, { speed: d.maxSpeed, stance: 'defense' });
+              let tx = ax0 + ux * tal + px * tlat, ty = ay0 + uy * tal + py * tlat, lag = 1;
+              if (sold && this.T < sold.until) {
+                const u = (this.T - sold.t0) / Math.max(0.05, sold.until - sold.t0), w = 1 - U.smooth((u - 0.45) / 0.55);
+                tx += sold.dx * w; ty += sold.dy * w; lag = 1 - M.Tune.shifty.soldSlowK * w;
+              }
+              return { x: tx, y: ty, vx: st.passed ? a.vx * 0.9 * lag : 0, vy: st.passed ? a.vy * 0.9 * lag : 0 };
+            }, { speed: d.maxSpeed * (sold ? 1 - M.Tune.shifty.soldSlowK * 0.5 : 1), stance: 'defense' });
           } else {
             const e = end(a.x, a.y);
             a.moveTo(e.x, e.y, { speed: a.maxSpeed * 0.9, face: 'move', stance: 'dribble' });
@@ -1808,6 +1832,305 @@
         }
       };
       return Math.max(0.5, extra + (mv === 'size_up' ? 1.0 : mv === 'spin' ? a.spinDur() : 0.3));
+    }
+    /** the size-up's moves for this handler (Tune.shifty.sizeUp): the better his handle, the longer and the flashier the string */
+    sizeUpCombo(a) {
+      const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1), L = M.Tune.shifty.sizeUp;
+      const set = hk < 0.3 ? L[0] : hk < 0.6 ? L[1] : hk < 0.85 ? L[2] : L[3];
+      return set[Math.floor(Math.random() * set.length)].slice();
+    }
+    /** the dribble breakdown: an attacking move (a drive, a crossover, a hesitation, a spin) made while his man is still sold on
+     *  the last move (his read pulled the wrong way, defBite, or it ended a moment ago: Tune.shifty.burstLateS), or by a quick
+     *  handler against a slower man: the first steps come with a burst (Actor.burst: burstS, stronger the more he has on him,
+     *  shiftyK, and the more his man was sold), and his man stays sold that much longer (he has to recover from it, burstHoldS);
+     *  a big bite leaves him off balance. The engine still decides what comes of it (the finish, the kick, the pull-up) */
+    breakdown(a, d, mv) {
+      const TS = M.Tune.shifty;
+      if (!d || !a || d.team === a.team || Math.hypot(d.x - a.x, d.y - a.y) > TS.nearFt) return;
+      const k = this.shiftyK(a, d), pc = d._pc, bt = pc && pc.bite && pc.man === a ? pc.bite : null;
+      const sold = bt && this.T < bt.until + TS.burstLateS ? Math.min(1, Math.hypot(bt.dx, bt.dy) / TS.biteFt[1]) : 0;
+      const kb = U.clamp(sold * 0.7 + (k - 0.5) * 0.6, 0, 1);
+      if (kb < TS.burstMinK) return;
+      a.burst(TS.burstS, kb);
+      if (bt) bt.until = Math.max(bt.until, this.T + TS.burstHoldS * kb);
+      a._breakdown = { T: this.T, k: kb, mv };
+      this.breakdowns = (this.breakdowns || 0) + 1;
+      if (this.dbgOn && this.dbgOn()) { const lk = this.v.look(a.id); this.dbgRead('BREAKDOWN ' + (lk ? lk.last || lk.name : '') + ': ' + (sold > 0.1 ? 'his man bought it' : 'a step on him') + ', the burst (' + Math.round(kb * 100) + '%)', '#ffd43b'); }
+    }
+    /**
+     * The post move before a shot out of the post (the shot physics pass: "players in the paint should be using post moves to
+     * get an opening to score, and using contact"). Picked by the finish the engine gave the look (at the rim, a hook, the
+     * turnaround) and how open it came out (the engine decided that; the move is how he got there), weighted by the player:
+     * strength for the drop step, post craft and quickness for the fakes and the spin (Tune.post). The moves:
+     *   dropStep  a shoulder into his man's chest, then the drop step (a reverse pivot, the free foot swung back past his man's
+     *             leg toward the baseline, the man sealed off on his hip) and up strong off two feet, or into the hook
+     *   upUnder   squared up to the rim, the pump fake (his man leaves his feet on an open look, rises into it on a contested
+     *             one, stays down on a tight one), the step through past his hip and up under him
+     *   spin      a shoulder into his man, then spun off the contact round his hip, the man who was leaning on him falling into
+     *             the space he left
+     *   fake      a head and shoulder fake one way (his man shifts to it), then the move the other way: the drop step into the
+     *             finish or the hook, or the turnaround over the other shoulder (Hakeem's dream shake, into the post fade)
+     * Squared up in the paint with his man in front of him (a big who caught it facing), the pump fake into the up and under or
+     * the hook. o: { postUp, postTurn, rimFinish }. Returns { move, parts: [{ name, dur, opt, fn }], pd, contest } or null.
+     */
+    postPlan(ev, sh, kind, clipName, o) {
+      const TP = M.Tune.post, v = this.v, b = v.ball;
+      if (b.holder !== sh || ev.pending || this.active === false) return null;
+      const rimA = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x), dRim = Math.hypot(this.rim.x - sh.x, this.rim.y - sh.y);
+      const d0 = this.A(ev.defender), pd0 = d0 && d0.team === this.def ? d0 : this.guardOf(sh.id);
+      const pd = pd0 && pd0.team === this.def && Math.hypot(pd0.x - sh.x, pd0.y - sh.y) < 6.5 ? pd0 : null;
+      const hook = clipName === 'hook';
+      let table;
+      if (o.postUp) table = o.rimFinish ? TP.rim : hook ? TP.hook : o.postTurn ? TP.fade : null;
+      else {
+        if (!(o.rimFinish || hook) || dRim > TP.faceFt || !pd || sh.speed > 7) return null;
+        const dd = Math.hypot(pd.x - sh.x, pd.y - sh.y), inFront = Math.abs(U.wrapPi(Math.atan2(pd.y - sh.y, pd.x - sh.x) - rimA));
+        if (dd > TP.faceNearFt || inFront > 0.9 || Math.abs(U.wrapPi(sh.facing - rimA)) > 1.2) return null;
+        table = TP.faceUp;
+      }
+      // (ev.postMove: the move asked for, the shot lab's scenarios)
+      if (!table || (!ev.postMove && Math.random() > TP.moveP)) return null;
+      const contest = ev.contest === 'open' || ev.contest === 'tight' ? ev.contest : 'contested';
+      const lk = v.look(sh.id) || {}, r01 = (k, d) => U.clamp(((lk[k] != null ? +lk[k] : d) - 40) / 50, 0, 1);
+      const str = r01('strength', 62), craft = r01('post', 50) * 0.7 + r01('agility', 60) * 0.3;
+      const w = Object.assign({}, table[contest]);
+      if (w.dropStep) w.dropStep *= 0.5 + str;
+      for (const k of ['upUnder', 'spin', 'fake']) if (w[k]) w[k] *= 0.5 + craft;
+      // (a blocked shot: his man stayed down for it, no fake got him up; no man near: nothing to work on but the fake itself)
+      if (ev.blocked) delete w.upUnder;
+      if (!pd) { delete w.spin; delete w.dropStep; }
+      let sum = 0; for (const k in w) sum += w[k];
+      if (!(sum > 0)) return null;
+      let u = Math.random() * sum, move = ev.postMove || null;
+      if (!move) for (const k in w) { u -= w[k]; if (u <= 0) { move = k; break; } }
+      if (!move || move === 'none') return null;
+      // the edge of his strength over his man's (the contact's knocks, 0.75-1.35)
+      const dl = pd ? v.look(pd.id) || {} : {};
+      const edge = pd ? U.clamp(1 + ((lk.strength != null ? +lk.strength : 62) - (dl.strength != null ? +dl.strength : 62)) / 60, 0.75, 1.35) : 1;
+      const ck = contest === 'open' ? 1 : contest === 'contested' ? 0.5 : 0;
+      // the baseline side of him (his back to the basket, the side the end line is on): +1 his left, -1 his right
+      const base = this.rim.x < 47 ? 0 : 94, fx = Math.cos(sh.facing), fy = Math.sin(sh.facing);
+      const bx = base - sh.x, by = 0, leftDot = -fy * bx + fx * by;
+      const baseDir = leftDot >= 0 ? 1 : -1;
+      // (his man on the baseline side of him: he goes middle instead)
+      const pdSide = pd ? Math.sign(-fy * (pd.x - sh.x) + fx * (pd.y - sh.y)) : 0;
+      const pm = { move, contest, ck, pd, edge, parts: [], dir: pd && Math.abs(-fy * (pd.x - sh.x) + fx * (pd.y - sh.y)) > 0.8 && pdSide === baseDir ? -baseDir : baseDir };
+      const P = pm.parts, facePost = Math.abs(U.wrapPi(sh.facing - rimA)) > 1.9;
+      const bump = () => ({ name: 'bump', dur: TP.bumpS, opt: true, st: 'postHold', fn: () => this.postBump(sh, pm) });
+      const drop = (dir) => ({ name: 'drop step', dur: sh.pivotDur(rimA, { dir }) || 0.2, st: facePost ? 'postHold' : 'holdChest', fn: () => this.postDrop(sh, pm, dir) });
+      if (move === 'dropStep') {
+        if (o.postUp && facePost) { P.push(bump()); P.push(drop(pm.dir)); } else if (o.postUp) P.push(drop(pm.dir)); else return null;
+      } else if (move === 'spin') {
+        if (!o.postUp || !facePost) return null;
+        P.push(bump());
+        P.push({ name: 'spin', dur: sh.pivotDur(rimA, { dir: -pm.dir, quick: TP.spinQuick }) || 0.3, st: 'postHold', fn: () => this.postSpin(sh, pm, -pm.dir) });
+      } else if (move === 'upUnder') {
+        if (!o.rimFinish && !hook) return null;
+        const fu = sh.pivotDur(rimA);
+        if (fu > 0) P.push({ name: 'face up', dur: fu + 0.06, st: 'postHold', fn: () => {
+          // (squared up where he stands, a touch toward the rim, the ball chinned)
+          const ra = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x);
+          sh.pivotTo(ra, { hold: 'holdChest', fadeIn: 0.12, end: { x: sh.x + Math.cos(ra) * 0.5, y: sh.y + Math.sin(ra) * 0.5 }, ballFromPrev: true });
+        } });
+        P.push({ name: 'pump fake', dur: 0.54, st: 'holdChest', fn: () => this.postPump(sh, pm) });
+        if (o.rimFinish) P.push({ name: 'step through', dur: 0.36, st: 'holdChest', fn: () => this.postStepThrough(sh, pm) });
+      } else if (move === 'fake') {
+        // the fake over the shoulder the move does not go: a finish or hook goes the drop step's way, the turnaround the way
+        // its own clip turns (over his left shoulder for postFadeL)
+        const goDir = o.postTurn ? ((clipName === 'postFadeL') !== !!sh.lefty ? 1 : -1) : pm.dir;
+        pm.fakeDir = -goDir;
+        if (o.postUp && facePost) P.push({ name: 'shoulder fake', dur: 0.34, st: 'postHold', fn: () => this.postShoulderFake(sh, pm) });
+        else return null;
+        if (!o.postTurn) P.push(drop(goDir));
+      }
+      if (!P.length) return null;
+      pm.dur = P.reduce((s, p) => s + p.dur, 0);
+      return pm;
+    }
+    /** plays the post move `pm` (postPlan) so that it ends as the shot's clip starts (clipStart): the shooter's parts and his
+     *  man's reactions, his man kept off his contest until then (planContest reads this.postHold). What there is no time for
+     *  goes (the shoulder first); false when not even the move itself fits */
+    runPost(pm, ev, sh, clipStart) {
+      const b = this.v.ball, pd = pm.pd;
+      const avail = clipStart - this.T - 0.05;
+      const parts = pm.parts.slice();
+      let tot = parts.reduce((s, p) => s + p.dur, 0);
+      for (let i = 0; tot > avail && i < parts.length;) { if (parts[i].opt) { tot -= parts[i].dur; parts.splice(i, 1); } else i++; }
+      if (!parts.length || tot > avail + 0.12) return false;
+      const t0 = Math.max(this.T + 0.05, clipStart - tot);
+      pm.st = { off: null };
+      pm.clipStart = clipStart;
+      if (pd) {
+        // (his man is held off his contest until the shot is under way: a little past its start, more on an open look, where
+        // the move left him leaning, in the air or sealed off, less on a tight one, where he stayed with it)
+        this.postHold = { id: pd.id, until: clipStart + (pm.move === 'upUnder' ? 0.05 : 0.08) + 0.22 * pm.ck };
+        this.dtask[pd.id] = { until: clipStart + 0.5 };
+        this.postGuard(pd, sh, pm);
+      }
+      // (the dribble ends into his hands as the move starts: taken as it comes up into the hand; a post move is worked with the
+      // ball held, the pivot foot down)
+      // (his back to the basket, the post-up's base kept with the ball chinned: postHold)
+      const chin = () => { if (sh.stance === 'postUp' && !sh.isBusy()) sh.setStance('postHold'); };
+      // (asked for a bounce's time before the move: the ball is taken as it next comes up into the hand)
+      this.at(Math.max(this.T, t0 - 0.55), () => { if (b.holder !== sh) return; if (b.state === 'dribble') b.gatherSoon(sh, 'chest', chin); else chin(); }, 'post gather');
+      // (and facing the rim once the shot is under way: the post-up's back-to-the-basket facing, kept from the approach, turned
+      // him round again after the shot)
+      this.at(clipStart + 0.02, () => { if (this.active !== false) sh.setFace(this.rim); }, 'post face');
+      let t = t0;
+      for (const p of parts) {
+        this.at(t, () => {
+          if (b.holder !== sh || this.active === false) return;
+          if (b.state === 'dribble') b.give(sh, 'chest');
+          // (the hold the part's move starts from, so the ball blends into it from where it is: a clip's ball comes in from
+          // the stance's own hold as it fades in)
+          if (p.st) { sh.setStance(p.st); sh.ballHold = p.st === 'triple' ? 'triple' : 'chest'; }
+          U.safe(() => p.fn(), this, 'post ' + p.name);
+        }, 'post ' + p.name);
+        t += p.dur;
+      }
+      const pl = this.postLog || (this.postLog = { n: 0, moves: {} });
+      pl.n++; pl.moves[pm.move] = (pl.moves[pm.move] || 0) + 1;
+      sh._postMove = { T: this.T, move: pm.move, contest: pm.contest, t0, clipStart };
+      if (this.dbgOn && this.dbgOn()) {
+        const lk = this.v.look(sh.id), NAME = { dropStep: 'the drop step', upUnder: 'the up and under', spin: 'the spin off his man', fake: 'a shoulder fake, then the other way' };
+        this.dbgRead('POST ' + (lk ? lk.last || lk.name : '') + ': ' + (NAME[pm.move] || pm.move) + ' (' + parts.map(p => p.name).join(', ') + '; ' + pm.contest + ')', '#e599f7');
+      }
+      return true;
+    }
+    /** his man on the post-up's back while the move is worked: between him and the rim, ~2 ft off, leaning on him; the moves'
+     *  reactions (pm.st.off: a fake's bite, the seal round the hip, the spin's lost man) eased in and out on top */
+    postGuard(pd, sh, pm) {
+      const st = pm.st;
+      pd.setStance('postD');
+      pd.track(() => {
+        const dx = this.rim.x - sh.x, dy = this.rim.y - sh.y, dl = Math.hypot(dx, dy) || 1;
+        let x = sh.x + dx / dl * 2.1, y = sh.y + dy / dl * 2.1;
+        const o = st.off;
+        if (o) {
+          const k = U.smooth((this.T - o.t0) / (o.inS || 0.15)) * (1 - U.smooth((this.T - o.t1) / (o.outS || 0.3)));
+          // (left where he was: the spin's man, still going the way he leaned)
+          if (o.stay) { x = U.lerp(x, o.x, k); y = U.lerp(y, o.y, k); } else { x += o.dx * k; y += o.dy * k; }
+        }
+        return { x: U.clamp(x, 0.5, 93.5), y: U.clamp(y, 0.5, 49.5), vx: 0, vy: 0 };
+      }, { speed: pd.maxSpeed * 0.8, stance: 'postD' });
+      pd.setFace(() => Math.atan2(sh.y - pd.y, sh.x - pd.x));
+    }
+    /** the shoulder into his man's chest (the back-down's bump): his man knocked back toward the rim, harder for a stronger man */
+    postBump(sh, pm) {
+      const pd = pm.pd, TP = M.Tune.post;
+      sh.play('postBump', { facing: Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x) + Math.PI, fadeIn: 0.12, ballFromPrev: true, onEvent: (name) => {
+        if (name !== 'bump' || !pd || pd.isBusy()) return;
+        const dx = pd.x - sh.x, dy = pd.y - sh.y, dl = Math.hypot(dx, dy) || 1;
+        if (dl > 3.8) return;
+        pd.impact(dx / dl, dy / dl, TP.bumpK * pm.edge);
+        sh.impact(-dx / dl, -dy / dl, TP.bumpK * 0.45 / pm.edge);
+        this.postContacts = (this.postContacts || 0) + 1;
+      } });
+    }
+    /** the drop step (dir: +1 round to his left, -1 to his right): a reverse pivot, the free foot swung back past his man's leg,
+     *  and the seal: his man knocked off the line round the hip and kept there (further on an open look) until the finish */
+    postDrop(sh, pm, dir) {
+      const TP = M.Tune.post, pd = pm.pd;
+      const rimA = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x), ux0 = Math.cos(rimA), uy0 = Math.sin(rimA);
+      // (the drop: a big step back toward the basket past his man's leg, the hips going with it, on toward the rim and a little
+      // to the side it goes)
+      const dropFt = Math.min(TP.dropFt, Math.max(0, Math.hypot(this.rim.x - sh.x, this.rim.y - sh.y) - 4.2));
+      const end = { x: sh.x + (ux0 * 0.92 - uy0 * dir * 0.38) * dropFt, y: sh.y + (uy0 * 0.92 + ux0 * dir * 0.38) * dropFt };
+      if (!sh.pivotTo(rimA, { hold: 'holdChest', dir, reverse: true, fadeIn: 0.14, end, ballFromPrev: true })) sh.setFace(rimA);
+      if (!pd) return;
+      const T0 = this.T;
+      this.at(T0 + 0.18, () => {
+        if (this.active === false || pd.isBusy()) return;
+        // (sealed: pushed off the line to the rim to the side the drop step did not go)
+        const ux = Math.cos(rimA), uy = Math.sin(rimA), sx = -uy * dir, sy = ux * dir;
+        const sealFt = U.lerp(TP.sealFt[0], TP.sealFt[1], pm.ck);
+        pd.impact(-sx, -sy, TP.sealK * pm.edge * (0.7 + 0.3 * pm.ck));
+        sh.impact(sx, sy, TP.sealK * 0.35 / pm.edge);
+        pm.st.off = { dx: -sx * sealFt - ux * 0.3, dy: -sy * sealFt - uy * 0.3, t0: this.T, t1: pm.clipStart + 0.2, inS: 0.2, outS: 0.4 };
+        this.postContacts = (this.postContacts || 0) + 1;
+      }, 'post seal');
+    }
+    /** the spin off his man (dir as the drop step): round his hip toward the rim, the hips on Tune.post.spinShiftFt; his man, who
+     *  was leaning on him, falls into the space he left (a stumble) and is left there a moment */
+    postSpin(sh, pm, dir) {
+      const TP = M.Tune.post, pd = pm.pd;
+      const rimA = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x);
+      const ux = Math.cos(rimA), uy = Math.sin(rimA), sx = -uy * dir, sy = ux * dir;
+      // (round the hip: on toward the rim and out to the side he spins to)
+      const spinFt = Math.min(TP.spinShiftFt, Math.max(0, Math.hypot(this.rim.x - sh.x, this.rim.y - sh.y) - 4));
+      const end = { x: sh.x + (ux * 0.85 + sx * 0.52) * spinFt, y: sh.y + (uy * 0.85 + sy * 0.52) * spinFt };
+      const x0 = sh.x, y0 = sh.y;
+      if (!sh.pivotTo(rimA, { hold: 'holdChest', dir, reverse: true, quick: TP.spinQuick, end, fadeIn: 0.12, ballFromPrev: true })) sh.setFace(rimA);
+      if (!pd) return;
+      this.at(this.T + 0.12, () => {
+        if (this.active === false || pd.isBusy()) return;
+        const dx = x0 - pd.x, dy = y0 - pd.y, dl = Math.hypot(dx, dy) || 1;
+        // (his lean had nothing to lean on: out of the post stance, so the knock takes him a step)
+        pd.setStance('defense');
+        pd.impact(dx / dl, dy / dl, TP.spinK * (0.6 + 0.4 * pm.ck) * pm.edge);
+        pm.st.off = { stay: true, x: pd.x + dx / dl * 0.9, y: pd.y + dy / dl * 0.9, t0: this.T, t1: this.T + 0.35 + 0.3 * pm.ck, inS: 0.12, outS: 0.35 };
+        this.postContacts = (this.postContacts || 0) + 1;
+      }, 'post spin');
+    }
+    /** the pump fake: the ball up to his set point, the eyes on the rim; his man's bite by the look the engine made (open: off his
+     *  feet, the contest jump; contested: up into it, hands up, off his heels; tight: a hand up, staying down) */
+    postPump(sh, pm) {
+      const TP = M.Tune.post, pd = pm.pd;
+      sh.play('pumpFake', { facing: sh.facing, fadeIn: 0.1, ballFromPrev: true });
+      if (!pd) return;
+      this.at(this.T + 0.09, () => {
+        if (this.active === false || pd.isBusy()) return;
+        const toSh = Math.atan2(sh.y - pd.y, sh.x - pd.x);
+        if (pm.contest === 'open') { pd.setStance('defense'); pd.play('contestJump', { facing: toSh, mirror: pd.contestSide(this.v.ball) === 0 }); pm.bit = 'jump'; }
+        else {
+          if (!pd.upper) pd.play('contestUp', { mirror: pd.contestSide(this.v.ball) === 0 });
+          if (pm.contest === 'contested') {
+            const dx = sh.x - pd.x, dy = sh.y - pd.y, dl = Math.hypot(dx, dy) || 1;
+            pm.st.off = { dx: dx / dl * TP.pumpStepFt, dy: dy / dl * TP.pumpStepFt, t0: this.T, t1: this.T + 0.45, inS: 0.12, outS: 0.35 };
+            pm.bit = 'rise';
+          } else pm.bit = 'stay';
+        }
+      }, 'pump bite');
+    }
+    /** the step through: past his man's hip on the side the rim is open, the shoulder under him as he comes down */
+    postStepThrough(sh, pm) {
+      const TP = M.Tune.post, pd = pm.pd;
+      const rimA = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x), ux = Math.cos(rimA), uy = Math.sin(rimA);
+      // (the side: away from where his man is off the line to the rim, else toward the middle of the floor)
+      let side = 0;
+      if (pd) side = Math.sign(-uy * (pd.x - sh.x) + ux * (pd.y - sh.y)) * -1;
+      if (!side) side = Math.sign(ux * (25 - sh.y)) || 1;
+      const sx = -uy * side, sy = ux * side;
+      const to = { x: sh.x + ux * TP.stepFt + sx * TP.stepSideFt, y: sh.y + uy * TP.stepFt + sy * TP.stepSideFt };
+      if (!sh.stepThrough({ to, face: Math.atan2(this.rim.y - to.y, this.rim.x - to.x) })) return;
+      if (!pd) return;
+      this.at(this.T + 0.16, () => {
+        if (this.active === false) return;
+        const dx = pd.x - sh.x, dy = pd.y - sh.y, dl = Math.hypot(dx, dy) || 1;
+        if (dl > 3.6) return;
+        // (under him: his man, in the air or up on his toes, bumped off the step's line; the shooter gives a little too)
+        pd.impact(dx / dl, dy / dl, TP.stepK * pm.edge * (pm.bit === 'jump' ? 1.2 : 0.9));
+        sh.impact(-dx / dl, -dy / dl, TP.stepK * 0.4 / pm.edge);
+        this.postContacts = (this.postContacts || 0) + 1;
+      }, 'step through contact');
+    }
+    /** the head and shoulder fake (pm.fakeDir: +1 over his left shoulder, -1 his right): his man shifts to it and leans (farther
+     *  on an open look) */
+    postShoulderFake(sh, pm) {
+      const TP = M.Tune.post, pd = pm.pd;
+      // (the clip fakes over the right shoulder; mirrored, the left: the side is the move's, whichever hand he is)
+      const right = pm.fakeDir < 0;
+      sh.play('postFake', { facing: sh.facing, mirror: !right, fadeIn: 0.12, ballFromPrev: true });
+      if (!pd) return;
+      this.at(this.T + 0.1, () => {
+        if (this.active === false || pd.isBusy()) return;
+        const fx = Math.cos(sh.facing), fy = Math.sin(sh.facing);
+        // (his left: (-fy, fx))
+        const lx = -fy * pm.fakeDir, ly = fx * pm.fakeDir;
+        const ft = U.lerp(TP.fakeBiteFt[0], TP.fakeBiteFt[1], pm.ck);
+        pm.st.off = { dx: lx * ft, dy: ly * ft, t0: this.T, t1: this.T + 0.45 + 0.25 * pm.ck, inS: 0.14, outS: 0.35 };
+        pd.impact(lx, ly, TP.fakeLeanK * (0.6 + 0.6 * pm.ck));
+      }, 'fake bite');
     }
     // --- pass
     p_pass(ev, beat, gap) {
@@ -2004,12 +2327,21 @@
       const dRimNow = Math.hypot(sh.x - this.rim.x, sh.y - this.rim.y);
       let standFinish = false;
       if (kind === 'tip' && dRimNow > 6.5) clipName = dRimNow < 9.5 ? 'putback' : 'layup';
+      // (a putback: the shot straight after his own offensive rebound, no post move first, straight back up with it)
+      const pe0 = this.ei >= 2 ? this.events[this.ei - 2] : null;
+      const ownBoard = !!(pe0 && pe0.type === 'rebound' && pe0.off && pe0.player != null && pe0.player === ev.shooter);
+      // (a post-up finishes where its move leaves him, a power finish off two feet, from further out than a standing finish
+      // otherwise would: the move takes him in; the putback dunk only where its gather can still get him to the rim)
+      const TPo = M.Tune.post, postIn = postUp && !ownBoard && RIM_SHOTS[kind] && kind !== 'alley' && kind !== 'tip' && dRimNow < TPo.rangeFt;
       // (a dunk is always thrown down at the rim: a standing putback dunk only from close in, otherwise a
       // short running dunk whose run-up absorbs the distance)
-      if ((RIM_SHOTS[kind] && kind !== 'alley' && dRimNow < (kind === 'dunk' ? 5.5 : 9.5)) || (kind === 'tip' && dRimNow <= 6.5)) {
-        if (kind !== 'tip') clipName = (kind === 'dunk' && reaches('putbackDunk')) ? 'putbackDunk' : 'putback';
+      if ((RIM_SHOTS[kind] && kind !== 'alley' && dRimNow < (kind === 'dunk' ? 5.5 : 9.5)) || (kind === 'tip' && dRimNow <= 6.5) || postIn) {
+        if (kind !== 'tip') clipName = (kind === 'dunk' && reaches('putbackDunk') && dRimNow < (postIn ? 7.5 : 5.5)) ? 'putbackDunk' : 'putback';
         standFinish = true;
       }
+      // the post move first (postPlan): a post-up works his man before the shot, with contact; squared up in the paint with his
+      // man in front, a pump fake
+      const pm = !ownBoard && !catchAndShoot && kind !== 'tip' && kind !== 'alley' ? this.postPlan(ev, sh, kind, clipName, { postUp, postTurn, rimFinish: !!RIM_SHOTS[kind] && (standFinish || postUp) }) : null;
       // per-player form: some shooters set the ball over the forehead before the legs go (a two-motion shot, more
       // common among the bigger players), the rest shoot it in one motion on the way up
       // (a jumper taken off the dribble from a way off its spot is a pull-up: the standing jump shot started on the run slid the
@@ -2107,7 +2439,7 @@
       // (a jump shot's ball leaves at its clip's release too: a clip started on a slow clock (a pull-up from a standstill, Tune.weight
       // .clipWarpS) is behind the beat, and the ball went before the arm got there, with no follow-through, Trial 9)
       if (dunkWait || layWait || jumper || postTurn) beat.waitFor = () => !dk.waiting && (!dk.cs || dk.cs.done || dk.cs.hold != null || dk.cs.t >= clip.events.release - 0.02);
-      const need = (alleyLob ? clipLead : Math.max(tReach * 1.25 + 0.25, clipLead)) + rel;
+      const need = (alleyLob ? clipLead : Math.max(tReach * 1.25 + 0.25, clipLead)) + rel + (pm ? pm.dur : 0);
       if (alleyLob) beat.maxDur = need;
       // (a catch-and-shoot goes up off the catch, released ~0.5-0.8 s after it (NBA tracking: ~0.54 s on average): it does
       // not wait out a longer gap in the play-by-play with the ball in the shooter's hands, the clock catching up instead, Trial 9)
@@ -2118,6 +2450,9 @@
       beat.onStart = (fireAt) => {
         const clipStart = fireAt - rel;
         const r = this.role[sh.id]; if (r) r.until = fireAt + 2.5;
+        // (the post move, played so it ends as the shot starts; his man held off his contest meanwhile)
+        this.postHold = null;
+        const pmOn = pm ? this.runPost(pm, ev, sh, clipStart) : false;
         // (a catch-and-shoot keeps the ball in the shot pocket from the catch to the shot: caught on the move short of the spot,
         // the shooter was sent into a dribble for the last steps, the shot then picking the ball up off the floor with no dip, Trial 9)
         if (catchAndShoot) sh.holdBallUntil = Math.max(sh.holdBallUntil || 0, clipStart + 0.2);
@@ -2130,6 +2465,21 @@
           // (a jump shot with the ball already in the shooter's hands at the spot: set in the shot pocket, knees bent, ready to dip
           // into it; in the dribbling stance the body sat ~4 in lower and the dip out of it was ~2 in, Trial 9)
           const pocket = jumper && b.holder === sh && b.state === 'held' && Math.hypot(sh.x - origin.x, sh.y - origin.y) <= 2;
+          // (a post move to come: he keeps his post-up; a finish at the rim goes from where he is, the move taking him in, a hook or
+          // a turnaround from its spot, backed in to by the time the move starts)
+          if (pm && pmOn) {
+            const back = Math.abs(U.wrapPi(sh.facing - Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x))) > 1.9;
+            const held = b.holder === sh && b.state === 'held';
+            const stc = back ? (held ? 'postHold' : 'postUp') : held ? 'holdChest' : 'dribble';
+            // (a spot within a stride or so: the move starts where he is, the shot re-anchored on him after it; further, he backs
+            // in to it on the dribble, there with time to pick the ball up before the move)
+            if (standFinish || Math.hypot(sh.x - origin.x, sh.y - origin.y) < 3) { if (!sh.isBusy()) { sh.stop(); sh.setStance(stc); } }
+            else {
+              if (held && !sh.dribUsed) b.dribble(sh);
+              sh.moveTo(origin.x, origin.y, { by: Math.max(this.T + 0.3, clipStart - pm.dur - 0.6), speed: sh.maxSpeed * 0.6, face: back ? Math.atan2(this.rim.y - origin.y, this.rim.x - origin.x) + Math.PI : this.rim, stance: back ? 'postUp' : 'dribble', pace: 4 });
+            }
+            return;
+          } else
           sh.moveTo(origin.x, origin.y, { by: clipStart, speed: sh.maxSpeed, face: postTurn ? Math.atan2(this.rim.y - origin.y, this.rim.x - origin.x) + Math.PI : rimShot ? 'move' : this.rim, stance: postTurn ? 'postUp' : pocket ? 'shotPocket' : b.holder === sh ? 'dribble' : 'ready', pace: rimShot ? 8 : 5.5 });
           if (pocket) sh.ballHold = 'pocket';
           if (b.holder === sh && b.state === 'held' && !catchAndShoot && Math.hypot(sh.x - origin.x, sh.y - origin.y) > 2) b.dribble(sh);
@@ -2137,7 +2487,7 @@
         // a long wait with the ball in his hands: he works it (probe dribbles around his spot) and only then
         // goes into the shot, instead of creeping to the spot in slow motion
         const tApp = clipStart - (Math.hypot(sh.x - origin.x, sh.y - origin.y) / (sh.maxSpeed * 0.7) + 0.7);
-        if (r && b.holder === sh && !catchAndShoot && !standFinish && !postUp && tApp - this.T > 1.2 && this.flowOK && this.flowOK() && !this.driving(sh)) {
+        if (r && b.holder === sh && !catchAndShoot && !standFinish && !postUp && !pmOn && tApp - this.T > 1.2 && this.flowOK && this.flowOK() && !this.driving(sh)) {
           r.until = 0; r.probe = null; r.probeAnchor = { x: origin.x, y: origin.y };
           this.at(tApp, approach, 'shot approach');
         } else approach();
@@ -2148,6 +2498,9 @@
           // beat.waitFor)
           if (/^jumpshot2?$/.test(clipName) && b.holder === sh && (b.state === 'dribble' || dk.offDribble)) { clipName = 'pullup'; clip = M.Anims.shotClip(sh, clipName, { contest: contestK }); }
           if (b.holder !== sh && !(b.state === 'flight' && b.passTarget === sh)) this.giveBall(sh, 'pocket');
+          // (out of a post move: the shot's ball fades in from where the move had it)
+          const prevBall = pmOn && sh.clip && !sh.clip.done && sh.clip.lastBallL ? sh.clip.lastBallL.slice() : null;
+          const prevPose = pmOn && sh.clip && !sh.clip.done && sh.pose ? Float32Array.from(sh.pose) : null;
           sh.stopClip(0);
           if (b.holder === sh && b.state === 'dribble' && /^jumpshot2?$/.test(clip.name)) b.give(sh, 'pocket');
           if (b.holder === sh && b.state === 'dribble') b.give(sh, 'low');
@@ -2161,6 +2514,13 @@
           if (dunkClip && slip > 1.5 && (clipName !== 'putbackDunk' || slip < 4.5)) {
             // dunks stay anchored at the rim: the run-up / gather absorbs the slip (steps stretch or shorten)
             blendT = clip.jump ? U.clamp(clip.jump.t0 + 0.15, 0.4, 0.65) : 0.5;
+          } else if (pmOn && !dunkClip && slip > 0.25) {
+            // (out of a post move the shot goes up from where the move left him, facing the rim from there: the move's drop
+            // step, spin or step through took him ~1-2 ft off the spot planned before it)
+            ox = sh.x; oy = sh.y;
+            of = Math.atan2(this.rim.y - oy, this.rim.x - ox);
+            const r0 = this.clipRootAt(clip, 0);
+            ox -= Math.cos(of) * r0.fwd; oy -= Math.sin(of) * r0.fwd;
           } else if (rimShot || clipName === 'putback' || clipName === 'putbackDunk' || clipName === 'tip') {
             if (slip > 2.5) {
               ox = sh.x; oy = sh.y;
@@ -2188,13 +2548,15 @@
             };
           }
           const cs = sh.play(clip, {
-            x: ox, y: oy, facing: of, mirror, fadeIn: 0.08, speed: spk, jumpH: lift, blendT: blendT == null ? undefined : blendT,
+            x: ox, y: oy, facing: of, mirror, fadeIn: pmOn ? 0.14 : 0.08, speed: spk, jumpH: lift, blendT: blendT == null ? undefined : blendT,
             noHang, reach, data: { kind, contest: contestK },
             hold: pending ? clip.events.set : null,
             onEvent: (name) => {
               if (name === 'set' && pending && !this.resumeReq) this.freeze(ev, sh);
             },
           });
+          if (prevBall && cs) cs.ball0 = prevBall;
+          if (prevPose && cs) cs.pose0 = prevPose;
           this.shotClipState = cs;
           dk.cs = cs;
           if (b.holder === sh) b.give(sh);
@@ -2266,8 +2628,9 @@
           startClip();
         };
         // the drop step: from the post-up he swings his free leg around his man on a planted pivot foot, then goes
-        // up strong off two feet
-        if (postUp && (RIM_SHOTS[kind] || clipName === 'putback' || clipName === 'putbackDunk')) {
+        // up strong off two feet (the post move planned for it instead, when there is one and time for it)
+        if (pmOn) { /* runPost has it */ }
+        else if (postUp && (RIM_SHOTS[kind] || clipName === 'putback' || clipName === 'putbackDunk')) {
           this.at(Math.max(this.T + 0.05, clipStart - 0.55), () => {
             if (b.holder !== sh || sh.isBusy()) return;
             if (b.state === 'dribble') b.give(sh, 'triple');
@@ -2313,12 +2676,48 @@
         else if (d > 8 && d < 17 && angle > 0.5 && angle < 1.2 && r < 0.18) res.type = 'bank';
         else res.type = r < 0.62 ? 'swish' : 'rim_in';
       } else {
+        // (where a miss meets the rim is the shot's aim, drawn as the ball leaves the hand, Match.Aim: this draw is a leaning,
+        // the side of the rim it favours off the front, the back, a side or the glass as the NBA's misses go, and whether a near
+        // miss rattles; res.contact set here asks for that touch, the glass lab's)
         const r = Math.random();
-        res.type = (d > 22 && r < 0.03) ? 'airball' : 'miss';
-        res.contact = r < 0.4 ? 'front' : r < 0.72 ? 'back' : r < 0.9 ? (Math.random() < 0.5 ? 'left' : 'right') : 'board';
-        res.rattle = Math.random() < 0.3 && res.contact !== 'board';
+        res.type = 'miss'; res.contact = null;
+        res.hint = r < 0.4 ? 'front' : r < 0.72 ? 'back' : r < 0.9 ? (Math.random() < 0.5 ? 'left' : 'right') : 'board';
+        res.rattle = Math.random() < 0.3 && res.hint !== 'board';
       }
       return res;
+    }
+    /** the hand in the shooter's face as the ball leaves (Match.Aim): the nearest hand of the other side to the ball, one out on
+     *  the way to the rim counted as it is, one behind the ball as further off (Tune.aim.handBehindX); k 0-1: all of it at
+     *  handFullFt, none past handNoneFt */
+    handInFace(sh) {
+      const TA = M.Tune.aim, b = this.v.ball, J = M.Rig.J;
+      const ux = this.rim.x - b.x, uy = this.rim.y - b.y;
+      let best = Infinity, who = null;
+      for (const d of this.defActors()) {
+        if (!d.sk || Math.hypot(d.x - sh.x, d.y - sh.y) > TA.handNoneFt + 4) continue;
+        const P = d.sk.P;
+        for (const j of [J.L_HD, J.R_HD]) {
+          const hx = P[j * 3] - b.x, hy = P[j * 3 + 1] - b.y, hz = P[j * 3 + 2] - b.z, dist = Math.hypot(hx, hy, hz);
+          const eff = hx * ux + hy * uy >= 0 ? dist : dist * TA.handBehindX;
+          if (eff < best) { best = eff; who = d; }
+        }
+      }
+      return { ft: best, k: U.clamp((TA.handNoneFt - best) / (TA.handNoneFt - TA.handFullFt), 0, 1), who };
+    }
+    /** the shot's aim (Match.Aim) as the ball leaves the hand: the shooter, the engine's odds and their confidence, the hand in
+     *  their face; a miss off the side of the rim its rebound (pr, planned first) comes off to. kind: the shot as it is thrown */
+    shotAim(ev, sh, result, kind, pr) {
+      const b = this.v.ball, hand = kind === 'ft' ? { ft: Infinity, k: 0 } : this.handInFace(sh);
+      let carom = null;
+      if (pr && !result.made && isFinite(pr.x)) {
+        const ux = this.rim.x - b.x, uy = this.rim.y - b.y, ul = Math.hypot(ux, uy) || 1, cx = pr.x - this.rim.x, cy = pr.y - this.rim.y;
+        carom = { f: (cx * ux + cy * uy) / ul, s: (-cx * uy + cy * ux) / ul };
+      }
+      const aim = M.Aim.plan({ a: sh, made: !!result.made, pm: ev.pm, conf: ev.conf, kind, fouled: !!ev.fouled, p0: [b.x, b.y, b.z], rim: this.rim, side: this.hoop.side, hand: hand.k, want: result.made ? null : result.contact || null, hint: result.hint || null, carom, force: result.aimArc != null ? { arc: result.aimArc, d: result.aimAt, l: 0 } : null });
+      aim.handFt = hand.ft; aim.shooter = sh.id; aim.made = !!result.made; aim.T = this.T;
+      if (!result.made && result.rattle != null) aim.rattle = !!result.rattle;
+      this.lastAim = aim;
+      return aim;
     }
     /** fn(tRel) `lead` s before the shot's release (Trial 11): the release is the shot's own move reaching it (its release
      *  event), not the beat's planned time; a shot held up on its way (a drive's take-off run, a slow gather, the beat waiting
@@ -2357,10 +2756,20 @@
         const atRim = !!RIM_SHOTS[ev.kind] || ev.kind === 'floater';
         const gap = atRim ? (ev.fouled ? 1.2 : contest === 'tight' ? 1.5 : contest === 'contested' ? 2.8 : 7.5) : contest === 'tight' ? 2.9 : contest === 'contested' ? 4.9 : 7.5;
         const dx = this.rim.x - spot.x, dy = this.rim.y - spot.y, dl = Math.hypot(dx, dy) || 1;
-        const cp = this.clampCourt({ x: spot.x + dx / dl * gap, y: spot.y + dy / dl * gap }, 0.5);
+        let cp = this.clampCourt({ x: spot.x + dx / dl * gap, y: spot.y + dy / dl * gap }, 0.5);
         const arrive = contest === 'open' ? fireAt + 0.35 : fireAt - 0.3;
         this.dtask[df.id] = { until: fireAt + 1.4 };
-        df.moveTo(cp.x, cp.y, { by: arrive, speed: df.maxSpeed, face: { x: spot.x, y: spot.y }, stance: 'defense' });
+        // (the man working a post move is held off his contest until the move is done (runPost), then contests from where the
+        // move left the two of them: the shot goes up from there)
+        const ph = this.postHold && this.postHold.id === df.id && this.postHold.until > this.T ? this.postHold.until : 0;
+        const go = () => {
+          if (ph) {
+            const ex = this.rim.x - sh.x, ey = this.rim.y - sh.y, el = Math.hypot(ex, ey) || 1, sx = sh.x + ex / el * 0.5, sy = sh.y + ey / el * 0.5;
+            cp = this.clampCourt({ x: sx + ex / el * gap, y: sy + ey / el * gap }, 0.5);
+          }
+          df.moveTo(cp.x, cp.y, { by: Math.max(arrive, this.T + 0.15), speed: df.maxSpeed, face: ph ? { x: sh.x, y: sh.y } : { x: spot.x, y: spot.y }, stance: 'defense' });
+        };
+        if (ph) this.at(ph, go, 'contest after the post move'); else go();
         // closeout: sprint the first part, then short chop steps under control over the last ~8 ft, hand up
         const chop = () => {
           if (df.isBusy() || df.goal.mode !== 'move') return;
@@ -2368,7 +2777,7 @@
           if (dd < 8 && df.speed > 8) { df.goal.speed = 9; df.goal.by = null; df.setStance('defense'); if (!df.upper) df.play('contestUp', { mirror: df.contestSide(v.ball) === 0 }); return; }
           if (this.T < arrive + 0.3) this.at(this.T + 0.08, chop, 'chop');
         };
-        this.at(this.T + 0.15, chop, 'chop');
+        this.at((ph || this.T) + 0.15, chop, 'chop');
         const TGc = M.Tune.glass, nearRim = atRim && (contest !== 'open' || ev.fouled);
         const cLead = nearRim ? TGc.wallLeadS : contest === 'tight' ? 0.22 : 0.3;
         // (the blocker's own jump is the block, planned below: no contest move for them first, their hand up at the release point
@@ -2417,7 +2826,9 @@
           };
           let bp = faceAt(spot), aimAt = spot;
           this.dtask[bl.id] = { until: fireAt + 1.6 };
-          bl.moveTo(bp.x, bp.y, { by: fireAt - 0.4, speed: bl.maxSpeed, face: { x: spot.x, y: spot.y } });
+          // (the man working against a post move stays on him through it, runPost: his block is set up after)
+          const bh = this.postHold && this.postHold.id === bl.id && this.postHold.until > this.T ? this.postHold.until : 0;
+          if (!bh) bl.moveTo(bp.x, bp.y, { by: fireAt - 0.4, speed: bl.maxSpeed, face: { x: spot.x, y: spot.y } });
           const aim = () => {
             if (bl.isBusy() || this.T > fireAt + TG.releaseWaitS) return;
             const rp = relPt();
@@ -2428,7 +2839,7 @@
             }
             this.at(this.T + 1 / 60, aim, 'block aim');
           };
-          this.at(this.T + 1 / 60, aim, 'block aim');
+          this.at((bh || this.T) + 1 / 60, aim, 'block aim');
           // (the move's swatting arm the one on the ball's side: it is the hand that goes onto the ball, releaseShot; up in the
           // shooter's face, a running jump over what is left of the way there, Tune.glass.travelFt at most: Trial 11)
           this.whenRelease(sh, fireAt, 0.2, () => {
@@ -2581,7 +2992,7 @@
         const pr0 = [this.rim.x, this.rim.y, 10.25];
         const segs = [M.Ball.seg(b.time, p0, M.Ball.aim(p0, pr0, 0.12, 0), 0.12, 0)];
         b.flight(segs, null);
-        b._throughNet(segs, [this.rim.x, this.rim.y, 10.0], segs[0].t1, this.hoop, {}, true);
+        b._throughNet(segs, pr0, segs[0].t1, this.hoop, {}, true);
         b.shotHoop = this.hoop; b.onScore = onScore; b.onRim = null;
         this.hoop.hang(1);
         if (!result.made) { /* dunk miss: treat as rim miss */ }
@@ -2601,6 +3012,17 @@
         // carom timing to meet the rebounder at the apex of his jump
         opts.rebound = { x: pr.x, y: pr.y, z: pr.actor ? pr.z : 0.8, t: 0, floor: !pr.actor || !!pr.floor };
       }
+      // the aim (Match.Aim): how it comes down at the rim, from who shot it, how, the hand in their face and how they feel; a
+      // bank drops through off the middle by a little
+      let aim = null;
+      if (M.Aim && result.type !== 'bank') {
+        const kind = clipName === 'floater' ? 'floater' : clipName === 'hook' ? 'hook' : clipName === 'putback' ? 'putback' : clipName === 'tip' ? 'tip' : ev.kind || 'jumper';
+        aim = opts.aim = this.shotAim(ev, sh, result, kind, pr);
+        if (result.made) opts.result = 'aim';
+      } else if (M.Aim && result.type === 'bank') {
+        const sd = M.Tune.aim.bankSdIn, g = () => U.clamp((Math.random() + Math.random() + Math.random() - 1.5) * 2 * sd, -2.5, 2.5);
+        opts.aim = { d: g(), l: g() };
+      }
       // preview time to contact to set the carom arrival
       const info = b.shoot(Object.assign({}, opts, { rebound: opts.rebound ? Object.assign({}, opts.rebound, { t: b.time + 5 }) : undefined }));
       if (pr && !result.made) {
@@ -2616,6 +3038,12 @@
         // rebound.js, readCarom)
       }
       if (!result.made) b.shotCue = { ev }; // (a miss is out at its first contact: the rim, the glass, or an air ball)
+      // (a make's kind as the ball went in, for the calls: clean, off the rim, off the glass)
+      if (aim && result.made) this.madeType = aim.tail === 'clean' ? 'swish' : aim.tail === 'board' ? 'bank' : 'rim_in';
+      if (aim && this.dbgOn && this.dbgOn()) {
+        const lk = this.v.look(sh.id), who = lk ? (lk.last || lk.name) : 'The shooter';
+        this.dbgRead('AIM ' + who + ': ' + M.Aim.words(aim, result.made) + ' (' + Math.round(aim.pm * 100) + '% look, spread ' + aim.sdD.toFixed(1) + ' in' + (aim.hand > 0.05 ? ', a hand ' + aim.handFt.toFixed(1) + ' ft off' : '') + (Math.abs(aim.conf) >= 0.3 ? (aim.conf > 0 ? ', feeling it' : ', cold') : '') + ')', result.made ? '#8ce99a' : '#ffa8a8');
+      }
       if (result.made) {
         const three = (+ev.pts === 3);
         v.arena.cheer(this.off, three ? 0.95 : 0.7, three ? 3 : 2);
@@ -3444,6 +3872,8 @@
           b.release(); b.state = 'flight';
           const res = made ? (Math.random() < 0.7 ? 'swish' : 'rim_in') : 'miss';
           const contact = Math.random() < 0.5 ? 'front' : 'back';
+          // (the aim, Match.Aim: the shooter's own arc and habits, the engine's odds and how they feel; nobody's hand)
+          const ftAim = M.Aim ? this.shotAim(ev, sh, { made }, 'ft', null) : null;
           let rebound;
           if (!made) {
             if (lastOne && !tech) {
@@ -3457,11 +3887,11 @@
             }
             if (!rebound) rebound = { x: this.rim.x - this.dir * 3, y: 25 + (Math.random() - 0.5) * 6, z: 0.8, t: 0, floor: true };
           }
-          const info = b.shoot({ hoop: this.hoop, result: res, miss: { contact, rattle: false }, angle: 52, rebound: rebound ? Object.assign({}, rebound, { t: b.time + 5 }) : undefined, onScore: () => {} });
+          const info = b.shoot({ hoop: this.hoop, result: ftAim && made ? 'aim' : res, aim: ftAim, miss: { contact, rattle: false }, angle: 52, rebound: rebound ? Object.assign({}, rebound, { t: b.time + 5 }) : undefined, onScore: () => {} });
           if (rebound) {
             const tC = info.tContact;
             b.x = info.segs[0].p0[0]; b.y = info.segs[0].p0[1]; b.z = info.segs[0].p0[2];
-            b.shoot({ hoop: this.hoop, result: res, miss: { contact, rattle: false }, angle: 52, rebound: Object.assign({}, rebound, { t: tC + 0.8 }), onScore: () => {} });
+            b.shoot({ hoop: this.hoop, result: res, aim: ftAim, miss: { contact, rattle: false }, angle: 52, rebound: Object.assign({}, rebound, { t: tC + 0.8 }), onScore: () => {} });
             if (this.pendingRebound && this.pendingRebound.actor) {
               this.scheduleRebounder(this.pendingRebound, tC + 0.8);
               this.pendingRebound.tGrab = tC + 0.8;

@@ -390,6 +390,45 @@
       // in their hands (spinP, ftSpinS), most take a deep breath (breathP, ftBreathS), then the set (ftSetS) and the shot
       ftRoutine: { dribbleP: [0.1, 0.25, 0.35, 0.2, 0.1], periodS: [0.55, 0.72], spinP: 0.4, breathP: 0.75 },
       ftCatchS: 0.75, ftSpinS: 0.45, ftBreathS: 1.0, ftSetS: 0.35, ftSpinRps: 2.5,
+      putbackGoS: 0.1,              // a putback goes up this long after its move could be ready, the offensive rebound in hand (s)
+    },
+
+    // ---------------------------------------------------------------- the aim: how a shot meets the rim (Match.Aim)
+    // Where the ball's centre crosses the rim's plane (a depth along the shot, + long, and a lateral offset, + to the
+    // shooter's left, inches from the middle of the ring) and the angle it comes down at. The engine has said whether it
+    // goes in and how likely that was (ev.pm): the scatter around the shooter's own aim is set so that it goes in that often,
+    // then the shot is drawn from it given the result. (Noah Basketball's tracking: 45 deg in, 11 in past the front of the
+    // ring, i.e. ~2 in long, the best; a contested shot's depth varies ~56 % more, its left-right ~38 % more, and comes up
+    // short; flat shooters miss long, high-arc ones short.)
+    aim: {
+      arcDeg: [39, 50],             // a shooter's own entry angle on a jump shot (deg), drawn per player
+      arcGood: 45, arcSkillPull: 0.35, // a good shooter's drawn this share of the way toward arcGood
+      arcSdDeg: [1.1, 2.6],         // shot to shot (a pure shooter to a poor one)
+      arcDeepDeg: 0.3,              // flatter per ft past 24 ft
+      depthBiasIn: [-0.8, 2.0],     // a shooter's own habit, short (-) or long (+)
+      flatLongIn: 0.22,             // long per degree flatter than 45 (and short per degree higher)
+      latBiasIn: 0.8,               // a shooter's own habit left or right, at most
+      latRatio: [0.55, 0.8],        // the left-right scatter against the depth's (a pure shooter to a poor one)
+      // the hand in the face: the nearest defender's hand at the release (ft from the ball; behind the ball it counts
+      // handBehindX as far), all of it at handFullFt, none past handNoneFt: the depth's scatter and the left-right's (x),
+      // the shot short (in) and higher (deg)
+      handFullFt: 1.5, handNoneFt: 6, handBehindX: 1.6, handDepthSd: 1.25, handLatSd: 1.17, handShortIn: 0.6, handArcDeg: 2,
+      // confidence (the engine's, -1 to 1): a cold shooter short-arms it (in at -1), a hot one lets it go (in at +1)
+      confShortIn: 0.7, confLongIn: 0.3,
+      // a ball that touches the ring goes in with odds falling off with how far its centre crossed from the middle: half go
+      // in at these radii off the back of the ring, the side, the front (in; the back rim is kinder), over this spread (set
+      // so that an average three is an air ball ~1 time in 100 and a little over a third of the makes are clean, a good free
+      // throw shooter's ~60 %)
+      in50In: [5.6, 5.2, 4.3], inSpreadIn: 0.7,
+      // the finishes' entry angles (deg, spread): a floater, a hook, a layup or putback, a tip; a bank's crossing scatter (in)
+      floaterDeg: [60, 3], hookDeg: [52, 2.5], layupDeg: [61, 3], tipDeg: [63, 3], bankSdIn: 1.2,
+      // a make off the rim: rolled round the ring rather than hopped (a touch off its side always rolls); a miss that nearly
+      // went in (odds at least inOutPIn): rolled round and out (in and out); off the front or back with odds at least rattlePIn:
+      // rattled
+      rollP: 0.25, inOutPIn: 0.35, inOutP: 0.55, rattlePIn: 0.12, rattleP: 0.35,
+      // the widest scatter in depth (in) for a jump shot, a free throw, a finish: a poor look past it is still a shot at the
+      // rim, missed off it rather than an air ball one time in ten
+      sdMaxIn: [8, 5.5, 7],
     },
 
     // ---------------------------------------------------------------- the glass and the contest (Trial 11)
@@ -432,6 +471,8 @@
       takeLateS: 0.12,              // there by then, it goes on down and they run it down off the floor
       catchLeadS: 0.2,              // a long rebound: at the spot this long before it comes down to the hands
       popFtps: 8,                   // a carom nobody can get to in the air pops this fast up off the rim and comes down to the floor
+      floorDistK: [0.6, 0.8, 1, 1.25, 1.6], // ...this far out (x the natural distance), where the rebounder is nearest against
+      floorOthersK: 0.6,            // everyone else (their distance less this share of the nearest other's)
       catchLowFt: 1.2,              // run down off the floor: caught with both hands above this (and within catchReachFt, and their
       catchReachFt: 2,              // run), picked up off the floor below it
       // running a loose or bouncing ball down (pursuit, then arrival: Reynolds' steering behaviours): the soonest moment on
@@ -442,10 +483,15 @@
       // gatherPickStopK of the pick-up's bend before the grab; taken as it goes along the floor no faster than gatherCatchFtps
       // (caught: going away from them, they go with it) or gatherPickFtps (picked up). The plan holds while they are no more
       // than gatherSlackS behind it; the hands not on it gatherLateS after the take, a new one
-      gatherCatchLoH: 0.55, gatherPickHiH: 0.55, gatherPickStopK: 0.5, gatherSlackS: 0.12, gatherLateS: 0.25,
+      gatherCatchLoH: 0.38, gatherPickHiH: 0.55, gatherPickStopK: 0.3, gatherSlackS: 0.2, gatherLateS: 0.25,
       gatherCatchFtps: 12, gatherPickFtps: 12,
+      chaseK: 1,                    // a loose ball is run down flat out (the rebounder's run to a carom in the air: runK)
+      // a rebound gone to the floor is fought for (Director.scrambleLoose): the scrambleN nearest of each side within
+      // scrambleRebFt go after it too, onto the ball scrambleLeadS ahead of where it is, a step (scrambleBehindFt) behind the
+      // engine's rebounder (but in to scrambleMaxFt of it whatever) and never nearer it than scrambleKeepFt
+      scrambleN: 2, scrambleRebFt: 16, scrambleLeadS: 0.2, scrambleBehindFt: 1.4, scrambleKeepFt: 2.6, scrambleMaxFt: 6,
       gatherCutFtps: 0.5,           // a ball going along the floor faster than this is picked up cut off (from beside its way)
-      gatherEarlyS: 0.3,            // a pick-up: on their spot and stopped this long before the bend
+      gatherEarlyS: 0.1,            // a pick-up: on their spot and stopped this long before the bend
       gatherBrakeK: 0.45,           // planned stops brake at this much of their braking (the strides' flight between the plants)...
       gatherStopK: 0.5,             // ...and the run to the spot brakes at this much, stopping there (at full speed until then)
       // the box-out: boxFindS after the release each defender has found their man (the eyes on them) and steps into them, if they
@@ -854,6 +900,56 @@
       restK: [1.25, 0.55],          // ...and rests between probes this share of his offense's rest (a shifty guard keeps at it)
       probeFtps: 13,                // a probe's attack goes this fast (ft/s before the pace factor; was 11), its retreat
       retreatFtps: 9, swingFtps: 11, // this fast (was 6.5) and a change of sides this fast (was 8.5)
+      // the dribble breakdown (the shot physics pass: "a size-up, then a speed boost to blow by"). The size-up's strings of
+      // moves in place, by handle (under 30 %, 30-60, 60-85, 85 and up of the way from a 45 to a 90 handle)...
+      sizeUp: [
+        [['cross'], ['hesi']],
+        [['btl', 'cross'], ['cross', 'hesi'], ['btl', 'hesi']],
+        [['btl', 'cross', 'btl'], ['btl', 'btb'], ['inout', 'cross'], ['cross', 'btl', 'hesi']],
+        [['btl', 'btl', 'cross', 'hesi'], ['btb', 'btl', 'cross'], ['btl', 'inout', 'btb'], ['cross', 'btl', 'btl', 'hesi']],
+      ],
+      // ...and the burst out of a move his man bought (Director.breakdown, Actor.burst): for burstS, his top speed up to
+      // burstVK and his push up to burstAK more (at a full bite on a man he is much quicker than); a move made within
+      // burstLateS of the bite's end still counts; his man stays sold burstHoldS x more; less than burstMinK, no burst
+      burstS: 0.9, burstVK: 0.18, burstAK: 0.9, burstLateS: 0.3, burstHoldS: 0.5, burstMinK: 0.2,
+      soldSlowK: 0.35,              // a man sold on the move before a drive keeps up with it this much slower at first (x the bite)
+      // a big bite leaves the man on the ball off balance (a knock his way, Actor.impact: from biteKnock[0] ft/s at the least
+      // to biteKnock[1] at a full bite on a man the handler is much better than; a stumble step from ~6.5)
+      biteKnock: [3, 9],
+    },
+
+    // ---------------------------------------------------------------- the post moves (the shot physics pass: "players in the
+    // paint should be using post moves to get an opening to score, and using contact"; Director.postPlan, runPost). The move
+    // a post-up works before its shot, by the finish the engine gave it (rim: a layup or dunk, hook, fade: the turnaround or a
+    // short jumper) and how open the engine had it come out (the move is how he got that look: open, the fake got his man off
+    // his feet or leaning; tight, his man stayed with it and he went up through him). Weights, each x (0.5 + the player's
+    // strength) for the drop step and x (0.5 + his post craft and quickness) for the fakes and the spin (0-1 from 40 to 90)
+    post: {
+      rim: { open: { upUnder: 3, spin: 2, dropStep: 2, fake: 1 }, contested: { dropStep: 3, upUnder: 1.5, spin: 1.5, fake: 1 }, tight: { dropStep: 4, fake: 1, spin: 0.5 } },
+      hook: { open: { fake: 3, dropStep: 1.5 }, contested: { fake: 2, dropStep: 2 }, tight: { dropStep: 3, fake: 1 } },
+      fade: { open: { fake: 3, none: 1 }, contested: { fake: 2, none: 1.5 }, tight: { fake: 1, none: 2 } },
+      // squared up to the rim in the paint (a big who caught it facing, his man in front): a pump fake first, into the up and
+      // under at the rim or the hook
+      faceUp: { open: { upUnder: 3, none: 0.5 }, contested: { upUnder: 2, none: 1 }, tight: { upUnder: 1, none: 2 } },
+      rangeFt: 11,                  // a post-up this close to the rim finishes where its move leaves him (a power finish off two
+                                    // feet); the running layup from further out keeps its run-up
+      faceFt: 12, faceNearFt: 5,    // squared up inside faceFt of the rim with his man within faceNearFt: the face-up moves
+      bumpS: 0.56,                  // the shoulder into his man's chest first (the back-down's bump), the move this long after it
+                                    // (its second step down by then: the pivot after it needs both feet on the floor)
+      bumpK: 7,                     // how hard (ft/s of closing speed, Actor.impact; x the strength edge, 0.75-1.35)
+      dropFt: 1.5,                  // the drop step: the hips this far on toward the rim with the big step back past his man...
+      sealK: 8,                     // ...and the seal: his man knocked off the line round the hip (x the edge too)...
+      sealFt: [0.5, 1.4],           // ...and kept this far off it until the finish (tight to open)
+      spinK: 7.5,                   // the spin: his man, leaning on him, falls into the space he left (a stumble from ~6.5)...
+      spinShiftFt: 1.6,             // ...as he goes round the hip, the hips this far on toward the rim
+      spinQuick: 0.8,               // (the spin's turn this much quicker than a pivot's)
+      fakeBiteFt: [0.4, 1.4],       // a shoulder fake: his man shifts this far to it (tight to open)...
+      fakeLeanK: 3.8,               // ...leaning (a small knock his way)
+      pumpStepFt: 0.7,              // a pump fake on a contested look: he steps up into it, hands up, off his heels (open: he jumps)
+      stepFt: 2.8, stepSideFt: 1.0, // the step through: the free foot this far on toward the rim and this far to the side, past
+                                    // his man's hip...
+      stepK: 5,                     // ...the shoulder under him as he comes down
+      moveP: 0.92,                  // a post-up works a move first this often (the rest go straight up)
     },
 
     // ---------------------------------------------------------------- reading the space (the gameplay pass: a handler whose man
@@ -863,6 +959,7 @@
                                     // "wide open" is a closest defender 6 ft or more away)...
       beatenFt: 0.8,                // ...or his man is this far behind him on his line to the rim, or beside him (besideFt across,
       besideFt: 3.2, besideAlongFt: 1.0, // no more than besideAlongFt in front): past his man
+      biteBeatFt: 1.4,              // ...or sold on a move by more than this (defBite: the breakdown, the moment to go)
       rangeFt: 30,                  // (within this of the rim)
       pullLeadS: 0.9,               // his own shot next, it comes now: brought forward so it keeps this much beyond the time its beat
       pullMaxS: 2.5,                // needs (s), by this much at most (s; the clock runs a little quick meanwhile)
