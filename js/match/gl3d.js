@@ -900,9 +900,11 @@ void main() { oCol = vec4(1.0); }`;
       const u = this.u = {};
       const n = gl.getProgramParameter(this.prog, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(this.prog, i); u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(this.prog, info.name); }
-      // bone palette texture: 7 texels per bone, one row per person drawn this frame
+      // bone palette texture: 7 texels per bone, one row per person drawn this frame (the body's bones, then the
+      // knots of hair that moves, hair.js)
       this.maxRows = 32;
-      this.boneW = BD.NB * 7;
+      this.hairBones = M.Hair ? Math.max(...Object.values(M.Hair.CFG.styles).map(S => S.guides)) * M.Hair.CFG.meshKnots : 0;
+      this.boneW = (BD.NB + this.hairBones) * 7;
       this.boneData = new Float32Array(this.boneW * 4 * this.maxRows);
       this.boneTex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, this.boneTex);
@@ -963,7 +965,7 @@ void main() { oCol = vec4(1.0); }`;
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, b.index, gl.STATIC_DRAW);
       gl.bindVertexArray(null);
-      const m = { k, vao, vb, ib, n: b.nIdx, bindInv: b.bindInv, bindTw: b.bindTw || null, head: b.head, used: this.frame, ms: b.ms, detail: b.detail, human: !!b.human };
+      const m = { k, vao, vb, ib, n: b.nIdx, bindInv: b.bindInv, bindTw: b.bindTw || null, head: b.head, used: this.frame, ms: b.ms, detail: b.detail, human: !!b.human, hair: b.hair && b.hair.n <= this.hairBones ? b.hair : null };
       this.meshes.set(k, m);
       // keep the cache bounded
       if (this.meshes.size > 60) {
@@ -1072,7 +1074,8 @@ void main() { oCol = vec4(1.0); }`;
     // ---------------------------------------------------------- frame
     /**
      * Render every person into its cell. people: [{sk, style, a}] (sk: skeleton-like {P, R, dims, pose?} or a
-     * replay ghost with .ex {tw, curl}). Returns the number of people drawn in 3D.
+     * replay ghost with .ex {tw, curl}; a: who it is, the key of the hair's simulation). opts.time: the clock the
+     * hair moves by (the game's, s; the page's clock when absent). Returns the number of people drawn in 3D.
      */
     render(cam, people, opts) {
       if (!this.ok) return 0;
@@ -1106,7 +1109,20 @@ void main() { oCol = vec4(1.0); }`;
         let m = this.mesh(pp.style, sk.dims, detail, !!opts.sync);
         if (!m && detail === 'high') m = this.mesh(pp.style, sk.dims, 'low', !!opts.sync);
         if (!m) continue;
-        list.push({ pp, m, x0, y0, x1, y1, dmin: dmin - 3, dmax: dmax + 3, ball, hasBall: false });
+        // hair that moves: a step of its simulation to this frame's time, and the cell grown to where it swings
+        let hs = null;
+        if (m.hair && M.Hair) {
+          hs = U.safe(() => M.Hair.step(pp.a || sk, sk, m.hair.gd, opts.time != null ? opts.time : performance.now() / 1000), null, 'hair');
+          if (hs) {
+            const X = hs.X, r = s * 0.12;
+            for (let i = 0; i < X.length; i += 3) {
+              cam.project(X[i], X[i + 1], X[i + 2], pt);
+              if (pt.x - r < x0) x0 = pt.x - r; if (pt.x + r > x1) x1 = pt.x + r; if (pt.y - r < y0) y0 = pt.y - r; if (pt.y + r > y1) y1 = pt.y + r;
+              if (pt.d < dmin) dmin = pt.d; if (pt.d > dmax) dmax = pt.d;
+            }
+          }
+        }
+        list.push({ pp, m, x0, y0, x1, y1, dmin: dmin - 3, dmax: dmax + 3, ball, hasBall: false, hair: hs });
       }
       if (!opts.sync) this.pump();
       if (!list.length) return 0;
@@ -1145,10 +1161,14 @@ void main() { oCol = vec4(1.0); }`;
       const u = this.u;
       // bones for everyone at once
       const rows = Math.min(this.maxRows, list.length);
-      for (let r = 0; r < rows; r++) this._bones(list[r], r);
+      let usedW = BD.NB * 7;
+      for (let r = 0; r < rows; r++) { this._bones(list[r], r); if (list[r].hair) usedW = Math.max(usedW, (list[r].m.hair.base + list[r].m.hair.n) * 7); }
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.boneTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, this.boneW, rows, gl.RGBA, gl.FLOAT, this.boneData, 0);
+      // (only as far across as someone's bones go: the rows are boneW apart in the data)
+      gl.pixelStorei(gl.UNPACK_ROW_LENGTH, this.boneW);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, usedW, rows, gl.RGBA, gl.FLOAT, this.boneData, 0);
+      gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
       gl.uniform1i(u.uBones, 0);
       // numbers
       for (let r = 0; r < rows; r++) list[r].num = this.numSlot(list[r].pp.style);
@@ -1340,6 +1360,19 @@ void main() { oCol = vec4(1.0); }`;
         for (let k = 0; k < 12; k++) D[o + 12 + k] = bi[b * 12 + k];
         D[o + 24] = this.TW[b] - (m.bindTw ? m.bindTw[b] : 0); D[o + 25] = 0; D[o + 26] = 0; D[o + 27] = 0;
       }
+      // hair that moves: a bone at every knot of its guides, where the simulation has it, turned as its strand is
+      const hs = c.hair, hm = m.hair;
+      if (hs && hm) {
+        const KF = this._kf && this._kf.length >= hm.n * 9 ? this._kf : (this._kf = new Float64Array(this.hairBones * 9));
+        M.Hair.knotFrames(hs, KF);
+        const X = hs.X;
+        for (let q = 0; q < hm.n; q++) {
+          const b = hm.base + q, o = base + b * 28, r = q * 9;
+          for (let k = 0; k < 3; k++) { D[o + k * 4] = KF[r + k * 3]; D[o + k * 4 + 1] = KF[r + k * 3 + 1]; D[o + k * 4 + 2] = KF[r + k * 3 + 2]; D[o + k * 4 + 3] = X[q * 3 + k]; }
+          for (let k = 0; k < 12; k++) D[o + 12 + k] = bi[b * 12 + k];
+          D[o + 24] = 0; D[o + 25] = 0; D[o + 26] = 0; D[o + 27] = 0;
+        }
+      }
     }
     _person(c) {
       const gl = this.gl, u = this.u, st = c.pp.style, m = c.m, sk = c.pp.sk;
@@ -1373,13 +1406,14 @@ void main() { oCol = vec4(1.0); }`;
       gl.uniform3f(u.uFlut, sw[0], sw[1], 0);
       gl.uniform3f(u.uSway, sw[2], sw[3], 0);
     }
-    /** cloth and hair sway from the person's running velocity: [flutter x, y, hair x, y] */
+    /** cloth and hair sway from the person's running velocity: [flutter x, y, hair x, y] (none for hair that is
+     *  simulated: it moves by itself) */
     _sway(c) {
       const a = c.pp.a, o = this._swv || (this._swv = [0, 0, 0, 0]);
       o[0] = o[1] = o[2] = o[3] = 0;
       if (a && a.vx != null) {
         o[0] = -U.clamp((a.vx || 0) * 0.012, -0.12, 0.12); o[1] = -U.clamp((a.vy || 0) * 0.012, -0.12, 0.12);
-        o[2] = o[0] * 2; o[3] = o[1] * 2;
+        if (!c.hair) { o[2] = o[0] * 2; o[3] = o[1] * 2; }
       }
       return o;
     }

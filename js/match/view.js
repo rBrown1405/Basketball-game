@@ -805,6 +805,9 @@
       // between two fixed steps the live frame is drawn blended between them by the time left over (the debug tools
       // show the exact steps instead)
       const kI = !rp && !dbg ? U.clamp((this._acc || 0) / M.Tune.clock.step, 0, 1) : 0;
+      // the moment drawn, on the game's clock (the hair that moves steps to it, hair.js): between the last two steps
+      // as displaySk blends them, a replay's own moment
+      const hairT = this.replay ? this.replay.rt : rp ? (rp.t != null ? rp.t : this.time) : kI > 0.001 && kI < 0.999 ? this.time - (1 - kI) * M.Tune.clock.step : this.time;
       // people to draw: live bodies (solved in the last step) or ghosts
       const people = this._people || (this._people = []);
       people.length = 0;
@@ -848,7 +851,7 @@
           // the ball in someone's hands (held, or dribbled) is rendered inside that person's 3D cell
           const hb = rp || b.hidden ? null : (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : b.state === 'dribble' && b.dr && b.dr.actor ? b.dr.actor : null;
           const ball = hb ? { sk: skOf.get(hb) || hb.sk, x: b.x, y: b.y, z: b.z, R: M.Ball.R, rot: b.rot, squash: b.squash } : null;
-          const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr, ball }), this, '3d players');
+          const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr, ball, time: hairT }), this, '3d players');
           if (!n3) R3 = R3 && R3.cells.size ? R3 : null;
         }
       }
@@ -878,7 +881,7 @@
         for (const it of items) {
           if (it.k === 0) {
             const pp = it.o;
-            const o = { dpr };
+            const o = { dpr, who: pp.a, time: hairT };
             if (heldBy && heldBy === pp.a) o.extra = { d: cam.depth(b.y, b.z) + 0.05, fn: ballFn };
             // (isolating a player in the debug tools dims everyone else)
             const dim = pp.alpha != null && pp.alpha < 1;
