@@ -448,6 +448,9 @@
       if (this.pendingRebound !== pr || b.holder || beat.fired) return;
       // (a ball whose flight ended in the air never floats there: it falls)
       if (b.state !== 'flight' && b.state !== 'loose' && b.z > R + 0.3 && !pr.grabbed) { b.loose([0, 0, 0]); pr.style = 'floor'; pr.floor = true; }
+      // (the engine has it live: a carom rolling for a line dies short of it, Director.keepLooseIn; it was run down ~16 ft
+      // past the baseline, the gameplay pass)
+      if (this.keepLooseIn && this.keepLooseIn()) { pk.plan = null; pk.t = null; }
       if (pr.style === 'floor' && this.T >= (pr.tContactT || 0) + TG().readS) {
         lock(0.4); // (chasing it: nothing else moves him meanwhile)
         if (this.runDown(a, pk)) return;

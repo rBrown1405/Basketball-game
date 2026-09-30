@@ -406,3 +406,84 @@ guards made no space, and the dribbling hand went straight up and down like a pa
   5.5 and 6.1, at a jog or faster 34 and 37 % of the time against 39 and 45 %. The handle audit (`tools/audit/handle.js`,
   14 scenarios): every contact on the ball, the ball through nobody, no hand or elbow pops but the spin's (fewer than
   before), on four other random states as well; the gauntlet (`tools/audit/check.js`) 144 of 144.
+
+## The second gameplay pass: the rebounder, the lines, reading the defense, outlets, quicker jumpers, denial, the catch
+
+Asked for by the user: the player the engine gives the board to rarely jumped for it, everyone off the ball still moved
+below NBA pace, dribblers went out of bounds with no call, a handler with his man beaten behind him neither shot nor drove,
+every outlet pass connected, the jump shots were slow, pass receivers were not ready for the ball, the off-ball defense
+never took a pass away, and an open player did not look to score.
+
+* **The rebounder goes up** (`Tune.glass.anticipate*`, `pullFromFt`; `Director.anticipateCarom` in `choreo.js`): the
+  engine's rebounder further than `anticipateFt` from where the miss is planned to come down reads the shot and goes there
+  `anticipateS` after the release, a step past the spot, facing the rim, instead of boxing out a man 20 ft away or crashing
+  straight at the rim; he is left out of the box-out and crash lists. A carom is pulled toward him only when he is further
+  than `pullFromFt` (15 ft, was 8) from every natural landing spot, since nearer he now gets there himself.
+* **Off-ball pace** (`Tune.urgency.offHoldK`, `flowRestK`, `flowSpeedK`; `flow.js`): the holds between cuts, lifts and
+  relocations are 0.4 of what they were (0.5 after the first pass), the half-court flow's rests `flowRestK` of each
+  offense's own and its legs `flowSpeedK` quicker than written.
+* **The lines** (`Tune.rules`; `Actor._steer`, `Actor._lineAware`, `Ball._inLines`, `Director.liveBall`): a dribbler's spot
+  is kept `lineFt` inside the sidelines and baselines; a man with the ball, the ball in play, brakes in time to stop `stopFt`
+  inside them (the part of his run toward a line held to what he can still stop from, on `brakeK` of his brake begun
+  `brakeLagS` late, since a sprinter only brakes on a plant); and a dribble's bounce is kept `ballFt` inside them (the lines
+  are drawn outside the playing floor, so a ball that lands on one is out). None of it applies while the ball is dead (a
+  throw-in's set-up, a free throw, a foul, a timeout, a substitution: `liveBall`) or when the engine calls the dribbler out
+  of bounds (`oobOK`: he now carries the ball to the nearest line and over it, the whistle as his foot comes down there,
+  instead of the whistle going wherever he was). The sources of out-of-bounds dribbles were closed too: the handler's
+  wander about a corner spot went past the baseline (`handlerAmbient`); a set play's alignment took the inbounder, still out
+  of bounds with the throw on its way, for the handler and set him dribbling on the sideline (`plays.js pbAlign`); a poke
+  steal could knock the ball toward a line (`Director.inCourtAngle`: its first `looseInFt` stays inside), a loose steal ball
+  still going for a line dies short of it, the stealer is kept on the chase for as long as it runs (the steal's own 4 s hold
+  ran out first and the defense sent him after his man, who was walking off the floor), and the chase's planned point stays
+  within a few steps of the floor (`rebound.js runDown`).
+* **Reading the defense** (`Tune.reads`; `P.readOpen` in `flow.js`, `Director.retime`): every frame the man with the ball
+  knows how far the nearest defender is and whether his own man is still between him and the rim. Open (`openFt`) or past
+  his man, and his own shot or attacking move (a drive, a hesitation, a crossover, a spin) is the engine's next play, it
+  comes now: the beat is brought forward (`pullLeadS`, `moveLeadS`, at most `pullMaxS`; the game clock runs a little quick
+  meanwhile). Past his man, or wide open (`wideFt`) inside `wideRangeFt`, with something else next (a set, a play's step, a
+  screen coming, his own pass a while off), he attacks the gap: a drive at the rim to `attackStopFt`, and the next play
+  (usually the kick-out) goes from wherever it leaves him. Not with the ball dead, in a push, on a path of a play, out of a
+  used dribble, or with a play of his own due within `attackClearS`. The engine still decides every result: the court can
+  only change when and from where.
+* **Outlets can fail** (`Sim.K.outletTO`, `outletTOProb`, `outletTurnover` in `sim.js`; `p_turnover`): an outlet after a
+  defensive rebound or a steal is now a turnover `outletTO` of the time, more with a poor passer and against a defense that
+  steals and gambles (0.8 to 12 %), stolen by a defender or thrown away; the other turnovers were trimmed (`to`, `toW`) so
+  the totals stay where they were. The court throws the bad pass at the receiver the engine named.
+* **Quicker jump shots** (`Tune.shot.dipS`, `riseS`, `dip2S`, `set2S`, `drive2S`; the step-back's and post fade's timing in
+  `clips.js`): the dip and the rise are shorter, so a catch and shoot releases in 0.47 to 0.50 s (was 0.55; the NBA's
+  average is about 0.54 s, its quickest about 0.4 s).
+* **Denial** (`Tune.deny`; `denyK`, `guardPos` in `defense.js`; `Actor._armTargets`): one pass away a defender denies as hard
+  as the scheme asks (pressure and no-threes all the way, a pack line hardly) and his defense lets him (perimeter defense,
+  head and quickness between `skillFrom` and `skillTo`), more on a shooter: nearer his man and further into the lane, with
+  the ball-side hand out in it (thumb down, palm to the ball) from `armFrom` of it on. From `giveS` before a pass the engine
+  has his man catch (or a swing of the half-court flow to him winding up) he eases back off the lane with the hand down: his
+  man got open, and the ball is not thrown past a hand in it.
+* **The catch** (`Actor.expectPass`, `Director.start`): a receiver's hands are free for the ball: a box-out's or a screen's
+  arms give way to the ready stance as the passer turns to him, and a box-out's stance and contact are not carried into the
+  next possession (an outlet's receiver ran the floor with his arms spread from the box-out and took the ball that way). A
+  receiver reading the flight and running to meet it was tried and dropped: planned on a sprint, a long outlet came up to
+  ~18 ft off. Not running on through a catch spot near a line was tried and dropped too: turned back to the passer in the
+  middle of a sprint to the corner, the receiver slowed from ~27 to ~12 ft/s and the ball came ~8-11 ft ahead of him.
+* **Measured** (one real-engine quarter each of seeds 7 and 21 headless, two runs of each, unless said; "old" is the build
+  before the first gameplay pass): the engine's rebounder went up for his own board 15 times on seed 21 and 8 or 9 on seed 7,
+  about 55 % of the rebounds taken (old: 3 on seed 21), and on 13 and 17 misses he read the shot and went to the spot. Off
+  the ball in the half court 6.2 ft/s, at a jog or faster 44 % of the time (old 5.0 and 5.4 ft/s, 34 and 37 %); the ball
+  brought up at 11.3 to 12.3 ft/s, walked 8 to 14 % of the way (old 9.3 and 10.2 ft/s, 21 and 17 %). The lines, a handler
+  dribbling with the ball in play (seeds 3, 7 and 21): dribble bounces on or past a line 0, 0 and 0 (old 3, 3 and 1); planted
+  feet on one 0, 4 and 3 of about 1,800 steps (old 15, 21 and 15); the handler's body at worst 0, 3.7 and 0.6 ft past a line
+  (old 18, 9.6 and 33 ft: loose balls run down far out, inbounders set dribbling on the sideline). Reading the defense: 11 to
+  18 attacks at the gap a quarter (old none), with 0 to 2 of the handler's own shots and 0 to 3 of his attacking moves
+  brought forward. Denial: the hand out in the lane in 3 and 6 to 7 % of the off-ball defenders' half-court frames (old
+  never). The catch: every pass caught (139 to 161 a quarter), the hands set a median 0.27 to 0.32 s before the ball got there,
+  the far hand at the 99th percentile 25 to 38 in off the ball as it was caught (old 11 and 32). Outlets: 0.77 of a team's
+  turnovers a game (120 games); the calibration's 1,230 games keep their totals (115.6 points, 14.9 turnovers, 8.9 steals a
+  team a game against 115.2, 14.8 and 8.8). The shot lab: a catch and shoot releases in 0.47 to 0.50 s, a two-motion shot
+  0.72, a pull-up 0.68, a step-back 0.73, a fadeaway 0.58, a post fade 0.72. Double dribbles and travels that got through:
+  none but one travel (the rule stopped every other try). The handle audit (`tools/audit/handle.js`) is identical to the
+  first pass's; the gauntlet (`tools/audit/check.js`) 144 of 144.
+* **Limitations**: the engine still decides every result; the court only changes when and from where, so a shot or move
+  brought forward runs the game clock a little quick until the event's time, and an open man whose next event is a pass
+  still passes (after his drive). A loose ball the engine has live is stopped short of the line rather than going out, as
+  no out-of-bounds call exists for it. A catch at a run toward a baseline can still put a foot on the line (3 or 4 steps a
+  quarter), and a few standing catches from an odd angle (a lob, a whip) are still taken with a hand 2 to 3 ft off the ball
+  (as in the old build).

@@ -15,6 +15,8 @@
   const SHOT_CLIP = { dunk: 'dunk', layup: 'layup', reverse: 'reverse', floater: 'floater', hook: 'hook', jumper: 'jumpshot', pullup: 'pullup', stepback: 'stepback', fadeaway: 'fadeaway', tip: 'tip', alley: 'alley', catch_shoot: 'jumpshot' };
   const RIM_SHOTS = { dunk: 1, layup: 1, reverse: 1, alley: 1, tip: 1 };
   const DUNK_CLIPS = { dunk: 1, dunk2: 1, alley: 1 };
+  // (the beats with the ball dead, or on its way to being: liveBall)
+  const DEAD_BEATS = { inbound: 1, ft: 1, foul: 1, timeout: 1, sub: 1, jump_ball: 1, period_end: 1 };
   // median distance (ft) from a ball handler to his nearest defender by the handler's distance from the rim
   // (SportVU player tracking, NBA 2015-16: 2.5 <10 ft, 3.1 10-17, 4.3 17-23, 5.7 23-27, 6.4 27-32, 8.0 32-37,
   // 10.3 37-42, 14.4 42-50, 18.2 50-60)
@@ -49,6 +51,9 @@
       this.active = true;
       // (the game's urgency, Actor.setUrgency: quicker orders and harder starts than the labs' scripted bodies)
       for (const id in v.actors) { const a = v.actors[id]; if (a && a.kind === 'player' && a.setUrgency && !(a.urgK > 1)) a.setUrgency(true); }
+      // (the boards are over: a box-out's stance and contact are not carried into the next possession, the gameplay pass: a
+      // man ran the floor with his arms spread from it and took the outlet that way)
+      for (const id in v.actors) { const a = v.actors[id]; if (a && a.kind === 'player' && a.stance === 'boxout' && !a.isBusy()) { a._contact = null; a.setStance('ready'); } }
       this.off = poss.off === 1 ? 1 : 0; this.def = 1 - this.off;
       this.period = poss.period || 1;
       this.dir = v.attacksRight(this.off, this.period) ? 1 : -1;
@@ -144,6 +149,8 @@
       if (this.frozen) return;
       if (this.wrap && this.T >= this.wrap.t0 + this.wrap.dur && (!this.wrap.waitFor || this.wrap.waitFor() || this.T > this.wrap.t0 + this.wrap.dur + 4)) this.finish();
       U.safe(() => this.ambient(dt), this, 'ambient');
+      // (the man with the ball reads how open he is: flow.js readOpen)
+      if (this.readOpen) U.safe(() => this.readOpen(), this, 'read open');
       this._why = 'handle';
       if (this.handleBall) U.safe(() => this.handleBall(), this, 'handle ball');
       this._why = null;
@@ -166,9 +173,32 @@
       beat.clockRuns = gap > 0.0005 && !beat.dead;
       const dur = Math.max(need, beat.clockRuns ? gap : 0);
       beat.fireAt = this.T + Math.min(dur, beat.maxDur || 30);
+      beat.need = need;
       this.beat = beat;
+      // (the jobs its start plans, for retime)
+      const j0 = this.jobs.length;
       if (beat.onStart) U.safe(() => beat.onStart(beat.fireAt), this, 'onStart ' + ev.type);
+      beat.jobs = this.jobs.slice(j0);
       this._why = null;
+    }
+    /** the beat played sooner (readOpen, the gameplay pass: a shooter who is open goes now instead of standing with the ball
+     *  until the engine's time comes): the jobs its start planned for the old time dropped and planned again for the new,
+     *  the clock running on from where it is to the event's time over what is left (a little quick meanwhile) */
+    /** the ball in play (the gameplay pass: a man with it minds the lines then, Actor._lineAware and Ball._inLines): not through
+     *  a throw-in's set-up, a free throw, a foul, a timeout, a substitution or the jump ball, nor once the possession's plays are
+     *  done */
+    liveBall() {
+      const bt = this.beat;
+      return !!(bt && !this.frozen && !bt.dead && !DEAD_BEATS[bt.type]);
+    }
+    retime(beat, fireAt) {
+      if (!beat || beat.fired || !beat.onStart || !(fireAt < beat.fireAt - 0.05)) return false;
+      if (beat.jobs && beat.jobs.length) { const drop = new Set(beat.jobs); this.jobs = this.jobs.filter((j) => !drop.has(j)); }
+      beat.t0 = this.T; beat.g0 = this.g; beat.fireAt = fireAt;
+      const j0 = this.jobs.length;
+      U.safe(() => beat.onStart(fireAt), this, 'retime ' + beat.type);
+      beat.jobs = this.jobs.slice(j0);
+      return true;
     }
     fire(beat) {
       beat.fired = true;
@@ -777,7 +807,8 @@
       // wander near the handler spot while dribbling; face the basket
       if (!r.spot) r.spot = this.spotPt('top');
       if (this.T > r.next) { const TU = M.Tune.urgency; r.jx = (Math.random() - 0.5) * 6 * TU.offMoveK; r.jy = (Math.random() - 0.5) * 6 * TU.offMoveK; r.next = this.T + (1.5 + Math.random() * 1.5) * TU.offHoldK; }
-      const tx = r.spot.x + r.jx, ty = U.clamp(r.spot.y + r.jy, 2, 48);
+      // (inside the lines, Tune.rules.lineFt: a spot in the corner and its wander went on past the baseline, the gameplay pass)
+      const lm = M.Tune.rules.lineFt, tx = U.clamp(r.spot.x + r.jx, lm, 94 - lm), ty = U.clamp(r.spot.y + r.jy, lm, 50 - lm);
       const d = Math.hypot(tx - a.x, ty - a.y);
       a.moveTo(tx, ty, { speed: this.tempo === 'push' ? 20 : d > 8 ? 15 : 9, face: d > 6 ? 'move' : this.rim, stance: 'dribble' });
       if (b.state === 'held' && b.holder === a && !a.throwing() && !(a.holdBallUntil > this.T) && (a.speed > 1 || Math.random() < 0.02)) b.dribble(a);
@@ -2460,9 +2491,10 @@
           if (reach < best) { best = reach; ang = a; cd = dist; }
         }
         if (best === Infinity) { ang = U.angLerp(Math.atan2(rbA.y - this.rim.y, rbA.x - this.rim.x), toCourt, 0.15); cd = mean; }
-        else if (best > 8) {
-          // (he is well away from every natural carom: it comes off his way, partway, so he gets under it)
-          const k = U.clamp((best - 8) / 12, 0, 0.45);
+        else if (best > M.Tune.glass.pullFromFt) {
+          // (he is well away from every natural carom: it comes off his way, partway, so he gets under it; from nearer than
+          // Tune.glass.pullFromFt they read the shot and get there themselves, anticipateCarom)
+          const k = U.clamp((best - M.Tune.glass.pullFromFt) / 12, 0, 0.45);
           const cx = this.rim.x + Math.cos(ang) * cd, cy = this.rim.y + Math.sin(ang) * cd;
           const nx = cx + (rbA.x - cx) * k, ny = cy + (rbA.y - cy) * k;
           ang = Math.atan2(ny - this.rim.y, nx - this.rim.x); cd = U.clamp(Math.hypot(nx - this.rim.x, ny - this.rim.y), 2.2, 16);
@@ -2744,9 +2776,11 @@
       // (Tune.glass.boxMinS after the defender has found their man: a layup's) is gone for as they turn to it)
       const tOff = pr && pr.tContactT != null ? pr.tContactT : null;
       const noBox = !!blocked || (tOff != null && tOff - T < TG.boxFindS * (quick ? 0.6 : 1) + TG.boxMinS);
+      // (the engine's rebounder well away from where it will come down reads the shot and goes there instead: anticipateCarom)
+      const antic = !blocked && pr && pr.actor && pr.actor !== sh && !pr.actor.isBusy() && Math.hypot(pr.actor.x - pr.x, pr.actor.y - pr.y) >= TG.anticipateFt ? pr.actor : null;
       const crash = new Set();
       for (const o of this.offActors()) {
-        if (o === sh || o.isBusy()) continue;
+        if (o === sh || o.isBusy() || o === antic) continue;
         const r = this.role[o.id]; if (!r) continue;
         const big = o.H > 6.7;
         r.until = T + 2.0;
@@ -2757,7 +2791,7 @@
         } else this.at(T + 0.5, () => { if (!o.isBusy()) o.moveTo(this.X(40), o.y, { speed: 10 }); }, 'get back');
       }
       for (const d of this.defActors()) {
-        if (d.isBusy()) continue;
+        if (d.isBusy() || d === antic) continue;
         const m = this.A(this.matchup[d.id]) || this.nearestTo(this.off, d.x, d.y);
         this.dtask[d.id] = { until: T + 2.2 };
         if (noBox) {
@@ -2768,6 +2802,28 @@
         if (m) d.lookAt(m, { hold: TG.boxFindS });
         this.at(T + TG.boxFindS * (quick ? 0.6 : 1), () => this.boxOut(d, m, !!m && crash.has(m)), 'boxout');
       }
+      if (antic) this.anticipateCarom(pr, antic);
+    }
+    /** the engine's rebounder well away from where the miss will come down (Tune.glass.anticipateFt) reads the shot as it goes
+     *  up and goes to meet it (a gameplay pass: boxing out a man 20 ft out, or crashing straight at the rim, they were 13-22 ft
+     *  from the carom as it came off and could only run it down off the floor; coaching: a rebounder moves as the shooter
+     *  uncoils, NBA tracking counts a rebound chance within 3.5 ft of the ball): a reaction after the release
+     *  (anticipateS), at a run to a step past where it is planned to come down (anticipatePastFt, the far side from the
+     *  rim), there facing the rim as it comes off; settleCarom then finds them near it and they go up for it (rebound.js) */
+    anticipateCarom(pr, a) {
+      const TG = M.Tune.glass, rim = this.rim;
+      const ux = pr.x - rim.x, uy = pr.y - rim.y, ul = Math.hypot(ux, uy) || 1;
+      const gx = U.clamp(pr.x + ux / ul * TG.anticipatePastFt, 1.5, 92.5), gy = U.clamp(pr.y + uy / ul * TG.anticipatePastFt, 1.5, 48.5);
+      const tOff = pr.tContactT != null ? pr.tContactT : this.T + 1.2;
+      if (a.team === this.off) this.lockOff(a, Math.max(1, tOff - this.T) + 1); else this.lockDef(a, Math.max(1, tOff - this.T) + 1);
+      a.lookAt(this.v.ball, { hold: Math.max(0.3, tOff - this.T) });
+      this.at(this.T + TG.anticipateS, () => {
+        if (a.isBusy() || this.pendingRebound !== pr || pr.readT != null) return;
+        a.setStance('ready');
+        const rimA = (me) => Math.atan2(rim.y - me.y, rim.x - me.x);
+        a.moveTo(gx, gy, { speed: a.maxSpeed * TG.anticipateK, stance: 'ready', face: (me) => (Math.hypot(gx - me.x, gy - me.y) > 3 && me.speed > 3 ? Math.atan2(me.vy, me.vx) : rimA(me)) });
+        this.anticipated = (this.anticipated || 0) + 1;
+      }, 'read the shot');
     }
     /** a box-out (Trial 11): their man coming to the glass (or near it) gets their back: between them and the rim, the bodies in
      *  contact (Tune.glass.boxContactFt apart), a wide base and the arms up and out, facing the rim with the eyes on the ball,
@@ -2922,7 +2978,8 @@
       const ref = () => v.nearestRef(b.x, b.y);
       if (who && who.team === this.off && b.holder !== who) this.ensureBall(who);
       if (kind === 'bad_pass') {
-        const tgt = this.pick(this.offActors().filter((a) => a !== who)) || who;
+        // (thrown for the one it was meant for: an outlet's handler, ev.to; else whoever)
+        const tgt = (ev.to != null ? this.A(ev.to) : null) || this.pick(this.offActors().filter((a) => a !== who)) || who;
         const flight = who && tgt ? U.clamp(Math.hypot(tgt.x - who.x, tgt.y - who.y) / 36, 0.3, 1.2) : 0.5;
         if (st) {
           // stealer jumps the passing lane: intercept ~60% along the pass line
@@ -2969,7 +3026,7 @@
             const poke = () => {
               poked = true;
               const dx = b.x - st.x, dy = b.y - st.y, dl = Math.hypot(dx, dy) || 1, sp = M.Tune.glass.pokeFtps * (0.85 + Math.random() * 0.3);
-              const ang = Math.atan2(dy / dl, dx / dl) + (Math.random() - 0.5) * 0.8;
+              const ang = this.inCourtAngle(b.x, b.y, Math.atan2(dy / dl, dx / dl) + (Math.random() - 0.5) * 0.8);
               b.release();
               b.loose([Math.cos(ang) * sp, Math.sin(ang) * sp, 2 + Math.random() * 2]);
               this.chaseLoose(st, who);
@@ -2981,7 +3038,7 @@
             // (the stealer never gets to it: the dribbler loses it, off their hand toward the man coming at them, who runs it down)
             const fumble = () => {
               poked = true;
-              const dx = st.x - b.x, dy = st.y - b.y, ang = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.6, sp = M.Tune.glass.pokeFtps * 0.6;
+              const dx = st.x - b.x, dy = st.y - b.y, ang = this.inCourtAngle(b.x, b.y, Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.6), sp = M.Tune.glass.pokeFtps * 0.6;
               if (b.holder === who && b.state === 'dribble') b.give(who, 'chest');
               b.release();
               b.loose([Math.cos(ang) * sp, Math.sin(ang) * sp, 1.5 + Math.random()]);
@@ -3028,6 +3085,24 @@
         return 1.0;
       }
       let need = 0.3;
+      if (kind === 'out_of_bounds' && who && who.team === this.off) {
+        // (stepped out: he goes to the nearest line with the ball and over it, the call as his foot comes down there; the
+        // whistle used to go wherever he was, 20 ft from any line, the gameplay pass)
+        const lines = [[who.x, -0.9, who.y], [who.x, 50.9, 50 - who.y], [who.x < 47 ? -0.9 : 94.9, who.y, who.x < 47 ? who.x : 94 - who.x]];
+        lines.sort((p, q) => p[2] - q[2]);
+        const [lx, ly, ld] = lines[0];
+        need = Math.max(need, ld / 11 + 0.4);
+        beat.onStart = (fireAt) => {
+          this.lockOff(who, fireAt - this.T + 1.5);
+          who.oobOK = fireAt + 1.5;
+          const go = () => {
+            if (b.holder !== who) return;
+            if (b.state !== 'dribble' && !who.dribUsed) b.dribble(who);
+            who.moveTo(lx, ly, { by: fireAt, speed: 13, face: 'move', stance: b.state === 'dribble' ? 'dribble' : 'ready' });
+          };
+          this.at(Math.max(this.T + 0.05, fireAt - (ld / 11 + 0.3)), go, 'to the line');
+        };
+      }
       if (kind === 'eight_seconds' || kind === 'backcourt') {
         // eight seconds: pressed from the inbound, pushed to the sideline and trapped short of the division line;
         // backcourt: over the line, then backed up over it again by the pressure (NBA rule 10, sections VIII and IX)
@@ -3131,6 +3206,31 @@
       };
       this.at(Math.max(this.T, t0), go, 'swipe');
     }
+    /** a loose ball's heading kept on the floor (the gameplay pass): a steal knocked toward a line rolled on out of bounds, was
+     *  run down ~30 ft out and dribbled back in, a steal the engine has live and nothing called. Turned in the least it takes
+     *  for its first Tune.glass.looseInFt to stay Tune.rules.lineFt inside the lines (toward mid-court, none does) */
+    inCourtAngle(x, y, ang) {
+      const m = M.Tune.rules.lineFt, L = M.Tune.glass.looseInFt;
+      const ok = (a) => { const ex = x + Math.cos(a) * L, ey = y + Math.sin(a) * L; return ex > m && ex < 94 - m && ey > m && ey < 50 - m; };
+      if (ok(ang)) return ang;
+      for (let k = 1; k <= 12; k++) { const d = k * 0.26; if (ok(ang + d)) return ang + d; if (ok(ang - d)) return ang - d; }
+      return Math.atan2(25 - y, 47 - x);
+    }
+    /** a loose ball the engine has live (a steal, a rebound) going for a line: it dies short of it, the part of its speed
+     *  toward the line gone and half the rest (the gameplay pass: it rolled on out of bounds and was run down there, ~16-30 ft
+     *  past the baseline, and brought back in on the dribble with nothing called). True when it was stopped */
+    keepLooseIn() {
+      const b = this.v.ball;
+      // (in a game: the labs' loose balls go where they go)
+      if (!this.active || b.state !== 'loose' || !b.segs || !b._segVel) return false;
+      const m = M.Tune.rules.ballFt + 0.5, sg = b.segs[b.segI];
+      const vb = sg ? b._segVel(sg, b.time, KLV) : null;
+      if (!vb) return false;
+      const outX = (b.x < m && vb[0] < 0) || (b.x > 94 - m && vb[0] > 0), outY = (b.y < m && vb[1] < 0) || (b.y > 50 - m && vb[1] > 0);
+      if (!outX && !outY) return false;
+      b.loose([outX ? 0 : vb[0] * 0.5, outY ? 0 : vb[1] * 0.5, Math.max(0, vb[2])]);
+      return true;
+    }
     /** a ball knocked loose (Trial 11): the stealer runs it down and takes it with their hands (caught as it bounces, or picked
      *  up off the floor: rebound.js runDown), the man who lost it and the nearest of their side a reaction later after it too, a
      *  step behind (it used to be handed to the stealer 0.75 s on, wherever it was, ~2-3 ft from their hands) */
@@ -3149,6 +3249,12 @@
       }
       const chase = () => {
         if (b.holder) { if (b.holder === st) this.afterSteal(st); return; }
+        // (theirs to run down for as long as it takes: the steal's own hold on them, 4 s, ran out first and the defense took them
+        // back to their man, who was walking off the floor, ~12 ft out past the sideline, the gameplay pass)
+        if (st.team === this.def) this.lockDef(st, 0.5);
+        // (still going for a line, off a body or a hand on the way: it dies short of it, the steal the engine has live kept on
+        // the floor, the gameplay pass; it went on out and was run down ~30 ft past the baseline)
+        if (this.keepLooseIn()) pk.plan = null;
         if (this.runDown(st, pk)) { this.afterSteal(st); return; }
         // (not theirs after all, a long while on: it is theirs where it is, as the engine has it)
         if (this.T > t0 + TG.chaseMaxS) { b.give(st, 'chest'); this.afterSteal(st); return; }
@@ -3656,7 +3762,7 @@
 
   const U_BOX = [0, 0];
   const TMPA = new Float64Array(3), TMPB = new Float64Array(3);
-  const GP = { x: 0, y: 0, vx: 0, vy: 0 };
+  const GP = { x: 0, y: 0, vx: 0, vy: 0 }, KLV = [0, 0, 0];
 
   M.Director = Director;
   // (the pass kinds' clips and speeds, for the pass lab: tools/audit/pass.js stages a pass as p_pass does)

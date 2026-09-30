@@ -100,8 +100,9 @@
     if (r.pathSpot) { r.spot = r.pathSpot; r.spotName = 'flow'; }
     r.path = null; r.pathSpot = null; r.jx = 0; r.jy = 0;
     const pr = this.flowProfile();
-    // (Offensive Awareness slider: heady players rest less between actions, stagnant ones stand around longer)
-    r.next = this.T + (r.pathRest != null ? r.pathRest : U.lerp(pr.rest[0], pr.rest[1], Math.random())) / this.sliderK('offIQ', 0.6, 1.5);
+    // (Offensive Awareness slider: heady players rest less between actions, stagnant ones stand around longer; and a game's
+    // urgency, Tune.urgency.flowRestK, the gameplay pass)
+    r.next = this.T + (r.pathRest != null ? r.pathRest : U.lerp(pr.rest[0], pr.rest[1], Math.random()) * M.Tune.urgency.flowRestK) / this.sliderK('offIQ', 0.6, 1.5);
   };
   /** drive `a` along its action path; returns true while the path is in control */
   P.flowPath = function (a, r) {
@@ -128,7 +129,8 @@
         r.pi++;
         continue;
       }
-      a.moveTo(wp.x, wp.y, { speed: wp.speed || 12, face, stance: wp.stance || (wp.speed > 9 ? 'stand' : 'ready') });
+      // (an action's legs a little quicker in a game than they were written, Tune.urgency.flowSpeedK)
+      a.moveTo(wp.x, wp.y, { speed: (wp.speed || 12) * M.Tune.urgency.flowSpeedK, face, stance: wp.stance || (wp.speed > 9 ? 'stand' : 'ready') });
       a.lookAt({ x: b.x, y: b.y });
       return true;
     }
@@ -157,7 +159,7 @@
       case 'big': ok = this.flowBig(a); break;
       default: ok = false;
     }
-    if (!ok) { this.offBallAction(a, r); r.next = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) / this.sliderK('offIQ', 0.6, 1.5); }
+    if (!ok) { this.offBallAction(a, r); r.next = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) * M.Tune.urgency.flowRestK / this.sliderK('offIQ', 0.6, 1.5); }
     return ok;
   };
   function pickKey(w) {
@@ -367,6 +369,69 @@
     if (b.state === 'held' && b.holder === a && !a.throwing() && !(a.holdBallUntil > this.T)) b.dribble(a);
     a.lookAt(null);
     return true;
+  };
+
+  // ------------------------------------------------------------ reading the space (the gameplay pass)
+  // (a handler with his man beaten, behind him or beside him, or with nobody near him, kept dribbling where he was until the
+  // engine's next play came due; players read how far the nearest defender is now: Tune.reads)
+  const PULL_KINDS = { jumper: 1, pullup: 1, stepback: 1, fadeaway: 1, floater: 1, layup: 1, reverse: 1, dunk: 1 };
+  // (his own moves that attack: brought forward the same way; a size-up, a jab or a back-down is his to take his time over)
+  const PULL_MOVES = { drive: 1, hesi: 1, crossover: 1, btl: 1, btb: 1, spin: 1 };
+  // (the ball dead or about to be: nothing to read)
+  const DEAD_BEATS = { ft: 1, foul: 1, timeout: 1, sub: 1, inbound: 1, jump_ball: 1 };
+  /** the man with the ball, every frame: how far the nearest defender is, and whether the man on him is still between him and
+   *  the rim. Open (Tune.reads.openFt) or past his man, and his own shot or attacking move is the engine's next play: he goes
+   *  with it now (Director.retime brings the beat forward, pullMaxS at most); past his man, or wide open (wideFt) in range,
+   *  and something else is next (a set, a play's step, a screen coming, his own pass a while off): he attacks the gap, a
+   *  drive at the rim, and the next play goes from wherever it gets him (the kick out of it, the pass inside) */
+  P.readOpen = function () {
+    const v = this.v, b = v.ball, h = b.holder, T = this.T, TR = M.Tune.reads;
+    if (!this.active || this.frozen || this.phase !== 'front' || this.tempo === 'push' || !h || h.team !== this.off || h.isBusy()) return;
+    if (b.state !== 'dribble' && b.state !== 'held') return;
+    const bt = this.beat, ev = bt && bt.ev;
+    if (bt && !bt.fired && DEAD_BEATS[bt.type]) return;
+    const rim = this.rim, dR = Math.hypot(h.x - rim.x, h.y - rim.y);
+    if (dR > TR.rangeFt || dR < 4) return;
+    let near = 99;
+    for (const d of this.defActors()) { const dd = Math.hypot(d.x - h.x, d.y - h.y); if (dd < near) near = dd; }
+    const g = this.guardOf(h.id), ux = (rim.x - h.x) / dR, uy = (rim.y - h.y) / dR;
+    const along = g ? (g.x - h.x) * ux + (g.y - h.y) * uy : -99, across = g ? Math.abs((g.x - h.x) * -uy + (g.y - h.y) * ux) : 99;
+    const beaten = !g || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt);
+    const open = near >= TR.openFt, wide = near >= TR.wideFt && dR < TR.wideRangeFt;
+    h._openFt = near; h._beaten = beaten;
+    if (!open && !beaten) return;
+    const own = bt && !bt.fired && ev && (ev.player === h.id || ev.from === h.id || ev.shooter === h.id || ev.by === h.id);
+    // his own shot is next: now
+    if (own && ev.type === 'shot' && this.A(ev.shooter) === h) {
+      if (bt.pulled || ev.pending || !PULL_KINDS[ev.kind]) return;
+      const left = bt.fireAt - T, need = (bt.need || 0.5) + TR.pullLeadS;
+      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS, left - need))) { bt.pulled = true; this.readShots = (this.readShots || 0) + 1; }
+      return;
+    }
+    // his own move at the defense is next: now (a drive goes, a hesitation or a crossover into it)
+    if (own && ev.type === 'move' && this.A(ev.player) === h && PULL_MOVES[ev.move]) {
+      if (bt.pulled) return;
+      const left = bt.fireAt - T, need = (bt.need || 0.5) + TR.moveLeadS;
+      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS, left - need))) { bt.pulled = true; this.readMoves = (this.readMoves || 0) + 1; }
+      return;
+    }
+    // something else is next: past his man (or wide open in range), he attacks the gap; not into a play of his own about to
+    // go, nor a drive already on, nor out of a dribble he has used up (then it is the pass or the shot the engine has next)
+    if (!(beaten || wide) || this.driving(h) || (h._attackT || -9) > T - TR.attackGapS || dR < TR.attackStopFt + 3) return;
+    if (b.state !== 'dribble' && (h.dribUsed || h.throwing() || h.holdBallUntil > T)) return;
+    const r = this.role[h.id];
+    if (!r || r.path) return;
+    if (own && bt.fireAt - T < TR.attackClearS) return;
+    // (a play's step of his waits for it: the next beat plans from wherever the drive leaves him)
+    if (r.pb && !beaten) return;
+    if (b.state !== 'dribble' && b.dribble(h) === false) return;
+    const go = dR - TR.attackStopFt;
+    h._attackT = T;
+    r.until = T + TR.attackS; r.probe = null; r.probeAnchor = null;
+    h.moveTo(h.x + ux * go, h.y + uy * go, { speed: h.maxSpeed * TR.attackK, face: 'move', stance: 'dribble' });
+    h.lookAt(null);
+    this.attacks = (this.attacks || 0) + 1;
+    if (wide && !beaten) this.wideAttacks = (this.wideAttacks || 0) + 1;
   };
 
   // ------------------------------------------------------------ working the ball (hand switches)

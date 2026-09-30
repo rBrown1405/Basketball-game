@@ -121,7 +121,7 @@
       shotDipMinIn: 2, shotDipHipMinIn: 1, shotDipSyncS: 0.12, shotRiseMinIn: 12, shotApexBeforeS: 0.15, shotApexAfterS: 0.04,
       shotHoldMinS: 0.35, shotLandMinDeg: 5, shotKneeDriveDeg: 60,
       // ...and a catch-and-shoot is let go shotCnsMinS to shotCnsMaxS after the catch (NBA: ~0.5-0.8 s)
-      shotCnsMinS: 0.5, shotCnsMaxS: 0.8,
+      shotCnsMinS: 0.42, shotCnsMaxS: 0.8, // (0.42: a quick one-motion shooter; the NBA's quickest ~0.4, its average ~0.54)
       // the glass and the contest (Trial 11): a flight is steered when the ball is more than glBendIn off its own ballistic path;
       // a take (a carom or a loose ball into someone's hands) is two-handed with both palms within glTakeGapIn of the ball as
       // it is taken, pulled with neither (the ball flies the rest of the way into the hold), in the air above glFloorFt with no
@@ -325,10 +325,13 @@
     // follow-through is held until the ball gets to the rim; a longer shot carries the body a little further forward.
     shot: {
       gatherS: 0.03,                // the ball into the pocket before the dip starts
-      dipS: 0.13,                   // down into the dip: the ball and the knees go down together...
+      dipS: 0.11,                   // down into the dip: the ball and the knees go down together (was 0.13; the gameplay pass: the
+                                    // jumpers read slow, 0.55 s from the dip to the release against the NBA's ~0.54 on a catch
+                                    // and shoot, 0.4 for the quickest)...
       dipBallH: 0.09,               // ...the ball this far below the pocket (H), the hips dipHipH, the knees to dipKneeDeg
       dipHipH: 0.07, dipKneeDeg: 70,
-      riseS: 0.24,                  // the bottom of the dip to the take-off: the legs extend, the ball comes up the shot's line
+      riseS: 0.2,                   // the bottom of the dip to the take-off: the legs extend, the ball comes up the shot's line
+                                    // (was 0.24)
       pushS: 0.06,                  // the release: the push this long before it, the set point setS before the push...
       setS: 0.08,
       relApexS: 0.06,               // ...and the release this long before the top of the jump
@@ -367,7 +370,7 @@
       cnsHoldS: 0.1,                // a catch-and-shoot holds the ball at most this much longer than the shot itself needs (s)
       // two-motion (the ball set over the forehead while the legs are still loaded, then the legs drive): its deeper dip
       // and the set, then the drive to the take-off; its release nearer the top of the jump
-      dip2S: 0.13, set2S: 0.3, drive2S: 0.14, relApex2S: 0.03,
+      dip2S: 0.11, set2S: 0.22, drive2S: 0.12, relApex2S: 0.03, // (were 0.13, 0.3, 0.14)
       // a player's own form (M.Anims.shotForm), drawn once per player from these ranges (a better shooter toward the quicker,
       // higher, cleaner end): the speed, the release and set heights (H, + higher), the elbow out from the shot's line (deg),
       // the jump and the dip (x), the follow-through held (s), the release before the top of the jump (s), the drift (x),
@@ -413,6 +416,12 @@
       contestUpP: 0.9,              // often, and the next nearest this often (a crowd going up for it)
       contestUp2P: 0.5,
       crowdFt: 9, crowdMax: 2, crowdP: 0.65, // the crowd under the rim goes up for it too (choreo chaseCarom)
+      anticipateFt: 5.5,            // the engine's rebounder further than this from where the miss is planned to come down reads
+      anticipateS: 0.22,            // the shot and goes there: this long after the release (s), at this share of top speed, to
+      anticipateK: 0.95,            // a step past the spot (the far side from the rim, ft), facing the rim as it comes off
+      anticipatePastFt: 1.2,        // (choreo anticipateCarom; they used to box out a man 20 ft out or crash straight at the rim)
+      pullFromFt: 15,               // a miss's carom comes partway toward an engine rebounder further than this from every natural
+                                    // one (was 8: nearer, they get there themselves now)
       runK: 0.8,                    // after it: a run at this share of top speed (braking first what they have going the other
       runStartS: 0.1,               // way), its first runStartS to get going...
       travelFt: 4,                  // ...and up to this far in the jump itself (a running jump: the push off the floor over
@@ -476,6 +485,7 @@
       // was going at ~pokeFtps, and they run it down (caught or picked up by hand), the man who lost it and the nearest of their
       // side within scrambleFt after it a reaction later; not theirs by chaseMaxS, it is theirs where it is
       pokeFtps: 8, scrambleFt: 12, chaseMaxS: 6,
+      looseInFt: 10,                // (and never toward a line: its first this much stays inside them, Director.inCourtAngle)
       // a swipe (a poke steal, a reach-in) goes once the ball is within swipeFt of them along the floor (the arm and the lunge
       // onto the front foot), swipeWaitS after it was due at the latest
       swipeFt: 3.2, swipeWaitS: 1.5,
@@ -821,9 +831,12 @@
                                     // jog), on to the top of the key where the handler sets it up (it used to be timed to the
                                     // engine's crossing, crept up at 7 ft/s and waited at half court)
       advanceTopU: 27,              // ...there, this far from the baseline he attacks at least (ft; the top spot or further out)
-      offHoldK: 0.5,                // off the ball in the half court the holds between a player's cuts, lifts and relocations
+      offHoldK: 0.4,                // off the ball in the half court the holds between a player's cuts, lifts and relocations
                                     // are this share of what they were (~1-3 s standing between small shuffles)...
       offMoveK: 1.35,               // ...and the moves themselves this much longer (a v-cut 5-9 ft, a relocation 2-5 ft)
+      flowRestK: 0.7,               // the half-court flow's rests between a player's actions (screens, cuts, relocations) are this
+                                    // share of each offense's own (flow.js profiles)...
+      flowSpeedK: 1.1,              // ...and its actions' legs this much quicker than written (on top of goalK)
     },
 
     // ---------------------------------------------------------------- shifty handlers (the gameplay pass: the man on the ball
@@ -843,9 +856,51 @@
       retreatFtps: 9, swingFtps: 11, // this fast (was 6.5) and a change of sides this fast (was 8.5)
     },
 
+    // ---------------------------------------------------------------- reading the space (the gameplay pass: a handler whose man
+    // was beaten, or with nobody near him, kept dribbling where he was; flow.js readOpen)
+    reads: {
+      openFt: 7,                    // nobody of the other side this close to the man with the ball: he is open (NBA tracking's
+                                    // "wide open" is a closest defender 6 ft or more away)...
+      beatenFt: 0.8,                // ...or his man is this far behind him on his line to the rim, or beside him (besideFt across,
+      besideFt: 3.2, besideAlongFt: 1.0, // no more than besideAlongFt in front): past his man
+      rangeFt: 30,                  // (within this of the rim)
+      pullLeadS: 0.9,               // his own shot next, it comes now: brought forward so it keeps this much beyond the time its beat
+      pullMaxS: 2.5,                // needs (s), by this much at most (s; the clock runs a little quick meanwhile)
+      attackStopFt: 11,             // something else next: he attacks the gap, a drive at the rim to this far from it (ft)...
+      attackS: 1.3,                 // ...for this long (s) at this share of his top speed...
+      attackK: 0.9,
+      attackGapS: 2.5,              // ...no oftener than this (s)...
+      attackClearS: 1.0,            // ...and not with a play of his own due within this (s)
+      wideFt: 9,                    // nobody within this (ft) and inside wideRangeFt of the rim: wide open, he goes at the rim
+      wideRangeFt: 26,              // too, past his man or not (the help has to come to him; the kick-out follows from there)
+      moveLeadS: 0.35,              // his own move next (a drive, a hesitation, a crossover, a spin): it comes now, brought forward
+                                    // so it keeps this much beyond its beat's own time (s), pullMaxS at most
+    },
+
+    // ---------------------------------------------------------------- denying the ball (the gameplay pass: one pass away the
+    // defenders sat a step off in the lane and none of them took the pass away; defense.js denyK, guardPos, Actor._armTargets)
+    deny: {
+      scheme: { pressure: 1, nothree: 1, blitz: 0.9, hedge: 0.8, switch: 0.8, boxone: 0.8, man: 0.75, drop: 0.6, packline: 0.2 },
+                                    // (how hard each scheme wants it; the zones and the press keep their own spots)
+      skillFrom: 45, skillTo: 80, skillMin: 0.3, // his defense (perimeter 0.5, head 0.3, quickness 0.2) from nothing to all of it
+      shooterMin: 0.7,              // a man who cannot shoot gets this share of it
+      nearFt: 1.9,                  // all the way: this far off his man toward the ball (ft; 3.2 at none), half a step toward the rim
+      armFrom: 0.35,                // from this much of it the ball-side hand goes out into the lane...
+      reachK: 0.9, dropH: 0.1,      // ...this share of the arm's reach toward the passer, this much below the shoulder (H)
+      giveS: 1.1,                   // a pass the engine has his man catch: from this long before the throw (s) he eases back off
+                                    // the lane, the hand down (his man got open: the pass is not thrown past a hand in it)
+    },
+
     // ---------------------------------------------------------------- the rules the players know (the gameplay pass)
     rules: {
       gatherS: 0.5,                 // his dribble picked up, a player gets this long (s)...
+      lineFt: 2.8,                  // a dribbler's spot is kept this far inside the sidelines and baselines (ft; the ball out wide
+                                    // of him stays in), unless the engine calls him out of bounds (Actor._steer)
+      stopFt: 2,                    // a man with the ball brakes in time to stop this far inside
+      brakeK: 0.6,                  // them (ft), on this share of his brake, begun this late (s): a catch at a run into a corner
+      brakeLagS: 0.15,              // slid on over the line with the dribble started on the way (Actor._steer)
+      ballFt: 0.75,                 // and a dribble's bounce is kept this far inside them (ft, the ball's middle; the lines
+                                    // are drawn outside the floor, a ball that lands on one is out) (Ball._airW)
       gatherFt: 5,                  // ...or this far past where he picked it up (ft), whichever comes first, to stop: the
                                     // gather and two steps; then he only pivots until he passes or shoots (a walk with a held
                                     // ball is a travel). A dribble he has ended is never started again (Ball.dribble)

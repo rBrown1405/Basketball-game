@@ -258,6 +258,15 @@
     this.bites = (this.bites || 0) + 1;
   };
 
+  /** how hard an off-ball defender one pass away denies his man (0 sagging off, 1 all over the lane): the scheme (Tune.deny.scheme)
+   *  times his defense (perimeter defense, head, quickness against Tune.deny.skillFrom/To), and more on a shooter */
+  P.denyK = function (a, m, threat) {
+    const TD = M.Tune.deny, sk = TD.scheme[this.scheme] != null ? TD.scheme[this.scheme] : TD.scheme.man;
+    const q = this.rating(a.id, 'perD', 55) * 0.5 + this.rating(a.id, 'defIQ', 55) * 0.3 + this.rating(a.id, 'agility', 65) * 0.2;
+    const ab = U.clamp((q - TD.skillFrom) / (TD.skillTo - TD.skillFrom), TD.skillMin, 1);
+    return U.clamp(sk * ab * U.lerp(TD.shooterMin, 1, threat) * this.sliderK('defIQ', 0.8, 1.15), 0, 1);
+  };
+
   // ------------------------------------------------------------ where a defender stands
   P.guardPos = function (a) {
     const v = this.v, b = v.ball, rim = this.rim;
@@ -330,8 +339,24 @@
         let w = sc === 'packline' ? 0.15 : sc === 'pressure' || sc === 'nothree' ? 1 : 0.8;
         if (dRimM > 21) w *= U.lerp(0.35, 1, threat);
         if (this.coveredCatchers()[String(m.id)]) w = Math.max(w, 0.8);
-        px = U.lerp(px, m.x + ux * 3.2 + rx * 1.2, w); py = U.lerp(py, m.y + uy * 3.2 + ry * 1.2, w);
+        // (how hard he denies, the gameplay pass: as much as the scheme asks and his defense lets him, Tune.deny: nearer his
+        // man and further into the lane, the hand on the ball's side out in it)
+        // (a pass to his man coming, Tune.deny.giveS before the throw, or the half-court flow's swing to him winding up: his man
+        // has got open, and he is back off the lane with the hand down, the closeout coming from there; he stayed in the lane
+        // until the passer turned and the ball went past his hand to a man he was all over)
+        const bt = this.beat, TD = M.Tune.deny, sw = this.swing;
+        let give = 1;
+        if (bt && bt.type === 'pass' && !bt.fired && bt.ev && this.A(bt.ev.to) === m) give = U.smooth((bt.fireAt - T) / TD.giveS);
+        if (sw && sw.state === 'windup' && sw.chain && sw.chain[sw.i + 1] === m) give = 0;
+        const dk = this.denyK(a, m, threat) * w * give;
+        const dd = U.lerp(3.2, M.Tune.deny.nearFt, dk), dr = U.lerp(1.2, 0.5, dk);
+        px = U.lerp(px, m.x + ux * dd + rx * dr, w); py = U.lerp(py, m.y + uy * dd + ry * dr, w);
         role = 'deny'; leash = 8;
+        if (dk > M.Tune.deny.armFrom) {
+          const f = a.facing, side = (bx - a.x) * Math.sin(f) - (by - a.y) * Math.cos(f) > 0 ? 1 : 0;
+          const dn = a._deny || (a._deny = { x: 0, y: 0, w: 0, side: 1, t: 0 });
+          dn.x = bx; dn.y = by; dn.w = U.clamp((dk - M.Tune.deny.armFrom) / (1 - M.Tune.deny.armFrom), 0, 1); dn.side = side; dn.t = T;
+        }
       } else {
         // two passes away: the help line, a foot in the lane with the ball above the free-throw line, on the rim line
         // with it on the wing or in the corner, about as deep as his man; a real shooter (70+) is not left: his man

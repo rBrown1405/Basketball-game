@@ -323,6 +323,9 @@
       const rc = this._rc;
       if (rc && rc.from === from && !rc.caught) { if (o && o.kind) rc.kind = o.kind; return; }
       this._rc = { from, kind: (o && o.kind) || 'chest', t0: this.time || 0, ball: null, tEnd: null, P: null, caught: null, exp: true };
+      // (the hands free for it, the gameplay pass: out of a box-out's or a screen's arms into the ready stance; an outlet's man
+      // ran up the floor for it with his arms still spread from the box-out under the other basket)
+      if (!this.clip && (this.stance === 'boxout' || this.stance === 'screen')) { this._contact = null; this.setStance('ready'); }
       if (!this.look_) this.lookAt(from);
       // (standing, he turns to the passer now: turned only as the ball came, a man facing away was still turning, and
       // stepping round, as it got to him)
@@ -984,6 +987,20 @@
           g.tvx = (g.tvx || 0) + (mx - (g.tvx || 0)) * k; g.tvy = (g.tvy || 0) + (my - (g.tvy || 0)) * k;
           g.tv = Math.hypot(g.tvx, g.tvy); g.px = g.x; g.py = g.y;
         }
+        // the lines (the gameplay pass: a dribbler sent toward a spot past a sideline or a baseline went on out with it and
+        // nothing was called): dribbling, he keeps his feet Tune.rules.lineFt inside them, a spot past them taken at that
+        // margin and braked for, unless a play means him to go out (this.oobOK: the out-of-bounds turnover's walk over it)
+        // (me: the body itself, when this is its copy run ahead by predictSteer)
+        let edge = false;
+        const me = this._simOf || this;
+        if (me.hasBall && !(this.oobOK > this.time)) {
+          const vb = this.view && this.view.ball;
+          if (vb && vb.state === 'dribble' && vb.dr && vb.dr.actor === me && this.view.director && this.view.director.active && this.view.director.liveBall && this.view.director.liveBall()) {
+            const mg = M.Tune.rules.lineFt, cx = U.clamp(tx, mg, 94 - mg), cy = U.clamp(ty, mg, 50 - mg);
+            if (cx !== tx) { if ((tvx > 0) === (tx > cx)) tvx = 0; tx = cx; edge = true; }
+            if (cy !== ty) { if ((tvy > 0) === (ty > cy)) tvy = 0; ty = cy; edge = true; }
+          }
+        }
         const dx = tx - this.x, dy = ty - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         let want = g.speed;
@@ -1003,7 +1020,7 @@
             want = 0; tvx = 0; tvy = 0;
           } else this._travelHeld = false;
         }
-        if (g.arrive) want = Math.min(want, Math.sqrt(2 * this.decel * (g.mode === 'move' && g.brakeK ? g.brakeK : 0.8) * Math.max(0, dist - 0.05)));
+        if (g.arrive || edge) want = Math.min(want, Math.sqrt(2 * this.decel * (g.mode === 'move' && g.brakeK ? g.brakeK : 0.8) * Math.max(0, dist - 0.05)));
         if (dist < 0.15 && Math.hypot(tvx, tvy) < 0.5) want = 0;
         if (dist > 1e-4) { dvx = dx / dist * want; dvy = dy / dist * want; }
         dvx += tvx; dvy += tvy;
@@ -1011,6 +1028,20 @@
         if (dl > this.maxSpeed * 1.1) { dvx *= this.maxSpeed * 1.1 / dl; dvy *= this.maxSpeed * 1.1 / dl; }
         const av = this._avoid(dvx, dvy);
         dvx = av[0]; dvy = av[1];
+        // the lines ahead (the gameplay pass): with the ball he brakes for a sideline or a baseline in time to stop
+        // Tune.rules.stopFt inside it, the part of his run toward it held to what he can still stop from there on
+        // Tune.rules.brakeK of his brake; along it and away from it he goes as he wants (a catch at a run into a corner slid
+        // on over the line, the dribble started on the way). Not a man a pass is on its way to: the throw was planned on the
+        // run he is on (Director.catchFor), and braking in the air he was ~5-10 ft short of an outlet at the catch; he is kept
+        // from running on through a spot into a line instead (Director.toCatchSpot)
+        // (the speed he can still stop from in the room left, the brake a moment late in coming, Tune.rules.brakeLagS: a body
+        // running on the balls of its feet brakes only on a plant, and on the full brake a sprinter went ~4 ft on past it)
+        if (this._lineAware(me)) {
+          const TR = M.Tune.rules, ab = this.decel * TR.brakeK, m = TR.stopFt, lag = TR.brakeLagS;
+          const vmax = (room) => room > 0 ? ab * (Math.sqrt(lag * lag + 2 * room / ab) - lag) : 0;
+          dvx = U.clamp(dvx, -vmax(this.x - m), vmax(94 - m - this.x));
+          dvy = U.clamp(dvy, -vmax(this.y - m), vmax(50 - m - this.y));
+        }
       }
       // (the pace wanted, for the facing: a defender who needs more than a slide can give opens up now, see
       // _desiredFacing; and until his hips have come round he goes no faster sideways or backwards than a slide
@@ -1169,6 +1200,15 @@
      *  on through it: the part of the velocity it wants that goes into the other is taken out as they touch, so it
      *  leans on him and slides round him (before, two players crossing ran into each other at full speed, and a
      *  box-out or a screen pushed on until the separation shoved them apart in a step). Returns the velocity wanted. */
+    /** whether he minds the lines as he moves (_steer): in a game with the ball in play (Director.liveBall: not an inbounder
+     *  taking it out for the throw), with it in his hands or dribbling it; not when the engine sends him out (oobOK, the
+     *  out-of-bounds turnover's walk over it). me: the body (this may be its copy run ahead) */
+    _lineAware(me) {
+      if (this.oobOK > (this.time || 0)) return false;
+      const v = this.view, d = v && v.director, b = v && v.ball;
+      if (!d || !d.active || !b || !(d.liveBall && d.liveBall())) return false;
+      return b.holder === me && (b.state === 'held' || b.state === 'dribble');
+    }
     _avoid(dvx, dvy) {
       const out = this._avOut || (this._avOut = [0, 0]);
       out[0] = dvx; out[1] = dvy;
@@ -4588,6 +4628,18 @@
             ik.on = w; src[side] = 'tgt'; ik.pole = HOLD_POLE.over; ik.fkPole = false;
             ik.x = P[so] + dx * k; ik.y = P[so + 1] + dy * k; ik.z = P[so + 2] + dz * k;
           }
+        }
+      }
+      // denying a pass (the gameplay pass, Director.guardPos: one pass away, as hard as his scheme and his defense allow): the hand
+      // on the ball's side out in the lane toward the passer, the arm near straight a little below the shoulder
+      const dn = this._deny;
+      if (dn && dn.w > 0.001 && !this.hasBall && !this.clip && !this._contest && (this.time || 0) - dn.t < 0.1) {
+        const side = dn.side, ik = sk.armIK[side];
+        if (ik.on < dn.w) {
+          const P = sk.P, so = (side ? RG.J.R_SH : RG.J.L_SH) * 3, L = (this.dims.ua + this.dims.fa) * M.Tune.deny.reachK;
+          const dx = dn.x - P[so], dy = dn.y - P[so + 1], dl = Math.hypot(dx, dy) || 1;
+          ik.on = dn.w; src[side] = 'tgt'; ik.pole = BAR_POLE; ik.fkPole = false;
+          ik.x = P[so] + dx / dl * L; ik.y = P[so + 1] + dy / dl * L; ik.z = P[so + 2] - M.Tune.deny.dropH * this.H;
         }
       }
       // about to catch: the hands go out to meet the ball, a pass in its last ~0.3 s (one nobody warned him of) or a loose

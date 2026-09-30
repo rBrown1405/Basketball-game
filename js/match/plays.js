@@ -100,7 +100,9 @@
       const a = this.A(id);
       if (!a) continue;
       const sp = this.pbPt(pb.align[id]);
-      if (a === h) {
+      // (not the inbounder, the ball still in his hands out of bounds with the throw on its way: he was set dribbling on the
+      // sideline, the gameplay pass)
+      if (a === h && a.x > 0 && a.x < 94 && a.y > 0 && a.y < 50) {
         // the handler dribbles into his spot for the play
         const r = this.role[id];
         if (r) { r.spot = sp; r.spotName = 'play'; r.pb = true; r.next = this.T + 1.5; r.until = this.T + 1.2; r.path = null; }

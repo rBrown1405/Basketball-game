@@ -66,16 +66,18 @@
     const relH = f.relH + T.contestRelH * c, setH = f.setH + T.contestRelH * c * 0.5;
     const flare = f.flareDeg;
     // ---- the times
-    const tLead = (kind === 'pullup' ? 0.12 : kind === 'stepback' ? 0.36 : 0) / sp;
+    // (the step-back's step and a post fade's turn a little quicker than they were, 0.36 and 0.56 s: the gameplay pass, the
+    // jumpers read slow)
+    const tLead = (kind === 'pullup' ? 0.12 : kind === 'stepback' ? 0.3 : 0) / sp;
     const tD0 = tLead + (kind === 'stepback' ? 0 : T.gatherS / sp);
     // (a post fade dips as it turns round to the rim, and goes up as the turn ends)
-    const tD1 = kind === 'stepback' ? 0.46 / sp : post ? 0.16 / sp : tD0 + (two ? T.dip2S : ft ? T.dipS * 1.45 : T.dipS) * Math.sqrt(dk) / sp;
+    const tD1 = kind === 'stepback' ? 0.4 / sp : post ? 0.14 / sp : tD0 + (two ? T.dip2S : ft ? T.dipS * 1.45 : T.dipS) * Math.sqrt(dk) / sp;
     let t0, tSet2 = null, tRise, tLoad, tSet, tPush, tRel;
     if (ft) {
       tRise = tD1 + 0.14 / sp; tLoad = tRise + 0.07 / sp; tSet = tLoad + 0.07 / sp; tPush = tSet + 0.08 / sp; tRel = tPush + 0.06 / sp;
       t0 = tLoad;
     } else {
-      if (two) { tSet2 = tD1 + T.set2S / sp; t0 = tSet2 + T.drive2S / sp; } else t0 = post ? 0.56 / sp : tD1 + T.riseS * (kind === 'stepback' ? 0.6 : 1) / sp;
+      if (two) { tSet2 = tD1 + T.set2S / sp; t0 = tSet2 + T.drive2S / sp; } else t0 = post ? 0.48 / sp : tD1 + T.riseS * (kind === 'stepback' ? 0.6 : 1) / sp;
       tRel = Math.max(t0 + 0.07, t0 + air / 2 - relApex);
       tPush = tRel - T.pushS * (two ? 1.3 : 1) / sp;
       tSet = two ? Math.min(t0 - 0.02 / sp, tPush - 0.05) : tPush - T.setS / sp;

@@ -1245,7 +1245,7 @@
       if (down) {
         // (from where the push let it go, the floor ahead of the shoulder in it as the push had it)
         if (!fl.r) fl.r = at(pl.rx, ahead(pl.ry, d.hand), 0, [0, 0]);
-        if (!fl.b) fl.b = at(pl.cx, ahead(pl.cy, d.hand), Math.max(0, (pl.uB - u) * T), [0, 0]);
+        if (!fl.b) fl.b = this._inLines(a, at(pl.cx, ahead(pl.cy, d.hand), Math.max(0, (pl.uB - u) * T), [0, 0]));
         wx = U.lerp(fl.r[0], fl.b[0], s); wy = U.lerp(fl.r[1], fl.b[1], s);
       } else {
         // (and where it comes up to is fixed there too, where the hand was to be then: the hand goes to it, not it to the
@@ -1257,6 +1257,16 @@
       const f = a.facing + yawD, cf = Math.cos(f), sf = Math.sin(f), rx = wx - a.x, ry = wy - a.y;
       o[0] = (rx * sf - ry * cf) * sd; o[1] = rx * cf + ry * sf;
       return o;
+    }
+    /** a dribble's bounce spot p (world [x, y]) kept Tune.rules.ballFt inside the sidelines and baselines (the gameplay pass:
+     *  pushed out wide of a body braking by a line, the ball came down on it or past it, ~3 ft out, and nothing was called),
+     *  in a game, unless the engine has him go out (Actor.oobOK, the out-of-bounds turnover's walk over it) */
+    _inLines(a, p) {
+      const v = this.view;
+      if (!(v && v.director && v.director.active && v.director.liveBall && v.director.liveBall()) || a.oobOK > (a.time || 0)) return p;
+      const m = M.Tune.rules.ballFt;
+      p[0] = U.clamp(p[0], m, 94 - m); p[1] = U.clamp(p[1], m, 50 - m);
+      return p;
     }
     /** where the ball is caught, in the dribble's frame as it will be then (x in the hand's side convention; the hand's
      *  target, which goes with the body): fixed across the floor from the bounce on (_airW), the plan's spot before it

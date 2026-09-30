@@ -9,7 +9,7 @@
   const is3 = z => z === 'c3' || z === 'ab3';
   // tunable constants (calibrated with test/calibrate.js)
   Sim.K = {
-    usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 14.6, shotTimeW: 15.0,
+    usageExp: 0.9, to: 0.175, toW: 0.196, stlBad: 0.72, stlLost: 0.85, outletTO: 0.035, shotTime: 14.6, shotTimeW: 15.0,
     zoneAdj: { rim: -0.38, paint: 0.02, mid: -0.12, c3: -0.3125, ab3: -0.1625 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
     coast: 1, // how much a team with a big lead lets up (shooting focus, glass, pressure); 0 = never
   };
@@ -715,7 +715,12 @@
         ctx.rebounder = reb;
         transP = 0.2;
         const outlet = reb !== handler && reb.posN >= 3 && U.chance(0.75);
-        if (outlet) { ctx.t = U.range(0.4, 1.0); ev(ctx, 'pass', { from: reb.id, to: handler.id, kind: 'outlet', team: O.idx }); }
+        if (outlet) {
+          ctx.t = U.range(0.4, 1.0);
+          // (an outlet can go wrong: outletTOProb; the possession ends in the backcourt, jumped or thrown away)
+          if (U.chance(outletTOProb(ctx, reb))) { outletTurnover(ctx, reb, handler); return; }
+          ev(ctx, 'pass', { from: reb.id, to: handler.id, kind: 'outlet', team: O.idx });
+        }
         ctx.transitionCandidate = true;
         break;
       }
@@ -723,7 +728,11 @@
         const st = O.on.find(c => c.id === g.lastStealer) || handler;
         ctx.stealer = st;
         transP = 0.62;
-        if (st.r.handle < 55 && st !== handler) { ctx.t = U.range(0.4, 0.9); ev(ctx, 'pass', { from: st.id, to: handler.id, kind: 'outlet', team: O.idx }); }
+        if (st.r.handle < 55 && st !== handler) {
+          ctx.t = U.range(0.4, 0.9);
+          if (U.chance(outletTOProb(ctx, st))) { outletTurnover(ctx, st, handler); return; }
+          ev(ctx, 'pass', { from: st.id, to: handler.id, kind: 'outlet', team: O.idx });
+        }
         else ctx.handler = st;
         break;
       }
@@ -2394,6 +2403,28 @@
     g.nextSpot = spot;
   }
 
+  /** an outlet pass going wrong (the gameplay pass: every outlet connected): Sim.K.outletTO a pass, less for a passer who
+   *  sees the floor and throws it well, more against a defense with quick hands that gambles on the lanes (research: live-ball
+   *  turnovers in transition are the costly ones; a pass back up the floor with the momentum going the other way is the one a
+   *  guard sitting in the lane jumps); the turnovers slider scales it with the rest */
+  function outletTOProb(ctx, passer) {
+    const g = ctx.g, D = ctx.D;
+    let p = Sim.K.outletTO;
+    p *= Math.pow(0.96, ((passer.r.pass * 0.6 + passer.r.vision * 0.4) - 60) / 5);
+    p *= Math.pow(1.03, (avgOn(D, 'steal') - 62) / 2);
+    p *= Math.exp(0.25 * avgDev(D, 'gamble'));
+    p *= g.toMult[ctx.O.idx];
+    return U.clamp(p, 0.008, 0.12);
+  }
+  /** the outlet turned over: a bad pass by the one throwing it, meant for the handler, in the backcourt (stolen by a guard in the
+   *  lane, or away out of bounds) */
+  function outletTurnover(ctx, passer, handler) {
+    const bx = basketX(ctx.O.idx, ctx.g.period), dir = dirX(ctx.O.idx, ctx.g.period);
+    const info = mkInfo('transition', '', handler);
+    info.noSet = true; info.toBy = passer; info.toTo = handler; info.outlet = true;
+    info.spotX = U.clamp(bx - dir * U.range(55, 72), 3, 91);
+    turnover(ctx, info, ctx.t, 'bad_pass');
+  }
   function turnover(ctx, info, t, forceKind) {
     const g = ctx.g, O = ctx.O, D = ctx.D;
     ctx.t = Math.min(t, g.clock);
@@ -2412,6 +2443,7 @@
       case 'backcourt': who = handler; break;
       default: who = U.pickW(O.on, c => (c === handler ? 2 : 1) * (100 - c.r.handle));
     }
+    if (info.toBy) who = info.toBy;
     if (who) who.st.tov++;
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play === 'putback' ? 'none' : info.play; ctx.P.setName = info.setName || ''; }
     ctx.P.tok = kind;
@@ -2428,7 +2460,7 @@
     const ss = g.sl.stl;   // steals slider: share of live-ball turnovers that are steals
     const stolen = (kind === 'bad_pass' && U.chance(ss === 1 ? Sim.K.stlBad : 1 - Math.pow(1 - Sim.K.stlBad, ss))) || (kind === 'lost_ball' && U.chance(ss === 1 ? Sim.K.stlLost : 1 - Math.pow(1 - Sim.K.stlLost, ss)));
     const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
-    const spotX = ctx.press && ctx.segN <= 1 ? U.clamp(bx - dir * U.range(50, 75), 3, 91) : U.clamp(bx - dir * U.range(10, 30), 3, 91);
+    const spotX = info.spotX != null ? info.spotX : ctx.press && ctx.segN <= 1 ? U.clamp(bx - dir * U.range(50, 75), 3, 91) : U.clamp(bx - dir * U.range(10, 30), 3, 91);
     const spot = { x: U.round(spotX, 1), y: U.round(U.range(6, 44), 1) };
     // (an 8-second violation happens in the backcourt, a backcourt violation just behind the half-court line)
     if (kind === 'eight_seconds') spot.x = U.round(47 - dir * U.range(6, 16), 1);
@@ -2444,12 +2476,13 @@
       if (who.pf >= g.L.foulOut) who.out = true;
     }
     let text;
-    if (stolen) text = kind === 'bad_pass' ? `${who.last} bad pass — stolen by ${stealer.last}` : `${stealer.last} strips ${who.last}!`;
+    if (stolen) text = info.outlet ? `${stealer.last} picks off the outlet from ${who.last}!` : kind === 'bad_pass' ? `${who.last} bad pass — stolen by ${stealer.last}` : `${stealer.last} strips ${who.last}!`;
+    else if (info.outlet) text = `Turnover: ${who.last} throws the outlet away`;
     else if (kind === 'shot_clock') text = `Shot clock violation on the ${O.team.name}`;
     else if (kind === 'eight_seconds') text = `8-second violation on the ${O.team.name}: couldn't get it past half court`;
     else if (kind === 'offensive_foul') { const taker = matchupDefender(D, who, ctx); text = `Offensive foul on ${who.last} — ${taker.last} takes the charge`; }
     else text = `Turnover: ${who.last} (${label})`;
-    ev(ctx, 'turnover', Object.assign({ player: who ? who.id : null, kind, stealer: stealer ? stealer.id : undefined, team: O.idx, text }, spot));
+    ev(ctx, 'turnover', Object.assign({ player: who ? who.id : null, kind, stealer: stealer ? stealer.id : undefined, team: O.idx, text, to: info.toTo ? info.toTo.id : undefined, outlet: info.outlet || undefined }, spot));
     ctx.done = true; ctx.endT = ctx.t;
     if (stolen) {
       g.lastStealer = stealer.id;
