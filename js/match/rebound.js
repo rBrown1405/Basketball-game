@@ -1,19 +1,19 @@
 /* Pro BBALL Coach — match view: rebounds read off the rim (extends PBC.Match.Director; Trial 11).
  * Built on the Director's rebound planning (choreo.js: planRebound picks where a miss would go, near the engine's
  * rebounder, and releaseShot flies the shot at the rim or the glass). A missed shot's carom is the ball's own flight from
- * there: once it comes off, nothing steers it (it used to bend up to ~2 ft onto the rebounder's hands, and he used to be on
- * his way to where it would come down before it had hit the rim). Nobody knows where it is going until it comes off:
+ * there: once it comes off, nothing steers it (it used to bend up to ~2 ft onto the rebounder's hands, and they used to be on
+ * their way to where it would come down before it had hit the rim). Nobody knows where it is going until it comes off:
  *  - while it is up (the release to the rim) the defense finds its men and boxes them out and the offense crashes
  *    (choreo.js crashBoards); the engine's rebounder is one of them;
  *  - as it hits the rim or the glass its way off is settled (settleCarom): of the caroms a miss like this makes (NBA
  *    tracking: misses at the rim come off within ~4 ft about half the time; long rebounds follow ~20 % of missed twos and
  *    ~40 % of missed threes; the average carom ~8 ft even from deep), off the side it was going to, the one the engine's
- *    rebounder can get to from where he really is, as near the natural one as can be;
+ *    rebounder can get to from where they really are, as near the natural one as can be;
  *  - a reaction later (Tune.glass.readS) the players near it read it (readCarom): the rebounder runs to where it will come
- *    down to his hands and jumps (a running jump over what is left) so that his hands meet it at the top of his jump, both
- *    of them on the ball, and brings it down under his chin with the elbows out; a long carom he runs to and catches on the
- *    way down; the others near it go after it, the nearest of the other side up with him;
- *  - not in his hands in time, it goes on down on its own flight and bounces, and he runs it down and picks it up. */
+ *    down to their hands and jumps (a running jump over what is left) so that their hands meet it at the top of their jump, both
+ *    of them on the ball, and brings it down under their chin with the elbows out; a long carom they run to and catch on the
+ *    way down; the others near it go after it, the nearest of the other side up with them;
+ *  - not in their hands in time, it goes on down on its own flight and bounces, and they run it down and pick it up. */
 (function () {
   'use strict';
   const M = window.PBC.Match, U = M.U;
@@ -34,8 +34,8 @@
   /** a miss's natural carom distance from the rim by the shot's (NBA optical tracking: ~3-4 ft off shots at the rim, ~5 from
    *  mid range, ~6 from a long two, ~8 from three) */
   P.caromMean = function (shotD) { return shotD < 8 ? 3.6 : shotD < 16 ? 5 : shotD < 22.5 ? 6.2 : 8; };
-  /** how he takes it, as first planned (settled as it comes off, settleCarom): by how far out it comes down and whether
-   *  anyone of the other side is there with him */
+  /** how they take it, as first planned (settled as it comes off, settleCarom): by how far out it comes down and whether
+   *  anyone of the other side is there with them */
   P.reboundStyle = function (pr) {
     const a = pr.actor, rim = this.rim, T = TG();
     const d = Math.hypot(pr.x - rim.x, pr.y - rim.y);
@@ -46,12 +46,12 @@
     pr.z = this.takeZ(a, pr.style);
     pr.jumpH = pr.style === 'long' ? null : this.jumpFor(a, pr.style);
   };
-  /** the rebound move's jump for him: a full one (a contested board) or a smaller one */
+  /** the rebound move's jump for them: a full one (a contested board) or a smaller one */
   P.jumpFor = function (a, style) {
     const clip = M.Anims.get('rebound'), full = clip.jump.h * a.H * (0.85 + (a.rVert || 0.5) * 0.3);
     return style === 'high' ? full : Math.min(full, TG().midJumpFt);
   };
-  /** the height of his hands at the take: the rebound move's ball at the top of its jump, or at the chest for a long carom
+  /** the height of their hands at the take: the rebound move's ball at the top of its jump, or at the chest for a long carom
    *  caught on the way down */
   P.takeZ = function (a, style) {
     const T = TG(), clip = M.Anims.get('rebound');
@@ -66,8 +66,8 @@
     const tA = Math.max(0, (V - v0) / A);
     return t <= tA ? v0 * t + 0.5 * A * t * t : v0 * tA + 0.5 * A * tA * tA + V * (t - tA);
   };
-  /** how long a run of d ft the way (ux, uy) takes him: runStartS to get going, then braking what he has going the other
-   *  way, and his push up to Tune.glass.runK of his top speed */
+  /** how long a run of d ft the way (ux, uy) takes them: runStartS to get going, then braking what they have going the other
+   *  way, and their push up to Tune.glass.runK of their top speed */
   P.runTime = function (a, d, ux, uy) {
     const T = TG();
     if (d < 0.3) return 0;
@@ -80,7 +80,7 @@
   };
 
   /** the shot is up: when it comes off the rim or the glass (the last touch of either: a rattle's hops come first), its way
-   *  off is settled a frame before, and a reaction after, the players near it read it. Until then he is in the box-outs and
+   *  off is settled a frame before, and a reaction after, the players near it read it. Until then they are in the box-outs and
    *  the crash with everyone else (crashBoards) */
   P.scheduleRebounder = function (pr, tGrabBall) {
     const a = pr.actor, b = this.v.ball;
@@ -101,9 +101,9 @@
   };
 
   /** as it hits: the way it comes off. Of the natural caroms of a miss like this (off within Tune.glass.coneDeg of the way it
-   *  was going to go, round the shot's own distance), the one the engine's rebounder can get to from where he will be as he
-   *  reads it (a run after the reaction, a running jump, his hands at the top of it), as near the natural one as can be and
-   *  as soon; no faster off the rim than it came in allows. From there the ball's flight is its own: through where his
+   *  was going to go, round the shot's own distance), the one the engine's rebounder can get to from where they will be as they
+   *  read it (a run after the reaction, a running jump, their hands at the top of it), as near the natural one as can be and
+   *  as soon; no faster off the rim than it came in allows. From there the ball's flight is its own: through where their
    *  hands will meet it, on down to the floor and its bounces */
   P.settleCarom = function (pr) {
     const b = this.v.ball, a = pr.actor, T = TG();
@@ -122,7 +122,7 @@
     // goes and as far as it was going to)
     const a0 = blk && pr.swat != null ? pr.swat : Math.atan2(pr.y - rim.y, pr.x - rim.x);
     const d0 = blk ? U.clamp(Math.hypot(pr.x - rim.x, pr.y - rim.y), 3, 16) : this.caromMean(pr.shotD != null ? pr.shotD : 15);
-    // (where he will be as he reads it: boxing out or crashing, going on the way he is going)
+    // (where they will be as they read it: boxing out or crashing, going on the way they are going)
     const lead = Math.max(0, pr.tContactT - this.T) + T.readS;
     const ax = a.x + (a.vx || 0) * lead, ay = a.y + (a.vy || 0) * lead;
     const opp = a.team === this.off ? this.defActors() : this.offActors();
@@ -139,7 +139,7 @@
         for (const o of opp) if (Math.hypot(o.x - x, o.y - y) < T.contestFt) { near = true; break; }
         const style = dist >= T.longFt ? 'long' : near && dist < T.highFt ? 'high' : 'mid';
         const tz = this.takeZ(a, style);
-        // (his spot: the take a little in front of him, facing where it comes from)
+        // (their spot: the take a little in front of them, facing where it comes from)
         const f = Math.atan2(this.rim.y - y, this.rim.x - x), kw = style === 'long' ? 0.3 * H : kf;
         const jx = x - Math.cos(f) * kw, jy = y - Math.sin(f) * kw;
         const dRun = Math.hypot(jx - ax, jy - ay), trav = style === 'long' ? 0 : Math.min(T.travelFt, dRun);
@@ -154,8 +154,8 @@
       }
     }
     if (!best) {
-      // (nowhere he can get to it in the air: of the natural caroms down to the floor, a small pop off the rim, Tune.glass.popFtps
-      // up, and down d0 away, the one that comes down nearest him, and he runs it down)
+      // (nowhere they can get to it in the air: of the natural caroms down to the floor, a small pop off the rim, Tune.glass.popFtps
+      // up, and down d0 away, the one that comes down nearest them, and they run it down)
       const tL = (T.popFtps + Math.sqrt(T.popFtps * T.popFtps + 2 * G * Math.max(0, C[2] - R))) / G;
       for (let i = 0; i < NA; i++) {
         const ang = a0 + (i / (NA - 1) * 2 - 1) * cone, x = rim.x + Math.cos(ang) * d0, y = rim.y + Math.sin(ang) * d0;
@@ -181,7 +181,7 @@
     if (this.pendingRebound.tGrab != null) this.pendingRebound.tGrab = sC.t0 + best.tC;
   };
 
-  /** a reaction after it comes off: the players near it go after it, and the rebounder runs to his spot and goes up for it
+  /** a reaction after it comes off: the players near it go after it, and the rebounder runs to their spot and goes up for it
    *  (or runs to a long one and catches it on the way down, or runs down one that will bounce) */
   P.readCarom = function (pr) {
     if (this.pendingRebound !== pr) return;
@@ -194,7 +194,7 @@
     a.lookAt(b, { hold: Math.max(0.2, pr.tGrabT - this.T) });
     if (pr.style === 'floor') { pr.floor = true; return; }
     const rimA = () => Math.atan2(this.rim.y - a.y, this.rim.x - a.x);
-    // (running to his spot facing the way he runs, then turned to where it comes from for the last steps)
+    // (running to their spot facing the way they run, then turned to where it comes from for the last steps)
     const face = (me) => (Math.hypot(pr.jx - me.x, pr.jy - me.y) > 3 && me.speed > 3 ? Math.atan2(me.vy, me.vx) : rimA());
     if (pr.style === 'long') {
       a.moveTo(pr.jx, pr.jy, { by: pr.tGrabT - T.catchLeadS, speed: a.maxSpeed, stance: 'ready', face });
@@ -208,7 +208,7 @@
     a.moveTo(pr.jx, pr.jy, { by: start - 0.02, speed: a.maxSpeed, stance: 'ready', face });
     this.at(Math.max(this.T, start), () => {
       if (this.pendingRebound !== pr || b.holder) return;
-      // (up from where he is: a running jump over what is left to his spot, as far as a jump carries him)
+      // (up from where they are: a running jump over what is left to their spot, as far as a jump carries them)
       const dx = pr.jx - a.x, dy = pr.jy - a.y, dl = Math.hypot(dx, dy);
       const ox = dl > T.travelFt ? a.x + dx / dl * T.travelFt : pr.jx, oy = dl > T.travelFt ? a.y + dy / dl * T.travelFt : pr.jy;
       const j = clip.jump;
@@ -218,8 +218,8 @@
     }, 'rebound jump');
     this.takeWatch(pr);
   };
-  /** his hands at the ball: taken as both palms are on it (Tune.glass.takeGapIn), from just before it gets to his spot; up to
-   *  takeLateS late, then it goes on down on its own and he runs it down */
+  /** their hands at the ball: taken as both palms are on it (Tune.glass.takeGapIn), from just before it gets to their spot; up to
+   *  takeLateS late, then it goes on down on its own and they run it down */
   P.takeWatch = function (pr) {
     const b = this.v.ball, T = TG(), a = pr.actor;
     const tick = () => {
@@ -236,14 +236,14 @@
     for (const j of [J.L_HD, J.R_HD]) { const k = j * 3; if (Math.hypot(Pj[k] - b.x, Pj[k + 1] - b.y, Pj[k + 2] - b.z) - R - pal > lim) return false; }
     return true;
   };
-  /** not in his hands: it goes on down on its own flight and bounces (nothing is changed about it), and he runs it down */
+  /** not in their hands: it goes on down on its own flight and bounces (nothing is changed about it), and they run it down */
   P.dropCarom = function (pr) {
     pr.style = 'floor'; pr.floor = true;
     const a = pr.actor;
     if (a) { a._reach = null; pr.tGrabT = Math.max(pr.tGrabT || 0, this.T + 0.2); }
   };
-  /** where `a` running at his top speed first meets the loose or bouncing ball within his hands' reach: the soonest point
-   *  on its way (in steps of 0.05 s, 3 s on at most) low enough for him to take (Tune.glass) that he can get to by then;
+  /** where `a` running at their top speed first meets the loose or bouncing ball within their hands' reach: the soonest point
+   *  on its way (in steps of 0.05 s, 3 s on at most) low enough for them to take (Tune.glass) that they can get to by then;
    *  none, where it is 3 s on */
   P.interceptPt = function (a, out) {
     const b = this.v.ball, T = TG(), zMax = T.longTakeH * a.H * 1.25, reach = T.catchReachFt;
@@ -255,10 +255,10 @@
     }
     return b.posAt(b.time + 3, out);
   };
-  /** how long a run of d ft the way (ux, uy) takes him to be there and stopped: runStartS to get going, braking what he has
-   *  going the other way (and sideways), up toward Tune.glass.runK of his top speed and down to a stop at the steering's own
-   *  arrival rate (Actor._steer: brakeK of his braking; planned with a margin, Tune.glass.gatherBrakeK); too fast to stop in
-   *  it, on past and back (noOver: not to be had). rel: { vx, vy, V } his speed and his top speed as seen from something
+  /** how long a run of d ft the way (ux, uy) takes them to be there and stopped: runStartS to get going, braking what they have
+   *  going the other way (and sideways), up toward Tune.glass.runK of their top speed and down to a stop at the steering's own
+   *  arrival rate (Actor._steer: brakeK of their braking; planned with a margin, Tune.glass.gatherBrakeK); too fast to stop in
+   *  it, on past and back (noOver: not to be had). rel: { vx, vy, V } their speed and their top speed as seen from something
    *  moving (a run onto a point that moves) */
   P.arriveTime = function (a, d, ux, uy, rel, noOver, brakeK) {
     const T = TG();
@@ -276,20 +276,20 @@
     }
     return Math.max(t, Math.abs(vy * ux - vx * uy) / Ab);
   };
-  /** where and when he takes the loose or bouncing ball: the soonest moment on its way (steps of 0.05 s, 3 s on at most)
-   *  that it is at a height his hands take it at (caught with both hands from Tune.glass.gatherCatchLoH of his height up to
-   *  chest height, or picked up off the floor below gatherPickHiH), going along the floor no faster than he takes it at
-   *  (gatherCatchFtps, gatherPickFtps), and he can be a reach short of it by then (the move's own ball, in front of him),
-   *  going with it: the spot he takes it from, and a point that moves with the ball and gets there at the take, which he
-   *  runs onto (pursuit and arrival, Reynolds' steering behaviours, as seen from the ball going away from him; one coming
-   *  at him he waits for); null: none */
+  /** where and when they take the loose or bouncing ball: the soonest moment on its way (steps of 0.05 s, 3 s on at most)
+   *  that it is at a height their hands take it at (caught with both hands from Tune.glass.gatherCatchLoH of their height up to
+   *  chest height, or picked up off the floor below gatherPickHiH), going along the floor no faster than they take it at
+   *  (gatherCatchFtps, gatherPickFtps), and they can be a reach short of it by then (the move's own ball, in front of them),
+   *  going with it: the spot they take it from, and a point that moves with the ball and gets there at the take, which they
+   *  run onto (pursuit and arrival, Reynolds' steering behaviours, as seen from the ball going away from them; one coming
+   *  at them they wait for); null: none */
   P.gatherPlan = function (a) {
     const b = this.v.ball, T = TG(), H = a.H;
     const cc = M.Anims.get('catch'), cev = cc.events.catch, cK = (cc.ballKeys ? cc.ballKeys[1](cev) : 0.3) * H;
     const pc = M.Anims.get('pickup'), g = pc.events.grab, pK = (pc.ballKeys ? pc.ballKeys[1](g) : 0.3) * H;
     const zHi = T.longTakeH * H * 1.25, zLo = T.gatherCatchLoH * H, zPick = T.gatherPickHiH * H;
     const V0 = (a.maxSpeed || 22) * T.runK;
-    // (in a move of his own, he is after it once it is over)
+    // (in a move of their own, they are after it once it is over)
     const busy = a.isBusy() ? Math.max(0, (a.clip.clip.dur - a.clip.t) / (a.clip.speed || 1)) : 0;
     for (let t = 0.05; t <= 3 + 1e-9; t += 0.05) {
       const p = b.posAt(b.time + t, TMP), px = p[0], py = p[1], pz = p[2];
@@ -299,8 +299,8 @@
       if (t < lead) continue;
       const dx = px - a.x, dy = py - a.y, dl = Math.hypot(dx, dy);
       const ux = dl > 1e-3 ? dx / dl : Math.cos(a.facing), uy = dl > 1e-3 ? dy / dl : Math.sin(a.facing);
-      // (its speed along the floor then: no faster than he takes it at; caught, he goes with it away from him and across,
-      // and waits for it coming at him; picked up, he is stopped on the spot as it gets there)
+      // (its speed along the floor then: no faster than they take it at; caught, they go with it away from them and across,
+      // and wait for it coming at them; picked up, they are stopped on the spot as it gets there)
       const q = b.posAt(b.time + t + 0.03, TMP2);
       let vbx = (q[0] - px) / 0.03, vby = (q[1] - py) / 0.03;
       if (Math.hypot(vbx, vby) > (kind === 'pick' ? T.gatherPickFtps : T.gatherCatchFtps)) continue;
@@ -308,9 +308,9 @@
       if (kind === 'pick') { vbx = 0; vby = 0; } else if (along < 0) { vbx -= ux * along; vby -= uy * along; }
       const vb = Math.hypot(vbx, vby);
       let sx = px - ux * k, sy = py - uy * k, fx = ux, fy = uy, need;
-      // (picked up off a ball rolling on along the floor: cut off, from beside its way ahead of it on his side, facing across
-      // it as it comes to his hands; from behind it he would have to be there after it has gone through his spot and before
-      // it is out of his reach)
+      // (picked up off a ball rolling on along the floor: cut off, from beside its way ahead of it on their side, facing across
+      // it as it comes to their hands; from behind it they would have to be there after it has gone through their spot and before
+      // it is out of their reach)
       const rx = q[0] - px, ry = q[1] - py, rl = Math.hypot(rx, ry);
       if (kind === 'pick' && rl > T.gatherCutFtps * 0.03) {
         let nx = -ry / rl, ny = rx / rl;
@@ -329,16 +329,16 @@
     }
     return null;
   };
-  /** after the loose or bouncing ball: he runs to where he takes it (gatherPlan) onto the point that goes with it there, and
-   *  catches it with both hands or bends down and picks it up off the floor, the hands onto it (reachFor); it is his as they
-   *  get there (Tune.glass.takeGapIn). A plan holds while he can make it (gatherSlackS) and the ball's way is the same;
+  /** after the loose or bouncing ball: they run to where they take it (gatherPlan) onto the point that goes with it there, and
+   *  catch it with both hands or bend down and pick it up off the floor, the hands onto it (reachFor); it is theirs as they
+   *  get there (Tune.glass.takeGapIn). A plan holds while they can make it (gatherSlackS) and the ball's way is the same;
    *  otherwise a new one (none within 3 s: after it at full speed to where it will be a second on). Called on every tick of
-   *  a chase; true once it is his.
-   *  (He used to run to the ball's own point at full speed, through it, and the catch's hands were 2-4 ft off it) */
+   *  a chase; true once it is theirs.
+   *  (They used to run to the ball's own point at full speed, through it, and the catch's hands were 2-4 ft off it) */
   P.runDown = function (a, pk) {
     const b = this.v.ball, T = TG();
     if (pk.t != null) {
-      if (this.T >= pk.t - 0.1 && this.handsOn(a, b, T.takeGapIn * (pk.low ? 2 : 1))) {
+      if (this.T >= pk.t - 0.1 && this.handsOn(a, b, T.takeGapIn)) {
         this.giveBall(a, 'chest', { absorb: true });
         // (the run onto it ends with it: on a step or two and stopped)
         if (!a.isBusy() && a.goal.mode === 'track') a.moveTo(a.x + (a.vx || 0) * 0.25, a.y + (a.vy || 0) * 0.25, { speed: Math.max(2, a.speed || 0), face: a.facing });
@@ -370,8 +370,8 @@
     }
     if (!a.isBusy()) {
       const face = (me) => { const d = Math.hypot(pl.sx - me.x, pl.sy - me.y); return d > 3 && me.speed > 4 ? Math.atan2(me.vy, me.vx) : pl.f; };
-      // (onto the point that goes with the ball and gets to his spot at the take: its speed is his as he gets there; still, to
-      // his spot, paced to be there and stopped by then)
+      // (onto the point that goes with the ball and gets to their spot at the take: its speed is theirs as they get there; still, to
+      // their spot, paced to be there and stopped by then)
       if (Math.hypot(pl.vbx, pl.vby) > 0.5) a.track(() => { const left = Math.max(0, pl.t - this.T), on = left > 0 ? 1 : 0; return { x: pl.sx - pl.vbx * left, y: pl.sy - pl.vby * left, vx: pl.vbx * on, vy: pl.vby * on }; }, { speed: a.maxSpeed, face, stance: 'ready' });
       else a.moveTo(pl.sx, pl.sy, { speed: a.maxSpeed, face, stance: 'ready', arrive: true, brakeK: T.gatherStopK });
     }
@@ -387,8 +387,8 @@
   /** the old name (callers from before runDown) */
   P.pickUp = function (a, pk) { return this.runDown(a, pk); };
 
-  /** the rebound beat waits until the ball is in his hands: taken in the air, caught on the run, or picked up off the
-   *  floor after he runs it down (the ball never goes to him from where it is) */
+  /** the rebound beat waits until the ball is in their hands: taken in the air, caught on the run, or picked up off the
+   *  floor after they run it down (the ball never goes to them from where it is) */
   P.p_rebound = function (ev, beat, gap) {
     const pr = this.pendingRebound && this.pendingRebound.ev === ev ? this.pendingRebound : null;
     const a = ev.player != null ? this.A(ev.player) : null;
@@ -408,10 +408,10 @@
     };
     this.at(Math.max(this.T + 0.05, (pr.tContactT || this.T) + TG().readS), chase, 'chase the ball');
     beat.onFire = () => this.secureRebound(ev, a);
-    // (in his hands; the engine's clock still sets the earliest moment, and 4 s after it was due the latest: a carom that
-    // bounces on away takes a while to run down)
-    beat.waitFor = () => !!b.holder || this.T > pr.tGrabT + 4;
-    beat.maxWait = 5;
+    // (in their hands; the engine's clock still sets the earliest moment, and Tune.glass.chaseMaxS after it was due the
+    // latest: a carom that bounces on away takes a while to run down)
+    beat.waitFor = () => !!b.holder || this.T > pr.tGrabT + TG().chaseMaxS;
+    beat.maxWait = TG().chaseMaxS + 1;
     return Math.max(0.05, pr.tGrabT - this.T);
   };
 })();

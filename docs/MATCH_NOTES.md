@@ -238,11 +238,11 @@ set by the engine's own sliders. The director reads them through `Director.slide
 * **The glass and the contest** (Trial 11, `rebound.js`, `choreo.js`, `Tune.glass`): a miss's carom is the ball's own flight,
   never steered onto anyone's hands. Its way off is settled the frame before it comes off the rim or the glass
   (`settleCarom`: of the caroms a miss like it makes, about its shot's natural distance and off the side it was going,
-  the one the engine's rebounder can get to from where he really is), and a reaction later (`readS`) the players near it
-  read it (`readCarom`): the rebounder runs to where it will meet his hands and goes up in a running jump over what is
+  the one the engine's rebounder can get to from where the rebounder really is), and a reaction later (`readS`) the players
+  near it read it (`readCarom`): the rebounder runs to where it will meet the hands and goes up in a running jump over what is
   left (`travelFt`), both hands onto the ball at the top of the jump (`reachFor`), then it is ripped down under the chin
   with the elbows out; a long carom is caught on the run; one nobody can get to in the air bounces and is run down.
-  While the shot is up every defender finds his man and, if the man is coming to the glass, steps back into him, the
+  While the shot is up every defender finds their man and, if the man is coming to the glass, steps back into them, the
   bodies touching (`touchH`), the base wide and the arms out, facing the rim, the eyes going to the ball; nobody boxes
   out a blocked shot or one off the rim before a box-out could be made (`boxMinS`). A contest puts the hand nearer the
   ball up at the shooter's release point (`Actor.releasePoint`), timed to the shot's real release (`whenRelease`), and

@@ -130,11 +130,12 @@
       // glass or the blocker's hand, or no more than glPreCloseFt was closed on it before; others within glNearFt of the take
       // as it comes off are watched too; the ball is chinned when its top is within glChinFt of the chin and glChinFrontFt of
       // the neck with the elbows glElbowSpan x the shoulders apart, within glChinByS of the take (watched glAfterS); a box-out
-      // finds a man within glBoxManFt and is in contact within glBoxGapFt of him, him within glBoxBehindDeg of straight behind,
-      // a wide base glBoxBaseX x the shoulders; a contest (the nearest man within glContestFt at the release: NBA tracking's
-      // tight and contested) reaches toward the ball within glContestDeg, at the release or over the ball's first glContestAfterS
-      // in the air (a late one); a block's hand is on the ball within glBlockGapIn; a swipe at the ball (the swiper within
-      // glSwipeAtFt of it as the swipe starts) goes to it when its hand comes within glSwipeFt
+      // finds a man within glBoxManFt and is in contact within glBoxGapFt of them, them within glBoxBehindDeg of straight behind,
+      // a wide base glBoxBaseX x the shoulders (a man who ends up glBoxLeftFt further from the rim than at the start is let
+      // go, not counted); a contest (the nearest man within glContestFt at the release: NBA tracking's tight and contested) reaches
+      // toward the ball within glContestDeg, at the release or over the ball's first glContestAfterS in the air (a late one);
+      // a block's hand is on the ball within glBlockGapIn and its arm toward it within glContestDeg; a swipe at the ball (the
+      // swiper within glSwipeAtFt of it as the swipe starts) goes to it when its hand comes within glSwipeFt
       glBendIn: 1, glTakeGapIn: 3, glFloorFt: 1.2, glApexS: 0.1, glJumpMinFt: 0.25, glReadS: 0.1, glPreCloseFt: 2,
       glArriveFt: 1.5, glApproachFtps: 4, glNearFt: 10, glChinFt: 0.3, glChinFrontFt: 1.2, glElbowSpan: 1.3, glChinByS: 0.45, glAfterS: 0.9,
       glBoxManFt: 6, glBoxGapFt: 0.15, glBoxBehindDeg: 50, glBoxBaseX: 1.3, glBoxLeftFt: 3, glContestFt: 6, glContestDeg: 25, glContestAfterS: 0.2, glBlockGapIn: 2, glSwipeAtFt: 10, glSwipeFt: 0.5,
@@ -391,8 +392,8 @@
     // ---------------------------------------------------------------- the glass and the contest (Trial 11)
     // A missed shot's carom is the ball's own flight: settled as it comes off the rim or the glass, never steered after.
     // Nobody goes for it until they have seen it come off (a visual reaction); then the rebounder runs to where it will come
-    // down to his hands and jumps so that they meet it at the top of the jump, two hands on the ball, and brings it down
-    // under his chin with the elbows out. The box-outs hold until then.
+    // down to their hands and jumps so that they meet it at the top of the jump, two hands on the ball, and brings it down
+    // under their chin with the elbows out. The box-outs hold until then.
     glass: {
       readS: 0.18,                  // the players near a carom set off after it this long after it comes off (s; a visual
                                     // reaction to a moving ball, ~0.15-0.3 s)
@@ -408,41 +409,42 @@
       highFt: 7,                    // a carom nearer than this with a man of the other side within contestFt of it is taken at
       contestFt: 7,                 // the top of a full jump, two hands high; the rest with a smaller one (midJumpFt)
       midJumpFt: 0.6,
-      runK: 0.8,                    // after it: a run at this share of top speed (braking first what he has going the other
+      runK: 0.8,                    // after it: a run at this share of top speed (braking first what they have going the other
       runStartS: 0.1,               // way), its first runStartS to get going...
       travelFt: 4,                  // ...and up to this far in the jump itself (a running jump: the push off the floor over
       pushS: 0.15,                  // the last pushS of the load, then carried in the air)
       reachS: 0.25,                 // the hands go onto the ball over reachS, all the way on reachEarlyS before it is taken
       reachEarlyS: 0.08,            // (the arms ease onto a target over ~0.1 s)...
       takeGapIn: 3,                 // ...and it is taken as both palms are within this of it (in), up to takeLateS late; not
-      takeLateS: 0.12,              // there by then, it goes on down and he runs it down off the floor
+      takeLateS: 0.12,              // there by then, it goes on down and they run it down off the floor
       catchLeadS: 0.2,              // a long rebound: at the spot this long before it comes down to the hands
       popFtps: 8,                   // a carom nobody can get to in the air pops this fast up off the rim and comes down to the floor
-      catchLowFt: 1.2,              // run down off the floor: caught with both hands above this (and within catchReachFt, and his
+      catchLowFt: 1.2,              // run down off the floor: caught with both hands above this (and within catchReachFt, and their
       catchReachFt: 2,              // run), picked up off the floor below it
       // running a loose or bouncing ball down (pursuit, then arrival: Reynolds' steering behaviours): the soonest moment on
-      // its way that it is at a height his hands take it and he can be stopped a reach short of it by then; caught with both
-      // hands between gatherCatchLoH x his height (the catch's arms reach ~0.34 heights down in front) and chest height, or
-      // picked up off the floor below gatherPickHiH x his height (the knee), stopped on the spot gatherPickStopK of the
-      // pick-up's bend before the grab; taken as it goes along the floor no faster than gatherCatchFtps (caught: going away
-      // from him, he goes with it) or gatherPickFtps (picked up). The plan holds while he is no more than gatherSlackS behind
-      // it; the hands not on it gatherLateS after the take, a new one
-      gatherCatchLoH: 0.38, gatherPickHiH: 0.3, gatherPickStopK: 0.5, gatherSlackS: 0.12, gatherLateS: 0.25,
+      // its way that it is at a height their hands take it and they can be stopped a reach short of it by then; caught with both
+      // hands from gatherCatchLoH x their height (the catch's arms, 0.3 heights out in front, are within ~1 in of a ball there
+      // for every height; lower, ~3 in off it for a 7-footer) up to chest height, or bent down to it and picked up below
+      // gatherPickHiH x their height (the pick-up's arms get to anything from the floor to ~0.75 heights), stopped on the spot
+      // gatherPickStopK of the pick-up's bend before the grab; taken as it goes along the floor no faster than gatherCatchFtps
+      // (caught: going away from them, they go with it) or gatherPickFtps (picked up). The plan holds while they are no more
+      // than gatherSlackS behind it; the hands not on it gatherLateS after the take, a new one
+      gatherCatchLoH: 0.55, gatherPickHiH: 0.55, gatherPickStopK: 0.5, gatherSlackS: 0.12, gatherLateS: 0.25,
       gatherCatchFtps: 12, gatherPickFtps: 12,
       gatherCutFtps: 0.5,           // a ball going along the floor faster than this is picked up cut off (from beside its way)
-      gatherEarlyS: 0.3,            // a pick-up: on his spot and stopped this long before the bend
-      gatherBrakeK: 0.45,           // planned stops brake at this much of his braking (the strides' flight between the plants)...
+      gatherEarlyS: 0.3,            // a pick-up: on their spot and stopped this long before the bend
+      gatherBrakeK: 0.45,           // planned stops brake at this much of their braking (the strides' flight between the plants)...
       gatherStopK: 0.5,             // ...and the run to the spot brakes at this much, stopping there (at full speed until then)
-      // the box-out: boxFindS after the release each defender has found his man (the eyes on him) and steps into him, if he
-      // is coming to the glass or within boxManRimFt of the rim and no further than boxReachFt away: his back into him between
-      // him and the rim, the bodies touching (touchH x the two heights apart, the torsos' own depth, + boxGapFt), the eyes
-      // going to the ball boxEyesS after; the man leans boxLeanFt into him. A defender whose man is getting back holds his
+      // the box-out: boxFindS after the release each defender has found their man (the eyes on them) and steps into them, if they
+      // are coming to the glass or within boxManRimFt of the rim and no further than boxReachFt away: their back into them between
+      // them and the rim, the bodies touching (touchH x the two heights apart, the torsos' own depth, + boxGapFt), the eyes
+      // going to the ball boxEyesS after; the man leans boxLeanFt into them. A defender whose man is getting back holds their
       // ground facing the rim
       boxFindS: 0.35, touchH: 0.068, boxGapFt: 0.02, boxLeanFt: 0, boxManRimFt: 14, boxReachFt: 9, boxEyesS: 0.3,
-      boxSettleFt: 0.35,            // within this of his spot on the man he sits in it (the feet set wide) until the man moves him
-      boxLetGoFt: 3,                // his man this much further from the rim than as the box-out began (gone back up the floor): let go
-      boxMinS: 0.4,                 // a box-out takes this long to make: a shot off the rim sooner after he has found his man (a
-                                    // layup's), or a blocked one, he turns to the ball instead
+      boxSettleFt: 0.35,            // within this of their spot on the man they sit in it (the feet set wide) until the man moves them
+      boxLetGoFt: 3,                // their man this much further from the rim than as the box-out began (gone back up the floor): let go
+      boxMinS: 0.4,                 // a box-out takes this long to make: a shot off the rim sooner after they have found their man (a
+                                    // layup's), or a blocked one, they turn to the ball instead
       // a contest: the hand nearer the ball up at it along the line from its shoulder (coaching: the high hand on the ball's
       // side, in the shooter's sight; NBA tracking counts a closest defender within ~4-6 ft), as far as contestReachK of the
       // arm reaches and contestGapFt short of the ball at most (the hand ~0.12 heights past the wrist), up over contestLeadS
@@ -451,22 +453,22 @@
       lateContestFt: 6, lateLeadS: 0.12, // any other defender this close as it goes up gets a hand up at it over lateLeadS
       contestInS: 0.2,              // a contest's jump (or the wall at the rim) fades in over this (the arms coming up to it)
       wallLeadS: 0.36,              // the wall at the rim goes up this long before the release, both arms over it
-      contestSwapS: 0.12,           // the ball gone from the shooter's hands, the hand goes from his release point onto where it went
-      // a block: the blocker goes up in the shooter's face, blockFaceFt from him toward the rim (a running jump over what is
-      // left of the way there), and the ball is hit where the shot's own way first comes blockInFt inside his reach (his
-      // shoulders ~shoulderH x his height over the floor as he goes up, the reaching one ~shoulderInH heights nearer than the
+      contestSwapS: 0.12,           // the ball gone from the shooter's hands, the hand goes from their release point onto where it went
+      // a block: the blocker goes up in the shooter's face, blockFaceFt from them toward the rim (a running jump over what is
+      // left of the way there), and the ball is hit where the shot's own way first comes blockInFt inside their reach (their
+      // shoulders ~shoulderH x their height over the floor as they go up, the reaching one ~shoulderInH heights nearer than the
       // body's middle, the arm and touchWristFt) between blockMinS and blockMaxS after the release (coaching: meet it just
-      // after it leaves the hand), his hand onto it over blockReachS, the palm on its near side (the wrist touchWristFt off its
-      // surface); it goes off the way the swat goes, within blockConeDeg of the way he faces, as fast as blockSpeedK x the shot
+      // after it leaves the hand), their hand onto it over blockReachS, the palm on its near side (the wrist touchWristFt off its
+      // surface); it goes off the way the swat goes, within blockConeDeg of the way they face, as fast as blockSpeedK x the shot
       blockFaceFt: 2.2, blockMinS: 0.04, blockMaxS: 0.3, blockInFt: 0.3, shoulderH: 0.82, shoulderInH: 0.1, touchWristFt: 0.3, blockReachS: 0.22,
       blockConeDeg: 60, blockSpeedK: 1.1,
-      blockLateS: 0.6,              // not in his reach by blockMaxS: met further up its way while he is still up, this long at most
+      blockLateS: 0.6,              // not in their reach by blockMaxS: met further up its way while they are still up, this long at most
       releaseWaitS: 2.5,            // a contest or a block waits for the shot's own release up to this long past the plan
       // a steal: the swipe's hand on the ball's side onto the ball where it is; poked, it squirts off the hand the way the hand
-      // was going at ~pokeFtps, and he runs it down (caught or picked up by hand), the man who lost it and the nearest of his
-      // side within scrambleFt after it a reaction later; not his by chaseMaxS, it is his where it is
-      pokeFtps: 8, scrambleFt: 12, chaseMaxS: 4,
-      // a swipe (a poke steal, a reach-in) goes once the ball is within swipeFt of him along the floor (the arm and the lunge
+      // was going at ~pokeFtps, and they run it down (caught or picked up by hand), the man who lost it and the nearest of their
+      // side within scrambleFt after it a reaction later; not theirs by chaseMaxS, it is theirs where it is
+      pokeFtps: 8, scrambleFt: 12, chaseMaxS: 6,
+      // a swipe (a poke steal, a reach-in) goes once the ball is within swipeFt of them along the floor (the arm and the lunge
       // onto the front foot), swipeWaitS after it was due at the latest
       swipeFt: 3.2, swipeWaitS: 1.5,
     },

@@ -66,7 +66,7 @@
     const spot = (d, deg) => { const a = Math.PI + deg * Math.PI / 180; return { x: RIM.x + Math.cos(a) * d, y: RIM.y + Math.sin(a) * d }; };
     const face = (p, q) => Math.atan2(q.y - p.y, q.x - p.x);
     const stand = (p, xy, f, stance) => { const fa = f != null ? f : rimA(xy.x, xy.y); p.place(xy.x, xy.y, fa); p.setStance(stance || 'ready'); p.setFace(fa); };
-    // (a defender between his man and the rim, gap ft off him, in his stance, facing him)
+    // (a defender between their man and the rim, gap ft off them, in their stance, facing them)
     const guard = (d, m, gap) => { const a = rimA(m.x, m.y), xy = { x: m.x + Math.cos(a) * gap, y: m.y + Math.sin(a) * gap }; stand(d, xy, face(xy, m), 'defense'); };
     // (the choreographer's own bookkeeping for the bodies: every offensive player has a role, which the crash reads; every
     // defender a man)
@@ -118,8 +118,8 @@
       roles(c); miss(c, 'back');
       stage(c, { at: 0.6, evs: [{ type: 'shot', shooter: p.id, kind: 'jumper', x: s.x, y: s.y, made: false, pts: 3, contest: 'contested', defender: d.id, t: 0 }, { type: 'rebound', player: b.id, off: false, t: 1.7 }] });
     });
-    // three on three: every defender finds his man and boxes him out; the one under the rim takes it
-    add('box3', 'three on three: every defender boxes out his man, the middle one takes it', 5.0, [{ team: 0, h: 76 }, { team: 1, h: 76 }, { team: 0, h: 80 }, { team: 1, h: 80 }, { team: 0, h: 82 }, { team: 1, h: 83 }], (c) => {
+    // three on three: every defender finds their man and boxes them out; the one under the rim takes it
+    add('box3', 'three on three: every defender boxes out their man, the middle one takes it', 5.0, [{ team: 0, h: 76 }, { team: 1, h: 76 }, { team: 0, h: 80 }, { team: 1, h: 80 }, { team: 0, h: 82 }, { team: 1, h: 83 }], (c) => {
       const [p, d, o1, d1, o2, d2] = c.a, s = spot(19, 25);
       stand(p, s); c.hold(p, 'pocket'); guard(d, s, 4.5); man(c, d, p);
       const q1 = spot(10, -50), q2 = spot(8, 70);
@@ -128,7 +128,7 @@
       roles(c);
       stage(c, { at: 0.6, evs: [{ type: 'shot', shooter: p.id, kind: 'jumper', x: s.x, y: s.y, made: false, pts: 2, contest: 'contested', defender: d.id, t: 0 }, { type: 'rebound', player: d2.id, off: false, t: 1.6 }] });
     });
-    // a miss the rebounder cannot get to in the air: it comes down, bounces, and he runs it down off the floor
+    // a miss the rebounder cannot get to in the air: it comes down, bounces, and they run it down off the floor
     add('rebFloor', 'a miss nobody gets to in the air: it bounces and the guard runs it down', 6.0, [{ team: 0, h: 75 }, { team: 1, h: 75 }, { team: 1, h: 76 }], (c) => {
       const [p, d, g] = c.a, s = spot(23.8, -40);
       stand(p, s); c.hold(p, 'pocket'); guard(d, s, 5.5); man(c, d, p);

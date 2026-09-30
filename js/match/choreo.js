@@ -1104,9 +1104,9 @@
           // the throw-in waits up to 3 s for him (beat.waitFor): keep after the ball until then instead of pulling it
           // into his hands from across the floor
           const tHard = fireAt + 2.4;
-          // (run down as a loose ball is, rebound.js runDown: to where he takes it, slowing to it, caught with both hands at a
-          // bounce or picked up off the floor, his hands on it as it is his; it used to be caught at chest height the moment
-          // it was within 2.3 ft of him, the hands 1-4 ft off it, Trial 11)
+          // (run down as a loose ball is, rebound.js runDown: to where they take it, slowing to it, caught with both hands at a
+          // bounce or picked up off the floor, their hands on it as it is theirs; it used to be caught at chest height the moment
+          // it was within 2.3 ft of them, the hands 1-4 ft off it, Trial 11)
           const pk = {};
           const grab = () => {
             if (b.holder === by || (b.holder && b.holder.team === this.off)) return;
@@ -2188,7 +2188,7 @@
         this.at(this.T + 0.15, chop, 'chop');
         const TGc = M.Tune.glass, nearRim = atRim && (contest !== 'open' || ev.fouled);
         const cLead = nearRim ? TGc.wallLeadS : contest === 'tight' ? 0.22 : 0.3;
-        // (the blocker's own jump is the block, planned below: no contest move for him first, his hand up at the release point
+        // (the blocker's own jump is the block, planned below: no contest move for them first, their hand up at the release point
         // until the block's reach takes it onto the ball)
         const blocker = ev.blocked ? (this.A(ev.blocker) || df) : null;
         if (blocker === df) this.whenRelease(sh, fireAt, 0.22, (tRel) => df.contestBall(v.ball, tRel, { side: df.contestSide(v.ball), sh }));
@@ -2199,7 +2199,7 @@
           // is straight up with both)
           if (atRim && near && (contest !== 'open' || ev.fouled)) {
             df.play('wallUp', { mirror: false, facing: Math.atan2(spot.y - df.y, spot.x - df.x), fadeIn: M.Tune.glass.contestInS });
-            // (straight up, both hands at the ball as it goes up by him)
+            // (straight up, both hands at the ball as it goes up by them)
             df.contestBall(v.ball, tRel, { both: true, sh, lead: TGc.wallLeadS });
             return;
           }
@@ -2317,9 +2317,9 @@
       const pr = this.pendingRebound;
       const onScore = () => this.reportScore(ev);
       if (result.type === 'blocked') {
-        // the ball leaves the hand on the shot's own way to the rim and meets the blocker's hand where he can get to it as he
-        // goes up, the soonest (Trial 11: it used to go to a fixed spot ~2 ft on and 1.4 up, wherever his hand was, ~1-8 ft
-        // off it); his hand goes onto it there (Actor.reachFor, a touch) and it goes off the way the swat goes (rebound.js
+        // the ball leaves the hand on the shot's own way to the rim and meets the blocker's hand where they can get to it as they
+        // goes up, the soonest (Trial 11: it used to go to a fixed spot ~2 ft on and 1.4 up, wherever their hand was, ~1-8 ft
+        // off it); their hand goes onto it there (Actor.reachFor, a touch) and it goes off the way the swat goes (rebound.js
         // settles where, off the hand)
         const p0 = [b.x, b.y, b.z], dx = this.rim.x - p0[0], dy = this.rim.y - p0[1], dl = Math.hypot(dx, dy) || 1;
         const bl = this.A(ev.blocker) || this.guardOf(sh.id);
@@ -2336,7 +2336,7 @@
         b.flight(segsB, null);
         b.shotCue = { ev, blocked: true }; // (the result is out when the ball meets the blocker's hand)
         b.passTarget = pr && pr.actor ? pr.actor : null;
-        // (the block's reach takes his hand over from the contest that put it up at the release point)
+        // (the block's reach takes their hand over from the contest that put it up at the release point)
         if (bl && bl.team === this.def) { bl._contest = null; bl.reachFor(b, this.T + hit.tH - M.Tune.glass.reachEarlyS * 0.5, { hands: [bl.contestSide(b)], lead: M.Tune.glass.blockReachS, until: this.T + hit.tH + 0.05, touch: true, other: true }); }
         if (pr) { pr.swat = bl ? bl.facing : null; this.scheduleRebounder(pr, b.time + hit.tH + T2); }
         v.arena.cheer(this.def, 0.9, 2.2);
@@ -2435,8 +2435,8 @@
       this.at(this.T + 0.5, () => { if (sh.contestBy != null) sh.contestBy = null; }, 'contest over');
     }
     /** where a shot is blocked (Trial 11): along the shot's own way to the rim (from the release point p0), the first point
-     *  the blocker's hand can reach as he goes up (his block move's jump at that moment), from Tune.glass.blockMinS after the
-     *  release on; out of his reach all the way, the nearest. Returns { tH (s after the release), pHit, v0 (the shot's launch) } */
+     *  the blocker's hand can reach as they go up (their block move's jump at that moment), from Tune.glass.blockMinS after the
+     *  release on; out of their reach all the way, the nearest. Returns { tH (s after the release), pHit, v0 (the shot's launch) } */
     blockHit(p0, bl) {
       const TG = M.Tune.glass, rim = [this.rim.x, this.rim.y, M.Ball.RIM_Z];
       const d = Math.hypot(rim[0] - p0[0], rim[1] - p0[1]);
@@ -2446,13 +2446,13 @@
       if (bl) {
         const cs = bl.clip && bl.clip.clip.name === 'block' ? bl.clip : null;
         const L = (bl.dims.ua + bl.dims.fa) * TG.contestReachK + TG.touchWristFt, bw = { x: 0, y: 0 };
-        // (just after the release if he is there; a blocker a step late meets it further up its way, while he is still up,
-        // Tune.glass.blockLateS: searched only to blockMaxS, his hand was aimed ~7-16 in beyond its reach, Trial 11)
+        // (just after the release if they are there; a blocker a step late meets it further up its way, while they are still up,
+        // Tune.glass.blockLateS: searched only to blockMaxS, their hand was aimed ~7-16 in beyond its reach, Trial 11)
         for (let t = TG.blockMinS; t <= TG.blockLateS + 1e-9; t += 1 / 60) {
           const q = b._segPos(s, t, TMPB);
           const jz = cs ? bl._clipJumpZ(cs, cs.t + t) : 0;
           if (t > TG.blockMaxS && (best <= 0 || (cs && jz <= 0))) break;
-          // (where his body will be then: his block's own way up, its running jump; the reaching shoulder that much nearer)
+          // (where their body will be then: their block's own way up, its running jump; the reaching shoulder that much nearer)
           if (cs) bl.clipBodyAt(cs, cs.t + t, bw); else { bw.x = bl.x + bl.vx * t; bw.y = bl.y + bl.vy * t; }
           const gap = Math.hypot(q[0] - bw.x, q[1] - bw.y, q[2] - (TG.shoulderH * bl.H + jz)) - L - TG.shoulderInH * bl.H;
           if (gap <= -TG.blockInFt) { tH = t; break; }
@@ -2484,7 +2484,7 @@
         if (a.team === this.off) this.lockOff(a, 1.4); else this.lockDef(a, 1.4);
         a.moveTo(a.x + Math.cos(ang) * go, a.y + Math.sin(ang) * go, { speed: 15, face: () => Math.atan2(ball.y - a.y, ball.x - a.x), stance: 'ready' });
       }
-      // (the nearest of the other side goes up with him, the hand on the ball's side up at it, a step behind: Trial 11)
+      // (the nearest of the other side goes up with them, the hand on the ball's side up at it, a step behind: Trial 11)
       const opp = cand.find((c) => c.a.team !== pr.actor.team && c.dd < 5.5);
       if (opp && Math.random() < 0.6 && pr.tGrabT != null && pr.style !== 'floor' && pr.style !== 'long') {
         const clip = M.Anims.get('contestJump'), up = clip.events.set || 0.18;
@@ -2536,12 +2536,12 @@
       pr.tGrabT = tGrab;
     }
     /** the shot is up (Trial 11): the offense's bigs (and the engine's offensive rebounder) crash and the rest get back; each
-     *  defender finds his man and, if he is coming to the glass or already near it, steps into him and puts his back into
-     *  him (boxOut); a defender whose man is getting back holds his ground facing the rim and reads the carom */
+     *  defender finds their man and, if they are coming to the glass or already near it, steps into them and puts their back into
+     *  them (boxOut); a defender whose man is getting back holds their ground facing the rim and reads the carom */
     crashBoards(sh, quick, blocked) {
       const T = this.T, TG = M.Tune.glass, pr = this.pendingRebound;
       // (no box-out to be had: a blocked shot is a loose ball at once, and a shot off the rim before a box-out could be made
-      // (Tune.glass.boxMinS after the defender has found his man: a layup's) is gone for as he turns to it)
+      // (Tune.glass.boxMinS after the defender has found their man: a layup's) is gone for as they turn to it)
       const tOff = pr && pr.tContactT != null ? pr.tContactT : null;
       const noBox = !!blocked || (tOff != null && tOff - T < TG.boxFindS * (quick ? 0.6 : 1) + TG.boxMinS);
       const crash = new Set();
@@ -2564,14 +2564,14 @@
           this.at(T + TG.readS, () => { if (d.isBusy()) return; d.setStance('ready'); d.setFace(this.rim); d.lookAt(this.v.ball); }, 'to the ball');
           continue;
         }
-        // (he finds his man: the eyes on him first)
+        // (they find their man: the eyes on them first)
         if (m) d.lookAt(m, { hold: TG.boxFindS });
         this.at(T + TG.boxFindS * (quick ? 0.6 : 1), () => this.boxOut(d, m, !!m && crash.has(m)), 'boxout');
       }
     }
-    /** a box-out (Trial 11): his man coming to the glass (or near it) gets his back: between him and the rim, the bodies in
+    /** a box-out (Trial 11): their man coming to the glass (or near it) gets their back: between them and the rim, the bodies in
      *  contact (Tune.glass.boxContactFt apart), a wide base and the arms up and out, facing the rim with the eyes on the ball,
-     *  and the man leans into him; with nobody to box out he holds his ground facing the rim. It holds until the carom is
+     *  and the man leans into them; with nobody to box out they hold their ground facing the rim. It holds until the carom is
      *  read (rebound.js: the players near it go after it) */
     boxOut(d, m, crashing) {
       if (d.isBusy()) return;
@@ -2589,12 +2589,12 @@
       d._contact = { with: m, until: (pr && pr.tContactT != null ? pr.tContactT : this.T + 1.5) + TG.readS + 0.4 };
       const onHim = () => { d.track(() => { const q = u(); return { x: m.x + q[0] * cf, y: m.y + q[1] * cf, vx: m.vx, vy: m.vy }; }, { stance: 'boxout', speed: d.maxSpeed * 0.85 }); d.setFace(() => Math.atan2(rim.y - d.y, rim.x - d.x)); };
       onHim();
-      // (there, he sits in it and holds his ground, the feet set wide; the man moving him, he goes with him: shuffling on at a
+      // (there, they sit in it and hold their ground, the feet set wide; the man moving them, they go with them: shuffling on at a
       // walk the whole time, the feet kept a walk's width, ~0.6 x the shoulders, Trial 11)
       const mRim0 = mRim;
       const hold = () => {
         if (d.isBusy() || !pr || this.pendingRebound !== pr || pr.readT != null) return;
-        // (his man gone back up the floor, away from the glass: let go and hold his ground facing the rim, not followed out)
+        // (their man gone back up the floor, away from the glass: let go and hold their ground facing the rim, not followed out)
         if (Math.hypot(m.x - rim.x, m.y - rim.y) > mRim0 + TG.boxLetGoFt) {
           d._contact = null;
           d.setStance('ready');
@@ -2609,7 +2609,7 @@
       };
       this.at(this.T + 0.2, hold, 'box-out hold');
       this.at(this.T + TG.boxEyesS, () => { if (!d.isBusy()) d.lookAt(b); }, 'box-out eyes on the ball');
-      // (the man leans into him, pushing for the rim: kept at the contact, a little into it)
+      // (the man leans into them, pushing for the rim: kept at the contact, a little into it)
       if (m.team === this.off && crashing && !m.isBusy()) {
         // (not carried along by the boxer's own speed: the two following each other's went on drifting together)
         m.track(() => { const q = u(); return { x: d.x - q[0] * (cf - TG.boxLeanFt), y: d.y - q[1] * (cf - TG.boxLeanFt), vx: 0, vy: 0 }; }, { speed: 9, face: rim });
@@ -2762,8 +2762,8 @@
           beat.onStart = (fireAt) => {
             this.lockDef(st, 4);
             st.track(() => ({ x: who.x + Math.cos(who.facing) * 2.3, y: who.y + Math.sin(who.facing) * 2.3, vx: who.vx, vy: who.vy }), { stance: 'defense' });
-            // poke: the ball squirts off his hand from where it is, the way the hand was going (away from him and on past the
-            // man), and he runs it down
+            // poke: the ball squirts off their hand from where it is, the way the hand was going (away from them and on past the
+            // man), and they run it down
             const poke = () => {
               poked = true;
               const dx = b.x - st.x, dy = b.y - st.y, dl = Math.hypot(dx, dy) || 1, sp = M.Tune.glass.pokeFtps * (0.85 + Math.random() * 0.3);
@@ -2773,10 +2773,10 @@
               this.chaseLoose(st, who);
               v.arena.cheer(st.team, 0.7, 1.8);
             };
-            // (the swipe with the hand on the ball's side once the ball is in his reach, onto the ball where it is as it pokes it
+            // (the swipe with the hand on the ball's side once the ball is in their reach, onto the ball where it is as it pokes it
             // at the swipe's contact: Trial 11; swiped at a set time, a man a step or two behind the dribbler swiped at the air
             // ~2-3 ft short of it and the ball came loose anyway)
-            // (the stealer never gets to it: the dribbler loses it, off his hand toward the man coming at him, who runs it down)
+            // (the stealer never gets to it: the dribbler loses it, off their hand toward the man coming at them, who runs it down)
             const fumble = () => {
               poked = true;
               const dx = st.x - b.x, dy = st.y - b.y, ang = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.6, sp = M.Tune.glass.pokeFtps * 0.6;
@@ -2787,8 +2787,8 @@
             };
             this.swipeAt(st, fireAt - 0.22, fireAt + M.Tune.glass.swipeWaitS, poke, fumble);
           };
-          // (the steal is his once he has picked it up: the next play waits for that, Trial 11; it used to go on 0.9 s after the
-          // poke and hand him the ball wherever it was, ~3-11 ft from his hands)
+          // (the steal is theirs once they have picked it up: the next play waits for that, Trial 11; it used to go on 0.9 s after the
+          // poke and hand them the ball wherever it was, ~3-11 ft from their hands)
           beat.waitFor = () => b.holder === st || (poked && b.state !== 'loose' && b.state !== 'flight');
           // (a ball poked on away takes a while to run down: the swipe's wait and the chase's own limit, chaseLoose)
           beat.maxWait = M.Tune.glass.swipeWaitS + M.Tune.glass.chaseMaxS + 0.2;
@@ -2908,9 +2908,9 @@
       this.flipAfterChange(st);
       st.moveTo(st.x - this.dir * 12, st.y, { speed: st.maxSpeed, face: 'move' });
     }
-    /** a swipe at the ball in someone's hands or dribble (Trial 11): from t0, once the ball is within his reach (Tune.glass.
+    /** a swipe at the ball in someone's hands or dribble (Trial 11): from t0, once the ball is within their reach (Tune.glass.
      *  swipeFt, or at tMax whatever), the swipe with the hand on the ball's side, onto the ball where it is (a touch), and
-     *  onContact at the swipe's contact; still out of his reach at tMax, onMiss instead (when given) */
+     *  onContact at the swipe's contact; still out of their reach at tMax, onMiss instead (when given) */
     swipeAt(a, t0, tMax, onContact, onMiss) {
       const b = this.v.ball, TG = M.Tune.glass, cev = (M.Anims.get('swipe').events || {}).contact || 0.2;
       const go = () => {
@@ -2926,9 +2926,9 @@
       };
       this.at(Math.max(this.T, t0), go, 'swipe');
     }
-    /** a ball knocked loose (Trial 11): the stealer runs it down and takes it with his hands (caught as it bounces, or picked
-     *  up off the floor: rebound.js runDown), the man who lost it and the nearest of his side a reaction later after it too, a
-     *  step behind (it used to be handed to the stealer 0.75 s on, wherever it was, ~2-3 ft from his hands) */
+    /** a ball knocked loose (Trial 11): the stealer runs it down and takes it with their hands (caught as it bounces, or picked
+     *  up off the floor: rebound.js runDown), the man who lost it and the nearest of their side a reaction later after it too, a
+     *  step behind (it used to be handed to the stealer 0.75 s on, wherever it was, ~2-3 ft from their hands) */
     chaseLoose(st, lost) {
       const b = this.v.ball, TG = M.Tune.glass, pk = {}, t0 = this.T;
       const others = [lost].concat(this.offActors().filter((o) => o !== lost && Math.hypot(o.x - b.x, o.y - b.y) < TG.scrambleFt)).filter(Boolean).slice(0, 2);
@@ -2944,7 +2944,7 @@
       const chase = () => {
         if (b.holder) { if (b.holder === st) this.afterSteal(st); return; }
         if (this.runDown(st, pk)) { this.afterSteal(st); return; }
-        // (not his after all, a long while on: it is his where it is, as the engine has it)
+        // (not theirs after all, a long while on: it is theirs where it is, as the engine has it)
         if (this.T > t0 + TG.chaseMaxS) { b.give(st, 'chest'); this.afterSteal(st); return; }
         this.at(this.T + (pk.t != null ? 1 / 60 : 0.05), chase, 'chase the loose ball');
       };
@@ -3000,8 +3000,8 @@
       }
       let reached = null;
       if (!shooting && !def3 && kind !== 'offensive' && fouler && on && on.hasBall && fouler.team !== on.team) {
-        // the reach-in: the fouler onto the man with the ball, in front of him, and his hand at the ball on its side once it is
-        // within his reach; the whistle on the contact (Trial 11: he used to be sent to where the man had been and reached in
+        // the reach-in: the fouler onto the man with the ball, in front of them, and their hand at the ball on its side once it is
+        // within their reach; the whistle on the contact (Trial 11: they used to be sent to where the man had been and reached in
         // there, ~5-10 ft from the ball)
         beat.onStart = (fireAt) => {
           this.dtask[fouler.id] = { until: fireAt + 2 };
@@ -3010,10 +3010,10 @@
           this.swipeAt(fouler, fireAt - 0.2, fireAt + M.Tune.glass.swipeWaitS, () => { reached = true; });
         };
         beat.waitFor = () => reached !== false;
-        // (time to get there first: a man further off than a step reaches in only once he is there, Trial 11)
+        // (time to get there first: a man further off than a step reaches in only once they are there, Trial 11)
         reachNeed = this.runTime ? this.runTime(fouler, Math.max(0, Math.hypot(fouler.x - on.x, fouler.y - on.y) - 2.2)) + 0.3 : 0;
       } else if (!shooting && !def3 && kind !== 'offensive' && fouler && on && Math.hypot(fouler.x - on.x, fouler.y - on.y) > 3.5) {
-        // away from the ball (a hold, a push): the fouler gets to his man first, and a hand on him
+        // away from the ball (a hold, a push): the fouler gets to their man first, and a hand on them
         beat.onStart = (fireAt) => {
           this.dtask[fouler.id] = { until: fireAt + 1 };
           fouler.moveTo(on.x + Math.cos(on.facing) * 2.2, on.y + Math.sin(on.facing) * 2.2, { by: fireAt - 0.2, speed: fouler.maxSpeed, stance: 'defense' });

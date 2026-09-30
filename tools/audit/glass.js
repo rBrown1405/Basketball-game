@@ -3,7 +3,7 @@
 // the contest, a block, the miss's carom), the box-outs and the crash, the rebound beat (the rebounder's read, run, jump and
 // take), the turnover beat (a poke and the loose ball, an interception) and the foul beat (a reach-in), each measured by the
 // game's own glass meter (debug.js, Meters._glass): the ball steered off its own path or not, when the one who takes it set
-// off after it against the ball coming off the rim, his hands at the ball as he takes it, the take against the top of his
+// off after it against the ball coming off the rim, their hands at the ball as they take it, the take against the top of their
 // jump, the ball under the chin with the elbows out; each box-out's contact, base and arms; each contest's hand against the
 // line to the ball at the release; a block's hand at the ball; a swipe's hand to the ball.
 //   node tools/audit/glass.js [--json out.json] [--only id,id] [--pops]
@@ -61,10 +61,10 @@ if (require.main === module) {
       if (x.kind === 'miss' || x.kind === 'blocked' || x.kind === 'loose') {
         console.log(`  ${x.kind}: off the rim ${f(x.contactS)} s after it went up; steered ${f(x.bendMaxIn)} in` + (x.taken ? `; taken by ${x.id}${x.off ? ' (offense)' : ''} ${x.air ? 'in the air' : 'off the floor'} ${f(x.takeS)} s after it came off at ${f(x.takeZ)} ft: hands ${f(x.gapLIn)} / ${f(x.gapRIn)} in off it, pulled ${f(x.pullFt)} ft; set off ${f(x.onsetS)} s after it came off, closed ${f(x.preCloseFt)} ft before (${f(x.d0Ft)} ft away as it went up, ${f(x.dContactFt)} as it came off); jump ${f(x.jumpIn)} in, the take ${f(x.apexS)} s after the top; chin ${f(x.chinS)} s, held ${f(x.chinHoldS)} s, elbows ${f(x.elbowSpanMax)} x the shoulders` : '; nobody took it'));
         for (const o of x.others || []) console.log(`    near: ${o.id} set off ${f(o.onsetS)} s after it came off, closed ${f(o.preCloseFt)} ft before`);
-        for (const b of x.box || []) console.log(`    box-out: ${b.id} on ${f(b.man)} from ${f(b.startS)} s${b.manLeft ? ' (his man went back up the floor: let go, not counted)' : ''}: contact at ${f(b.contactS)} s, held ${f(b.holdPct)}%, gap ${f(b.gapIn)} in, man ${f(b.behindDeg)} deg off straight behind, base ${f(b.baseX)} x the shoulders, elbows ${f(b.elbowX)} x, knees ${f(b.kneeDeg)} deg`);
+        for (const b of x.box || []) console.log(`    box-out: ${b.id} on ${f(b.man)} from ${f(b.startS)} s${b.manLeft ? ' (their man went back up the floor: let go, not counted)' : ''}: contact at ${f(b.contactS)} s, held ${f(b.holdPct)}%, gap ${f(b.gapIn)} in, man ${f(b.behindDeg)} deg off straight behind, base ${f(b.baseX)} x the shoulders, elbows ${f(b.elbowX)} x, knees ${f(b.kneeDeg)} deg`);
       } else if (x.kind === 'contest') console.log(`  contest by ${x.id} (${f(x.level)}, ${f(x.distFt)} ft, ${f(x.clip)}): hand ${f(x.angDeg)} deg off the line to the ball, ${f(x.handBallFt)} ft from it, ${f(x.handOverHeadFt)} ft over the head, jump ${f(x.jumpIn)} in`);
       else if (x.kind === 'interception') console.log(`  interception by ${x.id} of ${x.passer}'s pass: hands ${f(x.gapLIn)} / ${f(x.gapRIn)} in off it, pulled ${f(x.pullFt)} ft, at ${f(x.takeZ)} ft`);
-      else if (x.kind === 'block') console.log(`  block by ${x.id} (${f(x.clip)}): hand ${f(x.gapIn)} in off the ball, ${f(x.apexS)} s after the top of a ${f(x.jumpIn)} in jump, the ball off ${f(x.swatDeg)} deg from the hand's way`);
+      else if (x.kind === 'block') console.log(`  block by ${x.id} (${f(x.clip)}): hand ${f(x.gapIn)} in off the ball, the arm ${f(x.armDeg)} deg off the line to it, ${f(x.apexS)} s after the top of a ${f(x.jumpIn)} in jump, the ball off ${f(x.swatDeg)} deg from the hand's way`);
       else console.log(`  ${x.kind} by ${x.id} (from ${f(x.startFt)} ft): hand ${f(x.minFt)} ft from the ball at its nearest, ${f(x.atEventFt)} ft at the contact`);
     }
   }

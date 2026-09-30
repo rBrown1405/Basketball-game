@@ -2,7 +2,7 @@
 // the floor and -2 to 14 ft/s up, from 1 to 7 ft high), each run down by one player who was already on the move (0 to 14
 // ft/s some way) with the game's own Director.runDown (rebound.js: the gather planned on the ball's own way, a run onto it
 // and a stop a reach short of it, a catch at a bounce or a pick-up off the floor, cut off from beside its way when it rolls
-// on): how many are taken by hand within 5 s, how soon, both hands' gap to the ball as it is taken, his speed then, and the
+// on): how many are taken by hand within 5 s, how soon, both hands' gap to the ball as it is taken, their speed then, and the
 // joint pops (Meters) from the moment it is loose to half a second after the take.
 //   node tools/audit/chase.js [N (40)] [--json out.json]
 // Used by check.js (a short run).
@@ -76,7 +76,7 @@ if (require.main === module) {
   const { PBC } = load(3);
   const N = +(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 40);
   const rows = run(PBC, N);
-  for (const r of rows) console.log(`ball ${String(r.i).padStart(2)}: ${r.d0} ft away, ${r.vh} ft/s along the floor, ${r.vz} up; he was going ${r.pv} ft/s: ` + (r.tTake == null ? 'not taken in 5 s' : `${r.kind === 'pick' ? 'picked up' : 'caught'} ${r.tTake} s on, hands within ${r.gapIn} in, going ${r.speedAt} ft/s`) + `; pops ${r.pops}`);
+  for (const r of rows) console.log(`ball ${String(r.i).padStart(2)}: ${r.d0} ft away, ${r.vh} ft/s along the floor, ${r.vz} up; they were going ${r.pv} ft/s: ` + (r.tTake == null ? 'not taken in 5 s' : `${r.kind === 'pick' ? 'picked up' : 'caught'} ${r.tTake} s on, hands within ${r.gapIn} in, going ${r.speedAt} ft/s`) + `; pops ${r.pops}`);
   const S = summary(rows);
   console.log(JSON.stringify(S));
   const i = process.argv.indexOf('--json');

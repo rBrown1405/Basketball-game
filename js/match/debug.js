@@ -677,8 +677,8 @@
      *    neither, the ball flies the rest of the way into the hold), the take against the top of the taker's jump (glApexS),
      *    and after it the ball under the chin (glChinFt) with the elbows out (glElbowSpan x the shoulders);
      *  - every box-out while the ball is up (the 'boxout' stance): the man found, the bodies in contact (glBoxGapFt) with
-     *    him behind (glBoxBehindDeg), the base (x the shoulders), the elbows, the knees;
-     *  - at every release, the nearest man of the other side within glContestFt: his higher hand against the line from his
+     *    them behind (glBoxBehindDeg), the base (x the shoulders), the elbows, the knees;
+     *  - at every release, the nearest man of the other side within glContestFt: their higher hand against the line from their
      *    shoulder to the ball (glContestDeg), how far from the ball and how high;
      *  - a block: the nearest hand of the other side to where the ball is hit (glBlockGapIn), the hit against the top of the
      *    blocker's jump, the ball's new way against the hand's;
@@ -723,7 +723,7 @@
       // --- the carom and the take
       if (GL.reb) this._glRebFrame(GL.reb, ball, time, pl);
       // --- an interception: a pass taken by the other side (the pass meter follows the throw and the catch; here, the
-      // stealer's hands at the ball as he takes it)
+      // stealer's hands at the ball as they take it)
       else if (this._glTaker(ball) && GL.prevSt === 'flight' && GL.passFrom && this._glTaker(ball).team !== GL.passFrom.team) {
         const a = this._glTaker(ball), k = this._glTake(a);
         GL.recs.push({ kind: 'interception', t: +time.toFixed(3), id: a.id, passer: GL.passFrom.id, gapLIn: +k.gapL.toFixed(1), gapRIn: +k.gapR.toFixed(1), pullFt: +k.pull.toFixed(2), takeZ: +GL.prevB[2].toFixed(2) });
@@ -807,7 +807,7 @@
         r.after.push({ t: time, jz: a.jumpZ || 0, chin: Math.abs(ball.z + R - chinZ) <= Tn.glChinFt && front <= Tn.glChinFrontFt, el: Math.hypot(P[e0] - P[e1], P[e0 + 1] - P[e1 + 1]) / shs });
       } else { this._glRebEnd(r); GL.reb = null; }
     }
-    /** who has the ball in his hands or his dribble (a player), or null */
+    /** who has the ball in their hands or their dribble (a player), or null */
     _glTaker(ball) {
       const a = ball.state === 'held' ? ball.holder : ball.state === 'dribble' ? (ball.dr && ball.dr.actor) || ball.holder : null;
       return a && a.kind === 'player' ? a : null;
@@ -832,7 +832,7 @@
       let i = iA;
       while (i > 0) { const dq = q[i * 4] - q[(i - 1) * 4]; if (!(dq > 0) || (d(i - 1) - d(i)) / dq < Tn.glApproachFtps) break; i--; }
       // (what was closed on it before it could be read, past what going straight at the rim or away from it closes: a crash at
-      // the glass is no read of where the carom goes; the same run straight in from where he was would have left him at the
+      // the glass is no read of where the carom goes; the same run straight in from where they were would have left them at the
       // neutral spot)
       let pre = d(0) - d(iC);
       if (rim) {
@@ -884,19 +884,19 @@
       const Tn = TU();
       let b = r.box.get(a);
       if (!b) {
-        // (his man: the one he is boxing out (Actor._contact), else the nearest of the other side as the box-out starts)
+        // (their man: the one they are boxing out (Actor._contact), else the nearest of the other side as the box-out starts)
         let m = a._contact && a._contact.with && a._contact.with.team !== a.team ? a._contact.with : null, md = m ? 0 : Infinity;
         if (!m) for (const o of pl) if (o.team !== a.team) { const d = Math.hypot(o.x - a.x, o.y - a.y); if (d < md) { md = d; m = o; } }
         r.box.set(a, b = { a, man: md <= Tn.glBoxManFt ? m : null, t0: time, fr: [], rim0: m && r.rim ? Math.hypot(m.x - r.rim.x, m.y - r.rim.y) : null });
       }
       if (!b.man) return;
-      // (his man gone back up the floor, glBoxLeftFt further from the rim: nobody to box out, not counted as one)
+      // (their man gone back up the floor, glBoxLeftFt further from the rim: nobody to box out, not counted as one)
       if (b.rim0 != null && r.rim && Math.hypot(b.man.x - r.rim.x, b.man.y - r.rim.y) > b.rim0 + Tn.glBoxLeftFt) b.left = true;
       const P = a.sk.P, Q = b.man.sk.P, rad = Tn.bodyR, D = U.DEG;
       // (the bodies: the boxer's hips, trunk and thighs against the man's)
       let gap = Infinity;
       for (const [s0, s1, k] of BOX_SEGS) for (const [u0, u1, kk] of BOX_SEGS) gap = Math.min(gap, segSeg(P, s0, s1, Q, u0, u1) - rad[k] * a.H - rad[kk] * b.man.H);
-      // (the man behind: the way to him against the boxer's back)
+      // (the man behind: the way to them against the boxer's back)
       const ang = Math.abs(U.wrapPi(Math.atan2(b.man.y - a.y, b.man.x - a.x) - a.facing - Math.PI)) / D;
       const hz = (j0, j1) => Math.hypot(P[j0 * 3] - P[j1 * 3], P[j0 * 3 + 1] - P[j1 * 3 + 1]);
       const sh = hz(J.L_SH, J.R_SH) || 1, pose = a.sk.pose;
@@ -910,7 +910,7 @@
       const i0 = F.findIndex(inC);
       // (held: in contact from the first touch until the ball comes off the rim)
       const Hd = i0 < 0 ? [] : F.slice(i0).filter(f => f.t <= r.tContact);
-      // (the stance while in contact: the approach and the turn into him are not the box-out's base)
+      // (the stance while in contact: the approach and the turn into them are not the box-out's base)
       const C2 = F.filter(inC), Fm = C2.length ? C2 : F;
       const med = (k) => { const v = Fm.map(f => f[k]).sort((p, q) => p - q); return v[v.length >> 1]; };
       return Object.assign(out, { contactS: i0 < 0 ? null : +(F[i0].t - r.t0).toFixed(3), holdPct: Hd.length ? Math.round(Hd.filter(inC).length / Hd.length * 100) : 0,
@@ -927,7 +927,7 @@
         clip: d.clip && d.clip.clip ? d.clip.clip.name : d.upper && d.upper.clip ? d.upper.clip.name : null, jumpIn: +((d.jumpZ || 0) * IN).toFixed(1),
         angDeg: +hb.ang.toFixed(1), handBallFt: +hb.gap.toFixed(2), handOverHeadFt: +hb.over.toFixed(2), angBestDeg: +hb.ang.toFixed(1) };
       this.S.gl.recs.push(rec);
-      // (and over the ball's first moment in the air, glContestAfterS: the best of his hand against it, a late contest)
+      // (and over the ball's first moment in the air, glContestAfterS: the best of their hand against it, a late contest)
       (this.S.gl.ct || (this.S.gl.ct = [])).push({ d, rec, until: time + Tn.glContestAfterS });
     }
     /** a defender's higher hand against the ball: the angle between the arm (shoulder to hand) and the line from the shoulder to
@@ -968,7 +968,10 @@
       let tA = time;
       const q = GL.reb && GL.reb.trk.get(who);
       if (q) for (let i = 0; i < q.length; i += 4) if (q[i + 3] > bk.jz) { bk.jz = q[i + 3]; tA = q[i]; }
-      bk.rec = { kind: 'block', t: +time.toFixed(3), id: who.id, shooter: bk.sh ? bk.sh.id : null, gapIn: +(gap * IN).toFixed(1), jumpIn: +((who.jumpZ || 0) * IN).toFixed(1), apexS: +(time - tA).toFixed(3),
+      // (the hand's arm against the line from its shoulder to the ball at the hit: reaching toward it, whether or not it gets there)
+      const sj = (side ? J.R_SH : J.L_SH) * 3, ux = P[j] - P[sj], uy = P[j + 1] - P[sj + 1], uz = P[j + 2] - P[sj + 2], wx = p[0] - P[sj], wy = p[1] - P[sj + 1], wz = p[2] - P[sj + 2];
+      const armDeg = Math.acos(U.clamp((ux * wx + uy * wy + uz * wz) / ((Math.hypot(ux, uy, uz) || 1) * (Math.hypot(wx, wy, wz) || 1)), -1, 1)) / U.DEG;
+      bk.rec = { kind: 'block', t: +time.toFixed(3), id: who.id, shooter: bk.sh ? bk.sh.id : null, gapIn: +(gap * IN).toFixed(1), armDeg: +armDeg.toFixed(1), jumpIn: +((who.jumpZ || 0) * IN).toFixed(1), apexS: +(time - tA).toFixed(3),
         swatDeg: swat == null ? null : Math.round(swat), clip: who.clip && who.clip.clip ? who.clip.clip.name : null };
       GL.recs.push(bk.rec);
     }
@@ -1561,7 +1564,7 @@
       // box-outs, contests, blocks, swipes
       const Ball = [].concat(...R.filter(r => r.box).map(r => r.box)).filter(b => b.man), B = Ball.filter(b => !b.manLeft);
       // (a swipe at the ball: its man within glSwipeAtFt of the ball as it starts; a swipe at a man away from the ball is a foul
-      // on his body, not a reach for the ball)
+      // on their body, not a reach for the ball)
       const Ct = R.filter(r => r.kind === 'contest'), Bk = R.filter(r => r.kind === 'block'), Sw = R.filter(r => r.kind === 'swipe' && r.startFt <= Tn.glSwipeAtFt), Ic = R.filter(r => r.kind === 'intercept'), Xc = R.filter(r => r.kind === 'interception');
       const byLv = {};
       for (const lv of ['open', 'contested', 'tight']) {
@@ -1584,7 +1587,7 @@
         boxElbowX: M2(B, 'elbowX'), boxArmsOut: B.filter(b => b.elbowX >= Tn.glElbowSpan).length, boxKneeDeg: M2(B, 'kneeDeg', 0),
         contests: Ct.length, contestToward: Ct.filter(r => r.angBestDeg <= Tn.glContestDeg).length, contestAtRelease: Ct.filter(r => r.angDeg <= Tn.glContestDeg).length,
         contestAngDeg: M2(Ct, 'angDeg', 1), contestAngBestDeg: M2(Ct, 'angBestDeg', 1), contestByLevel: byLv,
-        blocks: Bk.length, blockOnBall: Bk.filter(r => r.gapIn <= Tn.glBlockGapIn).length, blockGapIn: M2(Bk, 'gapIn', 1), blockApexS: M2(Bk, 'apexS', 3), blockSwatDeg: M2(Bk, 'swatDeg', 0),
+        blocks: Bk.length, blockOnBall: Bk.filter(r => r.gapIn <= Tn.glBlockGapIn).length, blockToward: Bk.filter(r => r.armDeg != null && r.armDeg <= Tn.glContestDeg).length, blockArmDeg: M2(Bk, 'armDeg', 1), blockGapIn: M2(Bk, 'gapIn', 1), blockApexS: M2(Bk, 'apexS', 3), blockSwatDeg: M2(Bk, 'swatDeg', 0),
         swipesAway: R.filter(r => r.kind === 'swipe' && !(r.startFt <= Tn.glSwipeAtFt)).length, swipes: Sw.length, swipeToBall: Sw.filter(r => r.minFt != null && r.minFt <= Tn.glSwipeFt).length, swipeMinFt: M2(Sw, 'minFt'),
         intercepts: Ic.length, interceptMinFt: M2(Ic, 'minFt'),
         interceptions: Xc.length, interceptionTwoHands: Xc.filter(two).length, interceptionPulled: Xc.filter(r => !touch(r)).length, interceptionPullFt: M2(Xc, 'pullFt'),
@@ -2354,5 +2357,5 @@
     }, true);
   }
 
-  M.Debug = { Meters, Recorder, Session, toggle, install, stateLabel, summ, hull, POINTS };
+  M.Debug = { Meters, Recorder, Session, toggle, install, stateLabel, summ, hull, POINTS, ballInBody };
 })();

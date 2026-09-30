@@ -47,7 +47,7 @@
       // reaching for a spot in the world (the rim): { x, y, z, t0, t1 } eases the held ball there over the rise;
       // { hx, hy, hz, h0, h1, hands } holds the hand(s) on it (a dunker's grip on the rim)
       this.reach = o.reach || null;
-      // a running jump (Trial 11: a rebounder's, from where he is to where the move is set, o.x, o.y): the body stays over its
+      // a running jump (Trial 11: a rebounder's, from where they are to where the move is set, o.x, o.y): the body stays over its
       // feet through the load, pushes off toward it from ta to the take-off t0 (clip times), and carries on in the air at the
       // speed it took off with, over the spot at tg (where the hands meet the ball) and on until it lands at t1
       this.travel = o.travel || null;
@@ -182,7 +182,7 @@
       }
     }
     /** move to (x,y). o: {by (abs time), speed (cap), face ('move'|angle|{x,y}), stance, arrive(bool), brakeK (the share of
-     *  his braking the arrival plans on, 0.8: a gentler stop starts braking sooner and is there stopped, Trial 11)} */
+     *  their braking the arrival plans on, 0.8: a gentler stop starts braking sooner and is there stopped, Trial 11)} */
     moveTo(x, y, o) {
       o = o || {};
       if (this._rcHold(x, y)) return this;
@@ -261,9 +261,9 @@
       else if (h && t < h.until && p !== h.p) return;
       this.look_ = p;
     }
-    /** a contest (Trial 11): the hand nearer the ball goes up at the shooter's release point (o.sh: where his shot lets the
-     *  ball go, Actor.releasePoint; without him, at the ball), along the line from its shoulder, as far as the arm reaches and
-     *  never onto it (Tune.glass.contestGapFt short of it), and stays up where the ball left his hands; up over
+    /** a contest (Trial 11): the hand nearer the ball goes up at the shooter's release point (o.sh: where their shot lets the
+     *  ball go, Actor.releasePoint; without them, at the ball), along the line from its shoulder, as far as the arm reaches and
+     *  never onto it (Tune.glass.contestGapFt short of it), and stays up where the ball left their hands; up over
      *  Tune.glass.contestLeadS before tRel, held contestHoldS after, then let down. (It used to follow the ball itself, through
      *  the shooter's dip and push and on up after it in the air at ~25 ft/s, and the arm popped.) o: { sh, lead, hold, both
      *  (both hands: verticality at the rim) } */
@@ -272,8 +272,8 @@
       const TG = M.Tune.glass, side = o.side != null ? o.side : this.contestSide(b);
       this._contest = { b, sh: o.sh || null, fr: null, t1: tRel, lead: o.lead || TG.contestLeadS, hold: o.hold != null ? o.hold : TG.contestHoldS, sides: o.both ? [0, 1] : [side] };
     }
-    /** where the ball leaves his hands in the shot he is in: the move's ball at its release, the body where the move has it
-     *  then, up in its jump; not in a shot, over his head. out: [x, y, z] */
+    /** where the ball leaves their hands in the shot they are in: the move's ball at its release, the body where the move has it
+     *  then, up in its jump; not in a shot, over their head. out: [x, y, z] */
     releasePoint(out) {
       const cs = this.clip, ev = cs && cs.clip.events, H = this.H;
       if (cs && ev && ev.release != null && cs.clip.ballKeys && cs.t <= ev.release + 1e-6) {
@@ -298,7 +298,7 @@
       const P = this.sk.P, J = RG.J, dl = (j) => Math.hypot(P[j * 3] - b.x, P[j * 3 + 1] - b.y, P[j * 3 + 2] - b.z);
       return dl(J.R_SH) <= dl(J.L_SH) ? 1 : 0;
     }
-    /** meant to be in contact with b now (Trial 11: a box-out, the boxer's back into his man; set on either, until a time) */
+    /** meant to be in contact with b now (Trial 11: a box-out, the boxer's back into their man; set on either, until a time) */
     touching(b) {
       const t = this.time || 0, c = this._contact, d = b && b._contact;
       return !!((c && c.with === b && t < c.until) || (d && d.with === this && t < d.until));
@@ -1342,8 +1342,8 @@
       // stride to put the right foot down (a quarter of the pace meanwhile, ~0.3 s at most). (Not at a sprint: held
       // back there, the body ran on sideways with the feet stretched out and dragging)
       const dA = U.wrapPi(want - this.facing);
-      // (a box-out's turn is a reverse pivot into the man, the back to him at once: not held back to wait for a stride, nor to
-      // a defender's opening-up rate, Trial 11: turned at those, it took ~1 s to get his back to his man)
+      // (a box-out's turn is a reverse pivot into the man, the back to them at once: not held back to wait for a stride, nor to
+      // a defender's opening-up rate, Trial 11: turned at those, it took ~1 s to get their back to their man)
       const boxing = this.stance === 'boxout';
       if (this.kind === 'player' && !this.clip && this.gaitOn && this.speed > 1.5 && this.speed < 9 && Math.abs(dA) > 0.6 && !boxing) {
         // (judged over the next ~60 deg: a bigger turn goes round in stages, a step at a time, the way a player
@@ -4456,10 +4456,10 @@
         if (t > ctb.t1 + ctb.hold + TG.contestDownS || !ctb.b) this._contest = null;
         else if (w > 0.001) {
           const b = ctb.b, P = sk.P, L = (this.dims.ua + this.dims.fa) * TG.contestReachK;
-          // (at the shooter's release point while he has it, held on where the ball was as it went; with no shooter, at the ball
+          // (at the shooter's release point while they have it, held on where the ball was as it went; with no shooter, at the ball
           // until tRel, then held there)
-          // (held where the ball went as seen from his body, which goes on with him: as he comes down from his jump the arm
-          // stays up at it instead of reaching for a spot in the air he has dropped away from)
+          // (held where the ball went as seen from their body, which goes on with them: as they come down from their jump the arm
+          // stays up at it instead of reaching for a spot in the air they have dropped away from)
           let q = CT3;
           const rx = this.x, ry = this.y, rz = this.jumpZ || 0;
           if (ctb.fr) {
