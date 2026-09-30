@@ -742,8 +742,8 @@ and 270-330 passes a game, about 3 a possession).
   moved.
 * The ball moves a little more than in the NBA (3.9 passes a possession against ~3): quicker decisions in the same length
   of possession mean more passes.
-* The call of a play comes as the last quick pass is caught, so the players walk to their spots while it starts (the
-  0.35 s above).
+* The call of a play came as the last quick pass was caught, so the players walked to their spots while it started (the
+  0.35 s above); the next pass calls it while that pass is in the air (below).
 
 ### Sources
 
@@ -753,3 +753,68 @@ Bill Self's point-five approach, Hooper University (playing point five basketbal
 Coaching Toolbox on shooting by touch time (an effective field goal percentage of .54 under 2 s against .44 for 2-6 s),
 Frontiers in Psychology (touch time and shooting success). Passes a game: PerThirtySix team passing (2024). The release:
 the Spalding smart basketball (why release time matters). Pace: inpredictable.
+
+## The open look: no play needed
+
+Asked for by the user: the players got caught up when a play was called; they do not have to run the play when they have
+an open look, and with a clear drive to the hoop they should just go get the bucket. Coaches say the same: a player should
+know when his man is out of position and can be beaten by forgetting the play and ripping the ball to the rim, and a read
+and react team is already set up to go again when an action fails, where a set play has to be set up again.
+
+* **The look before the call** (`lookEvents` in `sim.js`, `Sim.K.look*`): a possession whose look the ball movement finds
+  is played as it comes, with no play called: 85% of the open looks (his man beaten, or nobody there), 30% of the contested
+  ones, none of the tight ones. The quick touches move the ball until the man who takes the look (or finds it) has it, and
+  from the catch he goes: the drive at the rim (the pass to him released 1.8-2.4 s before the finish), the pull-up after a
+  hesitation, a crossover or a jab (1.2-1.7 s), the drive and the kick to the open man (the driver has it 2.1-2.8 s before
+  the shot), or the swing to the open shooter, who lets it fly (0.55-0.8 s after the catch, quicker with the Shoot When
+  Open slider). A pick and roll only when it is the handler's own shot (he goes before the screen gets there); a post-up,
+  an off-screen, a hand-off or a cut keeps its call, since the action is what makes the look.
+* **Called plays too**: the coach's playbook call is not run when its read was open before it could be (the record keeps
+  the play and its read, marked as a look); the coach's own call and a play drawn up in a timeout are always run.
+* **A call that does not stop the game** (`pbEvents`, `Sim.K.callPassS`; `Director.p_set`, `assignSpots`, `pbAlign`): a
+  called play is called 0.5 s before the last quick pass, to the man who starts it, so the five go to their spots while the
+  ball is in the air and his first action comes about half a second after his catch. The ball handler keeps his side of the
+  floor (the play's spots mirror to the side the ball is on, where he used to walk across the floor to them), dribbles into
+  his spot at a game pace (it was a 9 ft/s walk), and the call no longer holds the play up while he gets there (it waited up
+  to 2.5 s, the clock running slow); a pass already on its way to him is not doubled by the call.
+* **Swing, swing, attack** (`Sim.K.flowDriveBuild`): the longer the ball has only been swung, the likelier the next man to
+  catch it drives the gap (twice as likely after one swing, three times after two).
+* **A look passed up** (flow possessions): the ball moves until the man who passes it up has it, instead of sitting until
+  then.
+* **Only the live game**: the engine draws every shot, its kind, its contest and its result as before; the season's
+  simulated games come out exactly the same (checked on nine games against the build before).
+* **Loose ends fixed on the way**: a play called with a second left (the end of a quarter) put its read ahead of the ball
+  coming up; a last-second heave could be timed ahead of the throw-in or the advance. Both are kept in time order now.
+
+### Measured (this pass)
+
+* **The engine** (4 games, the same seeds, against the build before): half-court trips with no play call 9% to 22% of the
+  shots (125 of 578: 46% of the spot-ups, 32% of the isolations, 21% of the pick and rolls; 57 of them open looks, 59
+  contested); the call to the first thing after it 1.7 s to 0.8 s on average (the median 1.8 to 0.5 s); the ball coming up
+  to the first action of a called play 5.5 to 4.5 s (the 90th percentile 11.3 to 8.7 s). Drives 0.74 to 0.91 a possession,
+  runs of five or more passes with nothing else 18% of the possessions to 11%. Over 16 games a touch is 2.8 s on average,
+  3.99 passes a possession, the time to the shot drawn as before (14.4 s).
+* **The court** (a quarter each of two games): the call ran over the time the engine gave it 34 of 48 times (by 0.4 s)
+  and 36 of 49 before; 2 of 37 (by 0.14 s) and 4 of 44 (by 0.22 s) now. A touch 2.5 to 2.1 s and 2.6 to 2.3 s on average
+  (the median 1.7 to 1.5 s, 1.6 to 1.6 s). About one shot in six in a quarter comes off a look with no call; a drive's look
+  was caught 17-23 ft out and taken to the rim; the moves themselves run a little over the engine's time more often (72%
+  of them against 67% before, by 0.38 s against 0.32 s) since more of them come right off the catch.
+* **Event order**: eight games (1,622 possessions, 17,481 events) all in time order, the end of quarter plays and heaves
+  included.
+* **The season's games**: nine simulated games identical to the build before, to the score and every box total.
+* **The gauntlet**: 152/152.
+
+### Limitations (this pass)
+
+* The look is picked from the look the engine drew (how open it came out), not from the court's own positions: a lane the
+  court opens up by itself (a defender's footwork) still gets the attack to 11 ft and the kick out of it (the reads from
+  before), not a finish, when the engine has something else next.
+* A called play taken as a look still counts as called in the box score's Plays tab (its read and its result), marked as a
+  look in its record.
+
+### Sources
+
+Human Kinetics (six perimeter moves for reading the defense: forget the play and rip it to the rim when your man is out of
+position), Breakthrough Basketball (make your opponent react: attack first), Better Basketball (read and react against set
+plays), Hoop Tactics (early offense: attack before the defense is organized), Coaching Toolbox (gap drives), NBA 2K's
+developer notes and its forums (teammates who would not take an open shot unless a play was run for them).

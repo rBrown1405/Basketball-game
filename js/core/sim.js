@@ -23,12 +23,27 @@
     // about half a second shoot, drive or move it on): the time between the ball coming up the floor and the play, and the
     // time a play would otherwise be stretched over, is played as quick touches of flowTouchS each (s, from the release of
     // the pass before; the Shoot When Open slider quickens them), a quick drive and kick in flowDriveP of them (x how much
-    // of a driver he is), the first read flowLeadS after the ball is up; only when there is flowMinS of room. A called
+    // of a driver he is, x (1 + flowDriveBuild for every touch since the last drive)), the first read flowLeadS after the ball
+    // is up; only when there is flowMinS of room. A called
     // play's steps at most playStretch x their drawn length (was 1.25), called playCallS before its first step (was 1.8), a
     // generated play at most spanMax s from its call to its shot. Live games only: the events are the court's, the results
     // and the season's numbers are not touched
-    flowTouchS: [1.0, 2.1], flowMinS: 1.5, flowLeadS: [0.15, 0.5], flowDriveP: 0.2, playStretch: 0.9, playCallS: 1.4,
+    flowTouchS: [1.0, 2.1], flowMinS: 1.5, flowLeadS: [0.15, 0.5], flowDriveP: 0.2, flowDriveBuild: 1.0, playStretch: 0.9, playCallS: 1.4,
     spanMax: { pnr: 4.5, iso: 4.5, post: 4.5, spot: 4, offscreen: 5, handoff: 4.5, cut: 4 },
+    // the look before the call (the user: "the players don't have to run the play all the time if they have an open look; a
+    // clear drive to the hoop, they can just go get the bucket"; coaches: forget the play and rip it to the rim when your man
+    // is out of position): a flow possession (no play from the playbook) whose look the ball movement finds is taken as it
+    // comes, with no call: lookP of them by how open the look was (open: his man beaten or nobody there; the shot, its kind,
+    // its contest and its result are the engine's as before). His own look: the last pass released lookDriveS before a drive's
+    // finish, lookPullS before a pull-up; a teammate's: the man who finds him has it lookKickS before the shot off a drive and
+    // kick, lookSwingS before a catch and shoot off the swing (the kick or the swing itself lookCatchS before the shot, over
+    // the Shoot When Open slider). A pick and roll's only when it is the handler's own shot (he goes before the screen gets
+    // there); a post-up, an off-screen, a hand-off or a cut keeps its call. Live games only, like the quick touches
+    lookP: { open: 0.85, contested: 0.3, tight: 0 }, lookFam: { iso: 1, spot: 1, pnr: 1 },
+    lookDriveS: [1.8, 2.4], lookPullS: [1.2, 1.7], lookKickS: [2.1, 2.8], lookSwingS: [1.3, 1.8], lookCatchS: [0.55, 0.8],
+    // (a called play's call comes callPassS before the last quick pass, to the man the play starts with: the five go to
+    // their spots while the ball is on its way to him)
+    callPassS: 0.5,
   };
   Sim.debug = null;
   Sim.debugConf = null; // ([sum, n, sum of squares] of the shooters' confidence as they shoot, when set)
@@ -884,7 +899,10 @@
     const sh = ctx.handler;
     const plan = { branch: 'heave', shooter: sh, assister: null, zone: 'ab3', kind: 'heave', cKey: 'lastShot', passKind: null };
     const info = mkInfo(ctx.transition ? 'transition' : 'none', '', sh);
+    const tNow = ctx.t;
     ctx.t = Math.max(0.2, g.clock - U.range(0.1, 0.45));
+    // (not before the ball is in his hands: a heave drawn ahead of the throw-in or the advance, in a live game's events)
+    if (!g.lite && ctx.t < tNow) ctx.t = Math.min(g.clock, tNow + 0.05);
     takeShot(ctx, info, ctx.t, 'lastShot', {}, plan);
   }
 
@@ -1306,6 +1324,8 @@
       cl: g.period >= g.L.periods && g.clock - ctx.t <= 300 && Math.abs(g.score[0] - g.score[1]) <= 5,
       sc: null, q: null, xp: 0, made: false, fouledShot: false, zone: null, away: null, ctr: false,
       tok: null, toScr: false, passStep: false, out: null, done: false, brk: null, spts: 0,
+      // (a live game's look taken before the play could be run: Sim.K.look*)
+      look: false,
     };
     for (const r in R) rec.roles[r] = R[r].id;
     info.pb = { play, roles: R, side: U.chance(0.5) ? 1 : -1, sit, rec, t0: Math.max(ctx.t, ctx.advT || 0), tAct: null, tAct0: null };
@@ -1460,20 +1480,24 @@
    * Quick touches (Sim.K.flow*): from `from` at tFrom, the ball moved on from man to man, each catch read and the ball
    * passed on within a touch (now and then a hard drive at the gap and the kick out of it), ending with the ball in `to`'s
    * hands at tTo. The perimeter gets it first, the bigs less, and rarely straight back to the man who just passed it.
-   * Live games only; returns who has the ball after (`from` when there is not the room).
+   * Live games only; returns who has the ball after (`from` when there is not the room). `at` ({ t, fn }): fn() is called
+   * once, in time order with the touches' own events, as their time passes t (a play called while the ball is on its way).
    */
-  function flowTouches(ctx, from, tFrom, tTo, to) {
+  function flowTouches(ctx, from, tFrom, tTo, to, at) {
     const g = ctx.g, O = ctx.O, idx = O.idx, K = Sim.K;
     if (g.lite || !from || !to || O.on.length < 2) return from;
     const room = tTo - tFrom;
     if (!(room >= K.flowMinS)) return from;
+    const cue = (t) => { if (at && !at.done && t > at.t) { at.done = true; at.fn(); } };
     const quick = (g.sl && g.sl.quick) || 1;
     const lo = K.flowTouchS[0] / quick, hi = K.flowTouchS[1] / quick;
     let n = Math.max(1, Math.floor(room / ((lo + hi) / 2)));
     // (the ball has to end with `to`: from him and back to him takes two; with the room for one only, he keeps it and
     // attacks his man with a move instead of standing with it)
     if (to === from && n < 2) {
-      evAt(ctx, U.round(tFrom + room * U.range(0.25, 0.5), 2), 'move', { player: from.id, move: U.pick(['hesi', 'crossover', 'hesi', 'drive']), team: idx });
+      const tm = U.round(tFrom + room * U.range(0.25, 0.5), 2);
+      cue(tm);
+      evAt(ctx, tm, 'move', { player: from.id, move: U.pick(['hesi', 'crossover', 'hesi', 'drive']), team: idx });
       return from;
     }
     const lens = [];
@@ -1481,7 +1505,7 @@
     for (let i = 0; i < n; i++) { const d = U.range(lo, hi); lens.push(d); sum += d; }
     const k = room / sum;
     const W = (c, h, prev) => c === h ? 0 : (c.posN <= 3 ? 1 : c.posN === 4 ? 0.55 : 0.3) * (c === prev ? 0.35 : 1);
-    let h = from, prev = null, t = tFrom, drove = false;
+    let h = from, prev = null, t = tFrom, drove = false, since = 0;
     for (let i = 0; i < n; i++) {
       const last = i === n - 1;
       // (the man before the last pass is not `to` himself: the last pass goes to him)
@@ -1490,9 +1514,13 @@
       if (!r || r === h) { t += dur; continue; }
       // a hard drive at the gap and the kick out of it, by a man who can put it on the floor
       const dk = h.posN >= 4 ? 0.25 : U.clamp(((h.r.handle + h.r.speed) / 2 - 50) / 30, 0.2, 1);
-      drove = !last && dur > 1.1 && U.chance(K.flowDriveP * dk);
-      if (drove) evAt(ctx, U.round(t + dur * 0.3, 2), 'move', { player: h.id, move: 'drive', team: idx });
-      evAt(ctx, U.round(t + dur, 2), 'pass', { from: h.id, to: r.id, kind: drove ? 'kick' : 'swing', team: idx });
+      // (more likely the longer the ball has only been swung: swing, swing, attack)
+      drove = !last && dur > 1.1 && U.chance(K.flowDriveP * dk * (1 + K.flowDriveBuild * since));
+      since = drove ? 0 : since + 1;
+      if (drove) { const tm = U.round(t + dur * 0.3, 2); cue(tm); evAt(ctx, tm, 'move', { player: h.id, move: 'drive', team: idx }); }
+      const tp = U.round(t + dur, 2);
+      cue(tp);
+      evAt(ctx, tp, 'pass', { from: h.id, to: r.id, kind: drove ? 'kick' : 'swing', team: idx });
       prev = h; h = r; t += dur;
     }
     return h;
@@ -1514,7 +1542,9 @@
     const sh = plan ? plan.shooter : null, as = plan ? plan.assister : null;
     const kickFin = !!(o && as && KICKS[o.br] && o.base !== 'offscreen');
     const fin = end === 'shot' ? (kickFin ? 1.1 : as ? 0.7 : plan.zone === 'rim' || plan.zone === 'paint' ? 0.8 : 0.45) : end === 'reset' ? 0.45 : 0;
-    const tEnd = (typeof end === 'object' ? (end.tAct || tShot) : tShot) - fin;
+    // (not before the play's own start: a play called with a second left, at the end of a quarter, put its read ahead of the
+    // ball coming up)
+    const tEnd = Math.max(pb.t0 + 0.1, (typeof end === 'object' ? (end.tAct || tShot) : tShot) - fin);
     const tl = pbTimeline(pb, k1, tEnd);
     const rx = pb.rx || null;
     const mir = p => [U.round(p[0], 1), U.round(pb.side > 0 ? p[1] : 50 - p[1], 1)];
@@ -1526,23 +1556,25 @@
     let holder = ctx.handler;
     const tSet = U.round(Math.min(tl.tSet, cut - 0.1), 2);
     if (tSet < pb.t0) return holder;
-    // (the time before the call is played as quick touches, the ball ending with the man the play starts with, as the call
-    // comes; before a turnover or a foul too, when the play gets that far)
+    // (the time before the call is played as quick touches, the ball ending with the man the play starts with; the call
+    // comes callPassS before the last of them, so the five go to their spots while the ball is on its way to him, instead
+    // of the ball stopping for it; before a turnover or a foul too, when the play gets that far)
+    const call = { t: tSet, done: false, fn: () => evAt(ctx, tSet, 'set', {
+      play: info.play, setName: info.setName, handler: first ? first.id : ctx.handler.id, screener: info.screener ? info.screener.id : undefined, target: sh ? sh.id : undefined, team: idx,
+      pb: { id: play.id, name: play.name, side: pb.side, roles: ids, align, cov: rx ? rx.cov : PBC.PlayCall.coverage(ctx.D), opt: o ? { label: o.label, at: o.at, i: play.opts.indexOf(o), read: pb.rec.read } : null, last: play.last, why: pb.rec.why, user: pb.rec.user ? true : undefined },
+    }) };
     if (first) {
       const tf = Math.max(pb.t0, ctx.advT || 0) + U.range(Sim.K.flowLeadS[0], Sim.K.flowLeadS[1]);
-      holder = flowTouches(ctx, holder, tf, Math.min(tSet - 0.1, cut - 0.4), first);
+      holder = flowTouches(ctx, holder, tf, Math.min(tSet + Sim.K.callPassS, tl.T[0] - 0.6, cut - 0.4), first, call);
     }
-    evAt(ctx, tSet, 'set', {
-      play: info.play, setName: info.setName, handler: first ? first.id : holder.id, screener: info.screener ? info.screener.id : undefined, target: sh ? sh.id : undefined, team: idx,
-      pb: { id: play.id, name: play.name, side: pb.side, roles: ids, align, cov: rx ? rx.cov : PBC.PlayCall.coverage(ctx.D), opt: o ? { label: o.label, at: o.at, i: play.opts.indexOf(o), read: pb.rec.read } : null, last: play.last, why: pb.rec.why, user: pb.rec.user ? true : undefined },
-    });
+    if (!call.done) { call.done = true; call.fn(); }
     // the entry: the ball to the player the play starts with
     const tEntry = U.round((tSet + tl.T[0]) / 2, 2);
     if (first && holder && first !== holder && tEntry < cut && tl.T[0] - tSet > 0.5) { evAt(ctx, tEntry, 'pass', { from: holder.id, to: first.id, kind: 'chest', team: idx }); holder = first; }
     let lastDrive = -9;
     for (let k = 0; k <= k1; k++) {
       const Tk = tl.T[k];
-      if (Tk >= cut) break;
+      if (Tk >= cut || Tk > tEnd) break;
       const st = play.steps[k], dk = st.d * tl.s;
       const pos = {};
       if (st.pos) for (const r in st.pos) if (R[r]) pos[R[r].id] = mir(st.pos[r]);
@@ -1575,7 +1607,7 @@
     if (end !== 'shot' || !sh || tEnd >= cut) return holder;
     // the read: the ball to the shooter
     const quick = (g.sl && g.sl.quick) || 1;
-    const tLast = U.round(tShot - Math.max(0.22, 0.45 / quick), 2);
+    const tLast = U.round(Math.max(tEnd + 0.05, tShot - Math.max(0.22, 0.45 / quick)), 2);
     if (as) {
       if (holder !== as && holder !== sh) { evAt(ctx, U.round(tEnd, 2), 'pass', { from: holder.id, to: as.id, kind: 'chest', team: idx }); holder = as; }
       if (holder === as) {
@@ -1585,7 +1617,7 @@
       }
     } else {
       if (holder !== sh) { evAt(ctx, U.round(tEnd, 2), 'pass', { from: holder.id, to: sh.id, kind: o && o.base === 'post' ? 'entry' : 'chest', team: idx }); holder = sh; }
-      if (plan.kind === 'stepback') evAt(ctx, U.round(tShot - 0.35, 2), 'move', { player: sh.id, move: 'stepback', team: idx });
+      if (plan.kind === 'stepback') evAt(ctx, U.round(Math.max(tEnd + 0.05, tShot - 0.35), 2), 'move', { player: sh.id, move: 'stepback', team: idx });
       else if (o && o.base === 'post' && o.br === 'self') evAt(ctx, U.round(tEnd + 0.1, 2), 'move', { player: sh.id, move: 'backdown', team: idx });
       else if ((plan.zone === 'rim' || plan.zone === 'paint') && tEnd - lastDrive > 1.2) evAt(ctx, U.round(tEnd + 0.1, 2), 'move', { player: sh.id, move: 'drive', team: idx });
     }
@@ -1965,9 +1997,66 @@
   }
 
   // ---- narrative events before the shot (for the live view) ----
-  function playEvents(ctx, info, plan, tShot) {
+  /**
+   * The look before the call (Sim.K.look*): a flow possession whose look the ball movement finds is played as it comes, with
+   * no play called. The quick touches move the ball until the man who takes the look (or finds it) has it, and from the
+   * catch he goes: his drive at the rim or his pull-up, the drive and the kick to the open man, or the swing to him, who
+   * lets it fly. Live games only; false (nothing emitted) when it is not such a look or there is not the time for it.
+   */
+  function lookEvents(ctx, info, plan, tShot, contest, mode) {
+    const g = ctx.g, O = ctx.O, idx = O.idx, K = Sim.K;
+    if (g.lite || mode !== 'normal' || !K.lookFam[info.play] || plan.branch === 'gim' || !ctx.handler || O.on.length < 2) return false;
+    // (a pick and roll: only the handler's own shot, taken before the screen gets there; the roll and the kick come out of it)
+    if (info.play === 'pnr' && plan.branch !== 'handler') return false;
+    if (!U.chance(K.lookP[contest] || 0)) return false;
+    const R = (r) => U.range(r[0], r[1]);
+    const quick = (g.sl && g.sl.quick) || 1;
+    const t0 = Math.max(ctx.t, ctx.advT), sh = plan.shooter, as = plan.assister && plan.assister !== sh ? plan.assister : null;
+    if (tShot - t0 < 0.9) return false;
+    const rim = plan.zone === 'rim' || plan.zone === 'paint';
+    const kick = !!as && (plan.passKind === 'kick' || plan.branch === 'kick');
+    // (the times, back from the shot: tRel the release of the pass that gets the ball to the man who starts it, his catch
+    // ~0.35 s after; the 0.5 s after that is his read)
+    const man = as || sh;
+    let tRel, tPass = null, tDrive = null, driver = null, pullMove = null;
+    if (!as) {
+      tRel = tShot - R(rim ? K.lookDriveS : K.lookPullS);
+      if (rim) { driver = sh; tDrive = tRel + 0.35 + U.range(0.15, 0.35); }
+      else if (plan.kind === 'stepback') pullMove = { t: tShot - 0.45, move: 'stepback' };
+      else if (tShot - tRel > 1.35) pullMove = { t: tRel + 0.35 + U.range(0.1, 0.3), move: U.pick(['hesi', 'crossover', 'jab', 'hesi']) };
+    } else if (kick) {
+      tPass = tShot - R(K.lookCatchS) / quick;
+      tRel = Math.min(tShot - R(K.lookKickS), tPass - 1.1);
+      driver = as; tDrive = tRel + 0.35 + U.range(0.15, 0.35);
+    } else if (rim) {
+      tPass = tShot - R(K.lookDriveS);
+      tRel = tPass - U.range(0.55, 0.9);
+      driver = sh; tDrive = tPass + 0.35 + U.range(0.15, 0.35);
+    } else {
+      tPass = tShot - R(K.lookCatchS) / quick;
+      tRel = Math.min(tShot - R(K.lookSwingS), tPass - 0.5);
+    }
+    // (a look right away: no pass needed when he has it, he goes from where he is; with one needed, not before the ball is up)
+    const has = ctx.handler === man;
+    if (!has && tRel < t0 + 0.15) return false;
+    if (has && tRel < t0) { const dt = t0 - tRel; tRel = t0; if (tDrive != null) tDrive += dt; if (pullMove && pullMove.move !== 'stepback') pullMove.t += dt; }
+    // the ball moves until the look: quick touches, the last one to the man who starts it (from him and back, when he has it)
+    let holder = flowTouches(ctx, ctx.handler, t0 + U.range(K.flowLeadS[0], K.flowLeadS[1]), tRel, man);
+    if (holder !== man) { evAt(ctx, U.round(tRel, 2), 'pass', { from: holder.id, to: man.id, kind: 'swing', team: idx }); holder = man; }
+    // and he goes: the drive at the rim (the drive and the kick, the catch and attack), the pull-up's move, the kick or the swing
+    const evs = [];
+    if (driver && tDrive != null) evs.push([tDrive, 'move', { player: driver.id, move: 'drive', team: idx }]);
+    if (pullMove) evs.push([pullMove.t, 'move', { player: sh.id, move: pullMove.move, team: idx }]);
+    if (as && tPass != null) evs.push([tPass, 'pass', { from: as.id, to: sh.id, kind: kick ? 'kick' : rim ? 'chest' : (plan.passKind || 'swing'), team: idx }]);
+    evs.sort((a, b) => a[0] - b[0]);
+    let tl = tRel;
+    for (const e of evs) { tl = Math.max(tl + 0.05, Math.min(e[0], tShot - 0.3)); if (tl < tShot - 0.05) evAt(ctx, U.round(tl, 2), e[1], e[2]); }
+    return true;
+  }
+  function playEvents(ctx, info, plan, tShot, contest, mode) {
     const g = ctx.g;
     if (g.lite) return;
+    if (lookEvents(ctx, info, plan, tShot, contest, mode)) return;
     const O = ctx.O, idx = O.idx;
     let t0 = Math.max(ctx.t, ctx.advT);
     const handler = info.handler || ctx.handler;
@@ -2291,15 +2380,22 @@
     if (forcePlan) ctx.read = null;
     else if (passUp(ctx, plan, contest, d, info, tShot, mode)) {
       // (a called play ran to its read, the look was not good enough: the ball is swung and the next call comes)
-      const holder = info.pb ? pbEvents(ctx, info, plan, tShot, 'reset') : null;
+      // (a flow possession: the quick touches find the man who passes it up, instead of the ball sitting until then)
+      const holder = info.pb ? pbEvents(ctx, info, plan, tShot, 'reset') : g.lite ? null : flowTouches(ctx, ctx.handler, Math.max(ctx.t, ctx.advT) + U.range(Sim.K.flowLeadS[0], Sim.K.flowLeadS[1]), tShot - U.range(0.8, 1.3), plan.shooter);
       if (info.pb) pbEnd(ctx, info, 'reset', plan);
       resetPossession(ctx, info, plan, tShot, holder);
       return;
     }
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play; ctx.P.setName = info.setName || ''; }
     if (!forcePlan) {
-      if (info.pb) { pbEvents(ctx, info, plan, tShot, 'shot'); pbEnd(ctx, info, 'shot', plan); }
-      else playEvents(ctx, info, plan, tShot);
+      // (a called play too: its read open before it could be run, the look is taken and the play is not; not the coach's own
+      // call nor one drawn up in a timeout, which are run)
+      if (info.pb) {
+        const r = info.pb.rec;
+        if (!r.user && !r.ato && !info.pb.inbound && lookEvents(ctx, info, plan, tShot, contest, mode)) r.look = true;
+        else pbEvents(ctx, info, plan, tShot, 'shot');
+        pbEnd(ctx, info, 'shot', plan);
+      } else playEvents(ctx, info, plan, tShot, contest, mode);
     }
     ctx.t = tShot;
     const loc = locFor(ctx, zone, kind, plan.near);

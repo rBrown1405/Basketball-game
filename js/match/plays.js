@@ -106,9 +106,11 @@
         // the handler dribbles into his spot for the play
         const r = this.role[id];
         if (r) { r.spot = sp; r.spotName = 'play'; r.pb = true; r.next = this.T + 1.5; r.until = this.T + 1.2; r.path = null; }
-        if (!a.isBusy() && Math.hypot(sp.x - a.x, sp.y - a.y) > 2) {
+        // (at a game pace: it was a walk at 9 ft/s, the play waiting on him)
+        const dd = Math.hypot(sp.x - a.x, sp.y - a.y);
+        if (!a.isBusy() && dd > 2) {
           if (b.state !== 'dribble') b.dribble(a);
-          a.moveTo(sp.x, sp.y, { speed: 9, face: 'move', stance: 'dribble' });
+          a.moveTo(sp.x, sp.y, { speed: dd > 10 ? 15 : dd > 5 ? 12 : 8, face: 'move', stance: 'dribble' });
         }
       } else this.pbHold(id, sp, 1.1);
     }

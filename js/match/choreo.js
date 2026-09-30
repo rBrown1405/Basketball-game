@@ -320,6 +320,10 @@
         case 'cut': order = ['top', 'wingN', 'wingF', 'cornerF', 'high']; break;
         default: order = ['top', 'wingN', 'wingF', 'cornerN', 'dunkerF'];
       }
+      // (a play is run on the side the ball is on: the handler keeps his side of the floor instead of walking across it to
+      // the play's spot, the play stopping for him; the others mirror with him)
+      const hb = handlerId ? this.A(handlerId) : null;
+      if (hb && hb.y > 25 && kind !== 'advance' && kind !== 'transition') order = order.map((n) => /N$/.test(n) ? n.slice(0, -1) + 'F' : /F$/.test(n) ? n.slice(0, -1) + 'N' : n);
       // handler gets the first spot; bigs (C/PF, idx 3-4) prefer the last spot
       const list = offs.slice();
       const assigned = {};
@@ -1420,19 +1424,24 @@
     p_set(ev, beat, gap) {
       const v = this.v;
       const kind = ev.play || this.play;
+      // (the ball already on its way to the man the play is run for: the pass coming next brings it, not the call)
+      const nx = this.findNext((e) => e.type === 'pass' || e.type === 'handoff' || e.type === 'shot' || e.type === 'move' || e.type === 'screen');
+      const coming = !!(nx && nx.type === 'pass' && String(nx.to) === String(ev.handler));
       beat.onStart = (fireAt) => {
         this.tempo = 'normal';
         this.assignSpots(kind, ev);
         const h = this.A(ev.handler);
-        if (h && v.ball.holder !== h) this.ensureBall(h);
-        if (kind === 'post' && ev.target) this.giveSpot(ev.target, 'blockN');
-        if (kind === 'offscreen' && ev.target) this.giveSpot(ev.target, 'blockN');
+        if (h && v.ball.holder !== h && !coming) this.ensureBall(h);
+        // (on the ball's side of the floor, as assignSpots put the rest)
+        const hb = this.A(this.handlerId()), side = hb && hb.y > 25 ? 'F' : 'N';
+        if (kind === 'post' && ev.target) this.giveSpot(ev.target, 'block' + side);
+        if (kind === 'offscreen' && ev.target) this.giveSpot(ev.target, 'block' + side);
         if (kind === 'handoff' && ev.screener) this.giveSpot(ev.screener, 'high');
-        if (kind === 'cut' && ev.target) this.giveSpot(ev.target, 'wingN');
+        if (kind === 'cut' && ev.target) this.giveSpot(ev.target, 'wing' + side);
       };
-      const h = this.A(ev.handler);
-      const d = h ? Math.hypot(h.x - this.spotPt('top').x, h.y - 25) : 0;
-      return Math.min(2.5, d / 15);
+      // (the call itself: the handler goes to his spot on the way into the play, its first action does not wait for him to
+      // walk there; it used to wait up to 2.5 s, the play and the clock stopping for it)
+      return 0.3;
     }
     // --- screen
     p_screen(ev, beat, gap) {
