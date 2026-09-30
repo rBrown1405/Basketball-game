@@ -657,7 +657,7 @@
   function snapStats() {
     const g = LG.g;
     LG.snap = {};
-    for (const T of g.t) for (const c of T.players) LG.snap[c.id] = { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy };
+    for (const T of g.t) for (const c of T.players) LG.snap[c.id] = { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy, conf: c.conf };
     LG.boxSnap = PBC.Sim.box(g);
   }
 
@@ -1079,7 +1079,7 @@
     const st = T.strat;
     const sel = (key, obj) => `<select class="inp" data-cs="${key}">${Object.keys(obj).map(k => `<option value="${k}" ${st[key] === k ? 'selected' : ''}>${obj[k].label}</option>`).join('')}</select>`;
     const row = c => `<div class="cp-row ${LG.subPick === c.id ? 'pick' : ''} ${c.out || c.inj ? 'dis' : ''}" data-pc="${c.id}">
-      ${UI.avatar(c.p, 26)}<span class="ellip" style="flex:1">${U.esc(c.last)} <span class="dim tiny">${c.pos}</span></span>
+      ${UI.avatar(c.p, 26)}<span class="ellip" style="flex:1">${U.esc(c.last)}${confTag(c.conf)} <span class="dim tiny">${c.pos}</span></span>
       <span class="tiny ${c.pf >= 4 ? 'bad-t' : 'dim'}">${c.pf}PF</span><span class="tiny">${c.st.pts}p</span>
       <span class="en"><i style="width:${Math.round(c.energy)}%;background:${c.energy > 70 ? 'var(--good)' : c.energy > 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span></div>`;
     const bench = T.players.filter(c => !c.on);
@@ -1135,6 +1135,12 @@
     });
   }
 
+  /** the confidence system (the engine's c.conf, -1 to 1): a flame for a player who is heating up, ice for one gone cold */
+  function confTag(v) {
+    if (!(v >= 0.45 || v <= -0.45)) return '';
+    const pct = Math.round(Math.abs(v) * 100);
+    return v > 0 ? ` <span class="conf-tag" title="Confidence ${pct}%: heating up">🔥</span>` : ` <span class="conf-tag" title="Confidence -${pct}%: gone cold">🧊</span>`;
+  }
   function renderOnCourt() {
     if (!LG) return;
     const el = LG.root.querySelector('#oncourt');
@@ -1142,11 +1148,11 @@
     const g = LG.g;
     const html = [LG.uIdx, 1 - LG.uIdx].map(i => {
       const T = g.t[i];
-      const sn = c => (!LG.possDone && LG.snap && LG.snap[c.id]) || { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy };
+      const sn = c => (!LG.possDone && LG.snap && LG.snap[c.id]) || { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy, conf: c.conf };
       const onIds = LG.view && LG.view.onCourt ? LG.view.onCourt[i] : null;
       const on = onIds && onIds.length === 5 ? onIds.map(id => T.players.find(c => c.id === id)).filter(Boolean) : T.on;
       return `<div class="oc-team"><span class="oc-ab" style="background:${LG.teams[i].colors.primary};color:${U.textOn(LG.teams[i].colors.primary)}">${LG.teams[i].abbr}</span>${on.map(c => { const x = sn(c); return `
-        <div class="oc-p" title="${U.esc(c.name)}">${UI.avatar(c.p, 30)}<div class="oc-i"><div class="ellip"><b>${U.esc(c.last)}</b></div><div class="tiny dim">${x.pts} pts · ${x.reb} reb · ${x.ast} ast · ${x.pf} PF</div>
+        <div class="oc-p" title="${U.esc(c.name)}">${UI.avatar(c.p, 30)}<div class="oc-i"><div class="ellip"><b>${U.esc(c.last)}</b>${confTag(x.conf)}</div><div class="tiny dim">${x.pts} pts · ${x.reb} reb · ${x.ast} ast · ${x.pf} PF</div>
         <span class="en"><i style="width:${Math.round(x.energy)}%;background:${x.energy > 70 ? 'var(--good)' : x.energy > 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span></div></div>`; }).join('')}</div>`;
     }).join('');
     if (el._html !== html) { el._html = html; el.innerHTML = html; }

@@ -7,6 +7,27 @@
   'use strict';
   const M = window.PBC.Match, A = M.Anims;
   const clip = A.clip;
+  /** a finish played quicker (the gameplay pass: the layups and the dunks read slow): every time in the clip (its length, its
+   *  events, the jump, the feet, the steps and lifts, the root motion, the turn, the keys) moved through the piecewise-linear
+   *  map `at` ([[old, new], ...], first [0, 0]); the maps keep the jump's airtime (its height stays true to gravity) and take the
+   *  time out of the gather and the steps, and a little out of the rise to the release */
+  function quick(def, at) {
+    const f = (t) => {
+      for (let i = 1; i < at.length; i++) if (t <= at[i][0] || i === at.length - 1) { const a = at[i - 1], b = at[i]; return +(a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0])).toFixed(4); }
+      return t;
+    };
+    def.dur = f(def.dur);
+    for (const k in def.events) def.events[k] = f(def.events[k]);
+    if (def.jump) { def.jump.t0 = f(def.jump.t0); def.jump.t1 = f(def.jump.t1); if (def.jump.hang) def.jump.hang = def.jump.hang.map(f); }
+    for (const x of def.feet || []) x[0] = f(x[0]);
+    for (const x of def.steps || []) { x.t0 = f(x.t0); x.t1 = f(x.t1); }
+    for (const x of def.lifts || []) x.t = f(x.t);
+    for (const x of def.root || []) x[0] = f(x[0]);
+    for (const x of def.yaw || []) x[0] = f(x[0]);
+    for (const x of def.keys || []) x.t = f(x.t);
+    return def;
+  }
+  A.quickClip = quick;
 
   // ------------------------------------------------------------ the jump shot, built from its phases (Trial 9)
   // Every jump shot (the one- and two-motion jumpers, the pull-up, the step-back, the fadeaway) and the free throw is
@@ -284,7 +305,7 @@
   };
   const LAY_B = { gather: [0.14, 0.21, 0.5], carry: [0.17, 0.26, 0.6], step2: [0.2, 0.23, 0.72], takeoff: [0.2, 0.2, 0.86], lift: [0.19, 0.2, 1.03], reach: [0.1, 0.14, 1.16], release: [0.09, 0.15, 1.235] };
   A.LAY = LAY; A.LAY_B = LAY_B;
-  clip('layup', {
+  clip('layup', quick({
     dur: 1.52, events: { gather: 0.04, set: 0.46, release: 0.8 },
     jump: { t0: 0.46, t1: 1.22, h: 0.37 },
     feet: [[0, 'plant'], [0.46, 'air'], [1.22, 'plant']],
@@ -308,9 +329,9 @@
       { t: 1.32, p: { rootZ: -0.07, pelPitch: 14, spFlex: 6, lShF: 45, lShA: 30, lElF: 55, rShF: 70, rShA: 20, rElF: 45, both: { HipF: 30, HipA: 8, Knee: 50, Ank: 10 } } },
       { t: 1.52, p: 'ready' },
     ],
-  });
+  }, [[0, 0], [0.12, 0.09], [0.36, 0.27], [0.46, 0.37], [0.8, 0.69], [1.22, 1.13], [1.52, 1.37]]));
   // reverse layup: along the baseline, finish on the far side, arm reaching back
-  clip('reverse', {
+  clip('reverse', quick({
     dur: 1.56, events: { gather: 0.04, set: 0.46, release: 0.82 },
     jump: { t0: 0.46, t1: 1.22, h: 0.37 },
     feet: [[0, 'plant'], [0.46, 'air'], [1.22, 'plant']],
@@ -334,7 +355,7 @@
       { t: 1.32, p: { rootZ: -0.07, pelPitch: 14, spFlex: 6, lShF: 45, lShA: 26, lElF: 55, rShF: 70, rShA: 20, rElF: 45, both: { HipF: 30, HipA: 8, Knee: 50, Ank: 10 } } },
       { t: 1.56, p: 'ready' },
     ],
-  });
+  }, [[0, 0], [0.12, 0.08], [0.36, 0.26], [0.46, 0.36], [0.82, 0.7], [1.22, 1.12], [1.56, 1.4]]));
   // floater: early one-hand push release with a high arc, short jump
   clip('floater', {
     dur: 1.1, events: { gather: 0.04, set: 0.32, release: 0.5 },
@@ -382,7 +403,7 @@
     ],
   });
   // one-hand dunk: two steps, big jump, ball cocked back then thrown through the rim, optional rim hang
-  clip('dunk', {
+  clip('dunk', quick({
     dur: 1.6, events: { gather: 0.04, set: 0.5, release: 0.86, rim: 0.9 },
     jump: { t0: 0.46, t1: 1.26, h: 0.4, hang: [0.9, 1.08] },
     feet: [[0, 'plant'], [0.46, 'air'], [1.26, 'plant']],
@@ -392,7 +413,9 @@
     keys: [
       { t: 0.0, p: { base: 'ready', rootZ: -0.05, pelPitch: 16, spFlex: 10, rShF: 20, rShA: 22, rElF: 70, rPro: 60, lShF: 50, lShA: 30, lElF: 85, lPro: 20 }, ball: [0.15, 0.2, 0.4], grip: 'right' },
       { t: 0.14, p: { rootZ: -0.07, pelPitch: 18, spFlex: 10, nkFlex: -10, lShF: 40, lShA: 20, lShT: 25, lElF: 95, lPro: 20, rShF: 30, rShA: 18, rShT: 30, rElF: 100, rPro: 0, rWrF: -20 }, ball: [0.1, 0.16, 0.55], grip: 'hold' },
-      { t: 0.4, p: { rootZ: -0.09, pelPitch: 20, spFlex: 8, nkFlex: -14, lShF: -20, lShA: 20, lElF: 40, rShF: 40, rShA: 20, rElF: 90, rWrF: -20, both: { HipF: 45, Knee: 70, Ank: 20 } }, ball: [0.14, 0.12, 0.55], grip: 'right' },
+      // (the ball already on its way up the outside through the last step, so the swing overhead is not all left to the take-off:
+      // played quicker, the swing from the hip threw the hand at over 1500 ft/s^2, the gameplay pass)
+      { t: 0.4, p: { rootZ: -0.09, pelPitch: 20, spFlex: 8, nkFlex: -14, lShF: -20, lShA: 20, lElF: 40, rShF: 55, rShA: 22, rElF: 95, rWrF: -20, both: { HipF: 45, Knee: 70, Ank: 20 } }, ball: [0.17, 0.15, 0.68], grip: 'right' },
       // (up the outside of the right shoulder on the palm, the left arm out for balance rather than across the face)
       { t: 0.5, p: Object.assign({ rootZ: -0.02, pelPitch: 8, spFlex: 0, chFlex: -4, chTwist: 6, nkFlex: -16, rHipF: 70, rKnee: 90, lHipF: 5, lKnee: 30, lAnk: -25 }, LAY.takeoff, { lShF: 60, lShA: 55, lShT: 30, lElF: 50, lPro: 90, lWrF: 0, lWrD: 0 }), ball: [0.2, 0.2, 0.9], grip: 'layLiftR' },
       { t: 0.6, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -8, nkFlex: -20, lShF: 75, lShA: 60, lShT: 30, lElF: 40, rShF: 175, rShA: 20, rElF: 70, rPro: 20, rWrF: -40, rHipF: 60, rKnee: 90, lHipF: 10, lKnee: 40, lAnk: -30 }, ball: [0.1, -0.04, 1.35], grip: 'rightTop' },
@@ -403,11 +426,11 @@
       { t: 1.38, p: { rootZ: -0.11, pelPitch: 18, spFlex: 8, lShF: 60, lShA: 40, lElF: 70, rShF: 80, rShA: 30, rElF: 60, rFing: 0.9, both: { HipF: 40, HipA: 8, Knee: 69, Ank: 14 } } },
       { t: 1.6, p: { base: 'stand', rootZ: -0.02, lShF: 30, lShA: 30, lElF: 90, rShF: 30, rShA: 30, rElF: 90, both: { Fing: 0.9 } } },
     ],
-  });
+  }, [[0, 0], [0.14, 0.09], [0.4, 0.29], [0.5, 0.39], [0.86, 0.73], [1.26, 1.13], [1.6, 1.42]]));
   // two-hand power dunk off two feet (Trial 9): a long, low right step, the left brought down beside it at once (the 1-2),
   // a deep load on both legs, up off both (coaching: a two-foot dunker gathers onto both feet and explodes, deep knee bend,
   // more time on the floor loading; a long penultimate step; not a jump stop, which kills the run's speed)
-  clip('dunk2', {
+  clip('dunk2', quick({
     dur: 1.6, events: { gather: 0.04, set: 0.5, release: 0.86, rim: 0.9 },
     jump: { t0: 0.46, t1: 1.22, h: 0.38 },
     feet: [[0, 'plant'], [0.46, 'air'], [1.22, 'plant']],
@@ -426,7 +449,7 @@
       { t: 1.34, p: { rootZ: -0.12, pelPitch: 20, spFlex: 8, both: { ShF: 60, ShA: 40, ElF: 70, Fing: 0.9, HipF: 44, HipA: 8, Knee: 72, Ank: 14 } } },
       { t: 1.6, p: { base: 'stand', both: { ShF: 20, ShA: 40, ElF: 100, Fing: 0.9 } } },
     ],
-  });
+  }, [[0, 0], [0.14, 0.1], [0.46, 0.37], [0.86, 0.75], [1.22, 1.13], [1.6, 1.43]]));
   // alley-oop: take off, catch the lob in the air, throw it down
   clip('alley', {
     dur: 1.5, events: { set: 0.3, catch: 0.62, release: 0.84, rim: 0.88 },
@@ -449,7 +472,7 @@
     ],
   });
   // putback / power layup from a standstill near the rim: gather, two-foot jump, extend, release
-  clip('putback', {
+  clip('putback', quick({
     dur: 1.33, events: { set: 0.3, release: 0.63 },
     jump: { t0: 0.3, t1: 0.99, h: 0.3 },
     feet: [[0, 'plant'], [0.3, 'air'], [0.99, 'plant']],
@@ -465,8 +488,8 @@
       { t: 1.09, p: { rootZ: -0.08, pelPitch: 16, spFlex: 6, lShF: 45, lShA: 26, lElF: 55, rShF: 80, rShA: 20, rElF: 40, both: { HipF: 32, HipA: 8, Knee: 52, Ank: 10 } } },
       { t: 1.33, p: 'ready' },
     ],
-  });
-  clip('putbackDunk', {
+  }, [[0, 0], [0.3, 0.22], [0.63, 0.5], [0.99, 0.91], [1.33, 1.16]]));
+  clip('putbackDunk', quick({
     dur: 1.35, events: { set: 0.3, release: 0.62, rim: 0.66 },
     jump: { t0: 0.3, t1: 1.0, h: 0.32, hang: [0.66, 0.8] },
     feet: [[0, 'plant'], [0.3, 'air'], [1.0, 'plant']],
@@ -483,7 +506,7 @@
       { t: 1.12, p: { rootZ: -0.12, pelPitch: 20, spFlex: 8, both: { ShF: 60, ShA: 40, ElF: 70, HipF: 44, HipA: 8, Knee: 72, Ank: 14 } } },
       { t: 1.35, p: 'ready' },
     ],
-  });
+  }, [[0, 0], [0.3, 0.22], [0.62, 0.5], [1.0, 0.92], [1.35, 1.18]]));
   // tip-in: quick jump, one hand taps the ball at the apex
   clip('tip', {
     dur: 1.05, events: { set: 0.22, release: 0.42 },

@@ -9,11 +9,19 @@
   const is3 = z => z === 'c3' || z === 'ab3';
   // tunable constants (calibrated with test/calibrate.js)
   Sim.K = {
-    usageExp: 0.9, to: 0.175, toW: 0.196, stlBad: 0.72, stlLost: 0.85, outletTO: 0.035, shotTime: 14.6, shotTimeW: 15.0,
-    zoneAdj: { rim: -0.38, paint: 0.02, mid: -0.12, c3: -0.3125, ab3: -0.1625 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
+    usageExp: 0.9, to: 0.175, toW: 0.196, stlBad: 0.72, stlLost: 0.85, outletTO: 0.035, shotTime: 14.72, shotTimeW: 15.12,
+    // (each +0.02 with the confidence system: the old hot-hand counter only ever added, ~0.02 on average, where confidence comes
+    // to nothing on average; the shot time +0.8 % against the quicker putbacks, so the pace and the scoring stay where they were)
+    zoneAdj: { rim: -0.36, paint: 0.04, mid: -0.1, c3: -0.2925, ab3: -0.1425 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
     coast: 1, // how much a team with a big lead lets up (shooting focus, glass, pressure); 0 = never
+    // confidence (a player's, this game, -1 ice cold to +1 on fire): what it does to his shooting (logit at the extremes) and
+    // how much he looks for his shot, how far a shot moves it (times how far the result beat what was expected of it), a
+    // free throw, a turnover, a steal or a block, and how quickly it settles back to where he came in (s of his minutes)
+    confMake: 0.14, confFtMake: 0.1, confUse: 0.22, confShot: 0.42, confFt: 0.14, confTo: 0.07, confStl: 0.05, confBlk: 0.05,
+    confTau: 360, confCarry: 0.35,
   };
   Sim.debug = null;
+  Sim.debugConf = null; // ([sum, n, sum of squares] of the shooters' confidence as they shoot, when set)
 
   Sim.attacksRight = (teamIdx, period) => (period <= 2) === (teamIdx === 0);
   const basketX = (idx, period) => (Sim.attacksRight(idx, period) ? 88.75 : 5.25);
@@ -98,11 +106,39 @@
   }
 
   function mkPc(p) {
-    return {
+    const c = {
       p, id: p.id, r: p.r, pos: p.pos, posN: C.POS_NUM[p.pos], energy: 100, sec: 0, pf: 0, on: false, starter: false,
-      target: 0, hot: 0, out: false, inj: false, injNew: null, st: PBC.Stats.emptyLine(), last: p.last, name: PBC.Player.name(p),
+      target: 0, out: false, inj: false, injNew: null, st: PBC.Stats.emptyLine(), last: p.last, name: PBC.Player.name(p),
       hgt: p.hgt, tn: tendProfile(p), pbFit: null,
+      // confidence (Sim.K.conf*): where he comes into the game, how far a play moves him, where it is now
+      conf0: confBase(p), confK: confSwing(p), conf: 0, confS: 0, confNote: 0,
     };
+    c.conf = c.conf0;
+    return c;
+  }
+  /** a player's confidence coming into a game: his swagger (ego), how he takes the big moments (clutch), and how his last
+   *  games went (p.conf, carried over from them, Sim.finalize) */
+  function confBase(p) {
+    const t = p.pers || {}, r = p.r || {};
+    const ego = t.ego != null ? t.ego : 50;
+    return U.clamp(0.25 * (ego - 50) / 50 + 0.15 * ((r.clutch != null ? r.clutch : 60) - 60) / 40 + (+p.conf || 0), -0.5, 0.5);
+  }
+  /** how far one play moves him: a big ego rides the waves, a worker and a veteran stay level */
+  function confSwing(p) {
+    const t = p.pers || {};
+    return U.clamp(1 + 0.35 * ((t.ego != null ? t.ego : 50) - 50) / 50 - 0.25 * ((t.work != null ? t.work : 60) - 60) / 40 - (p.age >= 30 ? 0.12 : 0), 0.6, 1.4);
+  }
+  /** his confidence settles back toward where he came in over his minutes on the floor (Sim.K.confTau), then moves by d
+   *  (times how much a play moves him); a note in the play-by-play the first time he gets hot or goes cold */
+  function confMove(ctx, c, d) {
+    const dt = c.sec - c.confS; c.confS = c.sec;
+    if (dt > 0) c.conf = c.conf0 + (c.conf - c.conf0) * Math.exp(-dt / Sim.K.confTau);
+    c.conf = U.clamp(c.conf + d * c.confK, -1, 1);
+    const g = ctx.g;
+    if (g.lite) return;
+    if (c.conf >= 0.55 && c.confNote <= 0) { c.confNote = 1; g.pbp.push({ q: g.period, clock: Math.max(0, g.clock - ctx.t), team: ctx.O.players.includes(c) ? ctx.O.idx : ctx.D.idx, text: `🔥 ${c.last} is heating up!`, type: 'note', score: g.score.slice(), possN: ctx.P.n }); }
+    else if (c.conf <= -0.55 && c.confNote >= 0) { c.confNote = -1; g.pbp.push({ q: g.period, clock: Math.max(0, g.clock - ctx.t), team: ctx.O.players.includes(c) ? ctx.O.idx : ctx.D.idx, text: `🧊 ${c.last} has gone cold`, type: 'note', score: g.score.slice(), possN: ctx.P.n }); }
+    else if (c.conf < 0.3 && c.conf > -0.3) c.confNote = 0;
   }
   const avgDev = (T, k) => { let s = 0; for (const c of T.on) s += c.tn.d[k]; return T.on.length ? s / T.on.length : 0; };
 
@@ -316,7 +352,7 @@
     if (T.strat.goTo1 === c.id) w *= 1.1 * goToMod * goToI * (hero === 1 ? 1 : Math.pow(hero, 1.3));
     else if (T.strat.goTo2 === c.id) w *= 1.08 * (goToMod > 1 ? 1 + (goToMod - 1) * 0.4 : 1) * goToI * (hero === 1 ? 1 : Math.pow(hero, 0.8));
     else if (hero > 1 && !T.strat.goTo1 && ctx.starId === c.id) w *= hero;
-    w *= 1 + c.hot * 0.08;
+    w *= 1 + c.conf * Sim.K.confUse; // (a confident player looks for his shot, a cold one moves it on)
     w *= fatigueMult(c);
     // teammates get involved once someone has jacked up a lot of shots (later / softer with the star usage slider)
     w /= 1 + Math.max(0, c.st.fga + c.st.fta * 0.44 - (us === 1 ? 15 : 15 * Math.sqrt(us))) * (us === 1 ? 0.085 : 0.085 / us);
@@ -2082,7 +2118,7 @@
     x += (is3(zone) ? g.sl.l3 : zone === 'mid' ? g.sl.lMid : g.sl.lIn) + g.shootAdj[O.idx];
     // Game Impact Moments: the defense is locked in and loads up on drives
     if (ctx.gimDefense || (ctx.P && ctx.P.gim)) x -= zone === 'rim' || zone === 'paint' ? 0.5 : 0.15;
-    x += sh.hot * 0.03;
+    x += sh.conf * Sim.K.confMake;
     if (g.run.team === O.idx && g.run.pts >= 8) x += 0.03;
     // big leads: the team ahead coasts and the team behind plays for pride (real games rarely end 50+ apart)
     const margin = g.score[O.idx] - g.score[1 - O.idx];
@@ -2131,6 +2167,7 @@
     let p = Sim.K.ftA + 0.0066 * c.r.ft + g.L.ftBase + g.sl.ft;
     if (isClutch(g)) p += (c.r.clutch - 70) * 0.0012 * g.clutchMult;
     p -= Math.max(0, 68 - c.energy) * 0.001;
+    p += (c.conf || 0) * Sim.K.confFtMake * 0.25; // (confidence: ~0.025 either way at the extremes, the logit's slope near 0.77)
     if (ctx.O.idx === 1) p -= 0.004 * g.homeMult;
     return U.clamp(p, 0.3, g.sl.ft > 0 ? 0.96 + g.sl.ft * 0.25 : 0.96);
   }
@@ -2248,6 +2285,8 @@
     const fouled = !blocked && U.chance(pFoul);
     let made = !blocked && U.chance(fouled ? pMake * 0.5 : pMake);
     shot.made = made; shot.blocked = blocked; shot.fouled = fouled; shot.andOne = made && fouled;
+    // (for the court's aim, Match.Aim: how likely the make was, and how he felt taking it)
+    shot.pm = U.round(pMake, 3); shot.conf = U.round(sh.conf, 2);
     // (play tracking: the first shot of the possession and of a called play, with its expected points)
     {
       const xp = U.round(xpMake * pts, 3);
@@ -2256,18 +2295,23 @@
       if (r && r.q == null) { r.q = contest; r.xp = xp; r.made = made; r.fouledShot = fouled && !made; r.zone = zone; }
     }
     if (Sim.debug) { const z = Sim.debug[zone] || (Sim.debug[zone] = [0, 0, 0, 0]); if (made || !fouled) z[1]++; if (made) z[0]++; if (blocked) z[2]++; if (fouled) z[3]++; }
+    if (Sim.debugConf) { const cf = Sim.debugConf; cf[0] += sh.conf; cf[1]++; cf[2] += sh.conf * sh.conf; }
     shot.pending = false;
     // stats (a missed shot on a shooting foul is not a field-goal attempt)
     if (made || !fouled) { sh.st.fga++; if (pts === 3) sh.st.tpa++; }
     if (made) {
       sh.st.fgm++; sh.st.pts += pts; if (pts === 3) sh.st.tpm++;
       if (plan.assister) plan.assister.st.ast++;
-      sh.hot = Math.min(3, sh.hot + 1);
     } else {
       shot.assist = null;
-      sh.hot = Math.max(0, sh.hot - (U.chance(0.6) ? 1 : 0));
     }
-    if (blocked) { d.st.blk++; shot.blocker = d.id; }
+    // confidence: by how far the result beat what was expected of it (a make he was expected to miss lifts him most, a miss
+    // he should have made hurts most; on average it comes to nothing), a three more, a block and an and-one on top
+    if (kind !== 'heave' && !(fouled && !made)) {
+      const dm = ((made ? 1 : 0) - pMake) * Sim.K.confShot * (pts === 3 ? 1.2 : 1) + (blocked ? -0.08 : 0) + (made && fouled ? 0.08 : 0) + (made && (kind === 'dunk' || kind === 'alley') ? 0.04 : 0);
+      confMove(ctx, sh, dm);
+    }
+    if (blocked) { d.st.blk++; shot.blocker = d.id; confMove(ctx, d, Sim.K.confBlk); }
     if (fouled) { shot.fouler = d.id; }
     const dist = shot.dist;
     if (blocked) shot.text = U.pick([`${d.last} BLOCKS ${sh.last}!`, `Rejected! ${d.last} swats ${sh.last}'s shot`, `${d.last} with the block on ${sh.last}`]);
@@ -2277,7 +2321,6 @@
       g.pbp.push({ q: g.period, clock: Math.max(0, g.clock - shot.t), team: O.idx, text: shot.text, type: 'shot', score: null, possN: ctx.P.n, made, pts });
     }
     if (made) addPoints(ctx, O.idx, pts);
-    if (sh.hot === 3 && made && !g.lite && U.chance(0.5)) g.pbp.push({ q: g.period, clock: Math.max(0, g.clock - shot.t), team: O.idx, text: `🔥 ${sh.last} is heating up!`, type: 'note', score: g.score.slice(), possN: ctx.P.n });
     if (ctx.P.gim && quality) {
       g.gimLog.push({ q: g.period, clock: g.clock - shot.t, shooter: sh.id, kind, zone, quality: quality.quality, made, scoreAfter: g.score.slice() });
     }
@@ -2317,7 +2360,8 @@
     const g = ctx.g, O = ctx.O;
     let lastMade = false;
     for (let i = 1; i <= n; i++) {
-      const made = U.chance(ftProb(ctx, c));
+      const pFt = ftProb(ctx, c), made = U.chance(pFt);
+      confMove(ctx, c, ((made ? 1 : 0) - pFt) * Sim.K.confFt);
       c.st.fta++;
       if (made) { c.st.ftm++; c.st.pts++; }
       evAt(ctx, t, 'ft', { shooter: c.id, made, num: i, of: n, team: O.idx, text: `${c.last} ${made ? 'makes' : 'misses'} free throw ${i} of ${n}` });
@@ -2390,7 +2434,11 @@
     if (off) {
       ctx.scStart = ctx.t; ctx.scLen = Math.min(L.orebShotClock, Math.max(1, g.clock - ctx.t));
       ctx.putbackBy = null; ctx.newPlay = true;
-      const pbP = 0.26 + (reb.posN >= 4 ? 0.16 : 0) + (zone === 'rim' || zone === 'paint' ? 0.1 : 0) - (zone === 'ft' ? 0.1 : 0);
+      // the putback (the gameplay pass: an offensive rebounder open in the paint kicked it back out): taken straight back up
+      // by how close to the rim he got it (all the way from ~4 ft, none from ~11), a big and a finisher more (NBA tracking: about
+      // half of the possessions after an offensive rebound end in a shot at the rim, most of them putbacks)
+      const near = U.clamp((11 - rd) / 7, 0, 1), fin = (reb.r.close * 0.5 + reb.r.layup * 0.3 + reb.r.dunk * 0.2 - 60) / 100;
+      const pbP = U.clamp(0.1 + 0.62 * near + (reb.posN >= 4 ? 0.08 : 0) + fin - (zone === 'ft' ? 0.1 : 0), 0.05, 0.85);
       if (U.chance(pbP)) ctx.putbackBy = reb;
       ctx.handler = ctx.putbackBy ? reb : pickHandler(O);
       ctx.advT = ctx.t;
@@ -2444,7 +2492,7 @@
       default: who = U.pickW(O.on, c => (c === handler ? 2 : 1) * (100 - c.r.handle));
     }
     if (info.toBy) who = info.toBy;
-    if (who) who.st.tov++;
+    if (who) { who.st.tov++; confMove(ctx, who, -Sim.K.confTo); }
     if (!ctx.P.play || ctx.P.play === 'none') { ctx.P.play = info.play === 'putback' ? 'none' : info.play; ctx.P.setName = info.setName || ''; }
     ctx.P.tok = kind;
     if (info.pb) {
@@ -2470,6 +2518,7 @@
     if (stolen) {
       stealer = U.pickW(D.on, c => Math.pow(c.r.steal / 55, 1.5) * (c.r.agility / 70) * c.tn.f.gamble);
       stealer.st.stl++;
+      confMove(ctx, stealer, Sim.K.confStl);
     }
     if (kind === 'offensive_foul' && who) {
       who.pf++; who.st.pf++;
@@ -2838,6 +2887,9 @@
     const box = Sim.box(g);
     for (const T of g.t) for (const c of T.players) {
       if (c.injNew) c.p.injury = c.injNew;
+      // (confidence carried into the next game: a share of how far this one left him from where he came in, and some of
+      // what he brought, so a hot week builds and a slump lingers a little)
+      if (c.sec > 0) c.p.conf = U.round(U.clamp((c.conf - c.conf0) * Sim.K.confCarry + (+c.p.conf || 0) * 0.5, -0.3, 0.3), 3);
     }
     if (!g.lite) box.pbp = g.pbp;
     return box;
