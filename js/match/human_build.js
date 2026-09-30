@@ -238,8 +238,9 @@
   }
 
   // ------------------------------------------------------------ hair extras
-  /** lofted tube along bind-space points with radii; skinned to the head; aux0 = 0 at the root .. 1 at the tip */
-  function tubeOut(out, pts, rad, sides, flat) {
+  /** lofted tube along bind-space points with radii; aux0 = 0 at the root .. 1 at the tip; skinned to the head, or
+   *  ring by ring by skin(i) -> [bone ids, weights (0..255)] (hair that moves) */
+  function tubeOut(out, pts, rad, sides, flat, skin) {
     const n = pts.length, base = out.n;
     let ux = 1, uy = 0, uz = 0;
     for (let i = 0; i < n; i++) {
@@ -252,19 +253,21 @@
       if (ul < 1e-4) { ux = Math.abs(tz) < 0.9 ? 0 : 1; uy = 0; uz = Math.abs(tz) < 0.9 ? 1 : 0; const d2 = ux * tx + uy * ty + uz * tz; ux -= d2 * tx; uy -= d2 * ty; uz -= d2 * tz; ul = Math.hypot(ux, uy, uz) || 1; }
       ux /= ul; uy /= ul; uz /= ul;
       const vx = ty * uz - tz * uy, vy = tz * ux - tx * uz, vz = tx * uy - ty * ux;
+      const sw = skin ? skin(i) : null, bi = sw ? sw[0] : [B.HED, 0, 0, 0], bw = sw ? sw[1] : ONE;
       for (let k = 0; k < sides; k++) {
         const an = k / sides * Math.PI * 2, ca = Math.cos(an), sa = Math.sin(an);
         const fx = flat || 1;
         const ox = (ux * ca * fx + vx * sa), oy = (uy * ca * fx + vy * sa), oz = (uz * ca * fx + vz * sa);
         const nx = ux * ca / fx + vx * sa, ny = uy * ca / fx + vy * sa, nz = uz * ca / fx + vz * sa, nl = Math.hypot(nx, ny, nz) || 1;
-        out.v(pts[i][0] + ox * rad[i], pts[i][1] + oy * rad[i], pts[i][2] + oz * rad[i], nx / nl, ny / nl, nz / nl, [B.HED, 0, 0, 0], ONE, null, MAT.HAIR, 0.9, i / (n - 1), 0, 0, 0);
+        out.v(pts[i][0] + ox * rad[i], pts[i][1] + oy * rad[i], pts[i][2] + oz * rad[i], nx / nl, ny / nl, nz / nl, bi, bw, null, MAT.HAIR, 0.9, i / (n - 1), 0, 0, 0);
       }
     }
     for (let i = 0; i < n - 1; i++) for (let k = 0; k < sides; k++) {
       const a = base + i * sides + k, b = base + i * sides + (k + 1) % sides;
       out.t(a, a + sides, b + sides); out.t(a, b + sides, b);
     }
-    const L = pts[n - 1], P0 = pts[n - 2], tip = out.v(L[0] + (L[0] - P0[0]) * 0.3, L[1] + (L[1] - P0[1]) * 0.3, L[2] + (L[2] - P0[2]) * 0.3, 0, 0, -1, [B.HED, 0, 0, 0], ONE, null, MAT.HAIR, 0.9, 1, 0, 0, 0);
+    const L = pts[n - 1], P0 = pts[n - 2], sw = skin ? skin(n - 1) : null;
+    const tip = out.v(L[0] + (L[0] - P0[0]) * 0.3, L[1] + (L[1] - P0[1]) * 0.3, L[2] + (L[2] - P0[2]) * 0.3, 0, 0, -1, sw ? sw[0] : [B.HED, 0, 0, 0], sw ? sw[1] : ONE, null, MAT.HAIR, 0.9, 1, 0, 0, 0);
     for (let k = 0; k < sides; k++) out.t(base + (n - 1) * sides + k, tip, base + (n - 1) * sides + (k + 1) % sides);
   }
   /** a lumpy sphere of hair (buns, puffs) */
@@ -285,8 +288,10 @@
     }
   }
   function hairExtras(out, c) {
-    const { pos, nrm, np, hedW, scalpD, hl, hk, hA, E, st, style, seed, H } = c;
+    const { pos, nrm, np, hedW, scalpD, hl, hk, hA, E, st, style, seed, H, keep } = c;
     const W = (x, y, z) => [hA[0] + x * hk, hA[1] + y * hk, hA[2] + z * hk];     // head-local cm -> bind feet
+    // (hair that moves keeps its strands for rigHair)
+    const tube = (pts, rad, sides, flat) => { if (keep) keep.push({ pts, rad, sides, flat }); else tubeOut(out, pts, rad, sides, flat); };
     // head surface samples for collisions
     const head = [];
     for (let i = 0; i < np; i += 2) if (hedW[i] > 0.5) head.push(i);
@@ -334,7 +339,7 @@
           pts.push(p.slice());
         }
         const rad = pts.map((_, q) => r * (1 - 0.35 * q / nSeg));
-        tubeOut(out, pts, rad, 6, flat);
+        tube(pts, rad, 6, flat);
       }
     };
     switch (style) {
@@ -352,7 +357,7 @@
           pushOut(p, r0 * 0.8);
           pts.push(p.slice());
         }
-        tubeOut(out, pts, pts.map((_, q) => r0 * (1 - 0.6 * q / 9)), 8, 1.3);
+        tube(pts, pts.map((_, q) => r0 * (1 - 0.6 * q / 9)), 8, 1.3);
         ballOut(out, W(0, -8.0, E.z + 8.4), 1.6 * hk, 0.2, seed);   // the tie
         break;
       }
@@ -360,6 +365,143 @@
       case 'puffs': for (const sg of [-1, 1]) ballOut(out, W(sg * 6.0, -1.6, E.z + 10.2), 5.0 * hk, 0.35, seed + sg); break;
       default: break;
     }
+  }
+
+  // ------------------------------------------------------------ hair that moves (hair.js)
+  /** the body the hair falls on, measured on this mesh in feet (the shapes hair.js collides with): the neck's and
+   *  the upper arms' radii (median distance of their skin from the bone), the upper torso as a box on the chest's
+   *  frame over the jersey (its skin's extent there); what the mesh does not give comes from Hair.CFG.body */
+  function hairBody(pos, np, dom, hedW, bind, H) {
+    const J = RG.J, F = RG.F, P = bind.sk.P, R = bind.sk.R, cb = F.CHS * 9, oc = J.CHS * 3, CB = M.Hair.CFG.body;
+    const segD = (i, ja, jb) => {
+      const a = ja * 3, b = jb * 3, ex = P[b] - P[a], ey = P[b + 1] - P[a + 1], ez = P[b + 2] - P[a + 2];
+      const t = U.clamp(((pos[i * 3] - P[a]) * ex + (pos[i * 3 + 1] - P[a + 1]) * ey + (pos[i * 3 + 2] - P[a + 2]) * ez) / (ex * ex + ey * ey + ez * ez || 1e-9), 0, 1);
+      return Math.hypot(pos[i * 3] - P[a] - ex * t, pos[i * 3 + 1] - P[a + 1] - ey * t, pos[i * 3 + 2] - P[a + 2] - ez * t);
+    };
+    const neck = [], arm = [], wx = [], back = [], front = [], top = [];
+    for (let i = 0; i < np; i++) {
+      const d = dom[i];
+      if (d === B.NCK && hedW[i] < 0.5) neck.push(segD(i, J.HJ, J.NCK));
+      else if (d === B.L_UA) arm.push(segD(i, J.L_SH, J.L_EL));
+      else if (d === B.R_UA) arm.push(segD(i, J.R_SH, J.R_EL));
+      else if (d === B.CHS) {
+        const dx = pos[i * 3] - P[oc], dy = pos[i * 3 + 1] - P[oc + 1], dz = pos[i * 3 + 2] - P[oc + 2];
+        wx.push(Math.abs(R[cb] * dx + R[cb + 3] * dy + R[cb + 6] * dz));
+        const ly = R[cb + 1] * dx + R[cb + 4] * dy + R[cb + 7] * dz;
+        back.push(-ly); front.push(ly);
+        top.push(R[cb + 2] * dx + R[cb + 5] * dy + R[cb + 8] * dz);
+      }
+    }
+    const q = (a, f, dflt) => { if (a.length < 20) return dflt * H; a.sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(f * a.length))]; };
+    const cloth = 0.004 * H;
+    return {
+      neck: q(neck, 0.5, CB.neck), arm: q(arm, 0.5, CB.arm),
+      torsoW: q(wx, 0.97, CB.torsoW) + cloth, torsoBack: q(back, 0.97, CB.torsoBack) + cloth, torsoFront: q(front, 0.97, CB.torsoFront) + cloth,
+      torsoTop: q(top, 0.99, CB.torsoTop) + cloth, torsoBottom: CB.torsoBottom * H, torsoRound: CB.torsoRound * H,
+    };
+  }
+  /** the skull as a sphere (bind feet, [x, y, z, r]): fitted (least squares) to the scalp above and behind the eyes,
+   *  a little inside it */
+  function skullSphere(pos, np, hedW, hl, E) {
+    const A = new Float64Array(20);   // the normal equations of |p|^2 = 2 c.p + k, augmented
+    for (let i = 0; i < np; i++) {
+      if (hedW[i] < 0.5) continue;
+      const L = hl(i);
+      if (L[2] < E.z + 1 || L[1] > E.y - 3) continue;
+      const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2], row = [2 * x, 2 * y, 2 * z, 1], rhs = x * x + y * y + z * z;
+      for (let a = 0; a < 4; a++) { for (let b = 0; b < 4; b++) A[a * 5 + b] += row[a] * row[b]; A[a * 5 + 4] += row[a] * rhs; }
+    }
+    // (Gauss-Jordan with partial pivoting)
+    for (let c = 0; c < 4; c++) {
+      let p = c; for (let r = c + 1; r < 4; r++) if (Math.abs(A[r * 5 + c]) > Math.abs(A[p * 5 + c])) p = r;
+      if (Math.abs(A[p * 5 + c]) < 1e-12) return null;
+      for (let k = 0; k < 5; k++) { const t = A[c * 5 + k]; A[c * 5 + k] = A[p * 5 + k]; A[p * 5 + k] = t; }
+      for (let r = 0; r < 4; r++) { if (r === c) continue; const f = A[r * 5 + c] / A[c * 5 + c]; for (let k = c; k < 5; k++) A[r * 5 + k] -= f * A[c * 5 + k]; }
+    }
+    const cx = A[4] / A[0], cy = A[9] / A[6], cz = A[14] / A[12], k = A[19] / A[18];
+    const r2 = k + cx * cx + cy * cy + cz * cz;
+    return r2 > 0 ? [cx, cy, cz, Math.sqrt(r2) * 0.97] : null;
+  }
+  /** the face and jaw as a sphere (bind feet, [x, y, z, r]): from the eyes' height down to the chin, its front at the
+   *  mouth, a little inside */
+  function faceSphere(pos, np, hedW, hl, E, mouthZ, hk, hA) {
+    let yF = -1e9, zC = 1e9;
+    for (let i = 0; i < np; i++) {
+      if (hedW[i] < 0.5) continue;
+      const L = hl(i);
+      if (L[1] < E.y - 6) continue;
+      if (Math.abs(L[2] - mouthZ) < 1) yF = Math.max(yF, L[1]);
+      zC = Math.min(zC, L[2]);
+    }
+    if (!(yF > -1e8) || !(zC < E.z - 4)) return null;
+    const r = (E.z - zC) / 2, cz = (E.z + zC) / 2, cy = yF - r;
+    return [hA[0], hA[1] + cy * hk, hA[2] + cz * hk, r * 0.95 * hk];
+  }
+  /**
+   * Rig the hanging strands of a style that moves (hair.js): each is laid over the body at rest (off the neck, the
+   * shoulders, the back and the upper arms the simulation collides with), a few become guides (spread over the scalp:
+   * the one furthest back first, then each the furthest from those taken), and every strand's rings are skinned to
+   * its two nearest guides' knots at the same place along them (the nearer weighing more, by the inverse square of
+   * the distance between the roots): bone NB + guide * K + knot, whose rest frame is the head's bind frame at that
+   * knot (so at rest the hair is exactly where the head carries it; Hair.knotFrames says how the bones turn).
+   * Returns { gd (Hair.guideSet), base, n, bind (n * 12: the bones' inverse bind rows) } or null.
+   */
+  function rigHair(out, list, c) {
+    const HR = M.Hair, K = HR.CFG.meshKnots, S = HR.CFG.styles[c.style];
+    const { pos, np, dom, hedW, hl, E, bind, H, hk, hA, mouthZ } = c;
+    const J = RG.J, F = RG.F, sk = bind.sk, P = sk.P, Rb = sk.R, hb = F.HED * 9, oh = J.HJ * 3;
+    const ok = list.filter(s => s.pts.length === K);
+    for (const s of list) if (s.pts.length !== K) tubeOut(out, s.pts, s.rad, s.sides, s.flat);
+    if (!ok.length || !S) return null;
+    const body = hairBody(pos, np, dom, hedW, bind, H);
+    const C = HR.bodyColliders(sk, body, HR.newColliders());
+    const skull = skullSphere(pos, np, hedW, hl, E) || [P[J.HC * 3], P[J.HC * 3 + 1], P[J.HC * 3 + 2], bind.sk.dims.headR];
+    const face = faceSphere(pos, np, hedW, hl, E, mouthZ, hk, hA);
+    for (const s of ok) HR.relax(C, s.pts, s.rad[0], face ? [skull, face] : [skull], 16);
+    // guides
+    const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+    const G = Math.min(S.guides, ok.length), gi = [];
+    let first = 0;
+    for (let i = 1; i < ok.length; i++) if (ok[i].pts[0][1] < ok[first].pts[0][1]) first = i;
+    gi.push(first);
+    const dm = ok.map(s => d2(s.pts[0], ok[first].pts[0]));
+    while (gi.length < G) {
+      let b = -1;
+      for (let i = 0; i < ok.length; i++) if (!gi.includes(i) && (b < 0 || dm[i] > dm[b])) b = i;
+      gi.push(b);
+      for (let i = 0; i < ok.length; i++) dm[i] = Math.min(dm[i], d2(ok[i].pts[0], ok[b].pts[0]));
+    }
+    // the guides' knots head-local (from the head joint, on the head's axes), the skull the same way
+    const toLocal = (p, o, k) => {
+      const dx = p[0] - P[oh], dy = p[1] - P[oh + 1], dz = p[2] - P[oh + 2];
+      o[k] = Rb[hb] * dx + Rb[hb + 3] * dy + Rb[hb + 6] * dz; o[k + 1] = Rb[hb + 1] * dx + Rb[hb + 4] * dy + Rb[hb + 7] * dz; o[k + 2] = Rb[hb + 2] * dx + Rb[hb + 5] * dy + Rb[hb + 8] * dz;
+    };
+    const local = new Float64Array(G * K * 3), hd = [0, 0, 0, skull[3]], fd = face ? [0, 0, 0, face[3]] : null;
+    for (let g = 0; g < G; g++) for (let k = 0; k < K; k++) toLocal(ok[gi[g]].pts[k], local, (g * K + k) * 3);
+    toLocal(skull, hd, 0);
+    if (fd) toLocal(face, fd, 0);
+    const gd = HR.guideSet(c.style, G, K, local, hd, body, fd);
+    gd.turn = G === ok.length;   // (every strand its own guide: the rings turn with it; else they follow, hair.js)
+    // every strand on its two nearest guides (by the root), ring by ring
+    for (const s of ok) {
+      const nn = gi.map((i, g) => ({ g, d: Math.sqrt(d2(s.pts[0], ok[i].pts[0])) })).sort((a, b) => a.d - b.d);
+      const a = nn[0], b = nn[1];
+      let wa = 1;
+      if (b && a.d > 1e-5) { const ia = 1 / (a.d * a.d), ib = 1 / (b.d * b.d); wa = ia / (ia + ib); }
+      const qa = Math.round(wa * 255), qb = 255 - qa;
+      tubeOut(out, s.pts, s.rad, s.sides, s.flat, (i) => [[NB + a.g * K + i, b && qb ? NB + b.g * K + i : 0, 0, 0], [qa, b ? qb : 0, 0, 0]]);
+    }
+    // the bones' inverse bind rows: the head's bind rotation at each knot
+    const n = G * K, bi = new Float32Array(n * 12);
+    for (let q = 0; q < n; q++) {
+      const g = Math.floor(q / K), p = ok[gi[g]].pts[q % K], w = q * 12;
+      for (let row = 0; row < 3; row++) {
+        const c0 = Rb[hb + row], c1 = Rb[hb + 3 + row], c2 = Rb[hb + 6 + row];
+        bi[w + row * 4] = c0; bi[w + row * 4 + 1] = c1; bi[w + row * 4 + 2] = c2;
+        bi[w + row * 4 + 3] = -(c0 * p[0] + c1 * p[1] + c2 * p[2]);
+      }
+    }
+    return { gd, base: NB, n, bind: bi };
   }
 
   // ------------------------------------------------------------ build
@@ -629,7 +771,10 @@
       });
     }
     // ---------------------------------------------------------- hanging hair: locs, braids, ponytails, buns, puffs, long hair
-    if (style !== 'bald') hairExtras(out, { pos, nrm, np, hedW, scalpD, hl, hk, hA, E, st, style, seed, H });
+    // (hair that moves: the strands are rigged to guides the renderer simulates, hair.js)
+    const moving = style !== 'bald' && M.Hair && M.Hair.styleOf(st) ? [] : null;
+    if (style !== 'bald') hairExtras(out, { pos, nrm, np, hedW, scalpD, hl, hk, hA, E, st, style, seed, H, keep: moving });
+    const hair = moving && moving.length ? rigHair(out, moving, { pos, np, dom, hedW, hl, E, bind, H, style, hk, hA, mouthZ: D.meta.mouth ? D.meta.mouth.z : E.z - 7 }) : null;
     const beard = st.fem ? 'none' : st.beard;
     if (beard === 'full' || beard === 'goatee' || beard === 'mustache') {
       const ch = beard === 'full' ? [1, 1] : beard === 'goatee' ? [2, 1] : [2, 0];
@@ -687,7 +832,8 @@
       u16[(ob + 40) / 2] = out.UV[i * 2]; u16[(ob + 42) / 2] = out.UV[i * 2 + 1];
     }
     const index = Uint32Array.from(out.T);
-    const bindInv = new Float32Array(NB * 12);
+    const bindInv = new Float32Array((NB + (hair ? hair.n : 0)) * 12);
+    if (hair) bindInv.set(hair.bind, NB * 12);
     for (let b = 0; b < NB; b++) {
       const R = bind.R, Ob = bind.O, r = b * 9, o = b * 3, w = b * 12;
       for (let row = 0; row < 3; row++) {
@@ -699,6 +845,7 @@
     return {
       buf, index, nVert: n, nIdx: index.length, bindInv, bindTw: Float32Array.from(bind.TW), stride: STRIDE,
       head: { o: hA, s: hk, eyes: rt.eyes.map(e => ({ c: e, r: hk * 1.2 })), eye: { x: E.x, y: E.y, z: E.z }, mouth: D.meta.mouth },
+      hair: hair ? { gd: hair.gd, base: hair.base, n: hair.n } : null,
       detail: 'high', ms: performance.now() - t0, human: true,
     };
   }

@@ -292,7 +292,8 @@
     }
 
     // ---------------------------------------------------------- main
-    /** o: { dpr, outline(bool), flat(bool), alpha, extra } */
+    /** o: { dpr, outline(bool), flat(bool), alpha, extra, who (the person: the key of the hair's simulation), time
+     *  (the clock the hair moves by: the game's, s; the page's when absent) } */
     draw(g, cam, sk, st, o) {
       this.cam = cam;
       const P = sk.P, H = sk.dims.H;
@@ -329,6 +330,21 @@
       add(10, dep(J.R_KN, J.R_AN, 0.02));
       add(11, dep(J.R_HEEL, J.R_TOE, 0.0));
       if (o.extra) { parts[12].d = o.extra.d; order.push(parts[12]); }
+      // hair that moves (hair.js): its hanging part at its own depth (behind the head and the back while the player
+      // faces the camera, over them when the player faces away)
+      this.hairS = null;
+      const HR = M.Hair;
+      if (HR && st.hair !== 'bun' && HR.styleOf(st)) {
+        const gd = HR.flatGuides(st, sk.dims);
+        const hs = gd && U.safe(() => HR.step(o.who || sk, sk, gd, o.time != null ? o.time : performance.now() / 1000), null, 'hair');
+        if (hs) {
+          const X = hs.X, pt = this.pt;
+          let d = 0;
+          for (let i = 0; i < X.length; i += 3) d += cam.project(X[i], X[i + 1], X[i + 2], pt).d;
+          this.hairS = hs;
+          add(13, d / (X.length / 3));
+        }
+      }
       order.sort((a, b) => b.d - a.d);
       if (o.alpha != null && o.alpha < 1) g.globalAlpha = o.alpha;
       g.lineJoin = 'round'; g.lineCap = 'round';
@@ -348,6 +364,7 @@
           case 10: this.drawShank(g, sk, st, 1); break;
           case 11: this.drawFoot(g, sk, st, 1); break;
           case 12: o.extra.fn(); break;
+          case 13: this.drawHangingHair(g, sk, st); break;
         }
       }
       g.globalAlpha = 1;
@@ -838,10 +855,11 @@
       const faceDot = Yy * tcy + Yz * tcz;
       const sideDot = Xy * tcy + Xz * tcz; // + when the head's right side faces the camera
       this.scr = scr; this.Rh = Rh; this.faceDot = faceDot; this.sideDot = sideDot;
-      // hair behind the head
+      // hair behind the head (hair that moves hangs by itself: drawHangingHair)
+      const sim = !!this.hairS;
       if (st.hair === 'afro' || st.hair === 'puffs') this.bigHair(g, st, scr, q, Rh);
-      if (st.hair === 'long' || st.hair === 'locs' || st.hair === 'braids' || st.hair === 'twists' || st.hair === 'bob') this.backHair(g, st, scr, q, Rh, sk);
-      if (st.hair === 'ponytail' || st.hair === 'bun') this.tieHair(g, st, scr, q, Rh, faceDot < 0);
+      if (!sim && (st.hair === 'long' || st.hair === 'locs' || st.hair === 'braids' || st.hair === 'twists' || st.hair === 'bob')) this.backHair(g, st, scr, q, Rh, sk);
+      if ((!sim && st.hair === 'ponytail') || st.hair === 'bun') this.tieHair(g, st, scr, q, Rh, faceDot < 0);
       // skull shape from the features: a longer / rounder face, jaw width, chin length
       const faceLen = ft('faceLen'), jawF = ft('jaw'), chinF = ft('chin');
       const rxK = 1 - (faceLen - 0.5) * 0.14, ryK = 1 + (faceLen - 0.5) * 0.16;
@@ -1185,6 +1203,38 @@
         for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(bx + i * Rh * 0.3, by - Rh * 0.2); g.lineTo(bx + i * Rh * 0.34, by + Rh * len * 0.8); g.stroke(); }
       }
       void sk;
+    }
+    /** hair that moves (hair.js): each guide a ribbon through its simulated knots, wide at the root and narrower at
+     *  the tip, the far ones first */
+    drawHangingHair(g, sk, st) {
+      const hs = this.hairS, gd = hs.gd, S = gd.S, K = gd.K, G = gd.G, X = hs.X, cam = this.cam, pt = this.pt, T = st.hairT;
+      const Rh = sk.dims.headR * this.ss[J.HC] * (st.fem ? 0.97 : 1), w0 = Math.max(1, S.w * Rh);
+      const xs = this._hx || (this._hx = new Float32Array(160)), ys = this._hy || (this._hy = new Float32Array(160));
+      const ord = this._ho || (this._ho = []);
+      ord.length = 0;
+      for (let gi = 0; gi < G; gi++) {
+        let d = 0;
+        for (let k = 0; k < K; k++) { const i = gi * K + k; cam.project(X[i * 3], X[i * 3 + 1], X[i * 3 + 2], pt); xs[i] = pt.x; ys[i] = pt.y; d += pt.d; }
+        ord.push({ g: gi, d });
+      }
+      ord.sort((a, b) => b.d - a.d);
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      const width = (k) => w0 * (1 - 0.45 * k / (K - 1));
+      const strand = (gi, mul, add, col) => {
+        g.strokeStyle = col;
+        for (let k = 1; k < K; k++) {
+          const a = gi * K + k - 1, b = a + 1;
+          g.lineWidth = Math.max(0.5, width(k) * mul + add);
+          g.beginPath(); g.moveTo(xs[a], ys[a]); g.lineTo(xs[b], ys[b]); g.stroke();
+        }
+      };
+      const ropes = st.hair === 'locs' || st.hair === 'braids' || st.hair === 'twists';
+      for (const o of ord) {
+        if (this.outlineW) strand(o.g, 1, this.outlineW * 1.4, 'rgba(0,0,0,0.45)');
+        strand(o.g, 1, 0, ropes ? (o.g % 2 ? T.b : T.d) : T.b);
+        // a lit core down each strand
+        if (this.detail > 0 && !this.flat && w0 > 2.5) strand(o.g, 0.35, 0, U.rgba(T.l, ropes ? 0.55 : 0.4));
+      }
     }
     tieHair(g, st, scr, q, Rh, backView) {
       if (st.hair === 'ponytail') {
