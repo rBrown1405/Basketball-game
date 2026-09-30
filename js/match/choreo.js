@@ -308,6 +308,17 @@
       }
       r.spotName = name; r.spot = this.spotPt(name);
     }
+    /**
+     * A player's awareness, 0..1: how well he reads the floor. Offense: shot IQ and vision (seeing the open man, the
+     * open lane, running the floor on a break). Defense: help IQ and hustle (getting back, finding a man, keeping
+     * his eyes on the ball and his man). Scaled by the Offensive / Defensive Awareness sliders.
+     */
+    aware(a, side) {
+      const look = a && a.look || {};
+      const raw = side === 'off' ? look.offIQ : look.defIQ;
+      const base = U.clamp(((raw == null ? 64 : +raw) - 40) / 50, 0, 1);
+      return U.clamp(base * this.sliderK(side === 'off' ? 'offIQ' : 'defIQ', 0.5, 1.5), 0, 1);
+    }
     /** a live-game AI slider (League Settings, 0..100, 50 = default) as a multiplier: 0 -> lo, 50 -> 1, 100 -> hi */
     sliderK(key, lo, hi) {
       const ai = this.v.opts && this.v.opts.ai;
@@ -492,8 +503,18 @@
             else { tx = this.X(Math.max(su, Math.min(u, Math.max(bu + 7, u - 14)))); ty = U.lerp(a.y, r.spot.y, 0.3); } // (never back up)
             tx = this.X(U.clamp(this.U_(tx), 2.2, 91.8));
           }
-          // (behind the ball or still in the backcourt: run to get ahead of it)
-          if (lane && (u > bu - 4 || u > 47)) lane = 'run';
+          // (behind the ball or still in the backcourt: run to get ahead of it; on a walked-up ball they jog up
+          // with it instead of racing ahead as if on a break, then standing there)
+          if (lane && this.tempo === 'push' && (u > bu - 4 || u > 47)) lane = 'run';
+          // on a break the runners stay in front of the ball, not a whole play ahead of it: the wings a step or three
+          // ahead in their lanes, ready for the pass (a heady one reads it and gets further out in front), instead of
+          // reaching the rim two seconds before the ball and standing there; the man the next pass or shot is for
+          // goes all the way
+          if (this.tempo === 'push' && !(this.flowSoon && this.flowSoon()[a.id])) {
+            const lead = 12 + 9 * this.aware(a, 'off');
+            if (this.U_(tx) < bu - lead) tx = this.X(Math.max(this.U_(tx), bu - lead));
+          }
+          else if (lane && this.tempo !== 'push') { tx = this.X(Math.max(this.U_(tx), bu - 22)); }
         }
         if (r.laneOut && T < r.laneOut && this.inPaint({ x: tx, y: ty }, -1.2)) {
           const base = this.rim.x < 47 ? 0 : 94, side = ty >= 25 ? 1 : -1;
@@ -502,10 +523,14 @@
         }
         const d = Math.hypot(tx - a.x, ty - a.y);
         const eff = 1 + this.intensity() * 0.14;
-        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, 0.95 * eff) : lane === 'run' ? Math.min(a.maxSpeed * 0.8, 19) * eff : lane ? 14 * eff : (d > 14 ? 12 : d > 4 ? 8 : 5) * eff;
+        // (on a break the heady ones fly up the floor; a player who doesn't read it jogs)
+        const oa = this.tempo === 'push' ? this.aware(a, 'off') : 0.5;
+        const sp = this.tempo === 'push' ? a.maxSpeed * Math.min(1, (0.82 + 0.2 * oa) * eff) : lane === 'run' ? Math.min(a.maxSpeed * 0.8, 19) * eff : lane ? 13 * eff : (d > 14 ? 12 : d > 4 ? 8 : 5) * eff;
         a.moveTo(tx, ty, { speed: sp, face: d > 3 ? 'move' : { x: b.x, y: b.y }, stance: d > 5 ? 'stand' : 'ready' });
         a.lookAt({ x: b.x, y: b.y });
       }
+      // defense: in the open court, find a man first (the matchups from the half court mean nothing on a break)
+      this.transitionMatch();
       // defense: set tracking once, per-defender overrides
       for (const a of this.defActors()) {
         const t = this.dtask[a.id];
@@ -660,6 +685,9 @@
         // court), tighter for pressure schemes and in big moments, looser in a pack line; a press picks him up early
         let gap = U.interp(ONBALL_GAP, dl) * (scheme === 'pressure' ? 0.82 : scheme === 'packline' ? 1.18 : 1) * (1 - hype * 0.1);
         if (scheme === 'press') gap = Math.min(gap, 4.2);
+        // stop the ball: on a break the man who picks him up gets in front of him before half court and turns him
+        // (an aware one early and close, a lost one late and loose)
+        if ((this.tempo === 'push' || this.phase === 'start') && this.U_(m.x) < 60) gap = Math.min(gap, 5 + 5 * (1 - this.aware(a, 'def')));
         gap *= this.sliderK('defPressure', 1.25, 0.8);
         px = m.x + dx / dl * gap; py = m.y + dy / dl * gap;
         a.setStance(mu > 45 && scheme !== 'press' ? 'ready' : 'defense');
@@ -732,6 +760,69 @@
       for (const a of this.defActors()) { this.dtask[a.id] = null; this.trackDefender(a); }
     }
     lockDef(a, dur) { if (a) this.dtask[a.id] = { until: this.T + dur }; }
+    /**
+     * Transition defense: sprint back and find a man. Until the offense is set up in the half court, the defense
+     * re-matches by who is most dangerous, not by who they had: the attackers closest to the basket are picked up
+     * first (the first man back protects the rim, the next stops the ball), each by the defender who can get
+     * between him and the basket soonest, and nobody is left alone while two defenders guard one man. How quickly a
+     * defender sees it and switches goes with his defensive awareness: a heady one calls it at once, a lost one keeps
+     * running at the man he had (or ball-watches) a beat longer. The new matchups stay for the possession (a switch in
+     * transition), so the half-court defense starts from men who are actually covered.
+     */
+    transitionMatch() {
+      const T = this.T, b = this.v.ball;
+      if (!(this.phase === 'start' || this.tempo === 'push')) return;
+      if (T < (this._tmT || 0)) return;
+      this._tmT = T + 0.2;
+      // (after a call they run it for a moment before looking again: re-matching every few frames had them
+      // flip-flopping between men, two on one and one alone)
+      if (T < (this._tmHold || 0)) return;
+      const defs = this.defActors(), offs = this.offActors();
+      if (defs.length < 2 || offs.length < 2) return;
+      const rim = this.rim;
+      const bh = b.holder && b.holder.team === this.off ? b.holder : null;
+      // threats, most dangerous first: close to the basket (projected a little ahead), the ball a bit more
+      const threat = (o) => {
+        const px = o.x + o.vx * 0.5, py = o.y + o.vy * 0.5;
+        return Math.hypot(px - rim.x, py - rim.y) - (o === bh ? 6 : 0);
+      };
+      const order = offs.slice().sort((p, q) => threat(p) - threat(q));
+      // how long a defender needs to get goal-side of an attacker (4 ft in front of him toward the rim)
+      const cost = (d, o) => {
+        const dx = rim.x - o.x, dy = rim.y - o.y, dl = Math.hypot(dx, dy) || 1;
+        const gx = o.x + dx / dl * Math.min(4, dl), gy = o.y + dy / dl * Math.min(4, dl);
+        return Math.hypot(gx - d.x, gy - d.y) / Math.max(8, d.maxSpeed || 20);
+      };
+      const cur = {};
+      for (const d of defs) cur[d.id] = this.matchup[d.id];
+      const taken = new Set(), next = {};
+      for (const o of order) {
+        let best = null, bc = 1e9;
+        for (const d of defs) {
+          if (taken.has(d.id)) continue;
+          let c = cost(d, o);
+          // (stay with the man he has unless another defender is clearly better placed: no flip-flopping)
+          if (String(cur[d.id]) === String(o.id)) c -= 0.6;
+          if (c < bc) { bc = c; best = d; }
+        }
+        if (!best) continue;
+        taken.add(best.id); next[best.id] = o.id;
+      }
+      // somebody has to see it and call it: the whole defense re-matches on the call (partial swaps left a man
+      // alone while two defenders traded places), and how soon it comes goes with the most aware of the defenders
+      // who have to change (a heady one calls it at once, a lost group keeps running at the men they had)
+      const changed = defs.filter((d) => next[d.id] != null && String(next[d.id]) !== String(cur[d.id]));
+      if (!changed.length) { this._tmCall = null; return; }
+      const key = changed.map((d) => d.id + ':' + next[d.id]).join(',');
+      if (!this._tmCall || this._tmCall.key !== key) {
+        const aw = Math.max(...changed.map((d) => this.aware(d, 'def')));
+        this._tmCall = { key, at: T + U.lerp(1.0, 0.1, aw) * (0.75 + Math.random() * 0.5) };
+      }
+      if (T < this._tmCall.at) return;
+      this._tmCall = null;
+      this._tmHold = T + 0.9;
+      for (const d of defs) if (next[d.id] != null) this.matchup[d.id] = next[d.id];
+    }
     lockOff(a, dur) { const r = this.role[a && a.id]; if (r) r.until = this.T + dur; }
 
     // ============================================================ idle between possessions

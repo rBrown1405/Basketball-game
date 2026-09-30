@@ -9,7 +9,7 @@
   const is3 = z => z === 'c3' || z === 'ab3';
   // tunable constants (calibrated with test/calibrate.js)
   Sim.K = {
-    usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 13.6, shotTimeW: 14.1,
+    usageExp: 0.9, to: 0.183, toW: 0.205, stlBad: 0.72, stlLost: 0.85, shotTime: 13.75, shotTimeW: 14.25,
     zoneAdj: { rim: -0.38, paint: 0.02, mid: -0.12, c3: -0.3, ab3: -0.15 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
     coast: 1, // how much a team with a big lead lets up (shooting focus, glass, pressure); 0 = never
   };
@@ -593,6 +593,14 @@
     }
   }
 
+  /** a lineup's open-court awareness, in team-average rating SDs (~5 points) from the league average */
+  function openCourtAware(T, side) {
+    let s = 0;
+    for (const c of T.on) s += side === 'off' ? dv(c, 'shotIQ') * 0.4 + dv(c, 'vision') * 0.3 + dv(c, 'speed') * 0.3
+      : dv(c, 'helpD') * 0.45 + ((c.r.hustle != null ? c.r.hustle : 68) - 68) * 0.3 + dv(c, 'speed') * 0.25;
+    return s / Math.max(1, T.on.length) / 5;
+  }
+
   // ---- start of possession ----
   function pickHandler(T) {
     return U.maxBy(T.on, c => c.r.handle * 0.55 + c.r.pass * 0.3 + c.r.vision * 0.15 + (c.posN === 1 ? 8 : c.posN === 2 ? 3 : 0) + U.rand() * 6);
@@ -687,7 +695,16 @@
       // sliders, players who love to run (push), crashers caught up the floor, playoff half-court basketball
       m *= g.sl.trans * Math.exp(0.5 * avgDev(O, 'push')) * (1 - 0.12 * I);
       if (P.start === 'dreb') m *= Math.exp(0.3 * avgDev(D, 'crash'));
+      // awareness in the open court: an offense that reads it (shot IQ, vision) and runs sees the numbers and
+      // pushes; a defense that sees it (help IQ, hustle) gets back, finds men and stops the ball
+      const oa = openCourtAware(O, 'off'), da = openCourtAware(D, 'def');
+      // (0.22: the average matchup of the two, so an average one changes nothing)
+      const edgeOC = U.clamp(oa - da - 0.22, -2, 2);
+      m *= Math.exp(edgeOC * 0.22);
       ctx.transition = U.chance(U.clamp(transP * m, 0, 0.9));
+      // no full break, but an aware offense still attacks before the defense is set: early offense (a drag screen,
+      // a trailer, a quick drive) in the first seconds of the shot clock
+      if (!ctx.transition && (P.start === 'dreb' || P.start === 'steal')) ctx.early = U.chance(U.clamp(0.07 * Math.exp(edgeOC * 0.35) * m, 0, 0.3));
     }
     if (P.start === 'dreb' || P.start === 'steal') {
       if (ctx.transition) ctx.t += U.range(1.3, 2.6);
@@ -837,6 +854,7 @@
       const target = U.clamp(U.gauss(mean, 4.1 * g.timeMult), 2.5, ctx.scLen - 0.3);
       dt = Math.max(ctx.scStart + target - ctx.t, U.range(1.6, 3.2));
     }
+    if (ctx.early && ctx.segN === 0 && info.play !== 'putback') dt = Math.min(dt, U.range(2.5, 6.5));
     if (mode === 'hurry3' || mode === 'quick') dt = Math.min(dt, U.range(2.2, mode === 'quick' ? 7 : 5));
     else if (mode === 'twoForOne') dt = Math.min(dt, Math.max(1.5, clockLeft - 30 + U.range(-3, 0)));
     else if (mode === 'lastShot') dt = Math.max(0.3, clockLeft - U.range(0.6, 3.2));
@@ -1282,6 +1300,7 @@
     open += (avgOn(O, 'vision') - 64) * 0.004 - ((avgOn(D, 'perD') + avgOn(D, 'helpD')) / 2 - 63) * 0.006;
     open += offenseFit(O) * 0.05 - defenseFit(D) * 0.05;
     if (ctx.transition && ctx.segN <= 1) open += 0.05;
+    else if (ctx.early && ctx.segN <= 1) open += 0.025; // (the defense is not set yet)
     // defensive intensity slider, playoff effort, gamblers getting beaten
     const g = ctx.g;
     open += -g.sl.contest - 0.035 * Math.min(1.5, g.intensity) + 0.03 * avgDev(D, 'gamble');
