@@ -208,6 +208,18 @@ dribble hand follows the ball by IK and the bounce is synced to the footfalls wh
   planted-foot sliding down 58 %, held-ball frames with both hands away from the ball from 19.9 % to 9.1 %,
   ball jumps from 22 to 10; steady gaits unchanged (peak knee acceleration 250-733 ft/s^2).
 
+* Hair that moves (`hair.js`): a Node harness on the rig's skeleton (standing, a 22 ft/s sprint, a dead stop, a 180
+  deg turn in 0.3 s, a jump, 4x game speed; every style): no NaN, no knot left inside the head, a segment at most
+  ~6 % (ponytail) to ~30 % (braids, locs) off its length for a frame in the hardest moves (before the substep rule a
+  dead stop carried braids through the back, 119 %), back at rest 2 s after a stop and still there (0.00 mm a frame).
+  Frame sequences from the 3D renderer (a sprint start, a hard stop, a turn in place) for every style: the strands
+  trail and bounce while running, swing round the head on a turn and settle, stay off the face (the face collider)
+  and on their guides (the follow strands). In a real game (the women's league, seven players with hair that
+  moves, headless Chromium with software WebGL, 30 frames drawn a second): all of them together cost 0.7 ms a
+  frame at the median at 1x (95th percentile 2.3 ms, ~3.8 substeps a player) and 1.7 ms at 4x (95th percentile
+  4.2 ms, ~10 substeps: each frame is 0.13 s of play there; at 60 frames a second about half). The animation checks
+  (`node tools/audit/check.js`): 144/144.
+
 ## Known limitations
 
 * No audio — the host can play whistle/horn/swish sounds from `onEvent`.
@@ -222,6 +234,11 @@ dribble hand follows the ball by IK and the bounce is synced to the footfalls wh
   man pickup.
 * Fans are billboards (always face the camera); no aisle walkers, vendors or mascot yet.
 * Bench players, coaches and the scorer's table are off-screen below the near sideline.
+* Hair that moves: the strands that follow a guide keep their cross-section on the head's axes, so a strand swung
+  flat reads as a ribbon; strands do not collide with each other or with other players, and the 2D figures' ribbons
+  are sorted as one part of the figure (a side view can put the whole curtain in front of or behind the shoulder).
+  The Animation Lab and the debug tools' orbit view draw people without the game's clock: there the hair moves by
+  the page's clock, and in the Lab's four views at once (each its own turned copy of the world) it hangs at rest.
 
 ## Requests for engine
 
