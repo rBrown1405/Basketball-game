@@ -152,7 +152,10 @@
     } else if (opts.former) {
       s += add('Former team', (pe.loyal - 50) * 0.12 * loyal);
     }
-    if (tid === userTid(S)) s += DIFF_APPEAL[S.difficulty] || 0;
+    if (tid === userTid(S)) {
+      s += DIFF_APPEAL[S.difficulty] || 0;
+      if (PBC.Desk && PBC.Desk.pitchBonus) s += add('Your pitch', PBC.Desk.pitchBonus(S, p));
+    }
     else s += ((U.hash(p.id + ':' + tid) % 1000) / 1000 - 0.5) * 8;   // relationships the user can't see
     return { score: U.clamp(s, 0, 100), factors: f.sort((a, b) => Math.abs(b.v) - Math.abs(a.v)), role };
   };
@@ -282,6 +285,7 @@
     if (p.ovr < 62 && a >= 29) c += 0.12;
     if (p.tid === -1) c += a >= 30 ? 0.2 : (a >= 27 && p.ovr < 60 ? 0.15 : 0);   // nobody wants him
     if (p.tid >= 0 && p.contract && p.contract.exp > S.season) c *= 0.4;          // money still on the table
+    if (p.deskOneMore === S.season) c *= 0.45;                                     // his coach asked him for one more year
     return U.clamp(c, 0, 1);
   };
 
@@ -336,6 +340,7 @@
       const p = S.players[id];
       if (!p.promise) continue;
       if (p.promise.season != null && p.promise.season > S.season) continue;
+      if (p.promise.desk) { p.promise = null; continue; }   // the Desk checks its own, ten games after it was made
       if (p.tid >= 0 && p.tid === p.promise.tid) {
         const s = PBC.Stats.season(p, S.season, false);
         if (s && s.gp >= 10) {
@@ -416,6 +421,7 @@
     bump(S);
     S.phase = 'draft_lottery';
     news(S, `🌅 The ${U.seasonLabel(S.season)} offseason begins: ${sum.retired.length} retirement${sum.retired.length === 1 ? '' : 's'}, the draft lottery is next.`, 'league');
+    if (PBC.Desk) PBC.Desk.phase(S, 'offseason');
     return true;
   };
 
@@ -428,6 +434,7 @@
     d.revealed = true;
     PBC.Draft.lotteryNews(S);
     S.phase = 'draft';
+    if (PBC.Desk) PBC.Desk.phase(S, 'draft');
     const aiT = LB(S).aiTrades;
     if (PBC.Trade && PBC.Trade.aiTradeTick && aiT > 0) for (let i = 0; i < Math.max(1, Math.round(2 * aiT)); i++) if (U.chance(Math.min(0.9, 0.45 * Math.min(1, aiT)))) PBC.Trade.aiTradeTick(S);
     return true;
@@ -623,6 +630,7 @@
     S.phase = 'freeagency';
     aiOffers(S);
     news(S, `🖊️ Free agency is open! ${Object.keys(S.fa.pl).length} players are on the market.`, 'league');
+    if (PBC.Desk) PBC.Desk.phase(S, 'fa');
     return true;
   };
 
@@ -986,6 +994,7 @@
       }
       aiOffers(S);
       fa.ap = fa.apMax;
+      if (PBC.Desk) PBC.Desk.offWeek(S);
       const aiT = LB(S).aiTrades;
       if (PBC.Trade && PBC.Trade.aiTradeTick && aiT > 0 && U.chance(Math.min(0.9, 0.25 * aiT))) PBC.Trade.aiTradeTick(S);
     }
@@ -1152,6 +1161,7 @@
     S.resign = null;
     bump(S);
     news(S, `🏀 Training camps open for the ${U.seasonLabel(S.season)} season.`, 'league');
+    if (PBC.Desk) PBC.Desk.phase(S, 'preseason');
     return true;
   };
 

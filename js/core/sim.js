@@ -130,13 +130,14 @@
     return tn;
   }
 
-  function mkPc(p) {
+  function mkPc(p, confAdd) {
     const c = {
       p, id: p.id, r: p.r, pos: p.pos, posN: C.POS_NUM[p.pos], energy: 100, sec: 0, pf: 0, on: false, starter: false,
       target: 0, out: false, inj: false, injNew: null, st: PBC.Stats.emptyLine(), last: p.last, name: PBC.Player.name(p),
       hgt: p.hgt, tn: tendProfile(p), pbFit: null,
-      // confidence (Sim.K.conf*): where he comes into the game, how far a play moves him, where it is now
-      conf0: confBase(p), confK: confSwing(p), conf: 0, confS: 0, confNote: 0,
+      // confidence (Sim.K.conf*): where he comes into the game, how far a play moves him, where it is now; confAdd: the
+      // room's chemistry and his morale (PBC.Desk.confMod, a League Setting)
+      conf0: U.clamp(confBase(p) + (confAdd || 0), -0.5, 0.5), confK: confSwing(p), conf: 0, confS: 0, confNote: 0,
     };
     c.conf = c.conf0;
     return c;
@@ -188,7 +189,8 @@
     const healthy = PBC.League.roster(S, tid).filter(p => !PBC.Player.isInjured(p));
     const order = U.sortBy(healthy, p => (rot.starters.includes(p.id) ? 1000 : 0) + (rot.minutes[p.id] || 0) * 10 + p.ovr, true);
     const active = order.slice(0, L.activeMax);
-    const players = active.map(p => { const c = mkPc(p); c.target = rot.minutes[p.id] || 0; return c; });
+    const cm = PBC.Desk && PBC.Desk.confMod ? PBC.Desk.confMod(S, tid) : null;
+    const players = active.map(p => { const c = mkPc(p, cm ? cm(p) : 0); c.target = rot.minutes[p.id] || 0; return c; });
     let starters = rot.starters.map(id => players.find(c => c.id === id)).filter(Boolean);
     if (starters.length < 5) {
       const need = C.POSITIONS.filter(pos => !starters.some(s => s.pos === pos));

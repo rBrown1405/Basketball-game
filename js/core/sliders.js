@@ -125,6 +125,10 @@
       desc: 'How often computer teams trade with each other (in season and during the offseason).' },
     { key: 'tradeDifficulty', group: 'league', label: 'Trade Difficulty', map: ['add', -0.12, 0.15], fmt: 'margin', lo: 'Pushovers', hi: 'Sharks',
       desc: 'How much extra value AI teams demand in trades with you (on top of the career difficulty).' },
+    { key: 'desk', group: 'league', label: 'Front Office Desk', map: ['lin0', 0, 2], fmt: 'x0', lo: 'Off', hi: 'Busy',
+      desc: 'How often situations land on your desk: players, the owner, the press, your staff and other front offices. Off turns the Desk off.' },
+    { key: 'chemistry', group: 'league', label: 'Chemistry on the Court', map: ['lin0', 0, 2], fmt: 'x0', lo: 'Off', hi: 'Strong',
+      desc: 'How much team chemistry and a player\'s morale move his confidence in games (centred on the league average). Off plays games as before the Desk.' },
   ];
   const BY_KEY = {};
   DEFS.forEach(d => { if (d.def == null) d.def = 50; BY_KEY[d.key] = d; });
@@ -289,6 +293,7 @@
       tradeRequests: s.tradeRequests !== false, tradeRequestFreq: m('tradeRequestFreq'),
       contractDemands: m('contractDemands'), loyalty: m('loyalty'), aiTrades: m('aiTrades'),
       tradeDifficulty: m('tradeDifficulty'), injuries: m('injuries'), injurySeverity: m('injurySeverity'),
+      desk: m('desk'), chemistry: m('chemistry'),
     };
   }
 

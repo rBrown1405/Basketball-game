@@ -1291,6 +1291,8 @@
     const pl = pog ? box.teams.flatMap(t => t.players).find(x => x.pid === pog.id) : null;
     const overlay = LG.root.querySelector('#overlay');
     const stakes = LG.stakes;
+    // the press is waiting after a big night (the Desk)
+    const press = S.desk ? S.desk.items.find(i => !i.done && i.t === 'press_post' && i.data && i.data.gid === sg.gid) : null;
     let seriesLine = '';
     if (stakes.playoff && S.playoffs && sg.series) {
       const s = S.playoffs.series.find(x => x.id === sg.series);
@@ -1310,9 +1312,11 @@
         ${seriesLine ? `<div class="fc-series">${U.esc(seriesLine)}</div>` : ''}
         ${pog ? `<div class="fc-pog">${UI.avatar(pog, 64)}<div><div class="tiny up gold-t">Player of the game</div><div class="bold">${U.esc(PBC.Player.name(pog))}</div><div class="small muted">${pl.pts} pts · ${pl.orb + pl.drb} reb · ${pl.ast} ast · ${pl.fgm}-${pl.fga} FG</div></div></div>` : ''}
         ${box.gims && box.gims.length ? `<div class="small">🎯 Game Impact Moments: ${box.gims.filter(x => x.made).length}/${box.gims.length} made</div>` : ''}
-        <div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary lg" data-fin="home">Continue ▸</button><button class="btn lg" data-fin="box">Box score</button></div></div>`;
+        <div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary lg" data-fin="home">Continue ▸</button><button class="btn lg" data-fin="box">Box score</button>${press ? '<button class="btn lg" data-fin="desk">🎙️ Face the press</button>' : ''}</div></div>`;
       overlay.querySelector('[data-fin="home"]').onclick = () => closeGame();
       overlay.querySelector('[data-fin="box"]').onclick = () => { closeGame(); UI.openBox(sg.gid); };
+      const pb = overlay.querySelector('[data-fin="desk"]');
+      if (pb) pb.onclick = () => { closeGame(); if (UI.current().key === 'home') UI.go('desk'); };
     }, LG.view ? 2600 : 200);
   }
 

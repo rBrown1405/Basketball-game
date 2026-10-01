@@ -53,9 +53,41 @@
     const total = U.sum(Object.values(minutes));
     const diff = L.minutesTotal - total;
     if (diff !== 0 && starters.length) minutes[starters[0].id] += diff;
+    keepPromises(S, tid, healthy, starters, minutes);
     team.rot = { starters: starters.map(p => p.id), minutes, auto: true };
     return team.rot;
   };
+
+  /** the assistants keep the coach's word: a promised starter starts, promised minutes are played (taken from the end of
+   *  the bench first, then from the starters with the most) */
+  function keepPromises(S, tid, healthy, starters, minutes) {
+    const owed = healthy.filter(p => p.promise && p.promise.tid === tid && (p.promise.season == null || p.promise.season <= S.season));
+    if (!owed.length) return;
+    for (const p of owed) {
+      if (p.promise.type !== 'starter' || starters.includes(p)) continue;
+      const out = U.minBy(starters.filter(q => !(q.promise && q.promise.type === 'starter')), q => q.ovr - (q.pos === p.pos ? 3 : 0));
+      if (!out) continue;
+      starters[starters.indexOf(out)] = p;
+      const m = minutes[p.id] || 0;
+      minutes[p.id] = Math.max(m, minutes[out.id] || 0);
+      minutes[out.id] = m;
+    }
+    for (const p of owed) {
+      const want = p.promise.type === 'minutes' ? (p.promise.min || 0) : p.promise.type === 'starter' ? 26 : 0;
+      let need = Math.round(want - (minutes[p.id] || 0));
+      if (need <= 0) continue;
+      minutes[p.id] = (minutes[p.id] || 0) + need;
+      const givers = healthy.filter(q => q !== p && !(q.promise && q.promise.tid === tid) && (minutes[q.id] || 0) > 0);
+      const benchFirst = U.sortBy(givers.filter(q => !starters.includes(q)), q => minutes[q.id]);
+      for (const q of benchFirst.concat(U.sortBy(givers.filter(q => starters.includes(q)), q => minutes[q.id], true))) {
+        if (need <= 0) break;
+        const take = Math.min(need, starters.includes(q) ? Math.max(0, minutes[q.id] - 28) : minutes[q.id]);
+        minutes[q.id] -= take;
+        need -= take;
+      }
+      if (need > 0) minutes[p.id] -= need;   // nobody left to take them from
+    }
+  }
 
   AI.chooseStrategy = function (S, tid) {
     const team = S.teams[tid];

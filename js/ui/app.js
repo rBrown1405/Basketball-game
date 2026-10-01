@@ -14,6 +14,7 @@
     UI.boot();
     const nav = [
       { key: 'home', label: 'Home', icon: '🏠', group: 'Team' },
+      { key: 'desk', label: 'The Desk', icon: '📥', group: 'Team', show: S => !!PBC.Desk && PBC.Desk.active(S), count: S => (UI.deskCount ? UI.deskCount(S) : 0) },
       { key: 'roster', label: 'Roster', icon: '👥', group: 'Team' },
       { key: 'lineup', label: 'Lineup & Minutes', icon: '📋', group: 'Team' },
       { key: 'strategy', label: 'Strategy', icon: '🧠', group: 'Team' },
@@ -72,8 +73,32 @@
     UI.go('home'); // the home screen opens the new season's preview magazine
   };
 
+  /** the Desk: when something that needs you is waiting (Settings → The Desk), the sim stops and the Desk opens;
+   *  resume: how to pick up where the sim stopped (the Desk's continue button) */
+  App.deskStop = function (resume) {
+    const S = UI.S;
+    if (!PBC.Desk || !PBC.Desk.shouldStop(S)) return false;
+    App.resume = resume || null;
+    const it = PBC.Desk.stopping(S)[0];
+    UI.toast(`On your desk: ${U.esc(String(it.title).replace(/[.?!]+$/, ''))}. This one needs your answer.`, 'warn', 3400);
+    UI.go('desk');
+    return true;
+  };
+  App.resumeSim = function () {
+    const r = App.resume;
+    App.resume = null;
+    if (!r) { const c = UI.continueInfo(); if (c) c.run(); return; }
+    if (r.kind === 'next') App.goToNextGame();
+    else if (r.kind === 'quick') App.quickSimNext();
+    else if (r.kind === 'days') App.simDays(r.left || 1, r.label);
+    else if (r.kind === 'end') App.simToEndOfRegular(true);
+    else if (r.kind === 'series') App.simSeries();
+    else if (r.kind === 'tipoff') App.tipOff();
+  };
+
   App.tipOff = function () {
     const S = UI.S;
+    if (App.deskStop({ kind: 'tipoff' })) return;
     PBC.Season.startRegularSeason(S);
     UI.save();
     UI.go('home');
@@ -84,13 +109,16 @@
   App.goToNextGame = async function () {
     const S = UI.S;
     if (!inSeason(S)) { UI.go('home'); return; }
+    App.resume = null;
+    if (App.deskStop({ kind: 'next' })) return;
     PBC.Season.prepareToday(S);
     let ug = PBC.Season.userGameToday(S);
     if (!ug) {
       if (S.phase !== 'regular' && !PBC.Season.userInPostseason(S)) { await App.simRestOfPostseason(); return; }
-      ug = await UI.busy('Simulating to your next game…', () => PBC.Season.advanceToUserGame(S));
+      ug = await UI.busy('Simulating to your next game…', () => PBC.Season.advanceToUserGame(S, null, { desk: true }));
       if (App.checkFired()) return;
       UI.save();
+      if (!ug && inSeason(S) && App.deskStop({ kind: 'next' })) return;
     }
     if (!ug) { UI.go(S.phase === 'awards' ? 'recap' : 'home'); return; }
     UI.go('pregame', { gid: ug.gid });
@@ -105,9 +133,11 @@
   /** Quick-sim the user's next game (and the rest of that day). */
   App.quickSimNext = async function () {
     const S = UI.S;
+    App.resume = null;
+    if (App.deskStop({ kind: 'quick' })) return;
     const box = await UI.busy('Simulating game…', () => {
       PBC.Season.prepareToday(S);
-      let ug = PBC.Season.userGameToday(S) || PBC.Season.advanceToUserGame(S);
+      let ug = PBC.Season.userGameToday(S) || PBC.Season.advanceToUserGame(S, null, { desk: true });
       if (!ug) return null;
       const b = PBC.Season.quickSim(S, ug);
       PBC.Season.simDay(S, { skipUser: true });
@@ -116,6 +146,7 @@
     if (App.checkFired()) return;
     UI.save();
     if (box) App.resultToast(box);
+    else if (inSeason(S) && App.deskStop({ kind: 'quick' })) return;
     UI.go(S.phase === 'awards' ? 'recap' : 'home');
   };
 
@@ -130,9 +161,14 @@
   /** Sim n days (regular season or postseason). stopOnUserGame: stop before the user's game. */
   App.simDays = async function (n, label) {
     const S = UI.S;
+    App.resume = null;
+    let left = 0;
+    const rec0 = PBC.League.standings(S)[S.userTid] || { w: 0, l: 0 };
+    const w0 = rec0.w, l0 = rec0.l, seq0 = S.desk ? S.desk.seq : 0;
     await UI.busy(label || 'Simulating…', () => {
       for (let i = 0; i < n; i++) {
         if (!inSeason(S)) break;
+        if (PBC.Desk && PBC.Desk.shouldStop(S)) { left = n - i; break; }
         PBC.Season.prepareToday(S);
         PBC.Season.simDay(S);
         if (S.coach && S.coach.pendingFire) break;
@@ -140,21 +176,32 @@
     });
     if (App.checkFired()) return;
     UI.save();
+    if (left && App.deskStop({ kind: 'days', left, label })) return;
+    // the week in one line: your record over it, and what landed on your desk
+    const rec1 = PBC.League.standings(S)[S.userTid];
+    const nw = rec1 ? rec1.w - w0 : 0, nl = rec1 ? rec1.l - l0 : 0;
+    const fresh = S.desk ? S.desk.items.filter(i => i.id > seq0 && !i.done).length : 0;
+    if (inSeason(S) && (nw + nl || fresh)) UI.toast(`${nw + nl ? `This stretch: ${nw}-${nl}.` : ''}${fresh ? ` ${U.plural(fresh, 'new item')} on <a class="link" data-nav="desk">your desk</a>.` : ''}`, nw >= nl ? 'good' : 'bad', 3600);
     UI.go(S.phase === 'awards' ? 'recap' : 'home');
   };
 
-  App.simToEndOfRegular = async function () {
+  App.simToEndOfRegular = async function (noAsk) {
     const S = UI.S;
-    if (!(await UI.confirm('Simulate the rest of the regular season? Your games will be quick-simmed and practice will be run by your assistants.', { ok: 'Sim it' }))) return;
+    App.resume = null;
+    const stops = PBC.Desk && PBC.Desk.active(S) && PBC.Desk.stopMode(S) !== 'never';
+    if (!noAsk && !(await UI.confirm(`Simulate the rest of the regular season? Your games will be quick-simmed and practice will be run by your assistants.${stops ? ' The sim still stops when something on your desk needs you (Settings → The Desk).' : ''}`, { ok: 'Sim it' }))) return;
+    let stopped = false;
     await UI.busy('Simulating the regular season…', () => {
       let guard = 0;
       while (S.phase === 'regular' && guard++ < 400) {
+        if (PBC.Desk && PBC.Desk.shouldStop(S)) { stopped = true; break; }
         PBC.Season.simDay(S);
         if (S.coach && S.coach.pendingFire) break;
       }
     });
     if (App.checkFired()) return;
     UI.save();
+    if (stopped && App.deskStop({ kind: 'end' })) return;
     UI.go('home');
   };
 
@@ -174,11 +221,15 @@
 
   App.simSeries = async function () {
     const S = UI.S;
+    App.resume = null;
+    if (App.deskStop({ kind: 'series' })) return;
+    let stopped = false;
     await UI.busy('Simulating the series…', () => {
       let guard = 0;
       const startRound = S.playoffs ? S.playoffs.round : 0;
       const phase0 = S.phase;
       while ((S.phase === 'playin' || S.phase === 'playoffs') && guard++ < 20) {
+        if (PBC.Desk && PBC.Desk.shouldStop(S)) { stopped = true; break; }
         PBC.Season.prepareToday(S);
         PBC.Season.simDay(S);
         if (!S.playoffs || S.phase !== phase0 || S.playoffs.round !== startRound) break;
@@ -186,6 +237,7 @@
       }
     });
     UI.save();
+    if (stopped && App.deskStop({ kind: 'series' })) return;
     UI.go(S.phase === 'awards' ? 'recap' : 'home');
   };
 
@@ -427,8 +479,8 @@
       const t = S.teams[S.userTid];
       root.innerHTML = `<div class="page">
         <div class="grid g-main">
-          <div class="stack">${heroCard(S)}${lastGameCard(S)}${newsCard(S)}</div>
-          <div class="stack">${ownerCard(S)}${practiceCard(S)}${standingsCard(S)}${leadersCard(S)}${injuriesCard(S)}</div>
+          <div class="stack">${heroCard(S)}${UI.deskCard ? UI.deskCard(S, 'dk-sm') : ''}${lastGameCard(S)}${newsCard(S)}</div>
+          <div class="stack">${UI.deskCard ? UI.deskCard(S, 'dk-lg') : ''}${ownerCard(S)}${practiceCard(S)}${standingsCard(S)}${leadersCard(S)}${injuriesCard(S)}</div>
         </div></div>`;
       // a new season's preview magazine opens once, the first time you land on Home in the preseason
       if (S.phase === 'preseason' && PBC.Magazine && PBC.Magazine.shouldAutoOpen && PBC.Magazine.shouldAutoOpen(S) && !App._magOpening) {

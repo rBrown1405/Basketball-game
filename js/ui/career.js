@@ -190,6 +190,8 @@
             ${tog('showVisuals', 'Show the court in live games', 'Turn off for a fast text-only play-by-play view.')}
             ${tog('retroCourt', 'Retro pixel court', 'Watch live games on a Hoop Land-style 2D pixel court with chibi sprites.')}
             ${tog('pixelMode', 'Retro pixel filter', 'Chunky pixel-art filter for the broadcast 3D court (when loaded).')}
+            ${UI.DESK_STOP ? `<div class="li"><div style="flex:1;min-width:0"><div class="bold">The Desk stops the sim for</div><div class="tiny muted">${U.esc((UI.DESK_STOP.find(m => m.key === (st.deskStop || 'important')) || UI.DESK_STOP[0]).desc)} How often things land on your desk: League Settings.</div></div>
+              <div class="seg">${UI.DESK_STOP.map(m => `<button class="${(st.deskStop || 'important') === m.key ? 'on' : ''}" data-deskstop="${m.key}">${U.esc(m.label)}</button>`).join('')}</div></div>` : ''}
           </div></div></div>
           <div class="card set-save"><div class="card-h"><h3>Save data</h3><div class="actions" id="set-save-tag">${saveStatusTag()}</div></div><div class="card-b col">
             <div class="set-lbl">Autosave</div>
@@ -220,6 +222,7 @@
         <div class="card" style="margin-top:16px"><div class="card-h"><h3>About</h3></div><div class="card-b small muted">
           Pro BBALL Coach — an NBA-style head coach simulation. All teams and players are fictional. Stats engine calibrated to modern pro averages (about 115 points, 100 possessions and 37 three-point attempts per team per game).</div></div></div>`;
       UI.on(root, 'change', '[data-set]', (e, el) => { st[el.dataset.set] = el.checked; UI.save(); });
+      UI.on(root, 'click', '[data-deskstop]', (e, el) => { st.deskStop = el.dataset.deskstop; UI.save(); UI.refresh(); });
       // save settings are written right away so the choice itself is never "unsaved"
       UI.on(root, 'click', '[data-autosave]', async (e, el) => {
         st.autosave = el.dataset.autosave;

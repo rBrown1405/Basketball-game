@@ -30,6 +30,8 @@
     }
     for (const t of S.teams) if (t.id !== S.userTid) PBC.AI.fillRoster(S, t.id, { quiet: true });
     Season.news(S, `The ${U.seasonLabel(S.season)} season tips off!`, 'league');
+    // the Desk: the preseason's meetings if they never happened (a new career), then opening night's
+    if (PBC.Desk) { PBC.Desk.phase(S, 'preseason'); PBC.Desk.phase(S, 'tipoff'); }
   };
 
   Season.snapshot = function (S) {
@@ -81,6 +83,7 @@
       while (S.pbpKeep.length > 4) { const old = S.pbpKeep.shift(); if (S.boxes[old]) { delete S.boxes[old].pbp; delete S.boxes[old].plog; } }
       if (PBC.Coach) PBC.Coach.recordGame(S, sg, box);
       Season.userGameNews(S, sg, box);
+      if (PBC.Desk) PBC.Desk.afterGame(S, sg, box);
     }
     if (sg.playoff) {
       if (S.playoffs && S.playoffs.round === S.playoffs.rounds) sg.box = box; // Finals boxes for Finals MVP
@@ -160,6 +163,7 @@
       if (!S.flags.tradeDeadlinePassed && S.day + 1 >= S.tradeDeadlineDay) {
         S.flags.tradeDeadlinePassed = true;
         Season.news(S, '⏰ The trade deadline has passed. Rosters are locked except for free-agent signings.', 'league');
+        if (PBC.Desk) PBC.Desk.phase(S, 'deadline');
       }
       if (!S.flags.allStarDone && S.allStarDay >= 0 && S.day + 1 >= S.allStarDay) Season.allStar(S);
       S.day++;
@@ -171,6 +175,8 @@
     } else {
       S.day++;
     }
+    // the Desk: follow-ups, deadlines, and maybe something new on your desk
+    if (PBC.Desk) PBC.Desk.daily(S);
     S.updated = Date.now();
   };
 
@@ -206,10 +212,22 @@
     Season.updateMorale(S);
     Season.checkTradeRequests(S);
     if (PBC.Coach) PBC.Coach.weekly(S);
+    if (PBC.Desk) PBC.Desk.weekly(S);
   };
 
   /** League behaviour settings (League Settings screen), or defaults when js/core/sliders.js is missing. */
   const LB = S => (PBC.Sliders && PBC.Sliders.league ? PBC.Sliders.league(S) : { morale: 1, tradeRequests: true, tradeRequestFreq: 1 });
+
+  /** is the promise to p being broken so far? (s: his season line; a promise made mid-season, the Desk's, counts from the
+   *  day it was made: gp0, min0, gs0) */
+  Season.promiseBroken = function (p, s) {
+    const pr = p.promise;
+    if (!pr || !s) return false;
+    const gp = s.gp - (pr.gp0 || 0);
+    if (gp < 5) return false;
+    if (pr.type === 'starter') return (s.gs - (pr.gs0 || 0)) / gp < 0.6;
+    return (s.min - (pr.min0 || 0)) / gp < (pr.min || 20) - 2;
+  };
 
   /** Weekly morale drift from minutes and winning (scaled by the Morale Sensitivity setting). tid: one team, default all. */
   Season.updateMorale = function (S, tid) {
@@ -226,8 +244,7 @@
         const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
         const hurt = PBC.Player.isInjured(p);                   // injured players don't sulk about minutes
         let d = (hurt ? 0 : (mpg - expected) * 0.25 * ((p.pers ? p.pers.pt : 50) / 50)) + (winning - 0.5) * 6 * ((p.pers ? p.pers.win : 50) / 50);
-        if (p.promise && p.promise.type === 'starter' && s && s.gp >= 5 && s.gs / s.gp < 0.6) d -= 3;
-        if (p.promise && p.promise.type === 'minutes' && s && s.gp >= 5 && mpg < p.promise.min - 2) d -= 3;
+        if (Season.promiseBroken(p, s)) d -= 3;
         // good players stuck on bad teams get restless (the classic trade-request story)
         if (p.ovr >= 76 && winning < 0.42) d -= (0.42 - winning) * 8 * ((p.pers ? p.pers.win : 50) / 60) * (rec.w + rec.l >= 10 ? 1 : 0);
         if (p.tradeReq) d -= 1;                                   // still waiting to be moved
@@ -249,9 +266,7 @@
     const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
     const rec = PBC.League.standings(S)[p.tid];
     const pct = rec.w + rec.l ? rec.w / (rec.w + rec.l) : 0.5;
-    const pr = p.promise;
-    const broken = pr && s && s.gp >= 5 && (pr.type === 'starter' ? s.gs / s.gp < 0.6 : mpg < (pr.min || 20) - 2);
-    if (broken) return { reason: 'promise', text: 'says the team broke its promise to him' };
+    if (Season.promiseBroken(p, s)) return { reason: 'promise', text: 'says the team broke its promise to him' };
     if (mpg < expected - 5) return { reason: 'minutes', text: `wants a bigger role (${mpg.toFixed(1)} minutes a night)` };
     if (pct < 0.42) return { reason: 'losing', text: 'is tired of losing and wants to play for a contender' };
     return { reason: 'unhappy', text: 'is unhappy with his situation' };
@@ -328,6 +343,7 @@
     const mine = picked.filter(p => p.tid === S.userTid);
     Season.news(S, `🌟 All-Star rosters announced! ${mine.length ? 'Your All-Stars: ' + mine.map(p => PBC.Player.name(p)).join(', ') + '.' : 'None of your players made the team.'}`, 'award', S.userTid);
     S.allStars = picked.map(p => p.id);
+    if (PBC.Desk) PBC.Desk.phase(S, 'allstar');
   };
 
   // ---------------------------------------------------------------------------
@@ -389,6 +405,7 @@
     const r = st[S.userTid];
     Season.news(S, `The regular season is over. You finished ${r.w}-${r.l}${my ? `, the ${U.ordinal(my.seed)} seed${L.playoffFormat === 'conference' ? ' in the ' + L.confs[my.conf] : ''}` : ''}. ${inPlayoffs ? 'On to the playoffs!' : inPlayIn ? 'Next up: the Play-In Tournament.' : 'Your season is over.'}`, 'league', S.userTid);
     S.regularAwards = PBC.Stats.computeAwards(S);
+    if (PBC.Desk) PBC.Desk.phase(S, 'postseason');
   };
 
   Season.finishPostseason = function (S) {
@@ -436,21 +453,25 @@
     const coyTid = aw.coyTid;
     if (coyTid === S.userTid && PBC.Coach) PBC.Coach.unlock(S, 'coy');
     Season.news(S, `🏅 Awards — MVP: ${aw.mvp != null ? PBC.Player.name(S.players[aw.mvp]) : '—'} · DPOY: ${aw.dpoy != null ? PBC.Player.name(S.players[aw.dpoy]) : '—'} · ROY: ${aw.roy != null ? PBC.Player.name(S.players[aw.roy]) : '—'} · Coach of the Year: ${coyTid === S.userTid ? 'YOU!' : S.teams[coyTid].city + ' ' + S.teams[coyTid].name}`, 'award');
+    if (PBC.Desk && PBC.Desk.review) PBC.Desk.review(S);
     if (PBC.Coach) PBC.Coach.endSeason(S);
     S.phase = 'awards';
+    if (PBC.Desk) PBC.Desk.phase(S, 'season_end');
   };
 
   // ---------------------------------------------------------------------------
   // Convenience: advance until a condition
   // ---------------------------------------------------------------------------
   /** Sim full days until the user has a game today (not played). Returns the user's game or null if the phase ended. */
-  Season.advanceToUserGame = function (S, maxDays) {
+  Season.advanceToUserGame = function (S, maxDays, opts) {
     let n = 0;
     while (n++ < (maxDays || 400)) {
       if (!(S.phase === 'regular' || S.phase === 'playin' || S.phase === 'playoffs')) return null;
       Season.prepareToday(S);
       const ug = Season.userGameToday(S);
       if (ug) return ug;
+      // something on the Desk needs you first (opts.desk: the sim buttons stop for it)
+      if (opts && opts.desk && PBC.Desk && PBC.Desk.shouldStop(S)) return null;
       // user not playing today: stop at practice if needed is handled by the UI
       const today = S.phase === 'regular' ? S.schedule.some(g => g.day === S.day && !g.played) : (S.todayPost || []).some(g => !g.played);
       if (!today && S.phase !== 'regular' && S.playoffs && S.playoffs.done) { Season.finishPostseason(S); return null; }
