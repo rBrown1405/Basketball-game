@@ -77,14 +77,16 @@
   const oppOf = (g, u) => (g.h === u ? g.a : g.h);
   const teamName = (S, tid) => Desk.team(S, tid);
   const nickOf = (S, tid) => (S.teams[tid] ? S.teams[tid].name : '');
-  // the press: a few writers per league, made once (Phase 2 gives them their beats and voices)
+  // the press: the league's writers (PBC.Media), or a few made here when the media is not loaded
+  const firstNames = Desk.firstNames;
   const OUTLETS = ['The Daily Dribble', 'Hoops Insider', 'Courtside Wire', 'The Paint', 'Full Court Press', 'Net Gains Radio', 'The Box Score', 'Baseline Report'];
   function reporter(S, R) {
+    if (PBC.Media && PBC.Media.pickWriter) { const w = PBC.Media.pickWriter(S, R); if (w) return { name: w.name, outlet: w.outlet }; }
     const D = Desk.ensure(S);
     if (!D.press) {
       const r2 = Desk.makeRng(U.hash(`${S.saveId || 'save'}|desk|press`));
       const N = PBC.Names || {};
-      D.press = OUTLETS.map(o => ({ name: `${r2.pick(N.first || ['Sam'])} ${r2.pick(N.last || ['Writer'])}`, outlet: o }));
+      D.press = OUTLETS.map(o => ({ name: `${r2.pick(firstNames(N))} ${r2.pick(N.last || ['Writer'])}`, outlet: o }));
       // your beat writer covers your team at home
       D.press.push({ name: D.staff ? D.staff.beat : 'Beat writer', outlet: `The ${S.teams[Desk.userTid(S)] ? S.teams[Desk.userTid(S)].city : 'Local'} Ledger`, beat: true });
     }
@@ -1105,6 +1107,11 @@
     resolve(S, it, k, X) {
       const u = X.u;
       const rot = rotation(S, X, 8);
+      // the papers pick it up (the loud ones always, the rest sometimes)
+      if (PBC.Media && PBC.Media.quote && (k === 'boast' || k === 'refs' || k === 'callout' || ((k === 'mine' || k === 'credit' || k === 'star' || k === 'role') && X.R() < 0.4))) {
+        const box = it.data.gid != null && S.boxes ? S.boxes[it.data.gid] : null;
+        PBC.Media.quote(S, k, { opp: box ? (box.h === u ? box.a : box.h) : null, pid: k === 'star' && rot[0] ? rot[0].id : null });
+      }
       switch (k) {
         case 'mine': fx.chem(S, u, 2); fx.own(S, -1); fx.media(S, 2); for (const p of rot) fx.mor(S, p, 1); return 'The room appreciated you taking the hit.';
         case 'callout': fx.chem(S, u, -2); fx.own(S, 1); fx.media(S, 1); for (const p of rot) { if (pers(p, 'work') >= 60) fx.conf(p, 0.03); else fx.mor(S, p, -2); } return 'It was the headline. Your workers took it to heart; others took it personally.';
@@ -1157,6 +1164,7 @@
     },
     resolve(S, it, k, X) {
       if (k === 'guarantee') {
+        if (PBC.Media && PBC.Media.quote) PBC.Media.quote(S, 'guarantee', { opp: it.data.opp });
         for (const p of rotation(S, X, 9)) fx.conf(p, 0.05);
         fx.fans(S, X.u, 1);
         Desk.follow(S, 1, 'guarantee_check', { gid: it.data.gid });

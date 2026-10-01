@@ -295,6 +295,7 @@
     if (S.trades.length > 150) S.trades.length = 150;
     if (S.offseason && OFFP[S.phase]) S.offseason.trades.push(rec);
     news(S, `🔄 TRADE: ${text}`, 'trade', rec.user ? u : offer.tids[0]);
+    if (PBC.Media) PBC.Media.trade(S, rec);
     return { ok: true, rec, ev };
   };
 

@@ -103,7 +103,8 @@
       Object.assign(D, Object.assign({ tick: 0, seq: 0, items: [], cd: {}, fu: [], chem: {}, bond: {}, media: 50, log: [], last: -99, flags: {} }, D));
       D.v = Desk.V;
     }
-    if (!D.staff) D.staff = makeStaff(S);
+    // (an early build named everyone Alex)
+    if (!D.staff || Object.values(D.staff).every(n => /^Alex /.test(n))) D.staff = makeStaff(S);
     let fresh = false;
     for (const t of S.teams) if (D.chem[t.id] == null) { fresh = true; break; }
     if (fresh) {
@@ -114,11 +115,17 @@
     return D;
   };
 
+  // first names for the people around the game (staff, owners, writers: anyone, of any gender)
+  function firstNames(N) {
+    const all = [].concat(N.maleFirst || [], N.femaleFirst || [], N.coachFirst || []);
+    return all.length ? all : ['Alex', 'Jordan', 'Sam', 'Pat', 'Casey', 'Morgan'];
+  }
+  Desk.firstNames = firstNames;
   // the people around you: an owner for every team, and your staff (generated once per save from its own stream)
   function makeStaff(S) {
     const R = makeRng(U.hash(`${S.saveId || 'save'}|desk|staff`));
     const N = PBC.Names || {};
-    const nm = () => `${R.pick(N.first || ['Alex'])} ${R.pick(N.last || ['Smith'])}`;
+    const nm = () => `${R.pick(firstNames(N))} ${R.pick(N.last || ['Smith'])}`;
     return { assistant: nm(), trainer: nm(), scout: nm(), pr: nm(), gm: nm(), beat: nm() };
   }
   /** the owner of team tid, with a name (made once) */
@@ -126,10 +133,11 @@
     const t = S.teams[tid];
     if (!t) return { name: 'The owner' };
     const o = t.owner || (t.owner = { patience: 60, spend: 50 });
-    if (!o.name) {
+    if (!o.name || (!o.nm2 && /^Pat /.test(o.name))) {
       const R = makeRng(U.hash(`${S.saveId || 'save'}|owner|${tid}`));
       const N = PBC.Names || {};
-      o.name = `${R.pick(N.first || ['Pat'])} ${R.pick(N.last || ['Owner'])}`;
+      o.name = `${R.pick(firstNames(N))} ${R.pick(N.last || ['Owner'])}`;
+      o.nm2 = true;
     }
     return o;
   };

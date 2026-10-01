@@ -96,6 +96,8 @@
         if (p && p.injury && (T.tid === S.userTid || p.ovr >= 82)) Season.news(S, `🚑 ${PBC.Player.name(p)} (${S.teams[T.tid].abbr}) — ${PBC.Player.injuryLabel(p.injury)}`, 'injury', T.tid);
       }
     }
+    // the media: form, streaks, big nights, stars hurt, milestones, records (every game in the league)
+    if (PBC.Media) PBC.Media.game(S, sg, box);
     // big performances
     for (const T of box.teams) for (const pl of T.players) {
       if (pl.pts >= 50 || (pl.pts >= 10 && pl.orb + pl.drb >= 10 && pl.ast >= 10 && T.tid === S.userTid)) {
@@ -164,6 +166,7 @@
         S.flags.tradeDeadlinePassed = true;
         Season.news(S, '⏰ The trade deadline has passed. Rosters are locked except for free-agent signings.', 'league');
         if (PBC.Desk) PBC.Desk.phase(S, 'deadline');
+        if (PBC.Media) PBC.Media.deadline(S);
       }
       if (!S.flags.allStarDone && S.allStarDay >= 0 && S.day + 1 >= S.allStarDay) Season.allStar(S);
       S.day++;
@@ -175,8 +178,9 @@
     } else {
       S.day++;
     }
-    // the Desk: follow-ups, deadlines, and maybe something new on your desk
+    // the Desk: follow-ups, deadlines, and maybe something new on your desk; the media's daily stories
     if (PBC.Desk) PBC.Desk.daily(S);
+    if (PBC.Media) { PBC.Media.daily(S); PBC.Media.prune(S); }
     S.updated = Date.now();
   };
 
@@ -213,6 +217,7 @@
     Season.checkTradeRequests(S);
     if (PBC.Coach) PBC.Coach.weekly(S);
     if (PBC.Desk) PBC.Desk.weekly(S);
+    if (PBC.Media) PBC.Media.weekly(S);
   };
 
   /** League behaviour settings (League Settings screen), or defaults when js/core/sliders.js is missing. */
@@ -311,6 +316,7 @@
     const he = p.gender === 'f' ? 'She' : 'He';
     const txt = r.text.replace(/\bhis\b/g, p.gender === 'f' ? 'her' : 'his').replace(/\bhim\b/g, p.gender === 'f' ? 'her' : 'him');
     Season.news(S, `📣 ${PBC.Player.name(p)} (${t.abbr}) has requested a trade. ${he} ${txt}.`, 'trade', p.tid);
+    if (PBC.Media) PBC.Media.request(S, p);
     return p.tradeReq;
   };
 
@@ -344,6 +350,7 @@
     Season.news(S, `🌟 All-Star rosters announced! ${mine.length ? 'Your All-Stars: ' + mine.map(p => PBC.Player.name(p)).join(', ') + '.' : 'None of your players made the team.'}`, 'award', S.userTid);
     S.allStars = picked.map(p => p.id);
     if (PBC.Desk) PBC.Desk.phase(S, 'allstar');
+    if (PBC.Media) PBC.Media.allStar(S);
   };
 
   // ---------------------------------------------------------------------------
@@ -406,6 +413,7 @@
     Season.news(S, `The regular season is over. You finished ${r.w}-${r.l}${my ? `, the ${U.ordinal(my.seed)} seed${L.playoffFormat === 'conference' ? ' in the ' + L.confs[my.conf] : ''}` : ''}. ${inPlayoffs ? 'On to the playoffs!' : inPlayIn ? 'Next up: the Play-In Tournament.' : 'Your season is over.'}`, 'league', S.userTid);
     S.regularAwards = PBC.Stats.computeAwards(S);
     if (PBC.Desk) PBC.Desk.phase(S, 'postseason');
+    if (PBC.Media) PBC.Media.endRegular(S);
   };
 
   Season.finishPostseason = function (S) {
@@ -422,6 +430,7 @@
       const p = S.players[pid];
       p.awards.push({ season: S.season, type: 'champion', detail: champ.abbr });
     }
+    if (PBC.Media) PBC.Media.champion(S);
     Season.endSeason(S);
   };
 

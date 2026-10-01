@@ -47,6 +47,8 @@ amount a season.
 
 ## Phase 1: The Desk (the daily loop)
 
+Built: `docs/DESK_NOTES.md`.
+
 - **The Desk** (`js/core/desk.js`): items of three kinds: decisions (the sim stops for them), messages and reports
   (read when you like), opportunities (answer before a deadline or they go away). Each comes from a template with a
   trigger, a cooldown and options; each option has effects and can schedule a follow-up (a promise checked ten games
@@ -68,6 +70,8 @@ amount a season.
   never). A weekly digest after Sim Week.
 
 ## Phase 2: The Media (storylines)
+
+Built: `docs/MEDIA_NOTES.md`.
 
 - **The story engine** (`js/core/media.js`): detectors run each day and week over the league and open, update and close
   stories: win and losing streaks, hot and cold players, breakouts and slumps, the award races (MVP voting is already

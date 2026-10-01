@@ -454,6 +454,10 @@
           const pe = persona(s0.id);
           if (chance(0.7)) say('color', `${s0.last}${pe === 'cocky' || pe === 'showman' ? ' loves the big stage' : pe === 'cold' ? ' is ice cold in big moments' : pe === 'leader' ? ' runs everything for this team' : ' sets the tone for this group'}. ${pick(['Should be a good one.', 'Let us get it going.', 'Here we go.'])}`, { pri: 5, ttl: 20 });
         }
+        // the storylines around tonight's teams (the media)
+        if (PBC.Media && PBC.Media.boothLines && !stakes.playoff) {
+          try { for (const l of PBC.Media.boothLines(S, T[0].id, T[1].id)) say('color', l, { pri: 6, ttl: 18 }); } catch (e) { /* the booth goes on */ }
+        }
       },
       onPossession(P) {
         B.possN++;

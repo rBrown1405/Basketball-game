@@ -393,6 +393,10 @@
         retireNews(S, p);
       }
     }
+    if (PBC.Media) {
+      const notable = U.sortBy(sum.retired.map(id => S.players[id]).map(p => ({ p, c: PBC.Stats.career(p, false) })).filter(x => x.c.pts >= 9000 || x.p.awards.some(a => a.type === 'mvp' || a.type === 'allLeague')), x => x.c.pts, true).slice(0, 6);
+      if (notable.length) PBC.Media.offseason(S, 'retire', { pid: notable[0].p.id, data: { list: notable.map(x => ({ pid: x.p.id, pts: x.c.pts, seasons: x.c.seasons })) } });
+    }
     // --- player options (decided a season ahead of the option year) ---
     for (const id in S.players) {
       const p = S.players[id];
@@ -435,6 +439,7 @@
     PBC.Draft.lotteryNews(S);
     S.phase = 'draft';
     if (PBC.Desk) PBC.Desk.phase(S, 'draft');
+    if (PBC.Media) PBC.Media.offseason(S, 'lottery', { tids: d.order.filter(o => o.round === 1).slice(0, 3).map(o => o.owner), data: { order: d.order.filter(o => o.round === 1).slice(0, 5).map(o => o.owner) } });
     const aiT = LB(S).aiTrades;
     if (PBC.Trade && PBC.Trade.aiTradeTick && aiT > 0) for (let i = 0; i < Math.max(1, Math.round(2 * aiT)); i++) if (U.chance(Math.min(0.9, 0.45 * Math.min(1, aiT)))) PBC.Trade.aiTradeTick(S);
     return true;
@@ -499,6 +504,12 @@
   Off.startResign = function (S) {
     if (S.phase !== 'draft') return false;
     if (S.draftState && !S.draftState.done) PBC.Draft.simAll(S);
+    if (PBC.Media && S.draftState) {
+      const picks = S.draftState.order.filter(o => o.pid != null).slice(0, 10).map(o => ({ pid: o.pid, tid: o.owner }));
+      const u = userTid(S);
+      const mine = S.draftState.order.find(o => o.pid != null && o.owner === u);
+      PBC.Media.offseason(S, 'draft', { tids: picks.slice(0, 3).map(x => x.tid), pid: picks[0] ? picks[0].pid : null, data: { picks, mine: mine ? { pid: mine.pid, n: mine.overall } : null } });
+    }
     S.phase = 'resign';
     S.resign = { season: S.season, pl: {} };
     for (const p of Off.userExpiring(S)) S.resign.pl[p.id] = Off.resignInfo(S, p);
@@ -979,6 +990,11 @@
     const courted = new Set();
     for (const pid in fa.pl) if (fa.pl[pid].offers.some(o => o.tid === u)) courted.add(+pid);
     const signed = decide(S);
+    if (PBC.Media && signed.length) {
+      const list = U.sortBy(signed.map(pid => S.players[pid]).filter(p => p && p.tid >= 0), p => p.ovr, true).slice(0, 6)
+        .map(p => ({ pid: p.id, tid: p.tid, amt: p.contract ? p.contract.amt : 0, years: p.contract ? Math.max(1, p.contract.exp - S.season) : 1 }));
+      if (list.length && list[0] && S.players[list[0].pid].ovr >= 72) PBC.Media.offseason(S, 'fa', { tids: list.slice(0, 3).map(x => x.tid), pid: list[0].pid, data: { week: fa.week, signed: list } });
+    }
     const mineSigned = signed.filter(pid => S.players[pid].tid === u);
     const lost = signed.filter(pid => courted.has(pid) && S.players[pid].tid !== u);
     if (fa.week >= fa.weeks) {
@@ -1110,6 +1126,7 @@
     const faLog = S.fa ? S.fa.log.slice(0, 60) : [];
     for (const p of PBC.League.freeAgents(S)) p.contract = { amt: Off.fitAmt(S, p, (p.contract ? p.contract.amt : L.minSalary) * 0.6), exp: S.season, rookie: false };
     S.season++;
+    if (PBC.Media) PBC.Media.newSeason(S);
     S.phase = 'preseason';
     // AI rosters: fill to the minimum with 1-year deals, trim to the maximum, rotations & systems
     for (const t of S.teams) {

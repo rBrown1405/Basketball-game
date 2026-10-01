@@ -3,7 +3,7 @@
 Browser game, plain JS, classic `<script>` tags, everything under `window.PBC`. Core logic lives in `js/core/*.js`
 and never touches the DOM (it runs in Node too — see `test/harness.js`, which loads every `js/core/*.js` it finds,
 in this order: util, names, config, player, persona, tendency, sliders, league, stats, ai, sim, season, coach, draft,
-offseason, trade, desk, desk_events, magazine, storage).
+offseason, trade, desk, desk_events, media, media_text, magazine, storage).
 
 Read the source for details — this is the map.
 
@@ -24,6 +24,7 @@ Read the source for details — this is the map.
 | `PBC.Tendency` | tendency.js | player tendencies (`KEYS`, `GROUPS`, `get(p)`, `generate`, `refresh`, `reset`, `sim`), generated from ratings, position, archetype and personality; the engine uses them for shot selection, play types, passing, crashing, gambling and fouling |
 | `PBC.Sliders` | sliders.js | gameplay sliders and league behaviour (`GROUPS`, `DEFS`, `PRESETS`, `get(S)`, `set`, `applyPreset`, `reset`, `simMods(S)` for the engine, `league(S)` for progression, aging, morale, trade requests, contracts, loyalty and AI trades) |
 | `PBC.Desk` | desk.js, desk_events.js | the front office inbox (see `docs/DESK_NOTES.md`): items (decisions, offers, messages) from templates with triggers, cooldowns, deadlines and default answers; follow-ups; effects (`fx`: morale, team chemistry, the owner's trust, fans, the media, confidence, training, promises); `daily`, `weekly`, `afterGame`, `phase(S, key)`, `review` (hooked from season.js and offseason.js); `answer(S, id, k)` → `{ text, nav, fx }`; `open`, `stopping`, `shouldStop`, `autoAll`; team chemistry `chem(S, tid)` and the engine's `confMod(S, tid)`; `pitchBonus` (free agency) |
+| `PBC.Media` | media.js, media_text.js | the league's press (see `docs/MEDIA_NOTES.md`): writers, stories and articles from detectors on every game (`game`), day (`daily`), week (`weekly`) and the season's moments (`trade`, `request`, `allStar`, `deadline`, `endRegular`, `champion`, `offseason`, `quote`); `render(S, article)` → `{ h, d, b, by }`; `front`, `ladders`, `boothLines`, `onThisDay`; `newSeason` archives |
 | `PBC.Persona` | persona.js | player personality types (`TYPES`, `of(p)`, `info`, `face(p, { mood })`, `blurb`) used by portraits, the booth and the player card |
 | `PBC.Store` | storage.js | saves in IndexedDB (localStorage fallback). Latest save per career: `save(S, { backup, backupCount })`, `load(id)`, `list()`; named slots and rotating backups: `saveSlot`, `saveBackup`, `pruneBackups`, `listAll()`, `listCareer(id)`; `remove`, `removeCareer`, `rename`, `copy`; files: `exportString`, `importString` (new id). Each record is `{ id, data, meta }` plus a small index record `'#meta:' + id` so lists never load full saves. Ids: main = `S.saveId`, slot = `saveId::slot::<time>`, backup = `saveId::backup::<k>` |
 
@@ -53,6 +54,9 @@ S = {
   desk: { v, tick, seq, items: [Item], cd, fu, chem: { [tid]: 0-100 }, bond: { [tid]: ± }, media: 0-100, m0, c0,
           staff, press, captain: { [season]: pid }, demand, splash, pitch, own: { season, v }, flags, log },
                               // the Desk (js/core/desk.js), created lazily; settings.deskStop: 'important'|'all'|'never'
+  media: { v, seq, sseq, writers, stories, arts: [{ id, sid, k, w, season, day, phase, tid, tids, pid, pri, user, data, seen }],
+           archive: [{ season, list: [{ id, k, h, d, ... }] }], form, tst, rank, ladder, nights, flags },
+                              // the Media (js/core/media.js), created lazily; articles are data, written by media_text.js
 }
 ```
 

@@ -77,6 +77,7 @@ for (let k = 0; k < N; k++) {
   const ts = Date.now();
   const season = S.season;
   const seq0 = S.desk ? S.desk.seq : 0;
+  const art0 = S.media ? S.media.seq : 0;
   if (S.phase === 'preseason') { PBC.Desk.poke(S); answerAll(); PBC.Season.startRegularSeason(S); }
   let stops = 0, days = 0, guard = 0;
   while ((S.phase === 'regular' || S.phase === 'playin' || S.phase === 'playoffs' || S.phase === 'postseason_done') && guard++ < 700) {
@@ -112,12 +113,21 @@ for (let k = 0; k < N; k++) {
   const kinds = { decision: 0, offer: 0, message: 0 };
   for (const it of D.items) if (it.id > seq0) { kinds[it.kind]++; byT[it.t] = (byT[it.t] || 0) + 1; tplTotal[it.t] = (tplTotal[it.t] || 0) + 1; }
   const chems = S.teams.map(t => PBC.Desk.chem(S, t.id));
+  // the media: what was written this season (the archive keeps its best headlines once the next season starts)
+  const Mm = S.media;
+  const written = Mm ? Mm.seq - art0 : 0;
+  const kindsM = {};
+  if (Mm) for (const a of Mm.arts) if (a.id > art0) kindsM[a.k] = (kindsM[a.k] || 0) + 1;
+  let badText = 0;
+  if (Mm && PBC.Media.render) for (const a of Mm.arts) { const r = PBC.Media.render(S, a); if (!r || !r.h || /\{\w+\}|undefined|NaN/.test(r.h + r.d + r.b.join(' '))) badText++; }
+  if (badText) errors.push(`season ${season}: ${badText} articles with unfilled words`);
   const json = JSON.stringify(S);
   const row = {
     season, ms: tSeason, offMs: tOff, days, made, kinds, answered: log.filter(l => !l.a).length, auto: log.filter(l => l.a).length, stops,
     w: rec.w, l: rec.l, result: rec.result, goalMet: rec.met, verdict: review.verdict, security: c.security, deskTrust: own,
     chem: U.round(PBC.Desk.chem(S, S.userTid), 1), chemMin: U.round(Math.min(...chems), 1), chemAvg: U.round(U.avg(chems), 1), chemMax: U.round(Math.max(...chems), 1),
     fans: S.teams[S.userTid].hype, media: D.media, fo: Object.assign({}, S.fo || {}), mb: U.round(json.length / 1e6, 2), deskKb: Math.round(JSON.stringify(D).length / 1024),
+    articles: written, mediaKb: Mm ? Math.round(JSON.stringify(Mm).length / 1024) : 0, archive: Mm ? Mm.archive.length : 0,
     team: S.teams[S.userTid].abbr, hired, top: Object.entries(byT).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([t, n]) => t + ' ' + n).join(', '),
   };
   rows.push(row);
@@ -126,6 +136,7 @@ for (let k = 0; k < N; k++) {
     ` · chem ${row.chem} [${row.chemMin}..${row.chemAvg}..${row.chemMax}] fans ${row.fans} media ${row.media} trust ${row.security} (desk ${own >= 0 ? '+' : ''}${own})` +
     ` · word ${row.fo.kept || 0}/${row.fo.broken || 0} · save ${row.mb} MB (desk ${row.deskKb} KB)${hired ? ' · ' + hired : ''}`);
   console.log(`   ${row.top}`);
+  if (Mm) console.log(`   media: ${written} articles (${Object.entries(kindsM).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => k + ' ' + n).join(', ')}), ${row.mediaKb} KB, archive ${row.archive} seasons`);
 }
 const avg = f => U.round(U.avg(rows, f), 1);
 console.log(`\nper season: ${avg(r => r.ms / 1000)} s, desk items ${avg(r => r.made)} (decisions ${avg(r => r.kinds.decision)}, offers ${avg(r => r.kinds.offer)}, messages ${avg(r => r.kinds.message)}), stop-days ${avg(r => r.stops)}`);

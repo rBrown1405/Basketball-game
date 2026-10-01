@@ -23,6 +23,7 @@
       { key: 'schedule', label: 'Schedule', icon: '📅', group: 'Season' },
       { key: 'standings', label: 'Standings', icon: '📊', group: 'Season' },
       { key: 'playoffs', label: 'Playoffs', icon: '🏆', group: 'Season', show: S => !!S.playoffs },
+      { key: 'media', label: 'Media', icon: '🗞️', group: 'League', show: S => !!PBC.Media, dot: S => !!(S.media && S.media.arts.some(a => a.user && !a.seen && a.season === S.season)) },
       { key: 'stats', label: 'Stats & Leaders', icon: '📈', group: 'League' },
       { key: 'teams', label: 'Teams', icon: '🏟️', group: 'League' },
       { key: 'records', label: 'Records & History', icon: '📜', group: 'League' },
@@ -479,7 +480,7 @@
       const t = S.teams[S.userTid];
       root.innerHTML = `<div class="page">
         <div class="grid g-main">
-          <div class="stack">${heroCard(S)}${UI.deskCard ? UI.deskCard(S, 'dk-sm') : ''}${lastGameCard(S)}${newsCard(S)}</div>
+          <div class="stack">${heroCard(S)}${UI.deskCard ? UI.deskCard(S, 'dk-sm') : ''}${lastGameCard(S)}${UI.headlineCard ? UI.headlineCard(S) : ''}${newsCard(S)}</div>
           <div class="stack">${UI.deskCard ? UI.deskCard(S, 'dk-lg') : ''}${ownerCard(S)}${practiceCard(S)}${standingsCard(S)}${leadersCard(S)}${injuriesCard(S)}</div>
         </div></div>`;
       // a new season's preview magazine opens once, the first time you land on Home in the preseason
