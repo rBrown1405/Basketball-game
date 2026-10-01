@@ -107,6 +107,11 @@ for (let k = 0; k < N; k++) {
   answerAll();
   const hired = employed();
   const tOff = Date.now() - to;
+  // the league's history (PBC.Staff, PBC.Legacy): the carousel, the Hall, the numbers, the save kept lean
+  const mv = S.coaches && S.coaches.lastMoves && S.coaches.lastMoves.season === season ? S.coaches.lastMoves : { fired: [], retired: [], hired: [] };
+  const hofNow = S.legacy ? S.legacy.hof.filter(e => e.season === season) : [];
+  let numsNow = 0;
+  if (S.legacy) for (const t in S.legacy.numbers) numsNow += S.legacy.numbers[t].filter(x => x.season === season).length;
   const log = D.log.filter(l => l.s === season);
   const byT = {};
   const made = D.seq - seq0;
@@ -136,6 +141,7 @@ for (let k = 0; k < N; k++) {
     ` · chem ${row.chem} [${row.chemMin}..${row.chemAvg}..${row.chemMax}] fans ${row.fans} media ${row.media} trust ${row.security} (desk ${own >= 0 ? '+' : ''}${own})` +
     ` · word ${row.fo.kept || 0}/${row.fo.broken || 0} · save ${row.mb} MB (desk ${row.deskKb} KB)${hired ? ' · ' + hired : ''}`);
   console.log(`   ${row.top}`);
+  console.log(`   history: coaching changes ${mv.fired.length} fired, ${mv.retired.length} retired, ${mv.hired.length} hired; Hall of Fame class ${hofNow.length ? hofNow.map(e => e.name + (e.kind === 'coach' ? ' (coach)' : '')).join(', ') : '-'}; numbers retired ${numsNow}; players in the save ${Object.keys(S.players).length}`);
   if (Mm) console.log(`   media: ${written} articles (${Object.entries(kindsM).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => k + ' ' + n).join(', ')}), ${row.mediaKb} KB, archive ${row.archive} seasons`);
 }
 const avg = f => U.round(U.avg(rows, f), 1);

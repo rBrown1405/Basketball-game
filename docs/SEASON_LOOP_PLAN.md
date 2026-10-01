@@ -92,6 +92,8 @@ Built: `docs/MEDIA_NOTES.md`.
 
 ## Phase 3: The Legacy (history)
 
+Built: `docs/LEGACY_NOTES.md`.
+
 - **Coaches as people** (`js/core/staff.js`): a head coach for every team with a name, age, style and rating, a
   contract and a career record; firings and hires every summer (the coaching carousel, with the media covering it);
   Coach of the Year goes to the coach, not the team; your coach is one of them on every list.

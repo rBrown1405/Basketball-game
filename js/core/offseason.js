@@ -393,6 +393,9 @@
         retireNews(S, p);
       }
     }
+    // the coaching carousel, the Hall of Fame class, retired numbers
+    if (PBC.Staff) PBC.Staff.carousel(S);
+    if (PBC.Legacy) { PBC.Legacy.summer(S, sum.retired); PBC.Legacy.compact(S); }
     if (PBC.Media) {
       const notable = U.sortBy(sum.retired.map(id => S.players[id]).map(p => ({ p, c: PBC.Stats.career(p, false) })).filter(x => x.c.pts >= 9000 || x.p.awards.some(a => a.type === 'mvp' || a.type === 'allLeague')), x => x.c.pts, true).slice(0, 6);
       if (notable.length) PBC.Media.offseason(S, 'retire', { pid: notable[0].p.id, data: { list: notable.map(x => ({ pid: x.p.id, pts: x.c.pts, seasons: x.c.seasons })) } });

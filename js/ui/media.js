@@ -13,7 +13,7 @@
     streak_l_end: 'Skid', hot: 'Hot hand', cold: 'Slump', rankings: 'Power rankings', ladder: 'Award races', mvp_flip: 'MVP race', rumors: 'Rumor mill', surprise: 'Surprise',
     flop: 'Disappointment', hot_seat: 'Hot seat', race: 'Playoff race', tank: 'Lottery', beatnote: 'Notebook', trade: 'Trade', request: 'Trade request', quote: 'Press room',
     allstar: 'All-Star', deadline: 'Deadline', awards_pre: 'Awards', champion: 'Champions', preview: 'Playoffs', series_end: 'Playoffs', game7: 'Playoffs',
-    lottery: 'Lottery', draft: 'Draft', fa: 'Free agency', retire: 'Farewell',
+    lottery: 'Lottery', draft: 'Draft', fa: 'Free agency', retire: 'Farewell', carousel: 'Coaching carousel', hof: 'Hall of Fame', number: 'Retired number', alltime: 'All-time record',
   };
 
   function when(S, a) {

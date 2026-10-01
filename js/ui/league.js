@@ -884,6 +884,8 @@
   function coachName(S, season, tid) {
     const c = S.coach;
     if (c && c.seasons && c.seasons.some(x => x.season === season && x.tid === tid)) return c.name;
+    const known = PBC.Staff && PBC.Staff.coachIn ? PBC.Staff.coachIn(S, season, tid) : null;
+    if (known) return known;
     const t = S.teams[tid];
     return PBC.Magazine && PBC.Magazine.aiCoachName ? PBC.Magazine.aiCoachName(S, t) : (t.coachName || 'Head coach');
   }

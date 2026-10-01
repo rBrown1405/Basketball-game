@@ -463,6 +463,51 @@
   };
 
   // ---------------------------------------------------------------------------
+  // The league's history (PBC.Staff, PBC.Legacy)
+  // ---------------------------------------------------------------------------
+  const cname = (c, cid) => { const x = PBC.Staff ? PBC.Staff.get(c.S, cid) : null; return x ? PBC.Staff.name(x) : 'a coach'; };
+  K.carousel = (c, d) => {
+    const fired = (d.fired || []).map(id => cname(c, id)), retired = (d.retired || []).map(id => cname(c, id));
+    const hires = (d.hired || []).map(h => `the ${c.full(h.tid)} hire ${cname(c, h.cid)}`);
+    const v = { n: fired.length + retired.length, f0: fired[0] || retired[0] || '' };
+    return out(c.say(['The coaching carousel: {n} new faces on the bench', 'Musical chairs: {n} head coaching jobs change hands', 'The carousel turns: {f0} out'], v),
+      c.say(['The offseason started the way it usually does: with phone calls nobody wanted to take.', 'Owners made their decisions quickly this summer.'], v),
+      [fired.length ? `Fired: ${c.list(fired)}.` : '', retired.length ? `Retiring: ${c.list(retired)}.` : '', hires.length ? `Hired: ${hires.join('; ')}.` : '', voice(c, 0, v)]);
+  };
+  K.hof = (c, d) => {
+    const list = d.list || [];
+    const first = list[0];
+    const v = { n: list.length, N: c.Num(list.length), a: first ? first.name : '' };
+    const rows = list.map(e => {
+      if (e.kind === 'coach') return `${e.name}, coach: ${e.coach ? `${e.coach.w}-${e.coach.l}, ${e.coach.titles} title${e.coach.titles === 1 ? '' : 's'}${e.coach.coy ? `, ${e.coach.coy} Coach of the Year` : ''}` : ''}${e.first ? ', in on the first try' : ''}.`;
+      const h = e.honors || {}, l = e.line || {};
+      const bits = [];
+      if (h.champion) bits.push(`${h.champion} title${h.champion === 1 ? '' : 's'}`);
+      if (h.mvp) bits.push(`${h.mvp} MVP${h.mvp === 1 ? '' : 's'}`);
+      if (h.allStar) bits.push(`${h.allStar} All-Star pick${h.allStar === 1 ? '' : 's'}`);
+      return `${e.name} (${c.nick(e.tid)}): ${l.pts ? `${l.pts.toLocaleString('en-US')} points, ${l.ppg} a game` : ''}${bits.length ? '; ' + bits.join(', ') : ''}${e.first ? '. First ballot.' : '.'}`;
+    });
+    return out(c.say(['The Hall of Fame class of {season}', 'Enshrined: the Hall welcomes {n}', '{a} leads the Hall of Fame class'].map(x => x.replace('{season}', c.S.season)), v),
+      c.say(['{N} new names go into the Hall this summer.', 'The league\'s highest honor, and {n} new members.'], v),
+      rows.concat([c.say(['Induction night is the one night a year when the league stops arguing and simply remembers.', 'Their numbers, their nights, their rings: all of it in one room now.'], v)]));
+  };
+  K.number = (c, d, a) => {
+    const p = a.pid;
+    const v = { p: c.pn(p), last: c.ln(p), num: d.num, tm: c.nick(a.tid), full: c.full(a.tid), n: d.seasons, city: c.city(a.tid) };
+    return out(c.say(['The {tm} will retire No. {num} for {last}', 'No. {num} goes to the rafters in {city}', 'Forever {num}: the {tm} honor {last}'], v),
+      c.say(['After {n} seasons in {city}, {p} will have {his} number raised to the rafters.', 'Nobody in a {tm} uniform will wear No. {num} again.'].map(x => x.replace('{his}', c.his(p))), v),
+      [c.say(['The ceremony will come next season, with the whole building on its feet.', 'Every franchise has a few names that belong to it. {last} is one of the {tm}\'s.'], v), voice(c, 1, v)]);
+  };
+  const ALLTIME_WORD = { pts: 'points', reb: 'rebounds', ast: 'assists', tpm: 'three-pointers', stl: 'steals', blk: 'blocks' };
+  K.alltime = (c, d, a) => {
+    const p = a.pid;
+    const v = { p: c.pn(p), last: c.ln(p), word: ALLTIME_WORD[d.stat] || d.stat, val: d.val.toLocaleString('en-US'), prev: d.prev ? c.pn(d.prev.pid) : '', pv: d.prev ? d.prev.val.toLocaleString('en-US') : '', tm: c.nick(a.tid), age: d.age };
+    return out(c.say(['{last} is the all-time leader in {word}', 'The new king: {last} passes {prev}', 'History: {last} becomes the league\'s all-time {word} leader'], v),
+      c.say(['{p} passed {prev} ({pv}) and now has more career {word} than anyone in league history.', 'At {age}, {p} has {val} career {word}. Nobody has ever had more.'], v),
+      [c.say(['The record had belonged to {prev}. It belongs to {last} now, and it may for a long time.', 'The game was stopped. The crowd stood. The ball went to the {tm} bench, and then to a display case.'], v), voice(c, 1, v)]);
+  };
+
+  // ---------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------
   const cache = new Map();

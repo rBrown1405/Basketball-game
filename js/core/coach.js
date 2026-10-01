@@ -25,6 +25,8 @@
       totals: { w: 0, l: 0, pw: 0, pl: 0 },
       expectation: null, mood: 'Optimistic', jobOffers: null, status: 'employed',
     };
+    // the other 29 benches get their coaches (PBC.Staff)
+    if (PBC.Staff) PBC.Staff.ensure(S);
     return S.coach;
   };
 
@@ -237,6 +239,8 @@
     if (!c.teams.includes(offer.tid)) c.teams.push(offer.tid);
     if (c.fired > 0) Coach.unlock(S, 'hired_again');
     const t = S.teams[offer.tid];
+    // the coach you replace is out; the job you left gets filled
+    if (PBC.Staff) { PBC.Staff.userTakes(S, offer.tid); if (was != null && was !== offer.tid) PBC.Staff.vacated(S, was); }
     t.rot.auto = true;
     if (PBC.Season) PBC.Season.news(S, `🤝 You are the new head coach of the ${t.city} ${t.name}!`, 'career', offer.tid);
     return was;

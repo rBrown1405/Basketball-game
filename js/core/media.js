@@ -55,8 +55,9 @@
   // State
   // ---------------------------------------------------------------------------
   const userTid = S => (S.coach && S.coach.status === 'unemployed') ? -1 : (S.userTid == null ? -1 : S.userTid);
-  const SUMMER_PH = { draft_lottery: 1, draft: 1, resign: 1, freeagency: 1 };
-  const LEAGUE_KIND = { rankings: 1, ladder: 1, rumors: 1, race: 1, tank: 1, allstar: 1, deadline: 1, awards_pre: 1, lottery: 1, draft: 1, fa: 1, retire: 1 };
+  const SUMMER_PH = { awards: 1, draft_lottery: 1, draft: 1, resign: 1, freeagency: 1 };
+  // (the summer's stories from the start of the offseason count too: the carousel, the Hall, the numbers)
+  const LEAGUE_KIND = { rankings: 1, ladder: 1, rumors: 1, race: 1, tank: 1, allstar: 1, deadline: 1, awards_pre: 1, lottery: 1, draft: 1, fa: 1, retire: 1, hof: 1, carousel: 1 };
   const inSeason = S => S.phase === 'regular' || S.phase === 'playin' || S.phase === 'playoffs';
   M.ensure = function (S) {
     let m = S.media;
@@ -249,6 +250,11 @@
       const st = openStory(S, 'milestone', key, { tid, pid: p.id, open: false });
       publish(S, 'milestone', rank && rank <= 10 ? 'oldschool' : tid === userTid(S) ? 'beat' : 'numbers', { sid: st.id, tid, tids: [tid, opp], pid: p.id, pri: v >= 25000 || (rank && rank <= 5) ? 4 : 3, data: { stat: k, v, label, total: c[k], rank, age: p.age, gid: box.gid } });
     }
+    // a new all-time leader (the career records, PBC.Legacy)
+    if (PBC.Legacy && PBC.Legacy.passed) for (const x of PBC.Legacy.passed(S, p, tonight)) {
+      const st = openStory(S, 'alltime', 'alltime:' + x.stat + ':' + p.id, { tid, pid: p.id, open: false });
+      publish(S, 'alltime', 'oldschool', { sid: st.id, tid, tids: [tid, opp], pid: p.id, pri: 5, data: { stat: x.stat, val: x.val, prev: x.prev, age: p.age } });
+    }
     // league single-game records set tonight (with a bar, so a brand-new league's record book is not news every night)
     const R = S.records;
     if (R && R.game && (S.history.length > 0 || S.day >= 40)) for (const k in R.game) {
@@ -384,6 +390,7 @@
   M.weekly = function (S) {
     if (!S.teams || !S.teams.length || S.phase !== 'regular') return;
     const m = M.ensure(S);
+    if (PBC.Legacy && PBC.Legacy.refreshLeaders) PBC.Legacy.refreshLeaders(S);
     const R = rng(S, 'weekly');
     const st = PBC.League.standings(S);
     const gp = U.avg(S.teams, t => st[t.id].gp);
@@ -517,6 +524,7 @@
   }
   function coachName(S, tid) {
     if (tid === userTid(S) && S.coach) return S.coach.name;
+    if (PBC.Staff && S.coaches) return PBC.Staff.of(S, tid).name;
     const t = S.teams[tid];
     if (t.coachName) return t.coachName;
     return PBC.Magazine && PBC.Magazine.aiCoachName ? PBC.Magazine.aiCoachName(S, t) : 'the head coach';
@@ -637,10 +645,16 @@
     publish(S, 'champion', 'oldschool', { sid: s.id, tid: P.champion, tids: [P.champion, fin ? (fin.hi === P.champion ? fin.lo : fin.hi) : -1].filter(x => x >= 0), pid: P.fmvp, pri: 5,
       data: { opp: fin ? (fin.hi === P.champion ? fin.lo : fin.hi) : null, w: fin ? Math.max(fin.w[0], fin.w[1]) : 4, l: fin ? Math.min(fin.w[0], fin.w[1]) : 0, fmvp: P.fmvp, titles, user: P.champion === userTid(S) } });
   };
-  /** the offseason's moments: 'lottery', 'draft', 'fa' (each week), 'retire' */
+  /** the coaching carousel (PBC.Staff, the offseason begins) */
+  M.carousel = function (S, moves) {
+    if (!moves || !(moves.fired.length + moves.retired.length)) return;
+    const s = openStory(S, 'carousel', 'carousel:' + S.season, { open: false });
+    publish(S, 'carousel', 'insider', { sid: s.id, pri: 3, tids: moves.hired.map(h => h.tid).slice(0, 4), data: { fired: moves.fired.slice(), retired: moves.retired.slice(), hired: moves.hired.map(h => ({ tid: h.tid, cid: h.cid })) } });
+  };
+  /** the offseason's moments: 'lottery', 'draft', 'fa' (each week), 'retire', 'hof', 'number' */
   M.offseason = function (S, key, data) {
     const s = openStory(S, key, key + ':' + S.season + ':' + (M.ensure(S).sseq + 1), { open: false });
-    return publish(S, key, key === 'draft' ? 'numbers' : key === 'retire' ? 'oldschool' : 'insider', Object.assign({ sid: s.id, pri: 3 }, data || {}));
+    return publish(S, key, key === 'draft' ? 'numbers' : key === 'retire' || key === 'hof' || key === 'number' ? 'oldschool' : 'insider', Object.assign({ sid: s.id, pri: 3 }, data || {}));
   };
 
   // the postseason: previews, the series that end, Game 7s
@@ -698,7 +712,10 @@
       const bySeason = {};
       for (const a of old) (bySeason[a.season] = bySeason[a.season] || []).push(a);
       for (const k in bySeason) {
-        const keep = U.sortBy(bySeason[k].filter(a => a.k !== 'rankings' && a.k !== 'ladder' && a.k !== 'rumors'), a => a.pri * 1000 + a.day, true).slice(0, M.ARCHIVE);
+        // the season's biggest stories, three of a kind at most
+        const perKind = {};
+        const keep = U.sortBy(bySeason[k].filter(a => a.k !== 'rankings' && a.k !== 'ladder' && a.k !== 'rumors'), a => a.pri * 1000 + a.day, true)
+          .filter(a => (perKind[a.k] = (perKind[a.k] || 0) + 1) <= 3).slice(0, M.ARCHIVE);
         const list = keep.map(a => { const t = M.render ? M.render(S, a) : null; return { id: a.id, k: a.k, day: a.day, phase: a.phase, tid: a.tid, pid: a.pid, pri: a.pri, h: t ? t.h : '', d: t ? t.d : '', w: a.w }; });
         m.archive.unshift({ season: +k, list });
       }

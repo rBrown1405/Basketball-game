@@ -27,6 +27,7 @@
       { key: 'stats', label: 'Stats & Leaders', icon: '📈', group: 'League' },
       { key: 'teams', label: 'Teams', icon: '🏟️', group: 'League' },
       { key: 'records', label: 'Records & History', icon: '📜', group: 'League' },
+      { key: 'legacy', label: 'The Hall', icon: '🏛️', group: 'League', show: S => !!PBC.Legacy },
       { key: 'career', label: 'My Career', icon: '🎖️', group: 'Career' },
       { key: 'saves', label: 'Saves', icon: '💾', group: 'Career', dot: () => UI.saveInfo().unsaved },
       { key: 'settings', label: 'Settings', icon: '⚙️', group: 'Career' },

@@ -462,6 +462,9 @@
     const coyTid = aw.coyTid;
     if (coyTid === S.userTid && PBC.Coach) PBC.Coach.unlock(S, 'coy');
     Season.news(S, `🏅 Awards — MVP: ${aw.mvp != null ? PBC.Player.name(S.players[aw.mvp]) : '—'} · DPOY: ${aw.dpoy != null ? PBC.Player.name(S.players[aw.dpoy]) : '—'} · ROY: ${aw.roy != null ? PBC.Player.name(S.players[aw.roy]) : '—'} · Coach of the Year: ${coyTid === S.userTid ? 'YOU!' : S.teams[coyTid].city + ' ' + S.teams[coyTid].name}`, 'award');
+    // every coach's season on the record, the numbers players wore (the league's history)
+    if (PBC.Staff) PBC.Staff.endSeason(S);
+    if (PBC.Legacy) PBC.Legacy.endSeason(S);
     if (PBC.Desk && PBC.Desk.review) PBC.Desk.review(S);
     if (PBC.Coach) PBC.Coach.endSeason(S);
     S.phase = 'awards';
