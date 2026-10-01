@@ -743,8 +743,31 @@
     const secs = LG.S.settings.tvGraphics === false ? 0 : (per === 2 ? 7 : 5) / Math.sqrt(Math.max(1, LG.speed / 2));
     if (LG.bc) LG.bc.showPeriodCard(per, PBC.Sim.box(g));
     live('break', { per });
-    if (secs <= 0.2) { if (LG.bc) LG.bc.hidePeriodCard(); LG.possDone = true; return; }
-    holdFor(secs, () => { if (LG) { if (LG.bc) LG.bc.hidePeriodCard(); LG.possDone = true; } });
+    // halftime: the locker room (js/ui/locker.js) before the third quarter
+    const locker = PBC.Locker && UI.lockerRoom && PBC.Locker.isHalftime(g, per) && LG.S.settings.lockerRoom !== false;
+    const go = () => { if (!LG) return; if (LG.bc) LG.bc.hidePeriodCard(); if (locker) openLocker(); else LG.possDone = true; };
+    if (secs <= 0.2) { go(); return; }
+    holdFor(secs, go);
+  }
+  async function openLocker() {
+    if (!LG || LG.lockerOpen || LG.lockerDone) { if (LG && LG.lockerDone && !LG.lockerOpen) LG.possDone = true; return; }
+    // (the loop waits: no possession, no play-by-play ticker, until you send them back out)
+    LG.lockerOpen = true; LG.busy = true;
+    if (LG.au && LG.au.setPaused) LG.au.setPaused(true);
+    let out = null;
+    try { out = await UI.lockerRoom({ g: LG.g, idx: LG.uIdx, S: LG.S, teams: LG.teams }); } catch (e) { console.error('locker', e); }
+    if (!LG) return;
+    if (LG.au && LG.au.setPaused) LG.au.setPaused(LG.paused);
+    if (out) {
+      const tk = out.talk && PBC.Locker.TALKS[out.talk];
+      if (tk) pushLine({ q: LG.g.period, clock: LG.g.clock, text: `🗣️ Halftime talk: ${tk.label}${out.mine && out.verdict ? '. ' + out.verdict : ' (your staff)'}`, type: 'note', team: LG.uIdx });
+      if (out.applied.length) UI.toast(out.applied.map(U.esc).join('<br>'), 'good', 4200);
+      live('locker', { talk: out.talk, applied: out.applied });
+    }
+    LG.lockerOpen = false; LG.lockerDone = true; LG.busy = false;
+    if (LG.tab === 'coach') renderPanel(true);
+    renderOnCourt();
+    LG.possDone = true;
   }
 
   // events from the court view (fired when they visibly happen)

@@ -566,6 +566,7 @@
     }
     if (dead) { timeouts(ctx, P.start !== 'made_basket'); subs(ctx, 0, P.start); subs(ctx, 1, P.start); }
     if (g.adj && PBC.Adjust) PBC.Adjust.possession(ctx, dead);
+    if (PBC.Locker) PBC.Locker.tick(ctx); // (the halftime talks, js/core/locker.js)
     defenseCall(ctx.D);
     P.defScheme = ctx.D.strat.def;
     if (PBC.PlayCall) P.defCov = PBC.PlayCall.coverage(ctx.D);
@@ -687,6 +688,7 @@
           if (c.target <= 0) v -= 40;
           if (c.pf >= foulLimit(g.period, L) && !crunch) v -= 12;
           if (c.hackRest === g.period && !crunch) v -= 25; // (they keep fouling him on purpose: sit him for the quarter)
+          if (c.rest && c.rest.q === g.period && g.clock > c.rest.until && !crunch) v -= 30; // (the coach sat him to start the half)
           if (periodStart && (g.period === 1 || g.period === 3) && c.starter) v += 30;
           if (crunch && closers.includes(c)) v += 16;
         }
