@@ -36,7 +36,7 @@
       root.innerHTML = `<div class="page"><div class="page-h"><div><h1>✏️ Player Editor</h1>
         <div class="sub">Edit any player: ratings, tendencies, personality, appearance, contract and health. Previews use the same avatar and pixel sprite the game draws.</div></div>
         <div class="actions row"><select class="inp" id="ed-team" style="min-width:220px">
-          ${opt('mine', 'My team — ' + teams[S.userTid].abbr)}
+          ${opt('mine', 'My team: ' + teams[S.userTid].abbr)}
           ${opt('all', 'Every team')}${teams.map(t => opt('t' + t.id, t.city + ' ' + t.name)).join('')}
           ${opt('fa', 'Free agents')}${opt('prospects', 'Draft prospects')}
         </select><input class="inp" id="ed-q" placeholder="Search name…" value="${U.esc(edQ)}" style="min-width:180px"></div></div>

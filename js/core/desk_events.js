@@ -1435,6 +1435,70 @@
     resolve: () => '',
   });
 
+  // the weekly digest: your assistant's one-page week (the record and the standings, who was best, who is hurt, what the
+  // press said, what is waiting on your desk, and next week's games)
+  def({
+    id: 'weekly_digest', fam: 'staff', kind: 'message', when: 'week', phases: ['regular'], w: 1, pri: 1,
+    find(S, X) { return standing(S, X.u).gp >= 3 ? [{ key: 'wk:' + S.season + ':' + Math.floor(S.day / 7) }] : []; },
+    build(S, c, X) {
+      const D = Desk.ensure(S);
+      const L = PBC.League.cfg(S);
+      const st = standing(S, X.u);
+      const t = team(S, X);
+      const conf = L.playoffFormat === 'conference' ? t.conf : null;
+      const row = PBC.League.sorted(S, conf).find(r => r.tid === X.u);
+      const rank = row ? row.seed : null;
+      const prev = D.digest && D.digest.season === S.season ? D.digest : { w: 0, l: 0, rank: null, ps: null };
+      // the week's games, from the schedule
+      let ww = 0, wl = 0;
+      for (const g of S.schedule || []) {
+        if (!g.played || g.day <= S.day - 7 || g.day > S.day || (g.h !== X.u && g.a !== X.u)) continue;
+        if ((g.h === X.u ? g.hs > g.as : g.as > g.hs)) ww++; else wl++;
+      }
+      const where = conf != null ? `the ${L.confs[conf]}` : 'the league';
+      const parts = [];
+      let move = '';
+      if (prev.rank && rank) move = rank < prev.rank ? `, up ${prev.rank - rank} from last week` : rank > prev.rank ? `, down ${rank - prev.rank} from last week` : ', where you were last week';
+      parts.push(`${ww}-${wl} this week and ${st.w}-${st.l} on the season: ${rank ? U.ordinal(rank) : '-'} in ${where}${move}.`);
+      // the best of the week (against last week's lines)
+      const ps = {};
+      let best = null;
+      for (const p of roster(S, X)) {
+        const s = PBC.Stats.season(p, S.season, false);
+        if (!s) continue;
+        ps[p.id] = [s.gp, s.pts, s.orb + s.drb, s.ast];
+        const o = (prev.ps && prev.ps[p.id]) || [0, 0, 0, 0];
+        const gp = s.gp - o[0];
+        if (gp < 1) continue;
+        const v = { p, gp, pts: (s.pts - o[1]) / gp, reb: (s.orb + s.drb - o[2]) / gp, ast: (s.ast - o[3]) / gp };
+        v.score = v.pts + v.reb * 0.7 + v.ast * 0.9;
+        if (!best || v.score > best.score) best = v;
+      }
+      if (best) parts.push(`${prev.ps ? 'Best of the week' : 'Best so far'}: ${nm(best.p)}, ${U.round(best.pts, 1)} points, ${U.round(best.reb, 1)} rebounds and ${U.round(best.ast, 1)} assists a game.`);
+      const hurt = roster(S, X).filter(p => !healthy(p)).slice(0, 3);
+      if (hurt.length) parts.push(`Out: ${hurt.map(p => `${nm(p)} (${PBC.Player.injuryLabel(p.injury).replace(/^.*\(|\)$/g, '')})`).join(', ')}.`);
+      // the press this week
+      const M = S.media;
+      const art = M && PBC.Media.render ? M.arts.find(a => a.user && a.season === S.season && a.day > S.day - 7) : null;
+      const r = art ? PBC.Media.render(S, art) : null;
+      if (r && r.h) parts.push(`In the press: "${r.h}."`);
+      // what is waiting
+      const open = D.items.filter(i => !i.done && i.kind !== 'message').length;
+      if (open) parts.push(`${open === 1 ? 'One thing is' : open + ' things are'} waiting on your desk.`);
+      // next week
+      const next = (S.schedule || []).filter(g => !g.played && g.day > S.day && g.day <= S.day + 7 && (g.h === X.u || g.a === X.u));
+      if (next.length) {
+        const days = next.map(g => g.day);
+        const b2b = days.filter((d, i) => i > 0 && d - days[i - 1] === 1).length;
+        const list = next.map(g => { const opp = g.h === X.u ? g.a : g.h; const rv = PBC.Rivals ? PBC.Rivals.level(S, X.u, opp) : null; return `${g.h === X.u ? 'vs' : 'at'} ${S.teams[opp].abbr}${rv ? ' (' + rv.label.toLowerCase() + ')' : ''}`; });
+        parts.push(`Next week: ${list.join(', ')}${b2b ? `, with ${b2b === 1 ? 'a back-to-back' : b2b + ' back-to-backs'}` : ''}.`);
+      } else parts.push('No games next week.');
+      D.digest = { season: S.season, w: st.w, l: st.l, rank, ps };
+      return { kind: 'message', title: `The week: ${ww}-${wl}`, text: parts.join(' '), from: staffFrom(S, 'assistant'), data: {} };
+    },
+    resolve: () => '',
+  });
+
   // ---------------------------------------------------------------------------
   // The other front offices
   // ---------------------------------------------------------------------------

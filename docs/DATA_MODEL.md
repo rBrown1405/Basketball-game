@@ -30,6 +30,7 @@ Read the source for details — this is the map.
 | `PBC.Office` | office.js | owners with personalities (`TYPES`, `owner(S, tid)`, `review`, `patience`, `heat`) and every team's facilities (`FAC`, `fac(S, tid)`, `upgrade`, `summer`, `newSeason`, and the effects `devBonus`, `practiceMult`, `injuryMult`, `recoveryMult`, `scoutPoints`, `scoutBank`, `draftNoise`, `fanBonus`, `appeal`); see `docs/LONG_GAME_NOTES.md` |
 | `PBC.Rivals` | rivals.js | rivalries: heat between pairs of teams (`game`, `series`, `move`, `trash`, `add`, `weekly`, `summer`), `level(S, a, b)`, `h2h`, `of(S, tid)`, `top(S)`, `historyLine` |
 | `PBC.AllStar` | allstar.js | All-Star weekend: `announce` (the invitations, with the rosters), `due`/`run` (the contests and the game on the first day of the break), `userInvites`, `holdOut`, `latest` |
+| `PBC.Story` | story.js | the season documentary: `season(S)` → `{ title, chapters: [{ kick, h, p }], heads }` (see `docs/POLISH_NOTES.md`) |
 | `PBC.Persona` | persona.js | player personality types (`TYPES`, `of(p)`, `info`, `face(p, { mood })`, `blurb`) used by portraits, the booth and the player card |
 | `PBC.Store` | storage.js | saves in IndexedDB (localStorage fallback). Latest save per career: `save(S, { backup, backupCount })`, `load(id)`, `list()`; named slots and rotating backups: `saveSlot`, `saveBackup`, `pruneBackups`, `listAll()`, `listCareer(id)`; `remove`, `removeCareer`, `rename`, `copy`; files: `exportString`, `importString` (new id). Each record is `{ id, data, meta }` plus a small index record `'#meta:' + id` so lists never load full saves. Ids: main = `S.saveId`, slot = `saveId::slot::<time>`, backup = `saveId::backup::<k>` |
 
@@ -51,7 +52,8 @@ S = {
   draftPicks: [{ season, round, orig, owner }],   // next 4 drafts; season = the draft year (S.season + 1 is the upcoming draft)
   userTid, coach: {...},      // see coach.js; coaching skills: coach.skills { dev, mot, tac, rec, med } (0-5), coach.sp, spTot, spLog, lastSP, mvps
   news: [{ season, day, phase, text, type, tid }],
-  history: [{ season, champion, runnerUp, fmvp, awards, standings }],
+  history: [{ season, champion, runnerUp, fmvp, awards, standings, finals, preseasonProj,
+             bracket: [{ r, c, hi, lo, w, win, sh, sl }], playIn: [{ c, st, hi, lo, win }] }],
   records, settings, practice, teamSeason: { [tid]: totals }, flags, preseasonProj: { [tid]: winPct },
   // settings.autosave: 'always' | 'game' | 'week' | 'phase' | 'off'; settings.backupCount 0-10 (default 3)
   sliders: { v, preset, <slider key>: 0-100, tradeRequests: bool },   // created lazily by PBC.Sliders.get(S)
@@ -66,6 +68,7 @@ S = {
   rivals: { v, pairs: { 'a-b': { heat, peak, peakSeason, g: [winsA, winsB], po: [{ season, round, w, winner, g7 }], last: { season, day, why }, born } } },
   allStarWknd: { season, day, invites: { three: [pid], dunk: [pid], skills: [pid] }, out: [pid], done },
   allStarHist: [{ season, three, dunk, skills, game }],   // every All-Star weekend (js/core/allstar.js)
+  tips: { seen: { [screen]: 1 }, visited: { [screen]: 1 }, startDone },   // tips for a new career (js/ui/polish.js)
   legacy: { v, hof: [{ id, kind, season, name, pid, cid, tid, score, first, years, honors, line, coach }], numbers: { [tid]: [{ num, pid, season, name }] },
             prev, prevSeason, leaders, crowned, flags },
 }

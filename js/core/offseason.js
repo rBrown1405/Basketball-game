@@ -335,7 +335,7 @@
     const ppg = c.gp ? (c.pts / c.gp).toFixed(1) : '0.0';
     const honors = [mvp ? `${mvp}× MVP` : '', rings ? `${rings}× champion` : '', as ? `${as}× All-Star` : ''].filter(Boolean).join(', ');
     const t = S.teams[p.retired.tid];
-    news(S, `🎖️ ${nm(p)}${t ? ' (' + t.abbr + ')' : ''} retires after ${U.plural(p.yearsPro || c.seasons, 'season')} — ${ppg} ppg over ${c.gp} games${honors ? '; ' + honors : ''}.`, 'retirement', p.retired.tid);
+    news(S, `🎖️ ${nm(p)}${t ? ' (' + t.abbr + ')' : ''} retires after ${U.plural(p.yearsPro || c.seasons, 'season')}: ${ppg} ppg over ${c.gp} games${honors ? '; ' + honors : ''}.`, 'retirement', p.retired.tid);
   }
 
   function evaluatePromises(S) {
@@ -564,7 +564,7 @@
     R.ask = Off.fitAmt(S, p, R.ask * 1.03);
     if (R.tries >= 3 || sc < -30) {
       R.status = 'refused';
-      return { ok: false, refused: true, msg: `${nm(p)} is done talking — he'll test free agency.` };
+      return { ok: false, refused: true, msg: `${nm(p)} is done talking. He'll test free agency.` };
     }
     const py = Off.prefYears(p);
     return { ok: false, msg: `Rejected. He wants about ${U.money(R.ask)} per season${offer.years !== py ? ` and prefers ${U.plural(py, 'year')}` : ''}. (${3 - R.tries} tr${3 - R.tries === 1 ? 'y' : 'ies'} left)` };
@@ -605,7 +605,7 @@
     { key: 'tour', label: 'Facility Tour', icon: '🏟️', cost: 3, desc: 'Fly him in. Big boost; plays best in big markets and with players who care about the city.' },
     { key: 'dinner', label: 'Owner Dinner', icon: '🍽️', cost: 3, desc: 'Your owner makes the pitch. Great with money-driven players; better with a big-spending owner.' },
     { key: 'star', label: 'Star Player Recruits', icon: '⭐', cost: 3, desc: 'Your best player makes the call. Scales with his rating; big egos don’t love sharing the spotlight.' },
-    { key: 'contender', label: 'Contender Pitch', icon: '🏆', cost: 2, desc: 'Sell a title run. Huge with winners if your team is good — backfires if it isn’t.' },
+    { key: 'contender', label: 'Contender Pitch', icon: '🏆', cost: 2, desc: 'Sell a title run. Huge with winners if your team is good, and backfires if it isn’t.' },
     { key: 'starter', label: 'Promise Starting Role', icon: '🟢', cost: 2, once: true, desc: 'Guarantee a starting job. Big with playing-time players. Break it and morale and credibility suffer.' },
     { key: 'minutes', label: 'Promise Minutes', icon: '⏱️', cost: 1, once: true, desc: 'Guarantee a minutes floor (20, 25 or 30 mpg). Must be kept.' },
     { key: 'offer', label: 'Offer Contract', icon: '✍️', cost: 0, desc: 'Put money on the table: salary, years and an optional player option.' },
@@ -715,7 +715,7 @@
     if (amt <= room) return { kind: 'cap', room };
     const mleBusy = S.fa && (S.fa.mle[tid] || Off.pendingOffers(S, tid).some(o => o.kind === 'mle' && o.pid !== ignorePid));
     if (amt <= L.mle + 1 && !mleBusy) return { kind: 'mle', room };
-    return { error: room > 0 ? `You have ${U.money(room)} in cap space${mleBusy ? '' : ` (or the ${U.money(L.mle)} mid-level exception)`}. Above that, only minimum deals are allowed.` : `You’re over the cap: you can offer the mid-level exception (up to ${U.money(L.mle)}, once${mleBusy ? ' — already in use' : ''}) or the minimum (${U.money(L.minSalary)}).`, room };
+    return { error: room > 0 ? `You have ${U.money(room)} in cap space${mleBusy ? '' : ` (or the ${U.money(L.mle)} mid-level exception)`}. Above that, only minimum deals are allowed.` : `You’re over the cap: you can offer the mid-level exception (up to ${U.money(L.mle)}, once${mleBusy ? ', already in use' : ''}) or the minimum (${U.money(L.minSalary)}).`, room };
   };
 
   Off.pendingOffers = function (S, tid) {
@@ -775,7 +775,7 @@
         msg = star ? `${nm(star)} called him personally.` : 'Nobody on your roster moves the needle.';
         break;
       }
-      case 'contender': d = (q - 0.5) * 32 * (0.4 + (pe.win || 50) / 80); msg = d >= 0 ? 'He likes your chances to win.' : 'He isn’t buying it — your team isn’t a contender.'; break;
+      case 'contender': d = (q - 0.5) * 32 * (0.4 + (pe.win || 50) / 80); msg = d >= 0 ? 'He likes your chances to win.' : 'He isn’t buying it: your team isn’t a contender.'; break;
       case 'starter': {
         const c = (role.rank <= 5 ? 1 : role.rank <= 7 ? 0.6 : 0.3) * cred;
         d = (4 + ((pe.pt || 50) / 100) * 12) * c;
@@ -901,7 +901,7 @@
     e.signed = { tid: o.tid, amt: o.amt, years: o.years, week: fa.week };
     e.offers = [];
     const t = S.teams[o.tid];
-    const line = `${t.abbr} sign ${nm(p)} (${p.pos}, ${p.ovr}) — ${U.plural(o.years, 'yr')}, ${U.money(o.amt)}${o.kind === 'mle' ? ' (MLE)' : ''}`;
+    const line = `${t.abbr} sign ${nm(p)} (${p.pos}, ${p.ovr}): ${U.plural(o.years, 'yr')}, ${U.money(o.amt)}${o.kind === 'mle' ? ' (MLE)' : ''}`;
     fa.log.unshift({ week: fa.week, pid: p.id, tid: o.tid, amt: o.amt, years: o.years, kind: o.kind, text: line });
     if (S.offseason) S.offseason.signings.push({ pid: p.id, tid: o.tid, amt: o.amt, years: o.years, week: fa.week });
     if (o.tid === u || p.ovr >= 78) news(S, `✍️ ${t.city} ${t.name} sign ${nm(p)} (${p.pos}, ${p.ovr} OVR): ${U.plural(o.years, 'year')}, ${U.money(o.amt)}/yr.`, 'signing', o.tid);
@@ -1046,14 +1046,14 @@
     if (!p || p.tid !== -1) return { ok: false, msg: 'He is not a free agent.' };
     if (u < 0) return { ok: false, msg: 'You need a job first.' };
     if (S.phase === 'freeagency') return { ok: false, msg: 'Use the free-agency market.' };
-    if (OFF[S.phase] || S.phase === 'awards' || S.phase === 'postseason_done') return { ok: false, msg: 'The season is over — free agency opens after the draft and re-signing period.' };
+    if (OFF[S.phase] || S.phase === 'awards' || S.phase === 'postseason_done') return { ok: false, msg: 'The season is over. Free agency opens after the draft and the re-signing period.' };
     if (PBC.League.roster(S, u).length >= L.rosterMax) return { ok: false, msg: `Your roster is full (${L.rosterMax}). Release someone first.` };
     const ask = p.contract ? p.contract.amt : Off.baseAsk(S, p);
     const room = L.cap - Off.payroll(S, u);
     let amt;
     if (ask <= room || ask <= L.minSalary) amt = Math.max(L.minSalary, ask);
     else if (ask <= L.minSalary * 1.35) amt = L.minSalary;
-    else return { ok: false, msg: `${nm(p)} wants ${U.money(ask)}. You have ${U.money(Math.max(0, room))} in cap space — over the cap you can only offer the minimum.` };
+    else return { ok: false, msg: `${nm(p)} wants ${U.money(ask)}. You have ${U.money(Math.max(0, room))} in cap space. Over the cap you can only offer the minimum.` };
     p.tid = u;
     p.contract = { amt, exp: S.season, rookie: false };
     p.num = 0;

@@ -182,7 +182,7 @@
       seedTxt = `${U.ordinal(me.seed)} in ${L.playoffFormat === 'conference' ? L.confs[t.conf] : 'league'}`;
     }
     const ng = (S.phase === 'regular') ? PBC.League.nextGame(S, S.userTid) : PBC.Season.userGameToday(S);
-    let nextTxt = '—';
+    let nextTxt = '-';
     if (ng) {
       const home = ng.h === S.userTid;
       const opp = S.teams[home ? ng.a : ng.h];

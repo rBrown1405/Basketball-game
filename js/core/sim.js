@@ -490,7 +490,7 @@
         default: s = is3(zone) ? `${S} hits a ${d}-ft three` : `${S} knocks down a ${d}-ft jumper`;
       }
       if (ast) s += ` (${ast.last} assists)`;
-      if (andOne) s += ' — AND ONE!';
+      if (andOne) s += ', AND ONE!';
       return s;
     },
     missed(sh, kind, zone, d) {
@@ -2569,7 +2569,7 @@
     const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
     // blocked out of bounds → offense keeps it
     if (shot.blocked && U.chance(0.32)) {
-      ev(ctx, 'rebound', { player: null, team: O.idx, off: true, text: `Ball out of bounds — ${O.team.name} ball` });
+      ev(ctx, 'rebound', { player: null, team: O.idx, off: true, text: `Ball out of bounds, ${O.team.name} ball` });
       const scLeft = ctx.scStart + ctx.scLen - ctx.t;
       const ie = ev(ctx, 'inbound', { by: pickInbounder(O, ctx.handler).id, to: ctx.handler.id, spot: 'baseline', x: dir > 0 ? 95 : -1, y: U.round(U.range(18, 32), 1), team: O.idx });
       ctx.scStart = ctx.t; ctx.scLen = Math.max(5, Math.min(24, scLeft));
@@ -2580,7 +2580,7 @@
     }
     if (U.chance(0.03)) {
       // out of bounds off the offense → defense ball
-      ev(ctx, 'rebound', { player: null, team: D.idx, off: false, text: `Out of bounds — ${D.team.name} ball` });
+      ev(ctx, 'rebound', { player: null, team: D.idx, off: false, text: `Out of bounds, ${D.team.name} ball` });
       ctx.done = true; ctx.endT = ctx.t;
       g.nextStart = 'dead_ball';
       g.nextSpot = { kind: 'baseline', x: bx + dir * 6.5, y: U.round(U.range(18, 32), 1), front: false };
@@ -2705,11 +2705,11 @@
       if (who.pf >= g.L.foulOut) who.out = true;
     }
     let text;
-    if (stolen) text = info.outlet ? `${stealer.last} picks off the outlet from ${who.last}!` : kind === 'bad_pass' ? `${who.last} bad pass — stolen by ${stealer.last}` : `${stealer.last} strips ${who.last}!`;
+    if (stolen) text = info.outlet ? `${stealer.last} picks off the outlet from ${who.last}!` : kind === 'bad_pass' ? `${who.last} bad pass, stolen by ${stealer.last}` : `${stealer.last} strips ${who.last}!`;
     else if (info.outlet) text = `Turnover: ${who.last} throws the outlet away`;
     else if (kind === 'shot_clock') text = `Shot clock violation on the ${O.team.name}`;
     else if (kind === 'eight_seconds') text = `8-second violation on the ${O.team.name}: couldn't get it past half court`;
-    else if (kind === 'offensive_foul') { const taker = matchupDefender(D, who, ctx); text = `Offensive foul on ${who.last} — ${taker.last} takes the charge`; }
+    else if (kind === 'offensive_foul') { const taker = matchupDefender(D, who, ctx); text = `Offensive foul on ${who.last}: ${taker.last} takes the charge`; }
     else text = `Turnover: ${who.last} (${label})`;
     ev(ctx, 'turnover', Object.assign({ player: who ? who.id : null, kind, stealer: stealer ? stealer.id : undefined, team: O.idx, text, to: info.toTo ? info.toTo.id : undefined, outlet: info.outlet || undefined }, spot));
     ctx.done = true; ctx.endT = ctx.t;

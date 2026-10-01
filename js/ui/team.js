@@ -20,7 +20,7 @@
         <div class="page-h"><div><h1>Roster</h1><div class="sub">${roster.length}/${L.rosterMax} players · Avg age ${U.num(U.avg(roster, p => p.age))} · Payroll ${U.money(payroll, true)} / cap ${U.money(L.cap, true)}${payroll > L.tax ? ' · <span class="bad-t">over the tax</span>' : ''}</div></div>
           <div class="actions"><div class="tabs">${[['overview', 'Overview'], ['stats', 'Stats'], ['ratings', 'All Ratings'], ['contracts', 'Contracts']].map(([k, l]) => `<button class="tab ${rosterTab === k ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('')}</div></div></div>
         <div class="card"><div class="card-b flush" id="roster-tbl"></div></div>
-        <p class="hint" style="margin-top:10px">Tip: click a player for his full card — set go-to players, view game logs, release or shop him in a trade.</p></div>`;
+        <p class="hint" style="margin-top:10px">Tip: click a player for the full card to set go-to players, view game logs, release a player or shop one in a trade.</p></div>`;
       UI.on(root, 'click', '[data-tab]', (e, el) => { rosterTab = el.dataset.tab; UI.refresh(); });
       const team = S.teams[S.userTid];
       const rows = roster.map(p => ({ p, s: PBC.Stats.season(p, S.season, false) }));
@@ -37,8 +37,8 @@
           key.map(([k, l]) => ({ key: k, label: l, num: true, value: r => r.p.r[k], fmt: r => ratingCell(r.p.r[k]) })),
           [{ key: 'morale', label: 'Mood', num: true, value: r => r.p.morale, fmt: r => moodIcon(r.p.morale) }]);
       } else if (rosterTab === 'stats') {
-        cols = [nameCol, posCol].concat(UI.statLineCols().map(c => Object.assign({}, c, { value: r => (r.s ? (c.value ? c.value(r.s) : r.s[c.key]) : -1), fmt: r => (r.s ? (c.fmt ? c.fmt(r.s) : r.s[c.key]) : '—') })),
-          [{ key: 'pm', label: '+/-', num: true, value: r => (r.s ? r.s.pm / r.s.gp : -99), fmt: r => (r.s && r.s.gp ? (r.s.pm > 0 ? '+' : '') + U.num(r.s.pm / r.s.gp) : '—') }]);
+        cols = [nameCol, posCol].concat(UI.statLineCols().map(c => Object.assign({}, c, { value: r => (r.s ? (c.value ? c.value(r.s) : r.s[c.key]) : -1), fmt: r => (r.s ? (c.fmt ? c.fmt(r.s) : r.s[c.key]) : '-') })),
+          [{ key: 'pm', label: '+/-', num: true, value: r => (r.s ? r.s.pm / r.s.gp : -99), fmt: r => (r.s && r.s.gp ? (r.s.pm > 0 ? '+' : '') + U.num(r.s.pm / r.s.gp) : '-') }]);
       } else if (rosterTab === 'ratings') {
         cols = [nameCol, { key: 'ovr', label: 'OVR', num: true, value: r => r.p.ovr, fmt: r => UI.ovr(r.p.ovr) }].concat(C.RATINGS.map(rt => ({ key: rt.key, label: rt.short, title: rt.label, num: true, value: r => r.p.r[rt.key], fmt: r => ratingCell(r.p.r[rt.key]) })));
       } else {
@@ -81,7 +81,7 @@
       root.innerHTML = `<div class="page">
         <div class="page-h"><div><h1>Lineup & Minutes</h1><div class="sub">Set your starting five, your rotation minutes and your go-to scorers. The game engine subs to match your minutes, fatigue and foul trouble.</div></div>
           <div class="actions"><button class="btn" data-act="auto">🤖 Auto-set</button><button class="btn" data-act="balance">⚖️ Balance to ${L.minutesTotal}</button></div></div>
-        <div class="card accent"><div class="card-h"><h3>Starting five</h3><div class="actions"><span class="small muted">Positions are a guide — any player can start anywhere.</span></div></div>
+        <div class="card accent"><div class="card-h"><h3>Starting five</h3><div class="actions"><span class="small muted">Positions are a guide: any player can start anywhere.</span></div></div>
           <div class="card-b"><div class="lineup-grid">${rot.starters.map((id, i) => {
             const p = byId(id);
             return `<div class="slot"><div class="slot-pos">${posLabels[i]}</div>${UI.avatar(p, 58)}<div class="nm">${UI.playerLink(p)}</div>
@@ -99,14 +99,14 @@
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Go-to players</h3></div><div class="card-b">
               <p class="small muted" style="margin-top:0">Your go-to players get more touches and take the big shots in Game Impact Moments.</p>
-              <label class="small muted">Option #1</label><select class="inp" data-goto="goTo1" style="width:100%;margin:4px 0 10px"><option value="">— Let the offense decide —</option>${roster.map(p => `<option value="${p.id}" ${team.strat.goTo1 === p.id ? 'selected' : ''}>${U.esc(PBC.Player.name(p))} (${p.ovr})</option>`).join('')}</select>
-              <label class="small muted">Option #2</label><select class="inp" data-goto="goTo2" style="width:100%;margin-top:4px"><option value="">— Let the offense decide —</option>${roster.map(p => `<option value="${p.id}" ${team.strat.goTo2 === p.id ? 'selected' : ''}>${U.esc(PBC.Player.name(p))} (${p.ovr})</option>`).join('')}</select>
+              <label class="small muted">Option #1</label><select class="inp" data-goto="goTo1" style="width:100%;margin:4px 0 10px"><option value="">Let the offense decide</option>${roster.map(p => `<option value="${p.id}" ${team.strat.goTo1 === p.id ? 'selected' : ''}>${U.esc(PBC.Player.name(p))} (${p.ovr})</option>`).join('')}</select>
+              <label class="small muted">Option #2</label><select class="inp" data-goto="goTo2" style="width:100%;margin-top:4px"><option value="">Let the offense decide</option>${roster.map(p => `<option value="${p.id}" ${team.strat.goTo2 === p.id ? 'selected' : ''}>${U.esc(PBC.Player.name(p))} (${p.ovr})</option>`).join('')}</select>
             </div></div>
             <div class="card"><div class="card-h"><h3>Rotation notes</h3></div><div class="card-b small">
               <ul style="margin:0;padding-left:18px;line-height:1.6">
                 <li>Starters typically play 30–36 minutes; stars can push 38+ but tire faster and play worse late.</li>
                 <li>Players with <b>0 minutes</b> only play in blowouts or if others foul out / get hurt.</li>
-                <li>Low <b>stamina</b> players fade on long stints — give them fewer minutes.</li>
+                <li>Low <b>stamina</b> players fade on long stints, so give them fewer minutes.</li>
                 <li>In close games the engine closes with your best five.</li>
               </ul></div></div>
           </div>
@@ -195,7 +195,7 @@
       const prof = teamProfile(S, S.userTid);
       const seg = (key, obj) => `<div class="seg">${Object.keys(obj).map(k => `<button class="${st[key] === k ? 'on' : ''}" data-set="${key}" data-val="${k}">${obj[k].label}</button>`).join('')}</div>`;
       root.innerHTML = `<div class="page">
-        <div class="page-h"><div><h1>Strategy</h1><div class="sub">Choose your systems. Fit depends on your personnel — a system your players can't run hurts you.</div></div>
+        <div class="page-h"><div><h1>Strategy</h1><div class="sub">Choose your systems. Fit depends on your personnel: a system your players can't run hurts you.</div></div>
           <div class="actions"><button class="btn" data-act="auto">🤖 Suggest for my roster</button></div></div>
         <div class="grid g-main">
           <div class="stack">
@@ -242,7 +242,7 @@
     { key: 'finishing', name: 'Attack the Rim', icon: '💥', desc: 'Nail the gather and the release on drives.' },
     { key: 'passing', name: 'Find the Open Man', icon: '🎁', desc: 'Hit the cutter before the window closes.' },
     { key: 'ballhandling', name: 'Combo Dribble', icon: '🌀', desc: 'Chain dribble moves in rhythm.' },
-    { key: 'defense', name: 'Slide Drill', icon: '🛡️', desc: 'React to the ball handler — don\'t bite on fakes.' },
+    { key: 'defense', name: 'Slide Drill', icon: '🛡️', desc: 'React to the ball handler and don\'t bite on fakes.' },
     { key: 'rebounding', name: 'Box Out & Board', icon: '🧱', desc: 'Read the miss and get to the landing spot.' },
     { key: 'conditioning', name: 'Suicides', icon: '🫀', desc: 'Keep your stamina in the zone.' },
   ];
@@ -309,9 +309,9 @@
   function showGains(S, gains, score, grade) {
     const byP = U.groupBy(gains, g => g.pid);
     UI.modal({
-      title: `Practice complete — ${grade || ''} ${Math.round(score)}/100`,
+      title: `Practice complete: ${grade || ''} ${Math.round(score)}/100`,
       body: gains.length ? `<div class="list">${Object.keys(byP).map(pid => { const p = S.players[pid]; return `<div class="li">${UI.avatar(p, 30)}<div style="flex:1">${UI.playerLink(p)}</div><div class="row">${byP[pid].map(g => `<span class="tag good">${(C.RATINGS.find(r => r.key === g.key) || {}).short || g.key} ${g.from}→${g.to}</span>`).join('')}</div></div>`; }).join('')}</div>`
-        : '<div class="empty">No ratings ticked up this time, but the work adds up — progress carries over to next week.</div>',
+        : '<div class="empty">No ratings ticked up this time, but the work adds up: progress carries over to next week.</div>',
       actions: [{ label: 'Nice', cls: 'primary' }],
     });
   }

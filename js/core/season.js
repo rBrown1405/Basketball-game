@@ -94,7 +94,7 @@
     for (const T of box.teams) for (const pl of T.players) {
       if (pl.inj) {
         const p = S.players[pl.pid];
-        if (p && p.injury && (T.tid === S.userTid || p.ovr >= 82)) Season.news(S, `🚑 ${PBC.Player.name(p)} (${S.teams[T.tid].abbr}) — ${PBC.Player.injuryLabel(p.injury)}`, 'injury', T.tid);
+        if (p && p.injury && (T.tid === S.userTid || p.ovr >= 82)) Season.news(S, `🚑 ${PBC.Player.name(p)} (${S.teams[T.tid].abbr}): ${PBC.Player.injuryLabel(p.injury)}`, 'injury', T.tid);
       }
     }
     // the media: form, streaks, big nights, stars hurt, milestones, records (every game in the league)
@@ -104,7 +104,7 @@
       if (pl.pts >= 50 || (pl.pts >= 10 && pl.orb + pl.drb >= 10 && pl.ast >= 10 && T.tid === S.userTid)) {
         const p = S.players[pl.pid];
         const td = pl.pts >= 10 && pl.orb + pl.drb >= 10 && pl.ast >= 10;
-        Season.news(S, `${td ? '🔺 Triple-double' : '🔥 Explosion'}: ${PBC.Player.name(p)} — ${pl.pts} pts, ${pl.orb + pl.drb} reb, ${pl.ast} ast vs ${S.teams[box.teams[T === box.teams[0] ? 1 : 0].tid].abbr}`, 'performance', T.tid);
+        Season.news(S, `${td ? '🔺 Triple-double' : '🔥 Explosion'}: ${PBC.Player.name(p)}, ${pl.pts} pts, ${pl.orb + pl.drb} reb, ${pl.ast} ast vs ${S.teams[box.teams[T === box.teams[0] ? 1 : 0].tid].abbr}`, 'performance', T.tid);
       }
     }
   };
@@ -211,7 +211,7 @@
     best.forEach((b, i) => {
       if (!b) return;
       const label = L.playoffFormat === 'conference' ? `${L.confs[i]} ` : '';
-      Season.news(S, `⭐ ${label}Player of the Week: ${PBC.Player.name(b.p)} (${S.teams[b.p.tid].abbr}) — ${b.line}`, 'award', b.p.tid);
+      Season.news(S, `⭐ ${label}Player of the Week: ${PBC.Player.name(b.p)} (${S.teams[b.p.tid].abbr}): ${b.line}`, 'award', b.p.tid);
       b.p.awards.push({ season: S.season, type: 'potw', detail: '' });
     });
     S.weekSnap = Season.snapshot(S);
@@ -457,6 +457,9 @@
       awards: aw, standings: st.map(r => ({ tid: r.tid, w: r.w, l: r.l })), userTid: S.userTid,
       finals: finals ? { winner: finals.winner, loser: finals.loser, wins: finals.winner === finals.hi ? finals.w.slice() : [finals.w[1], finals.w[0]], len: finals.len } : null,
       preseasonProj: S.preseasonProj ? Object.assign({}, S.preseasonProj) : null,
+      // the bracket: every series (round, conference, the two teams, the wins, the winner), and the play-in
+      bracket: P && P.series.length ? P.series.map(s => ({ r: s.round, c: s.conf, hi: s.hi, lo: s.lo, w: s.w.slice(), win: s.winner, sh: P.seeds && P.seeds[s.hi] ? P.seeds[s.hi].seed : null, sl: P.seeds && P.seeds[s.lo] ? P.seeds[s.lo].seed : null })) : null,
+      playIn: P && P.playIn ? P.playIn.filter(x => x.winner != null).map(x => ({ c: x.conf, st: x.stage, hi: x.hi, lo: x.lo, win: x.winner })) : null,
     };
     S.history.push(hist);
     for (const t of S.teams) {
@@ -472,7 +475,7 @@
     }
     const coyTid = aw.coyTid;
     if (coyTid === S.userTid && PBC.Coach) PBC.Coach.unlock(S, 'coy');
-    Season.news(S, `🏅 Awards — MVP: ${aw.mvp != null ? PBC.Player.name(S.players[aw.mvp]) : '—'} · DPOY: ${aw.dpoy != null ? PBC.Player.name(S.players[aw.dpoy]) : '—'} · ROY: ${aw.roy != null ? PBC.Player.name(S.players[aw.roy]) : '—'} · Coach of the Year: ${coyTid === S.userTid ? 'YOU!' : S.teams[coyTid].city + ' ' + S.teams[coyTid].name}`, 'award');
+    Season.news(S, `🏅 The awards. MVP: ${aw.mvp != null ? PBC.Player.name(S.players[aw.mvp]) : '-'} · DPOY: ${aw.dpoy != null ? PBC.Player.name(S.players[aw.dpoy]) : '-'} · ROY: ${aw.roy != null ? PBC.Player.name(S.players[aw.roy]) : '-'} · Coach of the Year: ${coyTid === S.userTid ? 'YOU!' : S.teams[coyTid].city + ' ' + S.teams[coyTid].name}`, 'award');
     // every coach's season on the record, the numbers players wore (the league's history)
     if (PBC.Staff) PBC.Staff.endSeason(S);
     if (PBC.Legacy) PBC.Legacy.endSeason(S);
@@ -495,7 +498,8 @@
       if (ug) return ug;
       // something on the Desk needs you first (opts.desk: the sim buttons stop for it)
       if (opts && opts.desk && PBC.Desk && PBC.Desk.shouldStop(S)) return null;
-      // user not playing today: stop at practice if needed is handled by the UI
+      // no game for you today: sim the day (the sim never stops for practice; a practice you skip is run by your
+      // assistants at the end of the week)
       const today = S.phase === 'regular' ? S.schedule.some(g => g.day === S.day && !g.played) : (S.todayPost || []).some(g => !g.played);
       if (!today && S.phase !== 'regular' && S.playoffs && S.playoffs.done) { Season.finishPostseason(S); return null; }
       if (S.phase !== 'regular') {

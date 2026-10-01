@@ -154,7 +154,7 @@
       ${meter('The media', D.media, mediaLbl, 'Your standing with the press. It drifts back toward neutral over the weeks.')}
       ${meter('Owner trust', S.coach ? S.coach.security : 50, S.coach ? S.coach.mood : '', `${owner.name}'s trust in you: your job security.`)}
       <div class="kv" style="margin-top:4px"><span>Owner</span><span>${U.esc(owner.name)}</span>
-        <span>Captain</span><span>${cap ? UI.playerLink(cap) : '—'}</span>
+        <span>Captain</span><span>${cap ? UI.playerLink(cap) : '-'}</span>
         <span>Your word</span><span>${fo.kept} kept · ${fo.broken} broken</span></div>
     </div></div>`;
   }

@@ -19,8 +19,9 @@
       { key: 'lineup', label: 'Lineup & Minutes', icon: '📋', group: 'Team' },
       { key: 'strategy', label: 'Strategy', icon: '🧠', group: 'Team' },
       { key: 'playbook', label: 'Playbook', icon: '📓', group: 'Team' },
-      { key: 'practice', label: 'Practice', icon: '🏋️', group: 'Team', dot: S => PBC.Season.practiceAvailable(S) },
+      { key: 'practice', label: 'Practice', icon: '🏋️', group: 'Team', dot: S => PBC.Season.practiceAvailable(S) && !(S.settings && S.settings.autoPractice) },
       { key: 'schedule', label: 'Schedule', icon: '📅', group: 'Season' },
+      { key: 'calendar', label: 'Calendar', icon: '🗓️', group: 'Season', show: S => !!(S.schedule && S.schedule.length) },
       { key: 'standings', label: 'Standings', icon: '📊', group: 'Season' },
       { key: 'playoffs', label: 'Playoffs', icon: '🏆', group: 'Season', show: S => !!S.playoffs },
       { key: 'media', label: 'Media', icon: '🗞️', group: 'League', show: S => !!PBC.Media, dot: S => !!(S.media && S.media.arts.some(a => a.user && !a.seen && a.season === S.season)) },
@@ -483,7 +484,7 @@
       const t = S.teams[S.userTid];
       root.innerHTML = `<div class="page">
         <div class="grid g-main">
-          <div class="stack">${heroCard(S)}${UI.deskCard ? UI.deskCard(S, 'dk-sm') : ''}${lastGameCard(S)}${UI.headlineCard ? UI.headlineCard(S) : ''}${newsCard(S)}</div>
+          <div class="stack">${heroCard(S)}${UI.startCard ? UI.startCard(S) : ''}${UI.deskCard ? UI.deskCard(S, 'dk-sm') : ''}${lastGameCard(S)}${UI.headlineCard ? UI.headlineCard(S) : ''}${newsCard(S)}</div>
           <div class="stack">${UI.deskCard ? UI.deskCard(S, 'dk-lg') : ''}${ownerCard(S)}${practiceCard(S)}${standingsCard(S)}${leadersCard(S)}${injuriesCard(S)}</div>
         </div></div>`;
       // a new season's preview magazine opens once, the first time you land on Home in the preseason
@@ -593,9 +594,9 @@
     const sec = c.security;
     const cls = sec >= 60 ? 'good' : sec >= 35 ? 'warn' : 'bad';
     const moodCls = { Thrilled: 'good', Pleased: 'good', Optimistic: 'info', Patient: 'info', Concerned: 'warn', Furious: 'bad' }[c.mood] || 'info';
-    return `<div class="card accent"><div class="card-h"><h3>Front office</h3><div class="actions"><span class="tag ${moodCls}">Owner: ${U.esc(c.mood || '—')}</span></div></div>
+    return `<div class="card accent"><div class="card-h"><h3>Front office</h3><div class="actions"><span class="tag ${moodCls}">Owner: ${U.esc(c.mood || '-')}</span></div></div>
       <div class="card-b">
-        <div class="kv"><span>Goal</span><span>${exp ? U.esc(exp.label) : '—'}</span><span>Projected</span><span>${exp ? exp.wins + ' wins' : '—'}</span>
+        <div class="kv"><span>Goal</span><span>${exp ? U.esc(exp.label) : '-'}</span><span>Projected</span><span>${exp ? exp.wins + ' wins' : '-'}</span>
         <span>Contract</span><span>${c.contract.years} yr${c.contract.years === 1 ? '' : 's'} · ${U.money(c.contract.salary)}</span></div>
         <div class="row" style="margin-top:12px"><span class="small muted">Job security</span><div class="spacer"></div><b>${sec}</b></div>
         <div class="meter lg"><div class="meter-fill ${cls}" style="width:${sec}%"></div></div>
@@ -606,6 +607,8 @@
     if (S.phase !== 'regular') return '';
     const avail = PBC.Season.practiceAvailable(S);
     const last = S.practice && S.practice.log && S.practice.log[0];
+    // (Settings: the assistants run practice, no reminders)
+    if (avail && S.settings && S.settings.autoPractice) return '';
     return `<div class="card"><div class="card-h"><h3>Weekly practice</h3></div><div class="card-b">
       ${avail ? `<p class="small" style="margin-top:0">This week's practice hasn't happened yet. Run a drill to develop your players, or your assistants will run a lighter session at the end of the week.</p>
         <button class="btn primary block" data-nav="practice">🏋️ Run Practice</button>`
@@ -622,7 +625,7 @@
     if (myIdx >= 8) rows = list.slice(0, 6).concat([null], list.slice(myIdx - 1, myIdx + 1));
     return `<div class="card"><div class="card-h"><h3>${conf != null ? L.confs[conf] : 'League'} standings</h3><div class="actions"><button class="btn sm ghost" data-nav="standings">All ›</button></div></div>
       <div class="card-b flush"><table class="tbl compact"><tbody>${rows.map(r => r ? `<tr class="${r.tid === S.userTid ? 'me' : ''}">
-        <td class="rank">${r.seed}</td><td>${UI.teamBadge(S.teams[r.tid], 20)} ${UI.teamLink(S.teams[r.tid], S.teams[r.tid].name)}</td><td class="num">${r.w}-${r.l}</td><td class="num dim">${r.gb ? r.gb.toFixed(1) : '—'}</td></tr>` : '<tr><td colspan="4" class="center dim">⋯</td></tr>').join('')}</tbody></table></div></div>`;
+        <td class="rank">${r.seed}</td><td>${UI.teamBadge(S.teams[r.tid], 20)} ${UI.teamLink(S.teams[r.tid], S.teams[r.tid].name)}</td><td class="num">${r.w}-${r.l}</td><td class="num dim">${r.gb ? r.gb.toFixed(1) : '-'}</td></tr>` : '<tr><td colspan="4" class="center dim">⋯</td></tr>').join('')}</tbody></table></div></div>`;
   }
 
   function leadersCard(S) {

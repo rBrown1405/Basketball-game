@@ -180,12 +180,12 @@
     s.pts = (s.pts || 0) + a.cost;
     s[key] = a.once ? true : n + 1;
     s.known = Math.min(100, before + gain);
-    let msg = `${a.label}: ${PBC.Player.name(p)} — scouting ${before}% → ${s.known}%.`;
+    let msg = `${a.label}: ${PBC.Player.name(p)}, scouting ${before}% → ${s.known}%.`;
     if (key === 'interview') {
       const pe = p.pers || {};
       msg += ` Work ethic ${word(pe.work)}, ego ${word(pe.ego)}, loyalty ${word(pe.loyal)}.`;
     } else if (key === 'medical') {
-      msg += p.r.durability < 55 ? ' 🚩 Red flag: injury-prone.' : p.r.durability >= 80 ? ' Clean bill of health — very durable.' : ' No major concerns.';
+      msg += p.r.durability < 55 ? ' 🚩 Red flag: injury-prone.' : p.r.durability >= 80 ? ' Clean bill of health: very durable.' : ' No major concerns.';
     } else if (key === 'game') {
       const st = PBC.Player.strengths(p, 3);
       if (st.length) msg += ' Stood out: ' + st.join(', ') + '.';

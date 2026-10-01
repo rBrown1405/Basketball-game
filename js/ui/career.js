@@ -41,7 +41,7 @@
           </div>
           <div class="stack">
             <div class="card accent"><div class="card-h"><h3>Job status</h3></div><div class="card-b">
-              <div class="kv"><span>Owner mood</span><span>${U.esc(c.mood || '—')}</span><span>This season's goal</span><span>${c.expectation ? U.esc(c.expectation.label) : '—'}</span><span>Projected wins</span><span>${c.expectation ? c.expectation.wins : '—'}</span></div>
+              <div class="kv"><span>Owner mood</span><span>${U.esc(c.mood || '-')}</span><span>This season's goal</span><span>${c.expectation ? U.esc(c.expectation.label) : '-'}</span><span>Projected wins</span><span>${c.expectation ? c.expectation.wins : '-'}</span></div>
               <div class="row" style="margin-top:12px"><span class="small muted">Job security</span><div class="spacer"></div><b>${sec}</b></div>
               <div class="meter lg"><div class="meter-fill ${sec >= 60 ? 'good' : sec >= 35 ? 'warn' : 'bad'}" style="width:${sec}%"></div></div>
               ${c.lastReview ? `<p class="small muted">Last review (${U.seasonLabel(c.lastReview.season)}): ${U.esc(c.lastReview.result)} · ${c.lastReview.goalMet ? 'goal met' : 'goal missed'} · security ${c.lastReview.delta >= 0 ? '+' : ''}${c.lastReview.delta}.</p>` : ''}
@@ -61,7 +61,7 @@
           { key: 'team', label: 'Opponent', value: r => r.t.name, fmt: r => `${UI.teamBadge(r.t, 20)} ${UI.teamLink(r.t, r.t.name)}` },
           { key: 'w', label: 'W', num: true, value: r => r.v[0], fmt: r => r.v[0] },
           { key: 'l', label: 'L', num: true, value: r => r.v[1], fmt: r => r.v[1] },
-          { key: 'pct', label: 'PCT', num: true, value: r => (r.v[0] + r.v[1] ? r.v[0] / (r.v[0] + r.v[1]) : -1), fmt: r => (r.v[0] + r.v[1] ? (r.v[0] / (r.v[0] + r.v[1])).toFixed(3).replace(/^0/, '') : '—') },
+          { key: 'pct', label: 'PCT', num: true, value: r => (r.v[0] + r.v[1] ? r.v[0] / (r.v[0] + r.v[1]) : -1), fmt: r => (r.v[0] + r.v[1] ? (r.v[0] / (r.v[0] + r.v[1])).toFixed(3).replace(/^0/, '') : '-') },
         ],
       });
     },
@@ -70,6 +70,15 @@
   // ---------------------------------------------------------------------------
   // Season recap (phase 'awards')
   // ---------------------------------------------------------------------------
+  /** your season told as a story (PBC.Story) */
+  function docCard(S) {
+    const d = PBC.Story ? PBC.Story.season(S) : null;
+    if (!d || !d.chapters.length) return '';
+    return `<div class="card"><div class="card-h"><h3>Your season, as a story</h3></div><div class="card-b"><div class="doc">
+      ${d.chapters.map(c => `<div class="doc-ch"><div class="doc-kick">${U.esc(c.kick)}</div><h4 class="doc-h">${U.esc(c.h)}</h4>${c.p.map(x => `<p class="doc-p">${U.esc(x)}</p>`).join('')}</div>`).join('')}
+      ${d.heads.length ? `<div class="doc-ch"><div class="doc-kick">In the papers</div><div class="doc-heads">${d.heads.map(h => `<a class="md-tl" data-art="${h.id}">${U.esc(h.h)}</a>`).join('')}</div></div>` : ''}
+    </div></div></div>`;
+  }
   UI.register('recap', {
     title: 'Season Recap',
     render(root) {
@@ -95,8 +104,9 @@
           <div class="actions">${cont ? `<button class="btn primary lg" id="recap-cont">${U.esc(cont.label)} ▸</button>` : ''}</div></div>
         <div class="grid g-main">
           <div class="stack">
-            ${champ ? `<div class="hero" style="--team:${champ.colors.primary};--team2:${champ.colors.secondary}"><div class="hero-in row nowrap">${UI.teamBadge(champ, 84)}<div><div class="tiny up dim" style="letter-spacing:2px">Champions</div>
-              <div class="up" style="font-size:34px;line-height:1">🏆 ${U.esc(champ.city)} ${U.esc(champ.name)}</div><div class="muted">${h.runnerUp != null ? 'Defeated the ' + U.esc(S.teams[h.runnerUp].name) + ' in the Finals' : ''}${h.fmvp != null ? ' · Finals MVP: ' + UI.playerLink(S.players[h.fmvp]) : ''}</div></div></div></div>` : ''}
+            ${champ ? `<div class="hero" style="--team:${champ.colors.primary};--team2:${champ.colors.secondary}"><div class="hero-in row nowrap">${UI.teamBadge(champ, 84)}<div style="min-width:0;white-space:normal"><div class="tiny up dim" style="letter-spacing:2px">Champions</div>
+              <div class="up" style="font-size:clamp(22px, 6vw, 34px);line-height:1.05;overflow-wrap:anywhere">🏆 ${U.esc(champ.city)} ${U.esc(champ.name)}</div><div class="muted">${h.runnerUp != null ? 'Defeated the ' + U.esc(S.teams[h.runnerUp].name) + ' in the Finals' : ''}${h.fmvp != null ? ' · Finals MVP: ' + UI.playerLink(S.players[h.fmvp]) : ''}</div></div></div></div>` : ''}
+            ${docCard(S)}
             <div class="card"><div class="card-h"><h3>Season awards</h3></div><div class="card-b"><div class="grid g2">
               ${award('mvp', 'Most Valuable Player')}${award('dpoy', 'Defensive Player of the Year')}${award('roy', 'Rookie of the Year')}${award('smoy', 'Sixth Player of the Year')}${award('mip', 'Most Improved Player')}
               <div class="recap-award">${UI.teamBadge(S.teams[aw.coyTid], 54)}<div><div class="al">Coach of the Year</div><div class="bold">${aw.coyTid === S.userTid ? U.esc(c.name) + ' (you!)' : U.esc(S.teams[aw.coyTid].city + ' ' + S.teams[aw.coyTid].name)}</div></div></div>
@@ -104,7 +114,7 @@
             <div class="card"><div class="card-h"><h3>All-League teams</h3></div><div class="card-b flush"><table class="tbl compact"><tbody>
               ${aw.allLeague.map((five, i) => `<tr><td class="bold nowrap">${U.ordinal(i + 1)} Team</td><td>${five.map(pid => UI.playerLink(S.players[pid])).join(' · ')}</td></tr>`).join('')}
               ${aw.allDefense.map((five, i) => `<tr><td class="bold nowrap">All-Defense ${i + 1}</td><td>${five.map(pid => UI.playerLink(S.players[pid])).join(' · ')}</td></tr>`).join('')}
-              <tr><td class="bold nowrap">All-Rookie</td><td>${aw.allRookie.map(pid => UI.playerLink(S.players[pid])).join(' · ') || '—'}</td></tr></tbody></table></div></div>
+              <tr><td class="bold nowrap">All-Rookie</td><td>${aw.allRookie.map(pid => UI.playerLink(S.players[pid])).join(' · ') || '-'}</td></tr></tbody></table></div></div>
           </div>
           <div class="stack">
             ${rev ? `<div class="card accent"><div class="card-h"><h3>Owner's review</h3></div><div class="card-b">
@@ -116,6 +126,7 @@
         </div></div>`;
       const b = root.querySelector('#recap-cont');
       if (b) b.onclick = () => { const c2 = UI.continueInfo(); if (c2) c2.run(); };
+      UI.on(root, 'click', '[data-art]', (e, el) => { if (UI.openArticle) UI.openArticle(+el.dataset.art); });
     },
   });
 
@@ -130,7 +141,7 @@
       if (c.status !== 'unemployed') { UI.go('home'); return; }
       if (!c.jobOffers || !c.jobOffers.length) c.jobOffers = PBC.Coach.jobOffers(S);
       const st = PBC.League.standings(S);
-      root.innerHTML = `<div class="page"><div class="page-h"><div><h1>Job Offers</h1><div class="sub">You're a free agent coach. Pick your next challenge — or walk away from the game.</div></div>
+      root.innerHTML = `<div class="page"><div class="page-h"><div><h1>Job Offers</h1><div class="sub">You're a free agent coach. Pick your next challenge, or walk away from the game.</div></div>
         <div class="actions"><button class="btn danger" data-act="retire">Retire from coaching</button></div></div>
         <div class="grid g2">${c.jobOffers.map((o, i) => {
           const t = S.teams[o.tid];
@@ -192,6 +203,8 @@
             ${tog('showVisuals', 'Show the court in live games', 'Turn off for a fast text-only play-by-play view.')}
             ${tog('retroCourt', 'Retro pixel court', 'Watch live games on a Hoop Land-style 2D pixel court with chibi sprites.')}
             ${tog('pixelMode', 'Retro pixel filter', 'Chunky pixel-art filter for the broadcast 3D court (when loaded).')}
+            ${tog('tips', 'Tips', 'A short tip the first time you open a screen, and the getting-started list on Home.')}
+            <label class="li chk" style="cursor:pointer"><input type="checkbox" data-set="autoPractice" ${st.autoPractice ? 'checked' : ''}><div><div class="bold">Assistants run practice</div><div class="tiny muted">No weekly reminder: your assistants run a lighter session every week unless you run one yourself.</div></div></label>
             ${UI.DESK_STOP ? `<div class="li"><div style="flex:1;min-width:0"><div class="bold">The Desk stops the sim for</div><div class="tiny muted">${U.esc((UI.DESK_STOP.find(m => m.key === (st.deskStop || 'important')) || UI.DESK_STOP[0]).desc)} How often things land on your desk: League Settings.</div></div>
               <div class="seg">${UI.DESK_STOP.map(m => `<button class="${(st.deskStop || 'important') === m.key ? 'on' : ''}" data-deskstop="${m.key}">${U.esc(m.label)}</button>`).join('')}</div></div>` : ''}
           </div></div></div>
@@ -222,7 +235,7 @@
             <li><b>Build a dynasty</b> through the draft, free agency and trades in the offseason. Chase titles, records, achievements and the Hall of Fame.</li>
           </ol></div></div>
         <div class="card" style="margin-top:16px"><div class="card-h"><h3>About</h3></div><div class="card-b small muted">
-          Pro BBALL Coach — an NBA-style head coach simulation. All teams and players are fictional. Stats engine calibrated to modern pro averages (about 115 points, 100 possessions and 37 three-point attempts per team per game).</div></div></div>`;
+          Pro BBALL Coach: an NBA-style head coach simulation. All teams and players are fictional. Stats engine calibrated to modern pro averages (about 115 points, 100 possessions and 37 three-point attempts per team per game).</div></div></div>`;
       UI.on(root, 'change', '[data-set]', (e, el) => { st[el.dataset.set] = el.checked; UI.save(); });
       UI.on(root, 'click', '[data-deskstop]', (e, el) => { st.deskStop = el.dataset.deskstop; UI.save(); UI.refresh(); });
       // save settings are written right away so the choice itself is never "unsaved"

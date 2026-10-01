@@ -129,6 +129,8 @@ already written up by the Media and the Legacy; the All-Star weekend is new).
 - The loose ends the code map found: the exact OVR of prospects showing on the player card header, the practice
   comment that says the sim stops for practice, unused fields (`autoPractice`, `S.allStars`), past playoff brackets.
 
+Built: `docs/POLISH_NOTES.md`.
+
 ## Verification (every phase)
 
 - A headless career (`tools/audit/career.js`): 20 seasons with a stand-in user answering the Desk by simple rules; no
