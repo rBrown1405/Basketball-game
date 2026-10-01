@@ -561,6 +561,23 @@
             }
             break;
           }
+          case 'adjust': {
+            // a bench's adjustment (js/core/adjust.js)
+            const who = nick(ev.team), k = ev.k, d = ev.def;
+            let line = null;
+            if (k === 'hack') { const p = pl(ev.on); if (p) line = pick([`The ${who} are going to put ${p.last} on the line on purpose. Make your free throws.`, `Here comes the hack. ${p.last} has to prove it at the stripe now.`]); }
+            else if (k === 'press') line = pick([`The ${who} pick it up full court. They need turnovers.`, `Here comes the press. The ${who} have to speed this game up.`]);
+            else if (k === 'trans') line = pick([`The ${who} are getting back on defense now. Too many easy ones the other way.`, `You can see the ${who} sending bodies back. No more run-outs.`]);
+            else if (k === 'fouls') line = chance(0.5) ? `With the fouls piling up, the ${who} have to be careful now.` : null;
+            else if (k === 'base') line = chance(0.6 * chatty()) ? pick([`The ${who} go back to what they do.`, `And the ${who} are back in their base defense.`]) : null;
+            else if (d === 'boxone') line = pick([`Box-and-one from the ${who}! You do not see that very often.`, `The ${who} are chasing their best scorer everywhere and playing zone behind it.`]);
+            else if (d === 'zone23' || d === 'zone32' || d === 'zone131') line = pick([`The ${who} are in a zone now. Somebody has to knock down a shot against it.`, `Zone from the ${who}. Watch the ball movement here.`, k === 'ato' ? `Out of the timeout the ${who} show zone. They are trying to take away whatever was drawn up.` : `The ${who} switch it up and go zone.`]);
+            else if (d === 'blitz') line = pick([`The ${who} are sending two at the ball on every screen now.`, `Now they are trapping the pick and roll. Somebody has to make the play out of it.`]);
+            else if (d === 'packline') line = pick([`The ${who} are packing the paint. They are daring them to shoot it.`, `Everybody collapses into the lane now. No more layups, that is the message.`]);
+            else if (d) line = pick([`Adjustment from the ${who} bench.`, `The ${who} change up the coverage.`]);
+            if (line) say('color', line, { pri: 5, ttl: 8 });
+            break;
+          }
           case 'sub': {
             if (per <= L.periods && B.possN - B.lastSub > 6 && chance(0.15 * chatty())) {
               B.lastSub = B.possN;

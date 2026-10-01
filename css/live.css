@@ -139,6 +139,8 @@
 .lv-calls { background: rgba(255, 255, 255, .035); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; }
 .lv-call { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
 .lv-call .tiny { margin-left: auto; }
+.lv-sug { border: 1px solid rgba(255, 201, 64, .45); background: linear-gradient(160deg, rgba(255, 201, 64, .12), rgba(255, 201, 64, .03) 70%); border-radius: 12px; padding: 9px 11px; margin-bottom: 10px; }
+.lv-sug-t { font: 800 11px/1.2 var(--font-ui); letter-spacing: .8px; text-transform: uppercase; color: var(--gold); margin-bottom: 3px; }
 @media (max-width: 1000px) {
   .hd-grid { grid-template-columns: minmax(0, 1fr); }
   .hd-plays { max-height: none; }

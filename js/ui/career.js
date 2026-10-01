@@ -200,6 +200,7 @@
           <div class="card"><div class="card-h"><h3>Gameplay</h3></div><div class="card-b flush"><div class="list">
             ${tog('gimEnabled', 'Game Impact Moments', 'Take the big shot yourself in clutch moments of live games.')}
             ${tog('autoTimeouts', 'Assistant timeouts', 'Let your assistants call timeouts to stop opponent runs.')}
+            ${tog('staffAdjust', 'Assistant adjustments', 'In live games, let your staff change the defense when something is hurting you. Off: your assistant only suggests, and you decide.')}
             ${tog('showVisuals', 'Show the court in live games', 'Turn off for a fast text-only play-by-play view.')}
             ${tog('retroCourt', 'Retro pixel court', 'Watch live games on a Hoop Land-style 2D pixel court with chibi sprites.')}
             ${tog('pixelMode', 'Retro pixel filter', 'Chunky pixel-art filter for the broadcast 3D court (when loaded).')}

@@ -293,12 +293,12 @@
     hedge: {
       label: 'Hedge the Pick and Roll', icon: '🚧',
       desc: 'The big jumps out hard above every ball screen to stop the handler, then recovers to his man. Takes away pull-ups and turn-the-corner drives; the roller and the weak side are covered by rotations. Needs mobile bigs.',
-      mods: { play: { pnr: -0.08, handoff: -0.05 }, to: 1.04, open: 0.02, fatigue: 1.05, needs: 'mobile' },
+      mods: { play: { pnr: -0.08, handoff: -0.05 }, to: 1.04, toOn: { pnr: 1, handoff: 1 }, open: 0.02, fatigue: 1.05, needs: 'mobile' },
     },
     blitz: {
       label: 'Blitz / Trap', icon: '🪤',
       desc: 'Double the ball handler on every pick-and-roll. Forces turnovers but leaves the roller and shooters open.',
-      mods: { to: 1.14, play: { pnr: -0.12 }, open: 0.05, foul: 1.05, fatigue: 1.08, freq: { c3: 1.1 } },
+      mods: { to: 1.14, toOn: { pnr: 1, handoff: 1 }, play: { pnr: -0.12 }, open: 0.05, foul: 1.05, fatigue: 1.08, freq: { c3: 1.1 } },
     },
     zone23: {
       label: '2-3 Zone', icon: '🧊',

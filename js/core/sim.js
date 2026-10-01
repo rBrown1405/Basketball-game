@@ -243,6 +243,7 @@
       gimCount: 0, gimLog: [], run: { team: -1, pts: 0 }, tipWinner: -1, lastStealer: null, lastRebounder: null,
       pending: null, elapsedReg: 0, lastGimClock: 99999, buzzerGim: false,
       pstats: null, plog: null, // (play tracking: js/core/playstats.js; declared here so the game object keeps one shape)
+      zt: null, adj: null, // (shots by zone and the coaches' adjustments: js/core/adjust.js)
       coachEdge: null, rivalry: 0,
     };
     const sl = g.sl = PBC.Sliders && PBC.Sliders.simMods ? PBC.Sliders.simMods(S) : Object.assign({}, SL_DEFAULT);
@@ -262,6 +263,8 @@
     g.t = [makeTeamCtx(S, g, homeTid, 0), makeTeamCtx(S, g, awayTid, 1)];
     // each team's playbook, the coach's play-calling memory and its pick-and-roll coverage (js/core/playcall.js)
     if (PBC.PlayCall) PBC.PlayCall.setup(g);
+    // each bench's in-game adjustments (js/core/adjust.js)
+    if (PBC.Adjust) PBC.Adjust.setup(g, opts);
     if (g.userIdx >= 0) {
       const ut = g.t[g.userIdx];
       ut.autoTO = S.settings.autoTimeouts !== false;
@@ -562,6 +565,7 @@
       ev(ctx, 'jump_ball', { jumpers: [jump.a.id, jump.b.id], winner: jump.winner, tipTo: jump.tipTo.id, team: jump.winner, text: `${jump.w.last} wins the tip over ${jump.l.last}` });
     }
     if (dead) { timeouts(ctx, P.start !== 'made_basket'); subs(ctx, 0, P.start); subs(ctx, 1, P.start); }
+    if (g.adj && PBC.Adjust) PBC.Adjust.possession(ctx, dead);
     defenseCall(ctx.D);
     P.defScheme = ctx.D.strat.def;
     if (PBC.PlayCall) P.defCov = PBC.PlayCall.coverage(ctx.D);
@@ -602,6 +606,7 @@
       if (call) {
         T.timeouts--;
         T.lastTimeoutClock = g.period * 10000 + Math.round(g.clock);
+        g.lastTO = { idx: T.idx, n: ctx.P.n };
         ev(ctx, 'timeout', { team: T.idx, text: `Timeout: ${T.team.city} ${T.team.name}` });
         for (const c of T.on) c.energy = Math.min(100, c.energy + 5);
         if (g.run.team !== T.idx) g.run = { team: -1, pts: 0 };
@@ -681,6 +686,7 @@
           v = (c.target * 60 * frac - c.sec) / 60 + (c.energy - 80) / tireK;
           if (c.target <= 0) v -= 40;
           if (c.pf >= foulLimit(g.period, L) && !crunch) v -= 12;
+          if (c.hackRest === g.period && !crunch) v -= 25; // (they keep fouling him on purpose: sit him for the quarter)
           if (periodStart && (g.period === 1 || g.period === 3) && c.starter) v += 30;
           if (crunch && closers.includes(c)) v += 16;
         }
@@ -948,7 +954,7 @@
     const deficit = g.score[ctx.O.idx] - g.score[ctx.D.idx];
     if (deficit <= 0) return false;
     if (deficit >= 4 && deficit <= 9 && clockLeft <= 50) return true;
-    if (deficit <= 3 && clockLeft <= scLeft + 0.3 && clockLeft <= 24) return deficit === 3 ? ctx.foulUp3 != null ? ctx.foulUp3 : (ctx.foulUp3 = U.chance(0.25)) : true;
+    if (deficit <= 3 && clockLeft <= scLeft + 0.3 && clockLeft <= 24) return deficit === 3 ? ctx.foulUp3 != null ? ctx.foulUp3 : (ctx.foulUp3 = U.chance(PBC.Adjust ? PBC.Adjust.foulUp3P(g, ctx.D) : 0.25)) : true;
     return false;
   }
 
@@ -958,6 +964,8 @@
     if (clockLeft <= 0.1) { endPeriod(ctx); return; }
     const scLeft = ctx.scStart + ctx.scLen - ctx.t;
     const mode = lateMode(ctx, clockLeft, scLeft);
+    // (a poor free throw shooter fouled on purpose, away from the ball, as the offense sets up: js/core/adjust.js)
+    if (!ctx.gimForced && ctx.segN === 0 && D.adj && D.adj.hack && !ctx.transition) { const c = PBC.Adjust.hackNow(ctx); if (c) { hackFoul(ctx, c); return; } }
     if (!ctx.gimForced && shouldFoul(ctx, clockLeft, scLeft)) { intentionalFoul(ctx, clockLeft); return; }
     if (mode === 'milk') {
       // defense not fouling → run out the clock
@@ -1023,7 +1031,8 @@
     p *= Math.pow(0.978, (skill - 75) / 2);
     p *= Math.pow(1.028, (avgOn(D, 'steal') - 62) / 2);
     p *= C.OFFENSES[O.strat.off].mods.to || 1;
-    p *= C.DEFENSES[D.strat.def].mods.to || 1;
+    // (a trap or a hedge forces turnovers on the ball screens it is played on, not on every trip: toOn)
+    { const dm = C.DEFENSES[D.strat.def].mods; if (dm.to && (!dm.toOn || dm.toOn[info.play])) p *= dm.to; }
     p *= C.PRESSURE[D.strat.pressure].stl;
     p *= { vslow: 0.92, slow: 0.96, normal: 1, fast: 1.05, vfast: 1.1 }[O.strat.tempo] || 1;
     p *= 1 + (1 - avgEnergy(O) / 100) * 0.25;
@@ -1058,8 +1067,10 @@
     else if (need === 'speed') v = (avgOn(T, 'speed') - 72) / 7;
     return U.clamp(v, -1, 1);
   }
-  function defenseFit(T) {
-    const need = C.DEFENSES[T.strat.def].mods.needs;
+  function defenseFit(T) { return defenseFitOf(T, T.strat.def); }
+  /** how well a lineup fits a scheme's needs (-1..1), for any scheme (the coaches' adjustments weigh their options) */
+  function defenseFitOf(T, def) {
+    const need = C.DEFENSES[def] && C.DEFENSES[def].mods.needs;
     if (!need) return 0;
     if (need === 'versatile') return U.clamp((Math.min(...T.on.map(c => c.r.perD)) - 52) / 10, -1, 1);
     if (need === 'rim') return U.clamp((Math.max(...T.on.map(c => c.r.block)) - 74) / 8, -1, 1);
@@ -2468,6 +2479,9 @@
       const r = info && info.pb && info.pb.rec;
       if (r && r.q == null) { r.q = contest; r.xp = xp; r.made = made; r.fouledShot = fouled && !made; r.zone = zone; }
     }
+    // (each team's field goal attempts and makes by zone tonight, for the coaches' reads, js/core/adjust.js; a missed
+    // shot on a shooting foul is not an attempt)
+    if (made || !fouled) { const zt = g.zt || (g.zt = [{}, {}]); const a = zt[O.idx][zone] || (zt[O.idx][zone] = [0, 0]); a[0]++; if (made) a[1]++; }
     if (Sim.debug) { const z = Sim.debug[zone] || (Sim.debug[zone] = [0, 0, 0, 0]); if (made || !fouled) z[1]++; if (made) z[0]++; if (blocked) z[2]++; if (fouled) z[3]++; }
     if (Sim.debugConf) { const cf = Sim.debugConf; cf[0] += sh.conf; cf[1]++; cf[2] += sh.conf * sh.conf; }
     shot.pending = false;
@@ -2522,7 +2536,7 @@
       team.fouls++;
       if (clockLeft <= 120) team.fouls2++;
     }
-    const label = { shooting: 'Shooting foul', personal: 'Personal foul', loose_ball: 'Loose ball foul', offensive: 'Offensive foul', intentional: 'Take foul' }[kind] || 'Foul';
+    const label = { shooting: 'Shooting foul', personal: 'Personal foul', loose_ball: 'Loose ball foul', offensive: 'Offensive foul', intentional: 'Take foul', hack: 'Foul on purpose' }[kind] || 'Foul';
     evAt(ctx, t, 'foul', { fouler: fouler.id, on: fouled ? fouled.id : null, kind, fts, team: team.idx, text: `${label} on ${fouler.last} (${fouler.pf} PF)` });
     if (fouler.pf >= g.L.foulOut) {
       fouler.out = true;
@@ -2766,6 +2780,17 @@
     ctx.inbound = { kind: 'sideline', ev: ie };
   }
 
+  /** the hack: a foul on purpose on a poor free throw shooter away from the ball, in the penalty (he shoots two) */
+  function hackFoul(ctx, c) {
+    const g = ctx.g, D = ctx.D;
+    ctx.t = Math.min(ctx.t + U.range(1.2, 3.5), g.clock - 0.1);
+    const fouler = U.minBy(D.on, x => x.pf * 10 + x.p.ovr / 10 + U.rand());
+    commitFoul(ctx, fouler, c, 'hack', 2, ctx.t);
+    D.adj.hack = null;
+    PBC.Adjust.hacked(ctx, D, c);
+    freeThrows(ctx, c, 2, ctx.t);
+  }
+
   function endPeriod(ctx) {
     const g = ctx.g;
     ctx.t = g.clock;
@@ -3001,6 +3026,7 @@
   Sim.callDefense = (g, idx, def, cov, n) => {
     const T = g.t[idx];
     if (!C.DEFENSES[def]) return;
+    if (PBC.Adjust && idx === g.userIdx) PBC.Adjust.userTook(g, idx);
     const prev = T.defCall ? T.defCall.prev : { def: T.strat.def, cov: T.pb ? T.pb.covCall || null : null };
     T.strat.def = def;
     if (T.pb) T.pb.covCall = cov || null;
@@ -3010,7 +3036,15 @@
   Sim.calls = (g, idx) => { const T = g.t[idx]; return { play: T.userCall || null, inb: Object.assign({ blob: null, slob: null }, T.userInb), def: T.defCall || null, cov: T.pb ? T.pb.covCall || null : null }; };
   Sim.queueSub = (g, idx, outId, inId) => { g.t[idx].manualSubs.push({ out: outId, in: inId }); };
   Sim.setAutoSubs = (g, idx, on) => { g.t[idx].autoSubs = !!on; };
-  Sim.setStrategy = (g, idx, patch) => { Object.assign(g.t[idx].strat, patch); };
+  Sim.setStrategy = (g, idx, patch) => {
+    Object.assign(g.t[idx].strat, patch);
+    if (patch.def && PBC.Adjust && idx === g.userIdx) PBC.Adjust.userTook(g, idx);
+  };
+  // (for the coaches' adjustments, js/core/adjust.js: a line in a possession's events, a scheme's fit, a free throw
+  // shooter's expected percentage)
+  Sim.event = (ctx, type, fields) => ev(ctx, type, fields);
+  Sim.defenseFitOf = (T, def) => defenseFitOf(T, def);
+  Sim.ftExpect = (g, c) => U.clamp(Sim.K.ftA + 0.0066 * c.r.ft + g.L.ftBase + g.sl.ft, 0.3, 0.96);
   Sim.setTarget = (g, idx, pid, minutes) => { const c = g.t[idx].players.find(x => x.id === pid); if (c) c.target = minutes; };
   Sim.onCourt = (g, idx) => g.t[idx].on.map(c => c.id);
 

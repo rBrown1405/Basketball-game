@@ -139,6 +139,14 @@
       return true;
     }
     const pcOf = id => { for (const Tm of g.t) { const c = Tm.players.find(x => x.id === id); if (c) return { c, i: Tm.idx }; } return null; };
+    // a bench's adjustment (js/core/adjust.js): the scheme it went to, the hack, everyone back
+    const ADJ_TAG = { man: 'MAN-TO-MAN', switch: 'SWITCHING EVERYTHING', drop: 'DROP COVERAGE', hedge: 'HEDGING', blitz: 'BLITZING', zone23: '2-3 ZONE', zone32: '3-2 ZONE', zone131: '1-3-1 ZONE', boxone: 'BOX-AND-ONE', press: 'FULL-COURT PRESS', packline: 'PACKING THE PAINT', nothree: 'RUN OFF THE LINE', pressure: 'BALL PRESSURE' };
+    const adjTag = ev => {
+      if (ev.k === 'hack') { const x = pcOf(ev.on); return x ? 'HACK-A-' + x.c.last.toUpperCase() : null; }
+      if (ev.k === 'trans') return 'GETTING BACK';
+      if (ev.k === 'fouls') return null;
+      return ev.def ? ADJ_TAG[ev.def] || null : null;
+    };
 
     // ---------------------------------------------------------- cards
     function card(html, cls) {
@@ -199,6 +207,9 @@
           if (run.pts >= 8 && run.team === ev.team && (run.pts === 8 || run.pts % 4 === 0)) showRun(ev.team, run.pts);
         } else if (ev.type === 'timeout') {
           if (!teamPanel(ev.team)) tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">TIMEOUT</span>`, ev.team, 3.5);
+        } else if (ev.type === 'adjust') {
+          const lab = adjTag(ev);
+          if (lab) tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">${esc(lab)}</span>`, ev.team, 4);
         } else if (ev.type === 'shot' && ev.blocked) {
           const x = pcOf(ev.blocker);
           if (x && x.c.st.blk >= 3 && B.possN - B.lastL3 >= 2) lowerThird(x.c, x.i, x.c.st.blk + ' BLOCKS', 4.5);

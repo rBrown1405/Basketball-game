@@ -74,7 +74,7 @@
       season: opts.season || 2026, phase: 'preseason', day: 0, numDays: 0,
       teams: [], players: {}, nextPid: 1, schedule: [], nextGid: 1, boxes: {}, playoffs: null,
       draftPicks: [], userTid: -1, coach: null, news: [], history: [], records: null,
-      settings: { gimEnabled: true, autoPractice: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast' },
+      settings: { gimEnabled: true, autoPractice: false, staffAdjust: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast' },
       practice: null, teamSeason: {}, flags: {},
     };
     S.teams = L.teamsList.map((def, i) => makeTeam(def, i));

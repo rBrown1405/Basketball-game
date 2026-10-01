@@ -224,7 +224,7 @@
 
   function startLive(root, S, sg) {
     stopLive();
-    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff, sg });
+    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff, sg, live: true });
     const uIdx = g.userIdx;
     const teams = [S.teams[sg.h], S.teams[sg.a]];
     const stakes = UI.gameStakes(S, sg);
@@ -713,6 +713,7 @@
   /** after a possession is fully shown: quarter breaks, replays of big plays, then the next trip */
   function afterPossession(P) {
     if (!LG) return;
+    checkSuggestion();
     const last = P.events[P.events.length - 1];
     const hl = LG.highlight; LG.highlight = null;
     const periodEnd = last && last.type === 'period_end';
@@ -825,7 +826,45 @@
     if (ev.text) pushLine({ q: LG.P.period, clock: Math.max(0, LG.P.clockStart - ev.t), text: ev.text, type: ev.type, team: ev.team, made: ev.made });
     if (!LG.view && LG.textStage) textVisual(ev);
     if (ev.type === 'sub' || ev.type === 'timeout') renderOnCourt();
+    if (ev.type === 'adjust') adjustSeen(ev);
     void g;
+  }
+
+  // ---------------------------------------------------------------------------
+  // The benches' adjustments (js/core/adjust.js): the other bench's as they happen, your assistant's suggestions
+  // ---------------------------------------------------------------------------
+  function adjustSeen(ev) {
+    UI.toast(U.esc(String(ev.text || '').replace(/^🧠 /, '')), ev.team === LG.uIdx ? 'good' : 'info', 4200);
+    if (LG.tab === 'coach') renderPanel(true);
+  }
+  function suggestText(s) {
+    const why = s.why ? s.why.charAt(0).toUpperCase() + s.why.slice(1) + '. ' : '';
+    if (s.crash) return why + (s.crash === 'getback' ? 'Send everyone back on defense?' : 'Stop crashing the offensive glass?');
+    const lab = C.DEFENSES[s.def] ? C.DEFENSES[s.def].label : s.def;
+    if (s.k === 'base') return `${why}Go back to ${lab}?`;
+    if (s.k === 'press') return `${why}Press them full court?`;
+    return `${why}Try ${lab}${s.def === 'boxone' && s.star ? ' on ' + s.star : ''}?`;
+  }
+  UI.suggestText = suggestText;
+  /** a new suggestion from your bench: a toast once, and the Coach tab shows it */
+  function checkSuggestion() {
+    const s = PBC.Adjust ? PBC.Adjust.suggestion(LG.g) : null;
+    if (!s || LG.sugSeen === s.id) return;
+    LG.sugSeen = s.id;
+    UI.toast(`💡 Your assistant: ${U.esc(suggestText(s))} <span class="dim">(Coach tab)</span>`, 'info', 5200);
+    if (LG.tab === 'coach') renderPanel(true);
+  }
+  /** take your bench's suggestion (a defense from now on, or the glass) */
+  function applySuggestion(s) {
+    const g = LG.g;
+    if (!s) return;
+    if (s.crash) { PBC.Sim.setStrategy(g, LG.uIdx, { crash: s.crash }); UI.toast(`${C.CRASH[s.crash].label}: coming up`, 'good'); }
+    else {
+      PBC.Sim.callDefense(g, LG.uIdx, s.def, null, Infinity);
+      if (LG.view && LG.view.setDefScheme) LG.view.setDefScheme(LG.uIdx, s.def);
+      UI.toast(`${C.DEFENSES[s.def].label}: coming up`, 'good');
+    }
+    live('adjust', { key: s.crash ? 'crash' : 'def', val: s.crash || s.def, from: 'assistant' });
   }
 
   function syncScore(P) {
@@ -1098,14 +1137,23 @@
     if (cl && cl.play && PB.get(cl.play.id)) callRows.push(`<div class="lv-call">📋 <b>${U.esc(PB.get(cl.play.id).name)}</b><span class="tiny muted">next ${cl.play.left > 1 ? cl.play.left + ' possessions' : 'possession'}</span><button class="btn ghost sm" data-clear="play">✕</button></div>`);
     for (const fam of ['blob', 'slob']) if (cl && cl.inb[fam] && PB.get(cl.inb[fam])) callRows.push(`<div class="lv-call">↪️ <b>${U.esc(PB.get(cl.inb[fam]).name)}</b><span class="tiny muted">next ${fam === 'blob' ? 'inbound under the basket' : 'sideline inbound'}</span><button class="btn ghost sm" data-clear="${fam}">✕</button></div>`);
     if (cl && cl.def) callRows.push(`<div class="lv-call">🛡️ <b>${U.esc(C.DEFENSES[cl.def.def].label)}${cl.cov && PB.COVERAGES[cl.cov] ? ' · ' + U.esc(PB.COVERAGES[cl.cov].label) : ''}</b><span class="tiny muted">${cl.def.left > 0 ? cl.def.left + ' more defensive possession' + (cl.def.left === 1 ? '' : 's') : 'back to ' + U.esc(C.DEFENSES[cl.def.prev.def].label) + ' next'}</span><button class="btn ghost sm" data-clear="def">✕</button></div>`);
-    panel.innerHTML = `<div class="lv-coach">
+    const sug = PBC.Adjust ? PBC.Adjust.suggestion(g) : null;
+    const sugHtml = sug ? `<div class="lv-sug"><div class="lv-sug-t">💡 Your assistant</div><div class="small">${U.esc(suggestText(sug))}</div>
+      <div class="row" style="gap:6px;margin-top:7px"><button class="btn sm primary" data-sug="apply">Apply</button><button class="btn sm ghost" data-sug="no">Not now</button></div></div>` : '';
+    const oa = g.t[1 - LG.uIdx].adj;
+    const their = oa ? oa.log.slice(-3).reverse() : [];
+    const theirHtml = their.length ? `<div class="lv-calls" style="margin-top:10px"><span class="small up muted">Their bench</span>${their.map(e => `<div class="lv-call"><span style="flex:1;min-width:0">${U.esc(e.text)}</span><span class="tiny muted" style="white-space:nowrap">${U.periodName(e.q, true)} ${U.clock(e.c, true)}</span></div>`).join('')}</div>` : '';
+    const staffOn = !!(T.adj && T.adj.on && !T.adj.manual);
+    panel.innerHTML = `<div class="lv-coach">${sugHtml}
       <div class="lv-calls"><div class="row" style="justify-content:space-between"><span class="small up muted">Your calls</span><button class="btn sm" data-huddle>📋 Call a play</button></div>
         ${callRows.join('') || '<div class="tiny muted">None: your staff calls each possession. Call a timeout (T) or use the button to call a play or set the defense.</div>'}</div>
       <div class="small up muted">On the floor ${LG.subPick ? '<span class="tag accent">pick who comes out</span>' : ''}</div>${T.on.map(row).join('')}
       <div class="small up muted" style="margin-top:10px">Bench <span class="tiny dim">(tap a bench player, then the player to replace)</span></div>${bench.map(row).join('')}
       ${queued.length ? `<div class="tag warn" style="margin-top:6px">Queued at next dead ball: ${U.esc(queued.join(', '))}</div>` : ''}
       ${tonightHtml()}
-      <label class="chk" style="margin:10px 0"><input type="checkbox" id="auto-subs" ${T.autoSubs ? 'checked' : ''}> Auto substitutions</label>
+      ${theirHtml}
+      <label class="chk" style="margin:10px 0 4px"><input type="checkbox" id="auto-subs" ${T.autoSubs ? 'checked' : ''}> Auto substitutions</label>
+      ${T.adj ? `<label class="chk" style="margin:0 0 10px" title="Your staff changes the defense when something is hurting you (it never touches a defense you called). Off: it only suggests."><input type="checkbox" id="staff-adj" ${staffOn ? 'checked' : ''}> Let my staff adjust the defense</label>` : ''}
       <div class="cp-grid"><label>Offense</label>${sel('off', C.OFFENSES)}<label>Defense</label>${sel('def', C.DEFENSES)}<label>Tempo</label>${sel('tempo', C.TEMPOS)}
         <label>Focus</label>${sel('focus', C.FOCUS)}<label>Glass</label>${sel('crash', C.CRASH)}<label>Pressure</label>${sel('pressure', C.PRESSURE)}</div>
       <p class="tiny muted">Changes take effect on the next possession. Timeouts left: ${T.timeouts}.</p></div>`;
@@ -1118,6 +1166,15 @@
       };
     });
     panel.querySelector('#auto-subs').onchange = e => PBC.Sim.setAutoSubs(g, LG.uIdx, e.target.checked);
+    { const sa = panel.querySelector('#staff-adj'); if (sa) sa.onchange = e => { PBC.Adjust.setStaff(g, LG.uIdx, e.target.checked); LG.S.settings.staffAdjust = e.target.checked; if (UI.markDirty) UI.markDirty(); renderCoach(panel); }; }
+    panel.querySelectorAll('[data-sug]').forEach(b => {
+      b.onclick = () => {
+        const s = PBC.Adjust.suggestion(g);
+        if (b.dataset.sug === 'apply') applySuggestion(s);
+        PBC.Adjust.dismiss(g);
+        renderCoach(panel);
+      };
+    });
     { const hb = panel.querySelector('[data-huddle]'); if (hb) hb.onclick = () => { if (!LG.busy) openHuddle('bench'); }; }
     panel.querySelectorAll('[data-clear]').forEach(b => {
       b.onclick = () => {
