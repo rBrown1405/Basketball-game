@@ -33,6 +33,7 @@
         </div>
         <div class="grid g-main">
           <div class="stack">
+            ${UI.skillsCard ? UI.skillsCard(S) : ''}
             <div class="card"><div class="card-h"><h3>Season by season</h3></div><div class="card-b flush">${c.seasons.length ? `<table class="tbl compact"><thead><tr><th>Season</th><th>Team</th><th class="num">W-L</th><th>Result</th><th>Owner's goal</th><th class="num">Security</th></tr></thead><tbody>
               ${c.seasons.slice().reverse().map(s => `<tr><td>${U.seasonLabel(s.season)}</td><td>${UI.teamBadge(S.teams[s.tid], 20)} ${S.teams[s.tid].abbr}</td><td class="num">${s.w}-${s.l}</td><td>${s.champ ? '🏆 ' : ''}${U.esc(s.result)}</td><td>${s.met ? '✅' : '❌'} <span class="small muted">${U.esc(s.goal)}</span></td><td class="num">${s.security}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Your first season is in progress.</div>'}</div></div>
             <div class="card"><div class="card-h"><h3>Achievements</h3><div class="actions"><span class="small muted">${Object.keys(c.achievements).length}/${C.ACHIEVEMENTS.length}</span></div></div><div class="card-b"><div class="ach-grid">
@@ -52,6 +53,7 @@
             <div class="card"><div class="card-h"><h3>Record vs. every team</h3></div><div class="card-b flush" id="vs-tbl"></div></div>
           </div>
         </div></div>`;
+      if (UI.bindSkills) UI.bindSkills(root);
       const rows = S.teams.filter(x => x.id !== c.tid || c.vs[x.id]).map(x => ({ t: x, v: c.vs[x.id] || [0, 0] }));
       UI.table(root.querySelector('#vs-tbl'), {
         rows, compact: true, sort: 'w',

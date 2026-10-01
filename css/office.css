@@ -1,0 +1,50 @@
+/* Pro BBALL Coach: the Long Game: coaching skills (My Career), the Front Office, All-Star Weekend (js/ui/office.js) */
+.of-pips { display: inline-flex; gap: 4px; margin-top: 4px; }
+.of-pips i { width: 16px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .1); }
+.of-pips i.on { background: linear-gradient(90deg, var(--accent), var(--gold)); }
+
+/* coaching skills */
+.sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.sk { display: flex; flex-direction: column; gap: 5px; padding: 12px; border-radius: 12px; background: var(--panel2); border: 1px solid var(--line); min-width: 0; }
+.sk.max { border-color: rgba(255, 201, 64, .35); background: linear-gradient(160deg, rgba(255, 201, 64, .07), transparent 60%), var(--panel2); }
+.sk-h { display: flex; align-items: center; gap: 10px; }
+.sk-i { width: 38px; height: 38px; flex: none; display: grid; place-items: center; font-size: 20px; border-radius: 10px; background: var(--panel3); }
+.sk-t { flex: 1; min-width: 0; }
+.sk-now { color: #e3e9f4; }
+.sk-perk { color: var(--muted); }
+.sk-perk.on { color: var(--gold); }
+.sk-foot { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; align-items: flex-start; }
+.sk-foot > .small { flex: 1 1 320px; }
+.sk-log { flex: 0 1 260px; display: flex; flex-direction: column; gap: 2px; }
+
+/* the front office */
+.of-orow { display: flex; gap: 14px; align-items: flex-start; }
+.of-frow { display: flex; align-items: center; gap: 8px; }
+.of-oav { width: 64px; height: 64px; flex: none; display: grid; place-items: center; font-size: 32px; border-radius: 14px; background: var(--panel3); border: 1px solid var(--line2); }
+.of-oname { font: 800 20px/1.15 Georgia, "Times New Roman", serif; color: #f3f6fc; margin-bottom: 4px; }
+.of-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.of-kv .meter { margin: 5px 0 3px; }
+.of-demand { margin-top: 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 176, 32, .3); background: rgba(255, 176, 32, .06); }
+.of-demand.ok { border-color: rgba(41, 209, 125, .3); background: rgba(41, 209, 125, .06); }
+.of-facs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.of-fac { display: flex; flex-direction: column; gap: 5px; padding: 12px; border-radius: 12px; background: var(--panel2); border: 1px solid var(--line); min-width: 0; }
+.of-fi { width: 34px; height: 34px; flex: none; display: grid; place-items: center; font-size: 18px; border-radius: 10px; background: var(--panel3); }
+.of .li.me, .asw .li.me, .asw tr.me td { background: rgba(255, 107, 26, .07); }
+.of .li .meter { margin-top: 6px; height: 5px; }
+
+/* All-Star weekend */
+.asw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-top: 12px; align-items: start; }
+.asw-game { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.asw-tn { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 2px 8px; font: 800 15px/1.2 var(--font-ui); }
+.asw-tn b { font: 900 26px/1 var(--font-display); color: var(--gold); }
+.asw tr.asw-mvp td, .asw .li.asw-mvp { background: rgba(255, 201, 64, .08); }
+.asw .tbl + .tbl { border-top: 1px solid var(--line); }
+.asw-tw { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 760px) {
+  .of-kv { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .of-facs { grid-template-columns: minmax(0, 1fr); }
+  .asw-game { grid-template-columns: minmax(0, 1fr); }
+  .asw-grid { grid-template-columns: minmax(0, 1fr); }
+  .sk-grid { grid-template-columns: minmax(0, 1fr); }
+}

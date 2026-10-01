@@ -72,6 +72,7 @@
     sg.hs = box.hs; sg.as = box.as; sg.ot = box.ot;
     const user = sg.h === S.userTid || sg.a === S.userTid;
     PBC.Stats.applyBox(S, box);
+    if (PBC.Rivals) PBC.Rivals.game(S, sg, box);
     if (user) {
       // keep full box scores for the user's games (play-by-play trimmed for storage)
       const keep = Object.assign({}, box);
@@ -169,6 +170,8 @@
         if (PBC.Media) PBC.Media.deadline(S);
       }
       if (!S.flags.allStarDone && S.allStarDay >= 0 && S.day + 1 >= S.allStarDay) Season.allStar(S);
+      // All-Star weekend: the first day of the break
+      if (PBC.AllStar && PBC.AllStar.due(S)) PBC.AllStar.run(S);
       S.day++;
       if (Season.isRegularDone(S)) Season.endRegularSeason(S);
     } else if (S.phase === 'playin' || S.phase === 'playoffs' || S.phase === 'postseason_done') {
@@ -218,6 +221,7 @@
     if (PBC.Coach) PBC.Coach.weekly(S);
     if (PBC.Desk) PBC.Desk.weekly(S);
     if (PBC.Media) PBC.Media.weekly(S);
+    if (PBC.Rivals) PBC.Rivals.weekly(S);
   };
 
   /** League behaviour settings (League Settings screen), or defaults when js/core/sliders.js is missing. */
@@ -249,10 +253,12 @@
         const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
         const hurt = PBC.Player.isInjured(p);                   // injured players don't sulk about minutes
         let d = (hurt ? 0 : (mpg - expected) * 0.25 * ((p.pers ? p.pers.pt : 50) / 50)) + (winning - 0.5) * 6 * ((p.pers ? p.pers.win : 50) / 50);
-        if (Season.promiseBroken(p, s)) d -= 3;
+        const motL = t.id === S.userTid && PBC.Coach && PBC.Coach.skillFor ? PBC.Coach.skillFor(S, t.id, 'mot') : 0;
+        if (Season.promiseBroken(p, s)) d -= motL >= 3 ? 1.5 : 3;
         // good players stuck on bad teams get restless (the classic trade-request story)
         if (p.ovr >= 76 && winning < 0.42) d -= (0.42 - winning) * 8 * ((p.pers ? p.pers.win : 50) / 60) * (rec.w + rec.l >= 10 ? 1 : 0);
         if (p.tradeReq) d -= 1;                                   // still waiting to be moved
+        if (d < 0 && motL) d *= 1 - 0.06 * motL;
         p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) + d * 0.5 * sens + (70 - (p.morale || 70)) * 0.05, 5, 100));
       });
     }
@@ -349,6 +355,8 @@
     const mine = picked.filter(p => p.tid === S.userTid);
     Season.news(S, `🌟 All-Star rosters announced! ${mine.length ? 'Your All-Stars: ' + mine.map(p => PBC.Player.name(p)).join(', ') + '.' : 'None of your players made the team.'}`, 'award', S.userTid);
     S.allStars = picked.map(p => p.id);
+    // the weekend's invitations: the contests (js/core/allstar.js)
+    if (PBC.AllStar) PBC.AllStar.announce(S);
     if (PBC.Desk) PBC.Desk.phase(S, 'allstar');
     if (PBC.Media) PBC.Media.allStar(S);
   };
@@ -373,14 +381,17 @@
     const trains = (d && d.trains) || DRILL_TRAINS[drillKey] || DRILL_TRAINS.auto;
     const roster = PBC.League.roster(S, S.userTid).filter(p => !PBC.Player.isInjured(p));
     const gains = [];
-    const base = 0.11 * (score / 100) * (auto ? 0.6 : 1);
+    // (your Player Development skill and the training center, js/core/office.js)
+    const devL = PBC.Coach && PBC.Coach.skill ? PBC.Coach.skill(S, 'dev') : 0;
+    const fac = PBC.Office && PBC.Office.practiceMult ? PBC.Office.practiceMult(S, S.userTid) : 1;
+    const base = 0.11 * (score / 100) * (auto ? 0.6 : 1) * (1 + 0.1 * devL) * fac;
     for (const p of roster) {
       const isFocus = focus && focus.includes(p.id);
       const ageF = p.age <= 22 ? 1.4 : p.age <= 25 ? 1.2 : p.age <= 29 ? 1 : p.age <= 32 ? 0.7 : 0.45;
       const workF = 0.7 + (p.pers ? p.pers.work : 60) / 200;
       const potF = p.pot > p.ovr ? 1.15 : 1;
       for (const k of trains) {
-        const amt = base * (isFocus ? 3 : 1) * ageF * workF * potF * U.range(0.7, 1.3);
+        const amt = base * (isFocus ? (devL >= 5 ? 4.5 : 3) : 1) * ageF * workF * potF * U.range(0.7, 1.3);
         const before = p.r[k];
         if (PBC.Player.addTraining(p, k, amt)) gains.push({ pid: p.id, key: k, from: before, to: p.r[k] });
       }
@@ -393,7 +404,7 @@
     if (!auto && PBC.Coach && score >= 95) PBC.Coach.unlock(S, 'perfect_practice');
     if (gains.length) {
       const txt = gains.slice(0, 4).map(g => `${PBC.Player.shortName(S.players[g.pid])} ${C.RATINGS.find(r => r.key === g.key).short} ${g.to}`).join(', ');
-      Season.news(S, `🏋️ Practice (${auto ? 'assistant-run' : drillKey}): ${gains.length} rating bump${gains.length > 1 ? 's' : ''} — ${txt}${gains.length > 4 ? '…' : ''}`, 'practice', S.userTid);
+      Season.news(S, `🏋️ Practice (${auto ? 'assistant-run' : drillKey}): ${gains.length} rating bump${gains.length > 1 ? 's' : ''}. ${txt}${gains.length > 4 ? '…' : ''}`, 'practice', S.userTid);
     }
     return gains;
   };

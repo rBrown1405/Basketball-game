@@ -266,6 +266,7 @@
       for (const pid of offer.give[i].pids) {
         const p = S.players[pid];
         if (PBC.Offseason) PBC.Offseason.removeFromTeam(S, p);
+        if (PBC.Rivals) PBC.Rivals.move(S, p, p.tid, to, 'trade');
         p.tid = to;
         p.num = 0;
         PBC.Player.assignNumber(S, p);

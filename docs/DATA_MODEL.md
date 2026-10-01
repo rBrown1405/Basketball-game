@@ -20,13 +20,16 @@ Read the source for details — this is the map.
 | `PBC.AI` | ai.js | `autoRotation(S, tid)`, `chooseStrategy(S, tid)`, `setupTeam`, `fillRoster(S, tid, opts)`, `release(S, p)`, `payroll(S, tid)`, `daily(S)` |
 | `PBC.Sim` | sim.js | the possession engine (see `docs/MATCH_API.md`) |
 | `PBC.Season` | season.js | `news(S, text, type, tid)`, `startRegularSeason`, `simDay`, `endDay`, `advanceToUserGame`, `quickSim`, `completeGame`, practice (`practiceAvailable`, `applyPractice`), `endRegularSeason`, `finishPostseason`, `endSeason` |
-| `PBC.Coach` | coach.js | the user's career: `create`, `setExpectations`, `recordGame`, `unlock(S, achievementId)`, `endSeason` (review/firing), `jobOffers`, `acceptJob` |
+| `PBC.Coach` | coach.js | the user's career: `create`, `setExpectations`, `recordGame`, `unlock(S, achievementId)`, `endSeason` (review/firing), `jobOffers`, `acceptJob`; coaching skills (see `docs/LONG_GAME_NOTES.md`): `SKILLS`, `skill(S, key)`, `skillFor(S, tid, key)`, `addSP`, `canLearn`, `learn`, `seasonsCoached(S, p)` |
 | `PBC.Tendency` | tendency.js | player tendencies (`KEYS`, `GROUPS`, `get(p)`, `generate`, `refresh`, `reset`, `sim`), generated from ratings, position, archetype and personality; the engine uses them for shot selection, play types, passing, crashing, gambling and fouling |
 | `PBC.Sliders` | sliders.js | gameplay sliders and league behaviour (`GROUPS`, `DEFS`, `PRESETS`, `get(S)`, `set`, `applyPreset`, `reset`, `simMods(S)` for the engine, `league(S)` for progression, aging, morale, trade requests, contracts, loyalty and AI trades) |
 | `PBC.Desk` | desk.js, desk_events.js | the front office inbox (see `docs/DESK_NOTES.md`): items (decisions, offers, messages) from templates with triggers, cooldowns, deadlines and default answers; follow-ups; effects (`fx`: morale, team chemistry, the owner's trust, fans, the media, confidence, training, promises); `daily`, `weekly`, `afterGame`, `phase(S, key)`, `review` (hooked from season.js and offseason.js); `answer(S, id, k)` → `{ text, nav, fx }`; `open`, `stopping`, `shouldStop`, `autoAll`; team chemistry `chem(S, tid)` and the engine's `confMod(S, tid)`; `pitchBonus` (free agency) |
 | `PBC.Media` | media.js, media_text.js | the league's press (see `docs/MEDIA_NOTES.md`): writers, stories and articles from detectors on every game (`game`), day (`daily`), week (`weekly`) and the season's moments (`trade`, `request`, `allStar`, `deadline`, `endRegular`, `champion`, `offseason`, `quote`); `render(S, article)` → `{ h, d, b, by }`; `front`, `ladders`, `boothLines`, `onThisDay`; `newSeason` archives |
 | `PBC.Staff` | staff.js | the head coaches as people (see `docs/LEGACY_NOTES.md`): `ensure`, `of(S, tid)`, `endSeason`, `carousel` (firings, retirements, hires), `userTakes`, `vacated`, `all` (every coach and you, ranked), `score`, `coachIn(S, season, tid)` |
 | `PBC.Legacy` | legacy.js | the league's history: `profile` / `greats` (the all-time players), `summer` (the Hall of Fame class, retired numbers, last season's ranks), `induct`, `retireNumbers`, `retiredNums`, `refreshLeaders` / `passed` (career records as they fall), `decades`, `compact` (the save over decades) |
+| `PBC.Office` | office.js | owners with personalities (`TYPES`, `owner(S, tid)`, `review`, `patience`, `heat`) and every team's facilities (`FAC`, `fac(S, tid)`, `upgrade`, `summer`, `newSeason`, and the effects `devBonus`, `practiceMult`, `injuryMult`, `recoveryMult`, `scoutPoints`, `scoutBank`, `draftNoise`, `fanBonus`, `appeal`); see `docs/LONG_GAME_NOTES.md` |
+| `PBC.Rivals` | rivals.js | rivalries: heat between pairs of teams (`game`, `series`, `move`, `trash`, `add`, `weekly`, `summer`), `level(S, a, b)`, `h2h`, `of(S, tid)`, `top(S)`, `historyLine` |
+| `PBC.AllStar` | allstar.js | All-Star weekend: `announce` (the invitations, with the rosters), `due`/`run` (the contests and the game on the first day of the break), `userInvites`, `holdOut`, `latest` |
 | `PBC.Persona` | persona.js | player personality types (`TYPES`, `of(p)`, `info`, `face(p, { mood })`, `blurb`) used by portraits, the booth and the player card |
 | `PBC.Store` | storage.js | saves in IndexedDB (localStorage fallback). Latest save per career: `save(S, { backup, backupCount })`, `load(id)`, `list()`; named slots and rotating backups: `saveSlot`, `saveBackup`, `pruneBackups`, `listAll()`, `listCareer(id)`; `remove`, `removeCareer`, `rename`, `copy`; files: `exportString`, `importString` (new id). Each record is `{ id, data, meta }` plus a small index record `'#meta:' + id` so lists never load full saves. Ids: main = `S.saveId`, slot = `saveId::slot::<time>`, backup = `saveId::backup::<k>` |
 
@@ -46,7 +49,7 @@ S = {
   boxes: { [gid]: box },      // user's games this season
   playoffs: { round, rounds, playIn, series:[...], games:[...], champion, runnerUp, seeds:{tid:{seed,conf}}, done, fmvp },
   draftPicks: [{ season, round, orig, owner }],   // next 4 drafts; season = the draft year (S.season + 1 is the upcoming draft)
-  userTid, coach: {...},      // see coach.js
+  userTid, coach: {...},      // see coach.js; coaching skills: coach.skills { dev, mot, tac, rec, med } (0-5), coach.sp, spTot, spLog, lastSP, mvps
   news: [{ season, day, phase, text, type, tid }],
   history: [{ season, champion, runnerUp, fmvp, awards, standings }],
   records, settings, practice, teamSeason: { [tid]: totals }, flags, preseasonProj: { [tid]: winPct },
@@ -60,6 +63,9 @@ S = {
            archive: [{ season, list: [{ id, k, h, d, ... }] }], form, tst, rank, ladder, nights, flags },
                               // the Media (js/core/media.js), created lazily; articles are data, written by media_text.js
   coaches: { seq, list: { [cid]: { id, first, last, age, tid, rating, style, from, hired, contract, seasons, tot, fired, retired } } },
+  rivals: { v, pairs: { 'a-b': { heat, peak, peakSeason, g: [winsA, winsB], po: [{ season, round, w, winner, g7 }], last: { season, day, why }, born } } },
+  allStarWknd: { season, day, invites: { three: [pid], dunk: [pid], skills: [pid] }, out: [pid], done },
+  allStarHist: [{ season, three, dunk, skills, game }],   // every All-Star weekend (js/core/allstar.js)
   legacy: { v, hof: [{ id, kind, season, name, pid, cid, tid, score, first, years, honors, line, coach }], numbers: { [tid]: [{ num, pid, season, name }] },
             prev, prevSeason, leaders, crowned, flags },
 }
@@ -71,7 +77,9 @@ S = {
   strat: { off, def, tempo, focus, crash, pressure, goTo1, goTo2 },
   rot: { starters: [5 ids], minutes: { id: minutes }, auto: bool },
   coachId, coachName, coachRating,   // the head coach (PBC.Staff; the user's team: S.coach)
-  owner: { patience, spend, name }, hype (fans 0-100, moved weekly by the Desk), history: [{ season, w, l, result, round, champ, seed }],
+  owner: { patience, spend, name, type },   // type: winner | money (the Dealmaker) | showman (the Promoter) | builder | meddler (PBC.Office)
+  fac: { train, med, scout, arena (1-5), pts, build: { key, at, lvl } | null, hist },   // facilities (PBC.Office)
+  hype (fans 0-100, moved weekly by the Desk), history: [{ season, w, l, result, round, champ, seed }],
   // Team Editor (all optional; UI.teamUniform / UI.teamCourt / UI.teamArena give the defaults when missing)
   badge: { shape }, arena: 'name',
   uniforms: { home: { jersey, number, trim, shorts }, away: { ... } },   // '#hex'

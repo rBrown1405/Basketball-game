@@ -313,6 +313,7 @@
       streaks(S, m, st);
       hands(S, m, R);
       injuriesBack(S, m, st);
+      rivalryNights(S, m);
     } else {
       playoffs(S, m, R);
     }
@@ -651,6 +652,77 @@
     const s = openStory(S, 'carousel', 'carousel:' + S.season, { open: false });
     publish(S, 'carousel', 'insider', { sid: s.id, pri: 3, tids: moves.hired.map(h => h.tid).slice(0, 4), data: { fired: moves.fired.slice(), retired: moves.retired.slice(), hired: moves.hired.map(h => ({ tid: h.tid, cid: h.cid })) } });
   };
+  // ---------------------------------------------------------------------------
+  // All-Star weekend (js/core/allstar.js): the game, then the contests
+  // ---------------------------------------------------------------------------
+  M.allStarWeekend = function (S, res) {
+    if (!res) return;
+    const s = openStory(S, 'allstar', 'asw:' + S.season, { open: false });
+    const g = res.game;
+    if (g) {
+      const line = g.box.find(b => b.pid === g.mvp) || {};
+      publish(S, 'asg', 'columnist', { sid: s.id, pid: g.mvp, tid: g.mvpTid, pri: 4,
+        data: { teams: g.teams.map(t => ({ name: t.name, pts: t.pts })), winner: g.winner, line: { pts: line.pts, reb: line.reb, ast: line.ast, tpm: line.tpm },
+          top: U.sortBy(g.box.filter(b => b.pid !== g.mvp), b => b.pts, true).slice(0, 3).map(b => ({ pid: b.pid, pts: b.pts, side: b.side })) } });
+    }
+    if (res.dunk) publish(S, 'dunk', 'oldschool', { sid: s.id, pid: res.dunk.winner, tid: res.dunk.wtid, pri: 3,
+      data: { final: res.dunk.final.map(x => ({ pid: x.pid, total: x.total, dunks: x.dunks.map(d => ({ dunk: d.dunk, score: d.score, tries: d.tries, made: d.made })) })), perfect: res.dunk.perfect, dunkoff: !!res.dunk.dunkoff } });
+    if (res.three) {
+      const best = U.maxBy(res.three.r1, x => x.pts);
+      publish(S, 'three', 'numbers', { sid: s.id, pid: res.three.winner, tid: res.three.wtid, pri: 3,
+        data: { final: res.three.final.map(x => ({ pid: x.pid, pts: x.pts, racks: x.racks })), best: best ? { pid: best.pid, pts: best.pts } : null } });
+    }
+    if (res.skills) {
+      const f = res.skills.rounds[res.skills.rounds.length - 1][0];
+      publish(S, 'skills', 'insider', { sid: s.id, pid: res.skills.winner, tid: res.skills.wtid, pri: 2,
+        data: { opp: f.w === f.a ? f.b : f.a, time: res.skills.time, otime: f.w === f.a ? f.tb : f.ta } });
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Rivalries (js/core/rivals.js): a rivalry is born or boils over; rivalry nights
+  // ---------------------------------------------------------------------------
+  M.rivalry = function (S, a, b, lv, why) {
+    const m = M.ensure(S);
+    const k = 'riv:' + PBC.Rivals.key(a, b) + ':' + lv.lvl;
+    if (m.flags[k] != null && S.season - m.flags[k] < 3) return;
+    m.flags[k] = S.season;
+    const u = userTid(S);
+    const mine = a === u || b === u;
+    const lead = mine ? u : a, other = lead === a ? b : a;
+    const p = PBC.Rivals.pair(S, a, b, false);
+    const s = openStory(S, 'rivalry', k + ':' + S.season, { tid: lead, open: false });
+    publish(S, 'rivalry', mine ? 'beat' : 'columnist', { sid: s.id, tid: lead, tids: [lead, other], pri: 2 + lv.lvl,
+      data: { a: lead, b: other, lvl: lv.lvl, label: lv.label, why: why || '', h2h: PBC.Rivals.h2h(S, lead, other), po: p ? p.po.slice(-3) : [] } });
+  };
+  // tomorrow's rivalry games: yours (every meeting once it is bitter, the first one before that) and the league's
+  // hottest (once a season per pair)
+  function rivalryNights(S, m) {
+    if (!PBC.Rivals || S.phase !== 'regular' || !roomToday(S)) return;
+    const u = userTid(S);
+    let best = null;
+    for (const g of S.schedule) {
+      if (g.day !== S.day + 1 || g.played) continue;
+      const lv = PBC.Rivals.level(S, g.h, g.a);
+      if (!lv) continue;
+      const mine = g.h === u || g.a === u;
+      if (!mine && lv.lvl < 2) continue;
+      const fk = 'rn:' + S.season + ':' + PBC.Rivals.key(g.h, g.a) + (mine && lv.lvl >= 2 ? ':' + g.gid : '');
+      if (m.flags[fk]) continue;
+      const score = lv.heat + (mine ? 100 : 0);
+      if (!best || score > best.score) best = { g, lv, fk, mine, score };
+    }
+    if (!best) return;
+    m.flags[best.fk] = 1;
+    const g = best.g, st = PBC.League.standings(S);
+    const pair = PBC.Rivals.pair(S, g.h, g.a, false);
+    const star = tid => { const r = PBC.League.roster(S, tid).filter(p => !PBC.Player.isInjured(p)); return r.length ? r[0].id : null; };
+    const s = openStory(S, 'rivalry', best.fk, { tid: best.mine ? u : g.h, open: false });
+    publish(S, 'rivalry_night', best.mine ? 'beat' : 'columnist', { sid: s.id, tid: best.mine ? u : g.h, tids: [g.h, g.a], pid: star(best.mine ? u : g.h), pri: best.mine ? 3 : 2,
+      data: { h: g.h, a: g.a, lvl: best.lv.lvl, label: best.lv.label, h2h: PBC.Rivals.h2h(S, g.h, g.a), po: pair ? pair.po.slice(-3) : [], why: pair && pair.last ? pair.last.why : '',
+        rh: [st[g.h].w, st[g.h].l], ra: [st[g.a].w, st[g.a].l], sh: star(g.h), sa: star(g.a) } });
+  }
+
   /** the offseason's moments: 'lottery', 'draft', 'fa' (each week), 'retire', 'hof', 'number' */
   M.offseason = function (S, key, data) {
     const s = openStory(S, key, key + ':' + S.season + ':' + (M.ensure(S).sseq + 1), { open: false });
@@ -729,6 +801,8 @@
     m.tst = {};
     m.rank = null;
     m.ladder = null;
+    // (last season's rivalry-night marks)
+    for (const k in m.flags) if (k.startsWith('rn:') && !k.startsWith('rn:' + S.season + ':')) delete m.flags[k];
   };
   // keep the current season's articles bounded (the oldest weekly pieces and low-priority stories go first)
   const WEEKLY_KEEP = { rankings: 3, ladder: 3, rumors: 4, beatnote: 4 };

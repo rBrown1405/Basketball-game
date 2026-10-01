@@ -508,6 +508,91 @@
   };
 
   // ---------------------------------------------------------------------------
+  // All-Star weekend (PBC.AllStar)
+  // ---------------------------------------------------------------------------
+  K.asg = (c, d, a) => {
+    const p = a.pid, l = d.line || {};
+    const W = d.teams[d.winner], Lz = d.teams[1 - d.winner];
+    const v = { p: c.pn(p), last: c.ln(p), pts: l.pts || 0, reb: l.reb || 0, ast: l.ast || 0, W: W.name, L: Lz.name, ws: W.pts, ls: Lz.pts, his: c.his(p) };
+    const others = (d.top || []).map(b => `${c.pn(b.pid)} (${b.pts})`);
+    return out(c.say(['{last} steals the show at the All-Star Game', 'All-Star MVP: {p}', '{W} wins a {ws}-{ls} All-Star shootout'], v),
+      c.say(['{p} had {pts} points, {reb} rebounds and {ast} assists as {W} beat {L} {ws}-{ls}.', '{W} {ws}, {L} {ls}, and the MVP trophy went to {p} ({pts} points).'], v),
+      [others.length ? `Also scoring big: ${c.list(others)}.` : '',
+        c.say(['Nobody played much defense, which is the point. Everybody played hard in the last five minutes, which is the tradition.', 'The first three quarters were a dunk contest with a scoreboard. The fourth was a basketball game.', 'It was loud, it was fun, and for one night the league\'s stars were on the same side.'], v),
+        voice(c, 1, v)]);
+  };
+  K.three = (c, d, a) => {
+    const p = a.pid, fin = d.final || [];
+    const me = fin.find(x => x.pid === p) || { pts: 0 };
+    const rest = fin.filter(x => x.pid !== p).map(x => `${c.pn(x.pid)} ${x.pts}`);
+    const v = { p: c.pn(p), last: c.ln(p), pts: me.pts, rest: c.list(rest) };
+    return out(c.say(['{last} wins the three-point contest', 'Splash: {last} takes the three-point crown', '{last} catches fire to win the three-point contest'], v),
+      c.say(['{p} scored {pts} in the final round.', 'A {pts} in the final was enough for {p}.'], v),
+      [rest.length ? `The rest of the final: ${v.rest}.` : '', d.best && d.best.pid !== p ? `The best first round belonged to ${c.pn(d.best.pid)}, with ${d.best.pts}.` : '',
+        c.say(['The money balls decided it, as they usually do.', 'Five racks, a lot of nerve, and one shooter who did not miss when it counted.'], v)]);
+  };
+  K.dunk = (c, d, a) => {
+    const p = a.pid, fin = d.final || [];
+    const me = fin.find(x => x.pid === p) || { total: 0, dunks: [] };
+    const opp = fin.find(x => x.pid !== p);
+    const best = U.maxBy(me.dunks, x => x.score) || { dunk: 'a big one', score: 0 };
+    const v = { p: c.pn(p), last: c.ln(p), dunk: best.dunk, sc: best.score, total: me.total, opp: opp ? c.pn(opp.pid) : 'the field', ot: opp ? opp.total : 0 };
+    return out(c.say(['{last} wins the dunk contest', '{last} brings the house down', 'Liftoff: {last} takes the dunk title'], v),
+      d.dunkoff ? c.say(['{p} and {opp} were tied at {total} after the final. {p} won the dunk-off.', 'It took a dunk-off: {p} and {opp} finished the final tied at {total}.'], v)
+        : c.say(['The winning moment: {dunk}, for a {sc}.', '{p} beat {opp} {total}-{ot} in the final, and {dunk} was the one people will remember.'], v),
+      [d.perfect ? 'At least one dunk in the final drew a perfect 50 from the judges.' : '', d.dunkoff ? `The winning moment came before that: ${v.dunk}, for a ${v.sc}.` : '',
+        (me.dunks || []).some(x => x.tries > 1) ? 'Not everything went down on the first try. The judges forgave it.' : '',
+        c.say(['The building was on its feet before the ball came through the net.', 'Some contests are about the score. This one was about the noise.'], v)]);
+  };
+  K.skills = (c, d, a) => {
+    const p = a.pid;
+    const v = { p: c.pn(p), last: c.ln(p), t: d.time, opp: c.pn(d.opp), ot: d.otime };
+    return out(c.say(['{last} wins the skills challenge', 'Fastest through the course: {last}'], v),
+      c.say(['{p} ran the final course in {t} seconds, beating {opp} ({ot}).', 'Dribble, pass, shoot: {p} did all three faster than anyone, {t} seconds in the final.'], v),
+      [c.say(['The course rewards hands, feet and a steady last shot. {last} had all three.', 'It is the quietest event of the weekend. Nobody told {last}.'], v)]);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Rivalries (PBC.Rivals)
+  // ---------------------------------------------------------------------------
+  // the playoff history between two teams, in a sentence
+  function poLine(c, po) {
+    if (!po || !po.length) return '';
+    const last = po[po.length - 1];
+    const g = last.w[0] + last.w[1];
+    const n = po.length;
+    return `They have met ${n === 1 ? 'once' : c.num(n) + ' times'} in the playoffs, most recently in ${U.seasonLabel(last.season)}, when the ${c.nick(last.winner)} won in ${g}${last.g7 ? ', a Game 7 nobody in either city has forgotten' : ''}.`;
+  }
+  function h2hLine(c, a, b, h) {
+    if (!h || h[0] + h[1] === 0) return '';
+    if (h[0] === h[1]) return `The regular-season series since this league began is dead even at ${h[0]}-${h[1]}.`;
+    const lead = h[0] > h[1] ? a : b;
+    return `The ${c.nick(lead)} lead the regular-season series ${Math.max(h[0], h[1])}-${Math.min(h[0], h[1])}.`;
+  }
+  K.rivalry = (c, d) => {
+    const v = { A: c.nick(d.a), B: c.nick(d.b), fa: c.full(d.a), fb: c.full(d.b), why: d.why || 'one game too many' };
+    const H = {
+      1: ['{A} and {B}: this is a rivalry now', 'The {A}-{B} rivalry is officially on', 'Bad blood is brewing between the {A} and the {B}'],
+      2: ['There is no love lost between the {A} and the {B}', 'The {A} and the {B} have turned bitter', 'This one is personal: {A} vs. {B}'],
+      3: ['{A} and {B}: a blood feud', 'The league\'s nastiest rivalry: {A} vs. {B}', 'They cannot stand each other: inside {A} vs. {B}'],
+    };
+    return out(c.say(H[d.lvl] || H[1], v),
+      c.say(['It started with {why}. It has not cooled down since.', 'Ask anyone in either locker room. They will tell you about {why}.', 'Nobody in {fa} colors will say it out loud, but {why} changed things.'], v),
+      [h2hLine(c, d.a, d.b, d.h2h), poLine(c, d.po),
+        c.say(['Circle the next meeting. The players already have.', 'The schedule makers could not have planned it better. The next one should be loud.', 'Expect a full building and short tempers the next time these two meet.'], v),
+        voice(c, 0, v)]);
+  };
+  K.rivalry_night = (c, d) => {
+    const v = { H: c.nick(d.h), A: c.nick(d.a), city: c.city(d.h), rh: c.rec(d.rh[0], d.rh[1]), ra: c.rec(d.ra[0], d.ra[1]), sh: c.pn(d.sh), sa: c.pn(d.sa), label: (d.label || 'rivalry').toLowerCase(), why: d.why || '' };
+    return out(c.say(['Rivalry night: {A} at {H}', 'Circle it: the {A} come to {city}', '{H} vs. {A}, and nobody is calling it just another game'], v),
+      c.say(['The {H} ({rh}) host the {A} ({ra}) in the latest chapter of a {label}.', 'A {label} renews in {city}: the {H} ({rh}) against the {A} ({ra}).'], v),
+      [d.sh != null && d.sa != null ? c.say(['{sh} against {sa} is the matchup everyone will be watching.', 'All eyes on {sh} and {sa}.'], v) : '',
+        h2hLine(c, d.h, d.a, d.h2h), poLine(c, d.po),
+        v.why ? c.say(['The last time these two made news, it was {why}.', 'Nobody has forgotten {why}.'], v) : '',
+        c.say(['Expect the building to be loud from the opening tip.', 'The crowd will be on its feet early, and so will both benches.'], v)]);
+  };
+
+  // ---------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------
   const cache = new Map();

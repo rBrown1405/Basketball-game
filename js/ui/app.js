@@ -28,7 +28,9 @@
       { key: 'teams', label: 'Teams', icon: '🏟️', group: 'League' },
       { key: 'records', label: 'Records & History', icon: '📜', group: 'League' },
       { key: 'legacy', label: 'The Hall', icon: '🏛️', group: 'League', show: S => !!PBC.Legacy },
-      { key: 'career', label: 'My Career', icon: '🎖️', group: 'Career' },
+      { key: 'allstar', label: 'All-Star Weekend', icon: '⭐', group: 'League', show: S => !!PBC.AllStar && !!((S.allStarWknd && S.allStarWknd.season === S.season) || (S.allStarHist && S.allStarHist.length)) },
+      { key: 'career', label: 'My Career', icon: '🎖️', group: 'Career', dot: S => !!(PBC.Coach && PBC.Coach.canLearn && PBC.Coach.canLearn(S)) },
+      { key: 'office', label: 'Front Office', icon: '🏢', group: 'Career', show: S => !!PBC.Office && S.userTid != null && S.userTid >= 0, dot: S => !!(UI.facCanBuild && UI.facCanBuild(S)) },
       { key: 'saves', label: 'Saves', icon: '💾', group: 'Career', dot: () => UI.saveInfo().unsaved },
       { key: 'settings', label: 'Settings', icon: '⚙️', group: 'Career' },
     ];

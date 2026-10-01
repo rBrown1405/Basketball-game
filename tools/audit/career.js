@@ -143,6 +143,21 @@ for (let k = 0; k < N; k++) {
   console.log(`   ${row.top}`);
   console.log(`   history: coaching changes ${mv.fired.length} fired, ${mv.retired.length} retired, ${mv.hired.length} hired; Hall of Fame class ${hofNow.length ? hofNow.map(e => e.name + (e.kind === 'coach' ? ' (coach)' : '')).join(', ') : '-'}; numbers retired ${numsNow}; players in the save ${Object.keys(S.players).length}`);
   if (Mm) console.log(`   media: ${written} articles (${Object.entries(kindsM).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => k + ' ' + n).join(', ')}), ${row.mediaKb} KB, archive ${row.archive} seasons`);
+  // the long game (PBC.Coach skills, PBC.Office, PBC.Rivals, PBC.AllStar)
+  if (PBC.Office && S.userTid >= 0 && S.teams[S.userTid]) {
+    const c = S.coach, f = PBC.Office.fac(S, S.userTid), o = PBC.Office.owner(S, S.userTid);
+    // the stand-in coach learns the cheapest skill it can, then the next
+    let learned = 0;
+    for (let k = PBC.Coach.canLearn(S); k && learned < 5; k = PBC.Coach.canLearn(S)) { PBC.Coach.learn(S, k.key); learned++; }
+    const top = PBC.Rivals ? PBC.Rivals.top(S, 3) : [];
+    const mine = PBC.Rivals ? PBC.Rivals.of(S, S.userTid, 2) : [];
+    const asw = PBC.AllStar ? PBC.AllStar.latest(S) : null;
+    const nm = id => (S.players[id] ? S.players[id].last : '?');
+    const ach = Object.keys(c.achievements).length;
+    console.log(`   long game: skills ${Object.entries(c.skills).map(([k, v]) => k + v).join(' ')} (sp ${c.sp}, earned ${c.lastSP ? c.lastSP.n : 0}${learned ? ', learned ' + learned : ''}); owner ${o.type}; facilities ${PBC.Office.FAC_KEYS.map(k => k + f[k]).join(' ')} pts ${f.pts}${f.build ? ' building ' + f.build.key : ''}; achievements ${ach}/${PBC.Config.ACHIEVEMENTS.length}`);
+    console.log(`   rivalries: ${top.map(x => S.teams[x.a].abbr + '-' + S.teams[x.b].abbr + ' ' + Math.round(x.heat) + ' (' + x.level.label + ')').join(', ') || '-'}; yours: ${mine.map(x => S.teams[x.tid].abbr + ' ' + Math.round(x.heat)).join(', ') || '-'}; pairs ${S.rivals ? Object.keys(S.rivals.pairs).length : 0}`);
+    if (asw && asw.season === season) console.log(`   all-star: game ${asw.game ? asw.game.teams[0].pts + '-' + asw.game.teams[1].pts + ' MVP ' + nm(asw.game.mvp) : '-'}; three ${asw.three ? nm(asw.three.winner) + ' ' + asw.three.score : '-'}; dunk ${asw.dunk ? nm(asw.dunk.winner) + ' ' + asw.dunk.score : '-'}; skills ${asw.skills ? nm(asw.skills.winner) + ' ' + asw.skills.time + 's' : '-'}`);
+  }
 }
 const avg = f => U.round(U.avg(rows, f), 1);
 console.log(`\nper season: ${avg(r => r.ms / 1000)} s, desk items ${avg(r => r.made)} (decisions ${avg(r => r.kinds.decision)}, offers ${avg(r => r.kinds.offer)}, messages ${avg(r => r.kinds.message)}), stop-days ${avg(r => r.stops)}`);

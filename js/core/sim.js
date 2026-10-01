@@ -217,6 +217,9 @@
       tid, idx, team, players, on: starters, strat: Object.assign({}, team.strat),
       fouls: 0, fouls2: 0, timeouts: L.timeouts, qs: [0], toRequest: false, autoSubs: true, autoTO: true, userCall: null, userInb: null, defCall: null,
       manualSubs: [], poss: 0, lastTimeoutClock: 9999, pb: null, lineupV: 0,
+      // (the medical staff: how often players get hurt and how long they are out, js/core/office.js)
+      medInj: PBC.Office && PBC.Office.injuryMult ? PBC.Office.injuryMult(S, tid) : 1,
+      medDur: PBC.Office && PBC.Office.recoveryMult ? PBC.Office.recoveryMult(S, tid) : 1,
     };
   }
 
@@ -240,11 +243,16 @@
       gimCount: 0, gimLog: [], run: { team: -1, pts: 0 }, tipWinner: -1, lastStealer: null, lastRebounder: null,
       pending: null, elapsedReg: 0, lastGimClock: 99999, buzzerGim: false,
       pstats: null, plog: null, // (play tracking: js/core/playstats.js; declared here so the game object keeps one shape)
+      coachEdge: null, rivalry: 0,
     };
     const sl = g.sl = PBC.Sliders && PBC.Sliders.simMods ? PBC.Sliders.simMods(S) : Object.assign({}, SL_DEFAULT);
     const st = Sim.stakesFor(S, opts);
     g.stakes = st.stakes;
     g.stakesInfo = st.info;
+    // a rivalry game (js/core/rivals.js): a little of the playoffs' edge in a regular-season night
+    const rv = !opts.playoff && PBC.Rivals ? PBC.Rivals.level(S, homeTid, awayTid) : null;
+    g.rivalry = rv ? rv.lvl : 0;
+    if (rv) g.stakes = Math.max(g.stakes, 0.08 * rv.lvl);
     g.intensity = U.round(g.stakes * sl.po, 3);
     const I = Math.min(1.5, g.intensity);
     g.timeMult = 1 / sl.pace;
@@ -260,7 +268,10 @@
     }
     setupForm(g);
     // per-team shooting (logit) and turnover adjustments: form, user-team handles, playoff defense
-    g.shootAdj = [0, 1].map(i => g.form[i] + (i === g.userIdx ? sl.uShoot : 0) - (1 - i === g.userIdx ? sl.uDef : 0) - 0.03 * I);
+    // (the benches: each coach's edge at both ends, js/core/staff.js, centred on the league)
+    const ce = PBC.Staff && PBC.Staff.gameEdge ? [0, 1].map(i => PBC.Staff.gameEdge(S, g.tids[i], g.playoff)) : null;
+    g.coachEdge = ce ? [0, 1].map(i => U.round(ce[i].off - ce[1 - i].def, 4)) : [0, 0];
+    g.shootAdj = [0, 1].map(i => g.form[i] + g.coachEdge[i] + (i === g.userIdx ? sl.uShoot : 0) - (1 - i === g.userIdx ? sl.uDef : 0) - 0.03 * I);
     g.toMult = [0, 1].map(i => sl.to * (1 + (sl.stl - 1) * 0.35) * g.formTo[i] * (i === g.userIdx ? sl.uTo : 1) * (1 - 0.06 * I));
     return g;
   };
@@ -2791,7 +2802,7 @@
     if (!(im > 0)) return;          // injuries slider at 0: nobody gets hurt
     for (const T of g.t) for (const c of T.on) {
       if (c.inj) continue;
-      const p = 0.0000105 * dt * (1.65 - c.r.durability / 100) * (c.energy < 50 ? 1.4 : 1) * im;
+      const p = 0.0000105 * dt * (1.65 - c.r.durability / 100) * (c.energy < 50 ? 1.4 : 1) * im * T.medInj;
       if (U.chance(p)) {
         c.inj = true;
         c.injNew = PBC.Player.genInjury(g.sl.injSev);
@@ -3055,7 +3066,10 @@
   Sim.finalize = function (g) {
     const box = Sim.box(g);
     for (const T of g.t) for (const c of T.players) {
-      if (c.injNew) c.p.injury = c.injNew;
+      if (c.injNew) {
+        if (T.medDur !== 1 && c.injNew.days > 1) { c.injNew.days = Math.max(1, Math.round(c.injNew.days * T.medDur)); c.injNew.total = c.injNew.days; }
+        c.p.injury = c.injNew;
+      }
       // (confidence carried into the next game: a share of how far this one left him from where he came in, and some of
       // what he brought, so a hot week builds and a slump lingers a little)
       if (c.sec > 0) c.p.conf = U.round(U.clamp((c.conf - c.conf0) * Sim.K.confCarry + (+c.p.conf || 0) * 0.5, -0.3, 0.3), 3);

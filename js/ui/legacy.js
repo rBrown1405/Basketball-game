@@ -6,7 +6,7 @@
   const U = PBC.U, UI = PBC.UI;
   const Lg = () => PBC.Legacy;
 
-  const TABS = [['players', 'Greatest players'], ['coaches', 'Greatest coaches'], ['hall', 'Hall of Fame'], ['franchise', 'Franchises'], ['decades', 'Decades'], ['you', 'Your legacy']];
+  const TABS = [['players', 'Greatest players'], ['coaches', 'Greatest coaches'], ['hall', 'Hall of Fame'], ['franchise', 'Franchises'], ['rivals', 'Rivalries'], ['decades', 'Decades'], ['you', 'Your legacy']];
   const hs = { tab: 'players', pos: '', status: '', tid: 'all', ftid: null, n: 50 };
   const HON = [['champion', '🏆', 'gold'], ['mvp', 'MVP', 'gold'], ['fmvp', 'Finals MVP', 'gold'], ['dpoy', 'DPOY', 'accent'], ['al1', 'All-League 1st', 'accent'], ['al2', 'All-League 2nd', 'info'], ['al3', 'All-League 3rd', 'info'], ['allStar', 'All-Star', 'info'], ['allDefense', 'All-Defense', ''], ['roy', 'ROY', '']];
 
@@ -28,7 +28,7 @@
       if (PBC.Staff) PBC.Staff.ensure(S);
       if (params && params.tab) { hs.tab = params.tab; params.tab = null; }
       const tab = hs.tab;
-      const body = tab === 'players' ? players(S) : tab === 'coaches' ? coaches(S) : tab === 'hall' ? hall(S) : tab === 'franchise' ? franchise(S) : tab === 'decades' ? decades(S) : you(S);
+      const body = tab === 'players' ? players(S) : tab === 'coaches' ? coaches(S) : tab === 'hall' ? hall(S) : tab === 'franchise' ? franchise(S) : tab === 'rivals' ? rivals(S) : tab === 'decades' ? decades(S) : you(S);
       const seasons = (S.history || []).length;
       root.innerHTML = `<div class="page lg">
         <div class="page-h"><div><h1>The Hall</h1><div class="sub">${seasons ? `${U.plural(seasons, 'season')} of history since ${U.seasonLabel(S.history[0].season)}` : 'History starts with your first season'} · ${S.legacy.hof.length} in the Hall of Fame</div></div>
@@ -155,6 +155,27 @@
   // ---------------------------------------------------------------------------
   // The all-decade teams
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // The rivalries (PBC.Rivals): the league's hottest, with their history
+  // ---------------------------------------------------------------------------
+  function rivals(S) {
+    const R = PBC.Rivals;
+    const list = R ? R.top(S, 20) : [];
+    if (!list.length) return empty('No rivalries yet. They are born in playoff series, close games, stars changing teams and words in the press.', '🔥');
+    const u = S.userTid;
+    const row = x => {
+      const A = S.teams[x.a], B = S.teams[x.b];
+      const lead = x.g[0] === x.g[1] ? `even at ${x.g[0]}-${x.g[1]}` : `${(x.g[0] > x.g[1] ? A : B).abbr} leads ${Math.max(x.g[0], x.g[1])}-${Math.min(x.g[0], x.g[1])}`;
+      const po = x.po.length ? x.po.slice(-4).map(m => `${U.seasonLabel(m.season)} ${U.esc(PBC.League.roundName(S, m.round))}: ${S.teams[m.winner].abbr} in ${m.w[0] + m.w[1]}${m.g7 ? ' (G7)' : ''}`).join(' · ') : 'No playoff meetings yet';
+      return `<div class="li ${x.a === u || x.b === u ? 'me' : ''}" style="align-items:flex-start">${UI.teamBadge(A, 30)}${UI.teamBadge(B, 30)}
+        <div style="flex:1;min-width:0"><div class="ellip"><span class="bold">${U.esc(A.name)} vs. ${U.esc(B.name)}</span> <span class="tag bad">${x.level.icon} ${U.esc(x.level.label)}</span></div>
+          <div class="tiny muted">Regular season: ${lead}${x.born ? ` · a rivalry since ${U.seasonLabel(x.born)}` : ''}${x.last && x.last.why ? ` · last flare-up: ${U.esc(x.last.why)}` : ''}</div>
+          <div class="tiny muted">${po}</div></div><span class="ls-val" title="Heat">${Math.round(x.heat)}</span></div>`;
+    };
+    return `<div class="ls-sec">The league's rivalries <span class="sub">Heat builds with playoff series (a Game 7 most of all), close games, stars changing teams and trash talk, and cools a little every week and every summer.</span></div>
+      <div class="card"><div class="card-b flush"><div class="list">${list.map(row).join('')}</div></div></div>`;
+  }
+
   function decades(S) {
     const list = Lg().decades(S);
     if (!list.length) return empty('The all-decade teams come from the All-League teams of every completed season.', '📅');

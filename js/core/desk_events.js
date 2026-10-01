@@ -825,21 +825,42 @@
     wins: (S, X, d) => ({ label: `Win at least ${d.target} games`, check: () => standing(S, X.u).w >= d.target }),
     fans: (S, X, d) => ({ label: `Fill the building: fan excitement at ${d.target}+ by the end of the season`, check: () => (S.teams[X.u].hype || 0) >= d.target }),
     youth: (S, X, d) => { const p = S.players[d.pid]; return { label: `Give ${p ? nm(p) : 'the rookie'} real minutes (20+ a night)`, check: () => { const l = p && Desk.line(S, p); return !!(l && l.gp >= 20 && l.mpg >= 19); } }; },
+    // (the owners' personalities, js/core/office.js, bring their own)
+    playoffs: (S, X) => ({ label: 'Make the playoffs', check: () => { const r = PBC.League.playoffResult(S, X.u); return !!(r && (r.round >= 1 || r.champ)); } }),
+    series: (S, X) => ({ label: 'Win a playoff series', check: () => { const r = PBC.League.playoffResult(S, X.u); return !!(r && (r.round >= 2 || r.champ)); } }),
+    star: (S, X) => ({ label: 'Put one of our players in the All-Star Game', check: () => (S.allStars || []).some(id => S.players[id] && S.players[id].tid === X.u) }),
+    picks: (S, X, d) => ({ label: 'Keep every first-round pick we own', check: () => firsts(S, X.u) >= (d.n0 || 0) }),
+    favorite: (S, X, d) => { const p = S.players[d.pid]; return { label: `Play ${p ? nm(p) : 'my guy'} 24 minutes a night`, check: () => { const l = p && p.tid === X.u && Desk.line(S, p); return !!(l && l.gp >= 20 && l.mpg >= 23); } }; },
+  };
+  const firsts = (S, tid) => (PBC.Trade && PBC.Trade.teamPicks ? PBC.Trade.teamPicks(S, tid).filter(pk => pk.round === 1).length : 0);
+  // what each kind of owner asks for first
+  const TYPE_W = {
+    winner: { wins: 2.5, playoffs: 2, series: 2.5 }, money: { tax: 3, fans: 1.5 }, showman: { fans: 2.5, star: 2.5 },
+    builder: { youth: 3, picks: 2 }, meddler: { favorite: 3.5, wins: 1 },
   };
   function ownerDemand(S, X) {
-    const o = Desk.owner(S, X.u);
+    const o = PBC.Office ? PBC.Office.owner(S, X.u) : Desk.owner(S, X.u);
     const t = team(S, X);
     const L = PBC.League.cfg(S);
     const opts = [];
     const pay = PBC.Offseason ? PBC.Offseason.payroll(S, X.u) : 0;
-    if (o.spend < 45 && pay > L.tax * 0.92) opts.push({ type: 'tax', w: 2 });
+    if ((o.spend < 45 || o.type === 'money') && pay > L.tax * 0.92) opts.push({ type: 'tax', w: 2 });
     const exp = S.coach && S.coach.expectation;
-    if (o.patience < 55 && exp) opts.push({ type: 'wins', target: Math.min(S.seasonGames - 8, exp.wins + 3), w: 1.5 });
-    if ((t.market || 3) >= 3) opts.push({ type: 'fans', target: Math.min(90, Math.max(55, (t.hype || 50) + 8)), w: 1 });
+    if ((o.patience < 55 || o.type === 'winner' || o.type === 'meddler') && exp) opts.push({ type: 'wins', target: Math.min(S.seasonGames - 8, exp.wins + 3), w: 1.5 });
+    if ((t.market || 3) >= 3 || o.type === 'money' || o.type === 'showman') opts.push({ type: 'fans', target: Math.min(90, Math.max(55, (t.hype || 50) + 8)), w: 1 });
     const kid = U.maxBy(roster(S, X).filter(p => p.age <= 22 && p.pot >= 70), p => p.pot);
     if (kid) opts.push({ type: 'youth', pid: kid.id, w: 1.2 });
+    if (exp && exp.round >= 1 && exp.round < 2) opts.push({ type: 'playoffs', w: 0.8 });
+    if (exp && exp.round >= 2) opts.push({ type: 'series', w: 0.8 });
+    const best = roster(S, X)[0];
+    if (best && best.ovr >= 78) opts.push({ type: 'star', w: 0.6 });
+    const n0 = firsts(S, X.u);
+    if (n0 >= 1) opts.push({ type: 'picks', n0, w: 0.5 });
+    const fav = U.maxBy(roster(S, X).filter(p => { const l = Desk.line(S, p); const ten = p.stats.filter(x => x.tid === X.u && !x.po).length; return p.ovr >= 64 && p.ovr <= 79 && ten >= 1 && (!l || l.mpg < 24); }), p => p.ovr + p.stats.filter(x => x.tid === X.u).length * 2);
+    if (fav) opts.push({ type: 'favorite', pid: fav.id, w: 0.4 });
     if (!opts.length) return null;
-    return X.R.pickW(opts, d => d.w);
+    const tw = TYPE_W[o.type] || {};
+    return X.R.pickW(opts, d => d.w * (tw[d.type] || 1));
   }
   def({
     id: 'owner_goals', fam: 'owner', kind: 'decision', when: 'phase:preseason', w: 1, pri: 3, due: 10, def: 'accept',
@@ -850,7 +871,10 @@
       const o = Desk.owner(S, X.u);
       const d = ownerDemand(S, X);
       const dm = d ? DEMANDS[d.type](S, X, d) : null;
-      const tone = o.patience < 45 ? 'Patience is not part of the plan.' : o.patience > 70 ? 'This owner believes in building the right way.' : 'Progress is expected.';
+      const ty = PBC.Office ? PBC.Office.owner(S, X.u).type : null;
+      const TONE = { winner: '"Winning is the only thing I care about. You know that."', money: '"And spend my money like it\'s yours."',
+        showman: '"Give this city a show."', builder: '"Build it the right way. I\'m in this for the long run."', meddler: '"And I\'ll be watching. Closely."' };
+      const tone = (ty && TONE[ty] ? TONE[ty] + ' ' : '') + (o.patience < 45 ? 'Patience is not part of the plan.' : o.patience > 70 ? 'There is time to do this right.' : 'Progress is expected.');
       return {
         title: `${o.name} sets the bar`,
         text: `${o.name} called you up to the owner's suite before training camp. "${C.expectation ? C.expectation.label : 'Compete'}. That's the goal." ${tone}${dm ? ` Then one more thing: "${dm.label}."` : ''}`,
@@ -877,6 +901,13 @@
       return 'The owner loved the confidence. Now you have to deliver.';
     },
   });
+  /** this season's demand, as it stands (the Front Office screen): { label, ok, raised, done } or null */
+  Desk.demandNow = function (S) {
+    const D = S.desk;
+    if (!D || !D.demand || D.demand.season !== S.season || Desk.userTid(S) < 0) return null;
+    const dm = DEMANDS[D.demand.type] ? DEMANDS[D.demand.type](S, Desk.X(S, Desk.rng(S, 'dm')), D.demand) : null;
+    return dm ? { label: dm.label, ok: !!dm.check(), raised: !!D.demand.raised, done: D.demand.done } : null;
+  };
   /** the season's review of the owner's extra demand (Season.endSeason, before the coach's review) */
   Desk.review = function (S) {
     const D = S.desk;
@@ -893,6 +924,7 @@
       from: ownerFrom(S, X), data: {},
     });
     D.demand.done = met;
+    if (met) { D.demandsMet = (D.demandsMet || 0) + 1; if (D.demandsMet >= 3 && PBC.Coach) PBC.Coach.unlock(S, 'owner_demand_3'); }
   };
 
   def({
@@ -972,6 +1004,34 @@
     },
   });
   const userTrades = (S, X) => (S.trades || []).filter(r => r.season === S.season && r.tids.includes(X.u)).length;
+
+  // the facilities budget (js/core/office.js): every preseason with points to spend and nothing being built
+  const FAV_FAC = { winner: 'train', money: 'arena', showman: 'arena', builder: 'scout' };
+  const facCan = (S, X) => { const O = PBC.Office, f = O.fac(S, X.u); return f && !f.build ? O.FAC_KEYS.filter(k => f[k] < O.FAC_MAX && f.pts >= O.facCost(f[k])) : []; };
+  def({
+    id: 'facilities', fam: 'owner', kind: 'decision', when: 'phase:preseason', w: 1, pri: 2, due: 10, def: 'bank',
+    find(S, X) { return PBC.Office && facCan(S, X).length ? [{ key: 'fac:' + S.season }] : []; },
+    build(S, c, X) {
+      const O = PBC.Office, f = O.fac(S, X.u), o = Desk.owner(S, X.u);
+      const pref = FAV_FAC[O.owner(S, X.u).type];
+      const opts = U.sortBy(facCan(S, X), k => (k === pref ? 0 : 1) + f[k] * 0.1).slice(0, 3).map(k => {
+        const d = O.FAC[k];
+        return { k, label: `Build the ${d.label.toLowerCase()} up to level ${f[k] + 1}`, hint: `${O.facCost(f[k])} points. ${d.what}${k === pref ? ' The owner likes this one.' : ''}` };
+      });
+      opts.push({ k: 'bank', label: 'Save the points for something bigger', hint: `${f.pts} points in the bank` });
+      return {
+        title: 'The facilities budget',
+        text: `${o.name} has ${f.pts} facility points for the building this year. "Where do you want them?" Whatever you pick is built over the season and opens at next year's training camp.`,
+        from: ownerFrom(S, X), opts, data: {},
+      };
+    },
+    resolve(S, it, k, X) {
+      if (k === 'bank') return 'The points stay in the bank. "Your call," the owner said.';
+      const r = PBC.Office.upgrade(S, X.u, k);
+      if (r.ok && k === FAV_FAC[PBC.Office.owner(S, X.u).type]) fx.own(S, 2);
+      return r.msg;
+    },
+  });
 
   def({
     id: 'owner_splash', fam: 'owner', kind: 'decision', when: 'week', phases: ['regular'], w: 1, gcd: 400, pri: 2, due: 4, def: 'trust',
@@ -1230,7 +1290,9 @@
       if (!g || g.day !== S.day) return [];
       const opp = oppOf(g, X.u);
       const star = PBC.League.roster(S, opp).filter(p => EGO[type(p)])[0];
-      return star ? [{ key: opp, opp, pid: star.id, gid: g.gid }] : [];
+      // (rivals talk more: js/core/rivals.js)
+      const rv = PBC.Rivals ? PBC.Rivals.level(S, X.u, opp) : null;
+      return star ? [{ key: opp, opp, pid: star.id, gid: g.gid, w: 1 + (rv ? rv.lvl * 1.5 : 0) }] : [];
     },
     build(S, c, X) {
       const p = S.players[c.pid], u = team(S, X);
@@ -1243,12 +1305,12 @@
           { k: 'wall', label: 'Pin it on the locker room wall', hint: 'Quiet fuel' },
           { k: 'nocomment', label: 'No comment', hint: '' },
         ],
-        data: {},
+        data: { opp: c.opp },
       };
     },
     resolve(S, it, k, X) {
-      if (k === 'fire') { for (const p of rotation(S, X, 9)) fx.conf(p, 0.04); fx.media(S, -1); fx.fans(S, X.u, 2); return '"Tell him to bring his best. He\'ll need it." Game on.'; }
-      if (k === 'wall') { fx.chem(S, X.u, 2); for (const p of rotation(S, X, 9)) fx.conf(p, 0.02); return 'The quote is taped above every locker.'; }
+      if (k === 'fire') { for (const p of rotation(S, X, 9)) fx.conf(p, 0.04); fx.media(S, -1); fx.fans(S, X.u, 2); if (PBC.Rivals && it.data.opp != null) PBC.Rivals.trash(S, X.u, it.data.opp, 1); return '"Tell him to bring his best. He\'ll need it." Game on.'; }
+      if (k === 'wall') { fx.chem(S, X.u, 2); for (const p of rotation(S, X, 9)) fx.conf(p, 0.02); if (PBC.Rivals && it.data.opp != null) PBC.Rivals.trash(S, X.u, it.data.opp, 0.4); return 'The quote is taped above every locker.'; }
       fx.media(S, 1); return 'You let your team do the talking.';
     },
   });
@@ -1556,6 +1618,38 @@
       return { kind: 'message', title: c.ids.length > 1 ? `${c.ids.length} All-Stars` : 'An All-Star in the house', text: `Congratulations to ${c.ids.map(id => nm(S.players[id])).join(' and ')} on making the All-Star team.`, from: { type: 'league', name: 'The league office', role: 'All-Star selections' }, data: {} };
     },
     resolve: () => '',
+  });
+
+  // All-Star weekend (js/core/allstar.js): your players invited to the contests
+  const CONTEST = { three: 'the three-point contest', dunk: 'the dunk contest', skills: 'the skills challenge' };
+  def({
+    id: 'contest_invite', fam: 'league', kind: 'decision', when: 'phase:allstar', w: 1, pri: 2, due: 1, def: 'go',
+    find(S, X) { const inv = PBC.AllStar ? PBC.AllStar.userInvites(S) : []; return inv.length ? [{ key: 'asw:' + S.season, inv }] : []; },
+    build(S, c, X) {
+      const who = c.inv.map(x => `${nm(S.players[x.pid])} (${CONTEST[x.k]})`);
+      const dunker = c.inv.some(x => x.k === 'dunk');
+      return {
+        title: c.inv.length > 1 ? 'Your players are invited to the All-Star weekend' : `${nm(S.players[c.inv[0].pid])} is invited to the All-Star weekend`,
+        text: `The league wants ${who.join(' and ')} on Saturday night. It is a showcase: the fans love it, and so do the players. It is also a night of work in the middle of a long season${dunker ? ', and dunk contests have hurt people before' : ''}.`,
+        from: { type: 'league', name: 'The league office', role: 'All-Star weekend' },
+        opts: [
+          { k: 'go', label: c.inv.length > 1 ? 'Let them compete' : 'Let ' + him(S.players[c.inv[0].pid]) + ' compete', hint: 'Morale and the fans; a small risk' },
+          { k: 'rest', label: 'Ask the league to find someone else', hint: 'Fresh legs; a disappointed player' },
+        ],
+        data: { inv: c.inv },
+      };
+    },
+    resolve(S, it, k, X) {
+      const inv = it.data.inv || [];
+      if (k === 'rest') {
+        for (const x of inv) { PBC.AllStar.holdOut(S, x.pid); fx.mor(S, S.players[x.pid], -4); }
+        fx.fans(S, X.u, -1);
+        return 'The league found replacements. Your players got a weekend off, and did not hide their disappointment.';
+      }
+      for (const x of inv) fx.mor(S, S.players[x.pid], 3);
+      fx.fans(S, X.u, 2);
+      return 'They are going. The fans back home are already talking about it.';
+    },
   });
 
   def({

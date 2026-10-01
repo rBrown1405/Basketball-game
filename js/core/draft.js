@@ -119,8 +119,11 @@
   /** Hook: scouting points granted per week (the budget accrues lazily from S.day — nobody has to call this). */
   Draft.weeklyScoutingPoints = function (S) {
     const rep = S.coach ? S.coach.rep || 0 : 0;
-    return Draft.WEEKLY_POINTS + (rep >= 75 ? 2 : 0);
+    const fac = PBC.Office && PBC.Office.scoutPoints ? PBC.Office.scoutPoints(S, Draft.userTid(S)) : 0;
+    return Math.max(4, Draft.WEEKLY_POINTS + (rep >= 75 ? 2 : 0) + fac);
   };
+  /** how many unspent points carry over (the scouting department makes it bigger) */
+  Draft.bankMax = S => Draft.BANK_MAX + (PBC.Office && PBC.Office.scoutBank ? PBC.Office.scoutBank(S, Draft.userTid(S)) : 0);
 
   const SCOUT_PHASES = { preseason: 1, regular: 1, playin: 1, playoffs: 1, postseason_done: 1, awards: 1, draft_lottery: 1, draft: 1 };
   Draft.canScout = S => !!SCOUT_PHASES[S.phase] && Draft.userTid(S) >= 0;
@@ -134,7 +137,7 @@
     if (S.phase === 'regular' || S.phase === 'playin' || S.phase === 'playoffs' || S.phase === 'postseason_done') {
       const wk = Math.floor((S.day || 0) / 7);
       if (wk > sc.week) {
-        sc.pts = Math.min(Draft.BANK_MAX, sc.pts + (wk - sc.week) * Draft.weeklyScoutingPoints(S));
+        sc.pts = Math.min(Draft.bankMax(S), sc.pts + (wk - sc.week) * Draft.weeklyScoutingPoints(S));
         sc.week = wk;
       }
     }
@@ -147,7 +150,7 @@
     const sc = Draft.scouting(S);
     if (sc.predraft) return;
     sc.predraft = true;
-    sc.pts = Math.min(Draft.BANK_MAX + Draft.PREDRAFT_POINTS, sc.pts + Draft.PREDRAFT_POINTS);
+    sc.pts = Math.min(Draft.bankMax(S) + Draft.PREDRAFT_POINTS, sc.pts + Draft.PREDRAFT_POINTS);
   };
 
   Draft.known = function (S, p) {
@@ -349,7 +352,7 @@
     const u = Draft.userTid(S);
     p.tid = tid;
     p.contract = { amt: PBC.Player.rookieSalary(slot.pick, slot.round, L), exp: S.season + years, rookie: true };
-    p.draft = { year: d.year, round: slot.round, pick: slot.pick, overall: slot.overall, tid, rank: p.draft.rank || 0, byUser: tid === u && u >= 0 };
+    p.draft = { year: d.year, round: slot.round, pick: slot.pick, overall: slot.overall, tid, rank: p.draft.rank || 0, byUser: tid === u && u >= 0, ovr0: p.ovr };
     p.rookieSeason = S.season + 1;
     p.yearsPro = 0;
     p.morale = 76;
@@ -378,8 +381,9 @@
     const avgStr = d ? d.avgStr : 75;
     const rebuild = PBC.League.teamStrength(S, tid) < avgStr - 1;
     const wPot = rebuild ? 0.62 : 0.54;
+    const noise = PBC.Office && PBC.Office.draftNoise ? PBC.Office.draftNoise(S, tid) : 1;   // (the scouting department)
     return U.maxBy(avail.slice(0, 30), p => (1 - wPot) * p.ovr + wPot * p.pot - Math.max(0, p.age - 20) * 0.6
-      + (counts[p.pos] ? 0 : 1.2) - ((counts[p.pos] || 0) >= 3 ? 0.8 : 0) + U.gauss(0, 1.6));
+      + (counts[p.pos] ? 0 : 1.2) - ((counts[p.pos] || 0) >= 3 ? 0.8 : 0) + U.gauss(0, 1.6 * noise));
   };
 
   /** The user's auto-pick: best available by what the user's scouts know. */

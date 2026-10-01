@@ -158,7 +158,9 @@
     const reqs = roster.filter(p => p.tradeReq).length;
     let pers = 0;
     for (const p of top) pers += PERS_CHEM[PBC.Persona ? PBC.Persona.of(p) : ''] || 0;
-    return U.clamp(50 + (mor - 68) * 0.8 + (wp - 0.5) * Math.min(26, gp * 4) + (cont - 0.5) * 14 - reqs * 6 + pers, 8, 92);
+    // (the bench: a motivator's room holds together better, js/core/staff.js)
+    const bench = PBC.Staff && PBC.Staff.edge ? PBC.Staff.edge(S, tid).chem : 0;
+    return U.clamp(50 + (mor - 68) * 0.8 + (wp - 0.5) * Math.min(26, gp * 4) + (cont - 0.5) * 14 - reqs * 6 + pers + bench, 8, 92);
   }
   Desk.chemTarget = chemTarget;
   /** a team's chemistry 0-100 (its room plus the bond your decisions built) */
@@ -166,7 +168,9 @@
     const D = S.desk;
     if (!D || !D.chem) return 50;
     const base = D.chem[tid] == null ? 50 : D.chem[tid];
-    return U.clamp(base + ((D.bond && D.bond[tid]) || 0), 0, 100);
+    const v = U.clamp(base + ((D.bond && D.bond[tid]) || 0), 0, 100);
+    // (Motivator, mastered: Culture, your room never sinks below 45)
+    return PBC.Coach && PBC.Coach.skillFor && PBC.Coach.skillFor(S, tid, 'mot') >= 5 ? Math.max(45, v) : v;
   };
   Desk.chemLabel = c => (c >= 80 ? 'Brothers in arms' : c >= 66 ? 'Tight-knit' : c >= 54 ? 'Good' : c >= 44 ? 'Fine' : c >= 32 ? 'Strained' : c >= 20 ? 'Fractured' : 'Toxic');
   /** the league's centres (rotation morale, chemistry), so the on-court nudge keeps the league average where it was */
@@ -207,7 +211,12 @@
   // ---------------------------------------------------------------------------
   const fx = Desk.fx = {
     /** morale (scaled by the Morale Sensitivity setting) */
-    mor(S, p, d) { if (!p || !d) return; p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) + d * moraleSens(S), 5, 100)); },
+    mor(S, p, d) {
+      if (!p || !d) return;
+      // (Motivator: your players take the hard calls a little better)
+      if (d < 0 && PBC.Coach && PBC.Coach.skillFor) d *= 1 - 0.06 * PBC.Coach.skillFor(S, p.tid, 'mot');
+      p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) + d * moraleSens(S), 5, 100));
+    },
     /** every player on a team */
     morTeam(S, tid, d, except) { for (const p of PBC.League.roster(S, tid)) if (!except || !except.includes(p)) fx.mor(S, p, d); },
     /** the bond in a room (team chemistry on top of its room, fading over weeks) */
@@ -217,6 +226,8 @@
       const c = S.coach;
       if (!c || !d) return;
       const D = Desk.ensure(S);
+      // (Media Savvy: the owner gives you the benefit of the doubt)
+      if (d < 0 && PBC.Coach && PBC.Coach.skill) d *= 1 - 0.05 * PBC.Coach.skill(S, 'med');
       const acc = D.own && D.own.season === S.season ? D.own : (D.own = { season: S.season, v: 0 });
       const k = Math.sign(d) === Math.sign(acc.v) ? Math.max(0.25, 1 - Math.abs(acc.v) / Desk.OWN_SOFT) : 1;
       const dd = Math.sign(d) * Math.max(1, Math.round(Math.abs(d) * k));
@@ -226,7 +237,13 @@
     /** the fans (team.hype) */
     fans(S, tid, d) { const t = S.teams[tid]; if (!t || !d) return; t.hype = Math.round(U.clamp((t.hype == null ? 50 : t.hype) + d, 0, 100)); },
     /** your standing with the media */
-    media(S, d) { const D = Desk.ensure(S); if (!d) return; D.media = Math.round(U.clamp(D.media + d, 0, 100)); },
+    media(S, d) {
+      const D = Desk.ensure(S);
+      if (!d) return;
+      // (Media Savvy, level 3: Spin, bad press costs half as much)
+      if (d < 0 && PBC.Coach && PBC.Coach.skill && PBC.Coach.skill(S, 'med') >= 3) d *= 0.5;
+      D.media = Math.round(U.clamp(D.media + d, 0, 100));
+    },
     /** confidence carried into his next games (the engine's p.conf) */
     conf(p, d) { if (!p || !d) return; p.conf = U.round(U.clamp((+p.conf || 0) + d, -0.3, 0.3), 3); },
     /** development: training points toward ratings (1 = a full point) */
@@ -241,7 +258,7 @@
       Desk.follow(S, games || 10, 'promise_check', Object.assign({ pid: p.id, type, min: min || 0 }, base));
     },
     /** your word with players (S.fo: kept and broken promises; free agents read it) */
-    credit(S, kept) { const fo = S.fo || (S.fo = { kept: 0, broken: 0 }); if (kept) fo.kept++; else fo.broken++; },
+    credit(S, kept) { const fo = S.fo || (S.fo = { kept: 0, broken: 0 }); if (kept) fo.kept++; else fo.broken++; if (fo.kept >= 10 && PBC.Coach) PBC.Coach.unlock(S, 'word_10'); },
     news(S, text, type, tid) { if (PBC.Season) PBC.Season.news(S, text, type || 'desk', tid != null ? tid : Desk.userTid(S)); },
   };
 
@@ -427,6 +444,10 @@
     res.fx = it.fx = delta(before, snap(S));
     it.done = true; it.pick = k; it.out = res.text || ''; it.seen = true; it.doneTick = D.tick;
     if (opts && opts.auto) it.auto = true;
+    else if (it.kind !== 'message') {
+      D.answered = (D.answered || 0) + 1;
+      if (PBC.Coach) { if (D.answered >= 100) PBC.Coach.unlock(S, 'desk_100'); if (D.answered >= 500) PBC.Coach.unlock(S, 'desk_500'); }
+    }
     // done: the hints were for deciding (save size)
     for (const o of it.opts) delete o.hint;
     D.log.unshift({ s: S.season, d: S.day, t: it.t, k, a: it.auto ? 1 : 0 });
@@ -491,8 +512,12 @@
     const D = Desk.ensure(S);
     chemWeek(S, D);
     fansWeek(S);
-    D.media = Math.round(D.media + (50 - D.media) * 0.05);
+    // (the press settles where your Media Savvy puts it)
+    const mHome = 50 + 4 * (PBC.Coach && PBC.Coach.skill ? PBC.Coach.skill(S, 'med') : 0);
+    D.media = Math.round(D.media + (mHome - D.media) * 0.05);
     if (!Desk.active(S)) return;
+    const u = Desk.userTid(S);
+    if (PBC.Coach && u >= 0) { if (Desk.chem(S, u) >= 90) PBC.Coach.unlock(S, 'chem_90'); if (D.media >= 85) PBC.Coach.unlock(S, 'media_darling'); }
     all(S, 'week');
   };
   /** after each of your games (Season.completeGame) */
@@ -555,7 +580,8 @@
       const gp = r.w + r.l;
       if (!gp) continue;
       const best = PBC.League.roster(S, t.id)[0];
-      const target = U.clamp(46 + (r.w / gp - 0.5) * 70 + (best ? (best.ovr - 80) * 0.8 : 0) + ((t.market || 3) - 3) * 3, 5, 95);
+      const arena = PBC.Office && PBC.Office.fanBonus ? PBC.Office.fanBonus(S, t.id) : 0;
+      const target = U.clamp(46 + (r.w / gp - 0.5) * 70 + (best ? (best.ovr - 80) * 0.8 : 0) + ((t.market || 3) - 3) * 3 + arena, 5, 95);
       const h = t.hype == null ? 50 : t.hype;
       t.hype = Math.round(U.clamp(h + (target - h) * 0.12, 0, 100));
     }

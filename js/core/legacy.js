@@ -144,6 +144,7 @@
           first: S.season - p.retired.season === L.WAIT, years: x.years, honors: x.h,
           line: { gp: x.c.gp, pts: x.c.pts, reb: x.c.reb, ast: x.c.ast, ppg: x.c.gp ? U.round(x.c.pts / x.c.gp, 1) : 0, rpg: x.c.gp ? U.round(x.c.reb / x.c.gp, 1) : 0, apg: x.c.gp ? U.round(x.c.ast / x.c.gp, 1) : 0 } };
         g.hof.push(e); out.push(e);
+        if (PBC.Coach && PBC.Coach.seasonsCoached && PBC.Coach.seasonsCoached(S, p) >= 5) PBC.Coach.unlock(S, 'hof_player');
       } else {
         const c = k.c;
         const team = U.maxBy(U.uniq(c.seasons.map(s => s.tid)), tid => c.seasons.filter(s => s.tid === tid).length);
@@ -180,6 +181,7 @@
         out.push(Object.assign({ tid }, e));
         if (PBC.Media && PBC.Media.offseason) PBC.Media.offseason(S, 'number', { tid, pid: p.id, pri: tid === S.userTid ? 4 : 3, data: { num, seasons, score: sc } });
         if (PBC.Season) PBC.Season.news(S, `👕 The ${S.teams[tid].city} ${S.teams[tid].name} will retire No. ${num} for ${PBC.Player.name(p)}.`, 'award', tid);
+        if (tid === S.userTid && PBC.Coach && PBC.Coach.seasonsCoached(S, p) >= 5) PBC.Coach.unlock(S, 'number_retired');
       }
     }
     return out;

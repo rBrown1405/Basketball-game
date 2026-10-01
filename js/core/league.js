@@ -523,11 +523,13 @@
     const s = P.series.find(y => y.id === g.series);
     s.games.push(g.gid);
     s.w[winner === s.hi ? 0 : 1]++;
+    (s.path = s.path || []).push(winner === s.hi ? 0 : 1);
     const need = Math.ceil(s.len / 2);
     if (s.w[0] >= need || s.w[1] >= need) {
       s.done = true;
       s.winner = s.w[0] >= need ? s.hi : s.lo;
       s.loser = s.winner === s.hi ? s.lo : s.hi;
+      if (PBC.Rivals) PBC.Rivals.series(S, s);
     }
     League.advanceBracket(S);
   };

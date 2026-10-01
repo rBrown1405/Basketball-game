@@ -120,6 +120,9 @@ Built: `docs/LEGACY_NOTES.md`.
 - Your coach grows: skill points from achievements and seasons, spent on development, motivation, tactics, recruiting
   and media; 50+ achievements.
 
+Built: `docs/LONG_GAME_NOTES.md` (the trade deadline, the lottery, draft night, awards night and Hall of Fame night were
+already written up by the Media and the Legacy; the All-Star weekend is new).
+
 ## Phase 5: Pace and polish
 
 - A calendar with the key dates, the weekly digest, a season documentary recap, tips for new careers.

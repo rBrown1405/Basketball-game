@@ -43,7 +43,15 @@
 
   /** Presentation stakes of a scheduled game: playoff round, series score, elimination, Game 7. */
   UI.gameStakes = function (S, sg) {
-    const out = { playoff: !!(sg && sg.playoff), playIn: !!(sg && sg.playIn), level: 0, round: 0, roundName: '', gameNum: 0, len: 0, seriesW: [0, 0], elimination: false, decisive: false, game7: false, clinch: [false, false], label: '', short: '' };
+    const out = { playoff: !!(sg && sg.playoff), playIn: !!(sg && sg.playIn), level: 0, round: 0, roundName: '', gameNum: 0, len: 0, seriesW: [0, 0], elimination: false, decisive: false, game7: false, clinch: [false, false], label: '', short: '', rivalry: null };
+    // a rivalry (js/core/rivals.js): the building knows
+    const rv = sg && PBC.Rivals ? PBC.Rivals.level(S, sg.h, sg.a) : null;
+    if (rv) out.rivalry = rv;
+    if (rv && !sg.playoff) {
+      out.level = 0.12 * rv.lvl;
+      out.label = `${rv.label.toUpperCase()} ${rv.icon}`;
+      out.short = rv.label.toUpperCase();
+    }
     if (!sg || !sg.playoff || !S.playoffs) return out;
     const P = S.playoffs, L = PBC.League.cfg(S);
     if (sg.playIn) {
@@ -143,7 +151,8 @@
       const vs = viewSettings(S);
       root.innerHTML = `<div class="page pregame ${stakes.playoff ? 'po-pregame' : ''}">
         <div class="hero"><div class="hero-in">
-          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game${arenaName(home ? me : opp) ? ' · ' + U.esc(arenaName(home ? me : opp)) : ''}</span><div class="spacer"></div>${series ? `<span class="tag gold">${U.esc(series)}</span>` : ''}</div>
+          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game${arenaName(home ? me : opp) ? ' · ' + U.esc(arenaName(home ? me : opp)) : ''}</span><div class="spacer"></div>${stakes.rivalry ? `<span class="tag bad" title="Rivalry heat ${stakes.rivalry.heat}">${stakes.rivalry.icon} ${U.esc(stakes.rivalry.label)}</span>` : ''}${series ? `<span class="tag gold">${U.esc(series)}</span>` : ''}</div>
+          ${stakes.rivalry ? (() => { const h = PBC.Rivals.h2h(S, me.id, opp.id); const hl = PBC.Rivals.historyLine(S, me.id, opp.id); return `<div class="small muted" style="margin-top:6px">Against the ${U.esc(opp.name)}: ${h[0]}-${h[1]} in the regular season since your league began.${hl ? ' ' + U.esc(hl) : ''}</div>`; })() : ''}
           ${stakes.elimination ? `<div class="po-stakes">${stakes.game7 ? '🔥 GAME 7. WINNER TAKES ALL.' : stakes.clinch[home ? 0 : 1] && stakes.clinch[home ? 1 : 0] ? '🔥 DECIDING GAME' : stakes.clinch[home ? 1 : 0] ? '⚠️ ELIMINATION GAME: lose and your season is over' : '🏆 CLOSEOUT GAME: win and you advance'}</div>` : ''}
           <div class="vs-card" style="margin:14px 0">
             <div class="vs-team">${UI.teamBadge(home ? opp : me, 92)}<div class="nm">${U.esc((home ? opp : me).city)}<br>${U.esc((home ? opp : me).name)}</div><div class="small muted">${st[(home ? opp : me).id].w}-${st[(home ? opp : me).id].l} · ${pg((home ? opp : me).id, 'pts')} ppg</div></div>

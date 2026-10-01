@@ -170,7 +170,8 @@
       }).join('')}</tbody></table></div>`;
   }
 
-  const AWARD_LABEL = { mvp: '🏆 MVP', dpoy: '🛡️ Defensive Player of the Year', roy: '🌱 Rookie of the Year', smoy: '🪑 Sixth Player of the Year', mip: '📈 Most Improved Player', fmvp: '🏅 Finals MVP', allLeague: 'All-League', allDefense: 'All-Defensive', allRookie: 'All-Rookie Team', allStar: '🌟 All-Star', champion: '💍 Champion', potw: 'Player of the Week' };
+  const AWARD_LABEL = { mvp: '🏆 MVP', dpoy: '🛡️ Defensive Player of the Year', roy: '🌱 Rookie of the Year', smoy: '🪑 Sixth Player of the Year', mip: '📈 Most Improved Player', fmvp: '🏅 Finals MVP', allLeague: 'All-League', allDefense: 'All-Defensive', allRookie: 'All-Rookie Team', allStar: '🌟 All-Star', champion: '💍 Champion', potw: 'Player of the Week',
+    asgMvp: '⭐ All-Star Game MVP', threeChamp: '🎯 Three-Point Contest champion', dunkChamp: '🚀 Dunk Contest champion', skillsChamp: '⚡ Skills Challenge champion' };
   UI.AWARD_LABEL = AWARD_LABEL;
   function awardsHtml(S, p) {
     if (!p.awards.length) return '<div class="empty">No awards yet.</div>';

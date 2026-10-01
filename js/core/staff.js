@@ -154,6 +154,12 @@
       if (P) for (const x of P.series) if (x.hi === t.id || x.lo === t.id) { const mine = x.hi === t.id ? 0 : 1; pw += x.w[mine]; pl += x.w[1 - mine]; }
       const coy = aw.coyTid === t.id;
       c.seasons.push({ season: S.season, tid: t.id, w: r.w, l: r.l, result: res.label, champ: !!res.champ, coy, pw, pl });
+      // the coach's rating follows the work: beating the projection (or a title) lifts it, missing it and age wear it down
+      const exp = S.preseasonProj && S.preseasonProj[t.id] != null ? S.preseasonProj[t.id] : 0.5;
+      const pct = r.gp ? r.w / r.gp : 0.5;
+      const dr = U.clamp((pct - exp) * 25, -3, 3) + (res.champ ? 2 : 0) + (coy ? 1 : 0) - (c.age >= 66 ? 1 : 0);
+      c.rating = Math.round(U.clamp(c.rating + dr, 35, 95));
+      t.coachRating = c.rating;
       if (c.seasons.length > 40) c.seasons.shift();
       c.tot.w += r.w; c.tot.l += r.l; c.tot.pw += pw; c.tot.pl += pl; c.tot.seasons++;
       if (res.champ) c.tot.titles++;
@@ -189,6 +195,7 @@
       if (last2.length === 2 && last2.every(x => x.w < x.l)) heat += 18;
       if (c.seasons.some(x => x.tid === t.id && x.champ && S.season - x.season <= 3)) heat -= 40;
       if (c.contract <= 0) heat += 12;
+      if (PBC.Office) heat += PBC.Office.heat(S, t.id, pct, R);
       // (about five to eight changes a summer across the league, as in the real one)
       const fire = heat > 18 ? R() < U.clamp((heat - 18) / 32, 0.15, 0.9) : false;
       const retire = c.age >= 70 || (c.age >= 64 && R() < (c.age - 62) * 0.08);
@@ -258,5 +265,75 @@
     const g = tot.w + tot.l;
     const pct = g ? tot.w / g : 0;
     return tot.titles * 10 + tot.finals * 3 + tot.coy * 4 + tot.w * 0.025 + tot.pw * 0.12 + (g >= 246 ? (pct - 0.5) * 40 : 0);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Coaching that matters: every bench gives its team small edges, centred on the league's AI benches so the league's
+  // numbers stay where they were. A good coach's team shoots a little better or defends a little better (by style),
+  // keeps a better room, and grows its players a little more; a poor one the other way. Your own coach's edges come
+  // from the skills you learned (PBC.Coach.SKILLS).
+  // ---------------------------------------------------------------------------
+  // per style: [offense, defense, chemistry, development] weights on the coach's quality
+  const STYLE_W = {
+    offense: [1.6, 0.5, 0.6, 0.5], defense: [0.5, 1.6, 0.6, 0.5], development: [0.6, 0.6, 0.6, 1.8],
+    motivator: [0.8, 0.8, 1.8, 0.6], tactician: [1.15, 1.15, 0.6, 0.5],
+  };
+  Staff.STYLE_W = STYLE_W;
+  // a coach 30 rating points above 62, before the style's weight: shooting (logit, each end), chemistry points, rating
+  // points a summer for a young player
+  Staff.EDGE = { mid: 62, span: 30, shot: 0.008, chem: 4, dev: 0.3 };
+  // the user's: per skill level
+  Staff.USER_EDGE = { shot: 0.0025, chem: 1.5, dev: 0.12 };
+  function rawEdge(S, tid) {
+    const u = userTid(S);
+    if (tid === u && S.coach && PBC.Coach && PBC.Coach.skill) {
+      const k = PBC.Coach.skill, E = Staff.USER_EDGE;
+      return { off: E.shot * k(S, 'tac'), def: E.shot * k(S, 'tac'), chem: E.chem * k(S, 'mot'), dev: E.dev * k(S, 'dev'), user: true };
+    }
+    const t = S.teams[tid];
+    const c = t && t.coachId != null && S.coaches ? S.coaches.list[t.coachId] : null;
+    const rating = c ? c.rating : (t && t.coachRating != null ? t.coachRating : Staff.EDGE.mid);
+    const q = (rating - Staff.EDGE.mid) / Staff.EDGE.span;
+    const w = (c && STYLE_W[c.style]) || [1, 1, 1, 1];
+    return { off: q * w[0] * Staff.EDGE.shot, def: q * w[1] * Staff.EDGE.shot, chem: q * w[2] * Staff.EDGE.chem, dev: q * w[3] * Staff.EDGE.dev, user: false };
+  }
+  let edgeCache = null;
+  /** every team's edges { off, def, chem, dev } (centred on the AI benches), by tid; cached per day */
+  Staff.edges = function (S) {
+    const sk = S.coach && S.coach.skills ? Object.values(S.coach.skills).join('') : '';
+    const key = `${S.season}:${S.day}:${S.phase}:${S.coaches ? S.coaches.seq : 0}:${userTid(S)}:${sk}`;
+    if (edgeCache && edgeCache.S === S && edgeCache.key === key) return edgeCache.map;
+    const raw = S.teams.map(t => rawEdge(S, t.id));
+    const ai = raw.filter(r => !r.user);
+    const m = {};
+    for (const k of ['off', 'def', 'chem', 'dev']) m[k] = ai.length ? U.avg(ai, r => r[k]) : 0;
+    const map = {};
+    S.teams.forEach((t, i) => { const r = raw[i]; map[t.id] = { off: r.off - m.off, def: r.def - m.def, chem: r.chem - m.chem, dev: r.dev - m.dev, user: r.user }; });
+    edgeCache = { S, key, map };
+    return map;
+  };
+  const ZERO = { off: 0, def: 0, chem: 0, dev: 0, user: false };
+  Staff.edge = (S, tid) => (S && S.teams && S.teams[tid] ? Staff.edges(S)[tid] || ZERO : ZERO);
+  /** the shooting edges for a game (Sim.createGame): { off, def } in logit; tacticians (and your Tactician perks) find
+   *  more in the playoffs */
+  Staff.gameEdge = function (S, tid, playoff) {
+    const e = Staff.edge(S, tid);
+    let k = 1;
+    if (playoff) {
+      if (e.user) { const L = PBC.Coach ? PBC.Coach.skill(S, 'tac') : 0; k = L >= 5 ? 2 : L >= 3 ? 1.5 : 1; }
+      else { const c = Staff.of(S, tid).c; if (c && c.style === 'tactician') k = 1.3; }
+    }
+    return { off: e.off * k, def: e.def * k };
+  };
+  /** a summer of growth from the bench (Off.develop's extra, rating points): the edge, weighted by age (young players
+   *  most; with your Late bloomers perk, players up to 29 too), plus the team's training center (PBC.Office) */
+  Staff.devBonus = function (S, p) {
+    if (!p || p.tid < 0 || !S.teams[p.tid]) return 0;
+    const e = Staff.edge(S, p.tid);
+    const late = e.user && PBC.Coach && PBC.Coach.skill(S, 'dev') >= 3;
+    const a = p.age;
+    const w = a <= 22 ? 1.2 : a <= 24 ? 1 : a <= 26 ? 0.8 : a <= 29 ? (late ? 0.6 : 0.3) : 0.15;
+    const fac = PBC.Office && PBC.Office.devBonus ? PBC.Office.devBonus(S, p.tid) : 0;
+    return U.round((e.dev + fac) * w, 3);
   };
 })();
