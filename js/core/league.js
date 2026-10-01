@@ -74,7 +74,7 @@
       season: opts.season || 2026, phase: 'preseason', day: 0, numDays: 0,
       teams: [], players: {}, nextPid: 1, schedule: [], nextGid: 1, boxes: {}, playoffs: null,
       draftPicks: [], userTid: -1, coach: null, news: [], history: [], records: null,
-      settings: { gimEnabled: true, autoPractice: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast' },
+      settings: { gimEnabled: true, autoPractice: false, staffAdjust: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast' },
       practice: null, teamSeason: {}, flags: {},
     };
     S.teams = L.teamsList.map((def, i) => makeTeam(def, i));
@@ -137,6 +137,7 @@
     S.boxes = {};
     S.teamSeason = {};
     for (const t of S.teams) S.teamSeason[t.id] = PBC.Stats.emptyTeamSeason();
+    S.playStats = { season: S.season, rs: {}, po: {} }; // plays and defensive schemes this season (js/core/playstats.js)
     League.makeSchedule(S);
     PBC.Draft && PBC.Draft.ensureClass ? PBC.Draft.ensureClass(S) : League.generateDraftClass(S);
     S.practice = { week: -1, done: false, log: [] };
@@ -522,11 +523,13 @@
     const s = P.series.find(y => y.id === g.series);
     s.games.push(g.gid);
     s.w[winner === s.hi ? 0 : 1]++;
+    (s.path = s.path || []).push(winner === s.hi ? 0 : 1);
     const need = Math.ceil(s.len / 2);
     if (s.w[0] >= need || s.w[1] >= need) {
       s.done = true;
       s.winner = s.w[0] >= need ? s.hi : s.lo;
       s.loser = s.winner === s.hi ? s.lo : s.hi;
+      if (PBC.Rivals) PBC.Rivals.series(S, s);
     }
     League.advanceBracket(S);
   };

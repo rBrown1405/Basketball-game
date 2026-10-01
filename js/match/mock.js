@@ -31,6 +31,8 @@
         id: info.abbr + '-' + i, teamIdx: info.idx,
         first: pick(women ? FIRST_F : FIRST_M), last: pick(LAST), num, pos,
         height: h, weight: Math.round((women ? 120 : 150) + (h - (women ? 60 : 66)) * (women ? 4.3 : 5.2) + rnd() * 25),
+        // wingspan: the league average over height, +-2 in (from the jersey and slot, so the random sequence is unchanged)
+        wing: h + (women ? 2 : 3.5) + ((num * 7 + i * 3) % 5) - 2,
         hand: (i === 1 || i === 7) ? 'L' : 'R', gender: women ? 'f' : 'm',
         look: {
           skin, hair: pick(women ? HAIR_F : HAIR_M), hairColor: skin < 2 && rnd() < 0.4 ? pick(['#8a5a2e', '#c7a064', '#3d2a1a']) : pick(HAIRC.slice(0, 5)),

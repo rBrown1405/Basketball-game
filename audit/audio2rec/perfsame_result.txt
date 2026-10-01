@@ -1,0 +1,14 @@
+The same seeded game (seed 21, 6 possessions) with the audio on and off, each frame's real work timed; 2 rounds, on and off alternating
+
+speed  audio  round  frames   mean ms  p50    p95    p99    max    frames over 16.7 ms  sounds
+1x     on     1        9066    30.06   30.0   38.9   46.6  138.1                 9066  958
+1x     off    1        9066    29.19   29.1   38.2   44.9  133.8                 9066  0
+1x     on     2        9066    31.13   30.9   41.7   48.4  121.4                 9066  957
+1x     off    2        9066    30.99   30.6   41.3   48.6   91.7                 9066  0
+4x     on     1        2219    38.36   37.7   51.1   58.4  158.8                 2219  283
+4x     off    1        2219    37.42   36.7   47.8   56.9  205.3                 2219  0
+4x     on     2        2219    38.56   37.9   48.8   57.3  143.6                 2219  275
+4x     off    2        2219    38.39   37.5   50.8   59.9  169.1                 2219  0
+
+1x: audio on minus off (average of the rounds): mean 0.51 ms, p95 0.55 ms, p99 0.75 ms, frames over 16.7 ms 0; round-to-round spread with the same setting: mean 1.81 ms, p95 3.10 ms, p99 3.70 ms
+4x: audio on minus off (average of the rounds): mean 0.56 ms, p95 0.65 ms, p99 -0.55 ms, frames over 16.7 ms 0; round-to-round spread with the same setting: mean 0.97 ms, p95 3.00 ms, p99 3.00 ms

@@ -34,8 +34,11 @@
     const status = p.tid === -1 ? '<span class="tag info">Free agent</span>' : p.tid === -2 ? '<span class="tag accent">Draft prospect</span>' : p.tid === -3 ? '<span class="tag">Retired</span>' : '';
     const draft = p.draft && p.draft.round ? `${p.draft.year} draft · Rd ${p.draft.round}, Pick ${p.draft.pick}${S.teams[p.draft.tid] ? ' (' + S.teams[p.draft.tid].abbr + ')' : ''}` : p.tid === -2 ? `${p.draft ? p.draft.year : S.season + 1} draft prospect` : 'Undrafted';
     const yrsLeft = p.contract ? Math.max(0, p.contract.exp - S.season + (S.phase === 'regular' || S.phase === 'preseason' || S.phase === 'playin' || S.phase === 'playoffs' ? 1 : 0)) : 0;
-    const contract = p.contract && p.tid >= 0 ? `${U.money(p.contract.amt)}/yr · ${yrsLeft} yr${yrsLeft === 1 ? '' : 's'} left${p.contract.rookie ? ' · rookie deal' : ''}` : p.tid === -1 ? `Asking ~${U.money(PBC.Player.marketValue(p, L))}` : '—';
-    const strengths = PBC.Player.strengths(p), weaks = PBC.Player.weaknesses(p);
+    const contract = p.contract && p.tid >= 0 ? `${U.money(p.contract.amt)}/yr · ${yrsLeft} yr${yrsLeft === 1 ? '' : 's'} left${p.contract.rookie ? ' · rookie deal' : ''}` : p.tid === -1 ? `Asking ~${U.money(PBC.Player.marketValue(p, L))}` : '-';
+    // a draft prospect is seen through the scouting fog: an OVR estimate, and strengths only once they are scouted
+    const fog = p.tid === -2 && PBC.Draft && PBC.Draft.view ? PBC.Draft.view(S, p) : null;
+    const strengths = fog ? (fog.strengths || []) : PBC.Player.strengths(p), weaks = fog ? (fog.weaknesses || []) : PBC.Player.weaknesses(p);
+    const ovrBlock = fog && fog.ovr.err ? `<span class="ovr ${UI.ovrTier(fog.ovr.est)} lg" title="Scouted estimate: ${fog.ovrLabel}">~${fog.ovr.est}</span><div class="tiny dim">${fog.ovrLabel}</div>` : UI.ovr(p.ovr, 'lg');
     const ptype = PBC.Persona ? PBC.Persona.TYPES[PBC.Persona.of(p)] : null;
     const req = p.tradeReq && p.tid >= 0 ? p.tradeReq : null;
     const body = UI.h(`<div>
@@ -50,11 +53,11 @@
             ${p.injury ? `<span class="tag bad">🚑 ${U.esc(PBC.Player.injuryLabel(p.injury))}</span>` : ''}
             ${req ? `<span class="tag warn" title="${U.esc(PBC.Player.name(p) + ' ' + (req.text || 'wants out'))}">📣 Trade request</span>` : ''}</div>
         </div>
-        <div class="center"><div class="tiny dim up">OVR</div>${UI.ovr(p.ovr, 'lg')}<div class="tiny dim up" style="margin-top:6px">POT</div><div class="bold">${UI.potLabel(p)}</div></div>
+        <div class="center"><div class="tiny dim up">OVR</div>${ovrBlock}<div class="tiny dim up" style="margin-top:6px">POT</div><div class="bold">${UI.potLabel(p)}</div></div>
       </div>
       <div class="kv" style="margin:14px 0 10px;grid-template-columns:auto 1fr auto 1fr">
         <span>Contract</span><span>${contract}</span><span>Draft</span><span>${draft}</span>
-        ${mine ? `<span>Morale</span><span>${p.morale != null ? p.morale : 70}/100</span><span>Promise</span><span>${p.promise ? U.esc(p.promise.type === 'starter' ? 'Starting role' : p.promise.min + '+ minutes') : '—'}</span>` : ''}
+        ${mine ? `<span>Morale</span><span>${p.morale != null ? p.morale : 70}/100</span><span>Promise</span><span>${p.promise ? U.esc(p.promise.type === 'starter' ? 'Starting role' : p.promise.min + '+ minutes') : '-'}</span>` : ''}
       </div>
       <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button>${PBC.Tendency ? '<button class="tab" data-t="tend">Tendencies</button>' : ''}<button class="tab" data-t="stats">Stats</button>
         ${mine ? '<button class="tab" data-t="log">Game Log</button>' : ''}<button class="tab" data-t="awards">Awards</button><button class="tab" data-t="prog">Progression</button></div>
@@ -127,7 +130,7 @@
       if (!prospect || err <= 1) return UI.ratingBar(r.label, p.r[r.key]);
       const noise = ((U.hash(p.id + r.key) % 100) / 100 - 0.5) * err;
       const v = Math.round(U.clamp(p.r[r.key] + noise, 25, 99));
-      return `<div class="rbar"><span class="lab">${r.label}</span><span class="val">${Math.max(25, v - err)}–${Math.min(99, v + err)}</span><div class="meter"><div class="meter-fill" style="width:${v}%;opacity:.6"></div></div></div>`;
+      return `<div class="rbar range"><span class="lab">${r.label}</span><span class="val">${Math.max(25, v - err)}-${Math.min(99, v + err)}</span><div class="meter"><div class="meter-fill" style="width:${v}%;opacity:.6"></div></div></div>`;
     }).join('')}</div>`).join('')}</div>${prospect ? `<p class="small muted">Scouting knowledge: ${known}%. Scout this prospect to narrow the ranges.</p>` : ''}`;
   }
 
@@ -170,7 +173,8 @@
       }).join('')}</tbody></table></div>`;
   }
 
-  const AWARD_LABEL = { mvp: '🏆 MVP', dpoy: '🛡️ Defensive Player of the Year', roy: '🌱 Rookie of the Year', smoy: '🪑 Sixth Player of the Year', mip: '📈 Most Improved Player', fmvp: '🏅 Finals MVP', allLeague: 'All-League', allDefense: 'All-Defensive', allRookie: 'All-Rookie Team', allStar: '🌟 All-Star', champion: '💍 Champion', potw: 'Player of the Week' };
+  const AWARD_LABEL = { mvp: '🏆 MVP', dpoy: '🛡️ Defensive Player of the Year', roy: '🌱 Rookie of the Year', smoy: '🪑 Sixth Player of the Year', mip: '📈 Most Improved Player', fmvp: '🏅 Finals MVP', allLeague: 'All-League', allDefense: 'All-Defensive', allRookie: 'All-Rookie Team', allStar: '🌟 All-Star', champion: '💍 Champion', potw: 'Player of the Week',
+    asgMvp: '⭐ All-Star Game MVP', threeChamp: '🎯 Three-Point Contest champion', dunkChamp: '🚀 Dunk Contest champion', skillsChamp: '⚡ Skills Challenge champion' };
   UI.AWARD_LABEL = AWARD_LABEL;
   function awardsHtml(S, p) {
     if (!p.awards.length) return '<div class="empty">No awards yet.</div>';
@@ -213,15 +217,20 @@
           <td class="num">${T.fgm}-${T.fga} <span class="dim">${U.pct3(T.fgm, T.fga)}</span></td><td class="num">${T.tpm}-${T.tpa}</td><td class="num">${T.ftm}-${T.fta}</td><td class="num">${T.pf}</td><td></td></tr>
         </tbody></table></div></div>`;
     };
-    return `<div class="box-score-h">
+    // (tabs: the box score, and the plays each team ran: js/ui/playstats.js)
+    const plays = !!(box.plays && UI.boxPlaysHtml);
+    const tab = plays && UI._bxTab === 'plays' ? 'plays' : 'box';
+    return `<div class="bx"><div class="box-score-h">
         <div class="vs-team">${UI.teamBadge(th[1], 58)}<div class="nm">${U.esc(th[1].name)}</div></div>
         <div class="center"><div class="sc">${box.as} <span class="dim">–</span> ${box.hs}</div><div class="small muted up">${box.final === false ? 'Live' : 'Final'}${box.ot ? ' / ' + (box.ot > 1 ? box.ot : '') + 'OT' : ''}${box.playoff ? ' · Playoffs' : ''}</div></div>
         <div class="vs-team">${UI.teamBadge(th[0], 58)}<div class="nm">${U.esc(th[0].name)}</div></div>
       </div>
       <table class="tbl compact qtbl" style="margin-top:14px"><thead><tr><th style="text-align:left">Team</th>${qHead}<th>T</th></tr></thead><tbody>
         ${[1, 0].map(i => `<tr><td style="text-align:left" class="bold">${th[i].abbr}</td>${Array.from({ length: periods }, (_, q) => `<td>${box.q[i][q] != null ? box.q[i][q] : '-'}</td>`).join('')}<td class="bold">${i ? box.as : box.hs}</td></tr>`).join('')}</tbody></table>
-      ${teamTable(box.teams[1], 1)}${teamTable(box.teams[0], 0)}
-      ${box.pbp && box.pbp.length && !opts.noPbp ? `<div class="card flat" style="margin-top:12px"><div class="card-h"><h3>Play-by-play</h3></div><div class="pbp-list">${UI.pbpHtml(S, box.pbp.slice().reverse(), box)}</div></div>` : ''}`;
+      ${plays ? `<div class="tabs bx-tabs" style="margin-top:12px"><button class="tab ${tab === 'box' ? 'active' : ''}" data-bx-tab="box">Box score</button><button class="tab ${tab === 'plays' ? 'active' : ''}" data-bx-tab="plays">Plays</button></div>` : ''}
+      <div data-bx-panel="box" ${tab === 'box' ? '' : 'hidden'}>${teamTable(box.teams[1], 1)}${teamTable(box.teams[0], 0)}
+      ${box.pbp && box.pbp.length && !opts.noPbp ? `<div class="card flat" style="margin-top:12px"><div class="card-h"><h3>Play-by-play</h3></div><div class="pbp-list">${UI.pbpHtml(S, box.pbp.slice().reverse(), box)}</div></div>` : ''}</div>
+      ${plays ? `<div data-bx-panel="plays" ${tab === 'plays' ? '' : 'hidden'}>${UI.boxPlaysHtml(S, box)}</div>` : ''}</div>`;
   };
 
   UI.pbpHtml = function (S, lines, box) {
@@ -268,6 +277,7 @@
           <div class="stack">
             <div class="card"><div class="card-h"><h3>Franchise history</h3></div><div class="card-b flush">${t.history.length ? `<table class="tbl compact"><thead><tr><th>Season</th><th class="num">W-L</th><th>Result</th></tr></thead><tbody>
               ${t.history.slice().reverse().map(h => `<tr><td>${U.seasonLabel(h.season)}</td><td class="num">${h.w}-${h.l}</td><td>${h.champ ? '🏆 ' : ''}${U.esc(h.result)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">History begins after this season.</div>'}</div></div>
+            ${UI.teamPlaysCardHtml ? UI.teamPlaysCardHtml(S, tid) : ''}
             ${franchiseRecordsHtml(S, tid)}
           </div>
         </div></div>`;
@@ -279,9 +289,9 @@
           { key: 'pos', label: 'Pos', fmt: r => UI.pos(r.p.pos), value: r => C.POS_NUM[r.p.pos] },
           { key: 'age', label: 'Age', num: true, value: r => r.p.age, fmt: r => r.p.age },
           { key: 'ovr', label: 'OVR', num: true, value: r => r.p.ovr, fmt: r => UI.ovr(r.p.ovr) },
-          { key: 'pts', label: 'PPG', num: true, value: r => perG(r.s, 'pts'), fmt: r => (r.s ? U.num(perG(r.s, 'pts')) : '—') },
-          { key: 'reb', label: 'RPG', num: true, value: r => (r.s ? (r.s.orb + r.s.drb) / r.s.gp : 0), fmt: r => (r.s ? U.num((r.s.orb + r.s.drb) / r.s.gp) : '—') },
-          { key: 'ast', label: 'APG', num: true, value: r => perG(r.s, 'ast'), fmt: r => (r.s ? U.num(perG(r.s, 'ast')) : '—') },
+          { key: 'pts', label: 'PPG', num: true, value: r => perG(r.s, 'pts'), fmt: r => (r.s ? U.num(perG(r.s, 'pts')) : '-') },
+          { key: 'reb', label: 'RPG', num: true, value: r => (r.s ? (r.s.orb + r.s.drb) / r.s.gp : 0), fmt: r => (r.s ? U.num((r.s.orb + r.s.drb) / r.s.gp) : '-') },
+          { key: 'ast', label: 'APG', num: true, value: r => perG(r.s, 'ast'), fmt: r => (r.s ? U.num(perG(r.s, 'ast')) : '-') },
           { key: 'sal', label: 'Salary', num: true, value: r => (r.p.contract ? r.p.contract.amt : 0), fmt: r => U.money(r.p.contract ? r.p.contract.amt : 0, true) },
         ],
       });

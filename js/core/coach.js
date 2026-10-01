@@ -25,7 +25,101 @@
       totals: { w: 0, l: 0, pw: 0, pl: 0 },
       expectation: null, mood: 'Optimistic', jobOffers: null, status: 'employed',
     };
+    Coach.ensureSkills(S.coach);
+    // the other 29 benches get their coaches (PBC.Staff)
+    if (PBC.Staff) PBC.Staff.ensure(S);
     return S.coach;
+  };
+
+  // ---------------------------------------------------------------------------
+  // Coaching skills: points from seasons, playoff runs, titles, awards and achievements, spent on five skills. Over a
+  // long career you can master two or three of them, not all five: the kind of coach you become is a choice.
+  // ---------------------------------------------------------------------------
+  const SKILLS = [
+    { key: 'dev', label: 'Player Development', icon: '📈',
+      what: 'Your players grow faster: bigger practice gains, and a little more every summer that stays with them.',
+      at: L => `Practice gains +${L * 10}%, summer growth +${(L * 0.12).toFixed(2)} a rating for players 26 and under`,
+      perks: { 3: 'Late bloomers: players up to 29 grow with you too', 5: 'Star maker: your practice focus players gain half again as much' } },
+    { key: 'mot', label: 'Motivator', icon: '🔥',
+      what: 'The room holds together: better chemistry, and smaller hits to morale when you make a hard call.',
+      at: L => `Chemistry +${U.round(L * 1.5, 1)}, morale losses ${L * 6}% smaller`,
+      perks: { 3: 'Players\' coach: a broken promise stings half as much', 5: 'Culture: your room\'s chemistry never sinks below 45' } },
+    { key: 'tac', label: 'Tactician', icon: '🧠',
+      what: 'Your game plans work: a small edge at both ends of the floor, every night.',
+      at: L => `Shooting edge +${(L * 0.25).toFixed(2)}% at both ends`,
+      perks: { 3: 'Adjustments: the edge is half again as big in the playoffs', 5: 'Mastermind: the edge doubles in the playoffs' } },
+    { key: 'rec', label: 'Recruiter', icon: '🤝',
+      what: 'Players want to play for you: free agents, and your own players when their deals run out.',
+      at: L => `Free agent interest +${U.round(L * 2.5, 1)}`,
+      perks: { 3: 'Closer: free agents ask you for 4% less', 5: 'Destination: your own players re-sign more easily' } },
+    { key: 'med', label: 'Media Savvy', icon: '🎙️',
+      what: 'The press and the owner give you the benefit of the doubt.',
+      at: L => `Media standing settles at ${50 + L * 4}, owner trust losses ${L * 5}% smaller`,
+      perks: { 3: 'Spin: bad press costs you half as much', 5: 'Face of the league: the owner gives you more time' } },
+  ];
+  Coach.SKILLS = SKILLS;
+  Coach.SKILL_MAX = 5;
+  Coach.START_POINTS = 3;
+  /** skill points to go from level lvl to lvl + 1: 2, 4, 6, 8, 10 (30 to master one skill, 150 for all five) */
+  Coach.skillCost = lvl => (lvl + 1) * 2;
+  /** the skills, the points and their log (an older career gets two points for every season it already coached) */
+  Coach.ensureSkills = function (c) {
+    if (!c) return null;
+    if (!c.skills) {
+      c.skills = { dev: 0, mot: 0, tac: 0, rec: 0, med: 0 };
+      const back = (c.seasons ? c.seasons.length : 0) * 2;
+      c.sp = Coach.START_POINTS + back;
+      c.spTot = c.sp;
+      c.spLog = back ? [{ season: c.startSeason || 0, n: back, why: 'Your seasons so far' }] : [];
+    }
+    return c.skills;
+  };
+  /** your level in a skill (0..5) */
+  Coach.skill = function (S, key) {
+    const c = S && S.coach;
+    return c && c.skills ? c.skills[key] || 0 : 0;
+  };
+  /** a skill's level when the team is yours (the effects only touch your team) */
+  Coach.skillFor = (S, tid, key) => (S && S.coach && S.coach.status === 'employed' && tid === S.userTid ? Coach.skill(S, key) : 0);
+  Coach.addSP = function (S, n, why) {
+    const c = S.coach;
+    if (!c || !n) return;
+    Coach.ensureSkills(c);
+    c.sp += n;
+    c.spTot = (c.spTot || 0) + n;
+    c.spLog.unshift({ season: S.season, n, why });
+    if (c.spLog.length > 40) c.spLog.length = 40;
+  };
+  /** the cheapest skill you could learn right now (null when there is none) */
+  Coach.canLearn = function (S) {
+    const c = S && S.coach;
+    if (!c || !c.skills) return null;
+    let best = null;
+    for (const k of SKILLS) {
+      const lvl = c.skills[k.key] || 0;
+      if (lvl >= Coach.SKILL_MAX) continue;
+      const cost = Coach.skillCost(lvl);
+      if (cost <= c.sp && (!best || cost < best.cost)) best = { key: k.key, cost };
+    }
+    return best;
+  };
+  /** spend the points: { ok, msg } */
+  Coach.learn = function (S, key) {
+    const c = S.coach;
+    const sk = SKILLS.find(x => x.key === key);
+    if (!c || !sk) return { ok: false, msg: 'No such skill.' };
+    Coach.ensureSkills(c);
+    const lvl = c.skills[key] || 0;
+    if (lvl >= Coach.SKILL_MAX) return { ok: false, msg: `${sk.label} is already mastered.` };
+    const cost = Coach.skillCost(lvl);
+    if (c.sp < cost) return { ok: false, msg: `You need ${cost} skill points (you have ${c.sp}).` };
+    c.sp -= cost;
+    c.skills[key] = lvl + 1;
+    const perk = sk.perks[lvl + 1];
+    if (PBC.Season) PBC.Season.news(S, `🎓 You learned ${sk.label} level ${lvl + 1}.${perk ? ' ' + perk.split(':')[0] + ' unlocked.' : ''}`, 'career', S.userTid);
+    if (lvl + 1 >= Coach.SKILL_MAX) Coach.unlock(S, 'skill_master');
+    if (SKILLS.every(x => (c.skills[x.key] || 0) >= 3)) Coach.unlock(S, 'skill_complete');
+    return { ok: true, msg: `${sk.label}: level ${lvl + 1}.` };
   };
 
   Coach.cur = S => S.coach;
@@ -101,6 +195,8 @@
     if (tw >= 100) Coach.unlock(S, 'win_100');
     if (tw >= 250) Coach.unlock(S, 'win_250');
     if (tw >= 500) Coach.unlock(S, 'win_500');
+    if (tw >= 750) Coach.unlock(S, 'win_750');
+    if (tw >= 1000) Coach.unlock(S, 'win_1000');
     if (box.gims && box.gims.length) {
       const last = box.gims[box.gims.length - 1];
       const lead = uIdx === 0 ? last.scoreAfter[0] - last.scoreAfter[1] : last.scoreAfter[1] - last.scoreAfter[0];
@@ -115,7 +211,10 @@
     if (!a) return false;
     c.achievements[id] = { season: S.season, day: S.day };
     c.hof += a.pts;
-    if (PBC.Season) PBC.Season.news(S, `🏅 Achievement unlocked: ${a.label} — ${a.desc}`, 'achievement', S.userTid);
+    // (the bigger ones are worth skill points too)
+    const sp = a.pts >= 15 ? 2 : a.pts >= 4 ? 1 : 0;
+    if (sp) Coach.addSP(S, sp, a.label);
+    if (PBC.Season) PBC.Season.news(S, `🏅 Achievement unlocked: ${a.label}. ${a.desc}${sp ? ` (+${sp} skill point${sp === 1 ? '' : 's'})` : ''}`, 'achievement', S.userTid);
     return true;
   };
 
@@ -145,8 +244,12 @@
     const devGain = U.sum(young, p => { const h = p.hist.find(x => x.season === S.season - 1); return h ? p.ovr - h.ovr : 0; });
     if (exp.goal === 'develop') delta += U.clamp(devGain * 0.6, -4, 10);
     const owner = S.teams[c.tid].owner;
-    const patience = d.patience * (0.75 + owner.patience / 200);
+    // (Media Savvy, mastered: the owner gives you more time)
+    const patience = d.patience * (0.75 + owner.patience / 200) * (Coach.skill(S, 'med') >= 5 ? 1.25 : 1) * (PBC.Office ? PBC.Office.patience(S, c.tid) : 1);
     delta = delta >= 0 ? delta : delta / patience;
+    // what this owner cares about (PBC.Office: the Winner, the Dealmaker, the Promoter, the Builder, the Meddler)
+    const ownerMood = PBC.Office ? PBC.Office.review(S, c.tid, { pct, exp: exp.pct, reached, rounds, champ: !!res.champ, devGain, delta }) : null;
+    if (ownerMood && ownerMood.d) delta += ownerMood.d;
     c.security = Math.round(U.clamp(c.security + delta, 0, 100));
     c.rep = Math.round(U.clamp(c.rep + (pct - 0.5) * 18 + (reached >= 1 ? 3 : 0) + (reached >= 3 ? 4 : 0) + (res.champ ? 12 : 0), 0, 100));
     // HOF points
@@ -166,6 +269,16 @@
       if (c.titles >= 3) Coach.unlock(S, 'dynasty');
     }
     if (reached >= rounds) c.finals++;
+    if (S.seasonGames >= 40 && pct >= 0.85) Coach.unlock(S, 'seventy_wins');
+    if (res.champ) {
+      if (c.titles >= 5) Coach.unlock(S, 'titles_5');
+      // the playoff losses on the way (a perfect run: three or fewer)
+      const P0 = S.playoffs;
+      const lost = P0 ? P0.series.filter(x => x.hi === c.tid || x.lo === c.tid).reduce((a, x) => a + x.w[x.hi === c.tid ? 1 : 0], 0) : 99;
+      if (lost <= 3) Coach.unlock(S, 'sweep_title');
+      // from the ashes: a season under .330 in the last three
+      if (c.seasons.slice(-3).some(x => x.w / Math.max(1, x.w + x.l) < 0.33)) Coach.unlock(S, 'rebuild');
+    }
     if (prev && prev.tid === c.tid && (pct - prev.w / Math.max(1, prev.w + prev.l)) >= 0.18) Coach.unlock(S, 'turnaround');
     const P = S.playoffs;
     if (P) {
@@ -174,8 +287,38 @@
     const aw = S.regularAwards;
     if (aw && aw.mvp != null && S.players[aw.mvp] && S.players[aw.mvp].tid === c.tid) Coach.unlock(S, 'mvp_player');
     if (aw && aw.coyTid === c.tid) c.coy++;
+    if (c.coy >= 3) Coach.unlock(S, 'coy_3');
+    const onTeam = pid => pid != null && S.players[pid] && S.players[pid].tid === c.tid;
+    if (aw && onTeam(aw.mvp)) { c.mvps = (c.mvps || 0) + 1; if (c.mvps >= 3) Coach.unlock(S, 'mvp_3'); }
+    if (aw && onTeam(aw.roy)) Coach.unlock(S, 'roy_player');
+    if (aw && onTeam(aw.dpoy)) Coach.unlock(S, 'dpoy_player');
+    // the season's skill points: winning, the owner's goal, every series won, the Finals, a title, Coach of the Year
+    {
+      const why = [];
+      let sp = 0;
+      if (pct > 0.5) { sp++; why.push('a winning record'); }
+      if (reached >= goalRound) { sp++; why.push('the goal met'); }
+      const series = res.champ ? rounds : Math.max(0, reached - 1);
+      if (series) { sp += series; why.push(series + ' series won'); }
+      if (reached >= rounds) { sp++; why.push('the Finals'); }
+      if (res.champ) { sp += 2; why.push('the title'); }
+      if (aw && aw.coyTid === c.tid) { sp += 2; why.push('Coach of the Year'); }
+      if (!sp) { sp = 1; why.push('the lessons of a hard season'); }
+      Coach.addSP(S, sp, 'The season: ' + why.join(', '));
+      c.lastSP = { season: S.season, n: sp, why };
+    }
     c.seasons.push({ season: S.season, tid: c.tid, w: r.w, l: r.l, result: res.label, champ: !!res.champ, goal: exp.label, met: reached >= goalRound, security: c.security, expWins: exp.wins });
     if (c.seasons.length >= 10) Coach.unlock(S, 'survivor');
+    if (c.seasons.length >= 20) Coach.unlock(S, 'lifer');
+    if (c.seasons.filter(x => x.tid === c.tid).length >= 10) Coach.unlock(S, 'one_team');
+    // the all-time lists (PBC.Legacy, PBC.Staff), once the league has some history behind it
+    const history = (S.history || []).length;
+    if (history >= 5 && PBC.Legacy && PBC.Legacy.greats) { const g1 = PBC.Legacy.greats(S, { n: 1 })[0]; if (g1 && g1.p.tid === c.tid) Coach.unlock(S, 'goat_player'); }
+    if (PBC.Staff && PBC.Staff.all) {
+      const rank = PBC.Staff.all(S).findIndex(x => x.user);
+      if (rank >= 0 && rank < 10 && c.seasons.length >= 8) Coach.unlock(S, 'goat_coach_10');
+      if (rank === 0 && c.seasons.length >= 12) Coach.unlock(S, 'goat_coach_1');
+    }
     // contract & job status
     c.contract.years--;
     c.age++;
@@ -196,7 +339,7 @@
       c.contract.salary = Math.round(c.contract.salary * 1.2 / 1e4) * 1e4;
       verdict = 'extended';
     } else verdict = 'retained';
-    c.lastReview = { season: S.season, delta: Math.round(delta), verdict, security: c.security, goalMet: reached >= goalRound, label: exp.label, result: res.label };
+    c.lastReview = { season: S.season, delta: Math.round(delta), verdict, security: c.security, goalMet: reached >= goalRound, label: exp.label, result: res.label, owner: ownerMood && ownerMood.why.length ? ownerMood.why : null };
     if (verdict === 'fired' || verdict === 'expired') {
       c.status = 'unemployed';
       c.fired++;
@@ -237,6 +380,8 @@
     if (!c.teams.includes(offer.tid)) c.teams.push(offer.tid);
     if (c.fired > 0) Coach.unlock(S, 'hired_again');
     const t = S.teams[offer.tid];
+    // the coach you replace is out; the job you left gets filled
+    if (PBC.Staff) { PBC.Staff.userTakes(S, offer.tid); if (was != null && was !== offer.tid) PBC.Staff.vacated(S, was); }
     t.rot.auto = true;
     if (PBC.Season) PBC.Season.news(S, `🤝 You are the new head coach of the ${t.city} ${t.name}!`, 'career', offer.tid);
     return was;
@@ -250,6 +395,15 @@
     c.fired++;
     if (PBC.Season) PBC.Season.news(S, `❌ With the season going south, the ${S.teams[c.tid].city} ${S.teams[c.tid].name} have fired you.`, 'career', c.tid);
     c.jobOffers = Coach.jobOffers(S);
+  };
+
+  /** the seasons a player played for you (your team, that season) */
+  Coach.seasonsCoached = function (S, p) {
+    const c = S.coach;
+    if (!c || !p || !p.stats) return 0;
+    let n = 0;
+    for (const cs of c.seasons) if (p.stats.some(s => s.season === cs.season && s.tid === cs.tid && !s.po)) n++;
+    return n;
   };
 
   Coach.hofProbability = function (S) {

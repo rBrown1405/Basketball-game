@@ -16,7 +16,18 @@ play it in slow motion, **pause and step frame by frame** (forward and back), or
 debug overlays: planted-foot locks with a slide meter, the gait phase and duty factor, cadence and stride, and
 joints held at their limits. **Copy report** gives the exact scenario, frame and settings so a problem can be
 replayed exactly. Keys: Space pause, arrows step, `P` next gait key pose, `[` `]` speed, `R` restart, `1`-`7` camera
-angles.
+angles. "Two sizes side by side" with the two Height sliders compares body sizes (a 6'1" guard and a 7'1" center are
+built and move differently).
+
+## Animation debug tools
+
+In the live game or `match_test.html` press **Shift+D**. You get per-player overlays: foot contacts with a slide
+meter, centre of mass and balance, velocity and acceleration, facing, look target, state label, joint limits and a
+hand-to-ball meter. Playback runs at 0.1x to 4x with pause, frame stepping and a 12-second rewind. You can isolate one
+player (dim or hide the rest), orbit a free camera around him, and copy a report. The same meters run headless:
+`node tools/audit/quarter.js --seed 7` plays a full quarter and prints the scorecard, and `node tools/audit/check.js`
+runs the tests. The gauntlet reports are in `docs/gauntlet/`, and every animation tuning value is in
+`js/match/tune.js`.
 
 ## Saving
 
@@ -48,6 +59,20 @@ angles.
 - **Playoffs feel bigger**: towels, giveaway shirts and floor decals, a louder building, a series strip on the
   score bug, and teams that tighten rotations, play harder defense and ride their stars, more so each round
   up to a Finals Game 7. A huge favorite still wins almost every game, but a hot underdog can steal one.
+- **Playbook and play calling**: every team runs a playbook of real sets (pick and roll, horns, floppy, Spain,
+  Chicago, flex, post and inbound plays) with roles, steps and reads, called by the coaches during games.
+- **Timeout huddle**: call a play for the next possessions, the next inbound play, and a defensive scheme and
+  pick-and-roll coverage for the next 3, 5 or 10 possessions, and make substitutions.
+- **Play designer**: draw your own plays on a whiteboard in X's and O's (cuts, screens, passes, hand-offs,
+  dribbles and drives, step by step), give each spot a role, pick the reads, run it on the board, and add it to
+  your playbook; or start from any library play and make it yours.
+- **Play paths on the court**: the called play drawn on the floor as it runs (the O key).
+- **Play tracking and analytics**: every possession is logged: the play, how far into it the offense got, where
+  and why it broke down (a denied pass, a blown screen, a switch, the help, the shot clock, a turnover) and the
+  outcome. The box score's Plays tab shows each team's plays, its defense by scheme and every possession; Playbook,
+  📊 Play stats (and any team's page) shows the season: each play's usage, points per possession against the
+  league, completion rate, shot quality and most common breakdown, and points allowed per possession by defensive
+  scheme and coverage. Past seasons are kept in each team's history.
 - **Game Impact Moments**: in clutch moments you draw up the play and hit the shot yourself with a shot meter.
 - **Gameplay sliders** (League Settings): pace, fast breaks, three-point rate and accuracy, shooting by zone,
   dunks, fouls, turnovers, steals, blocks, defense, rebounding, fatigue, injuries, star usage, clutch, home
@@ -89,6 +114,7 @@ js/lib/procanim.js    standalone procedural animation module (dribble, crossover
 js/ui/                screens, portraits, TV graphics, arena audio and the commentary booth
 docs/                 engine ⇄ view contract, data model, UI guide
 test/                 Node test scripts (node test/calibrate.js men, node test/procanim.js …)
+tools/audit/          headless animation audit: full-quarter scorecard, meter and determinism tests
 ```
 
 ## Credits

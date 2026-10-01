@@ -278,6 +278,8 @@
   /** Choose an unused jersey number on a team. */
   function assignNumber(S, p) {
     const used = new Set(Object.values(S.players).filter(q => q.tid === p.tid && q.id !== p.id).map(q => q.num));
+    // (numbers the franchise has retired stay in the rafters)
+    if (PBC.Legacy && PBC.Legacy.retiredNums) for (const n of PBC.Legacy.retiredNums(S, p.tid)) used.add(n);
     const favs = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 30, 31, 32, 33, 34, 35, 41, 42, 44, 45, 50, 55];
     if (!used.has(p.num) && p.num) return p.num;
     const opts = U.shuffle(favs).filter(n => !used.has(n));

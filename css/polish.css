@@ -1,0 +1,67 @@
+/* Pro BBALL Coach: the calendar, the season documentary, tips (js/ui/calendar.js, js/ui/polish.js) */
+
+/* the calendar */
+.cal-mlabel { min-width: 130px; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-head { margin-bottom: 4px; }
+.cal-head > div { text-align: center; font: 800 10.5px/1 var(--font-ui); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 4px 0; }
+.cal-c { min-height: 78px; padding: 4px 5px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow: hidden; }
+.cal-c.out { background: transparent; border-color: transparent; }
+.cal-c.past { opacity: .72; }
+.cal-c.today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); opacity: 1; }
+.cal-d { font: 800 11px/1 var(--font-ui); color: var(--muted); }
+.cal-c.today .cal-d { color: var(--accent); }
+.cal-g { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 3px 4px; border-radius: 6px; font-size: 11px; font-weight: 700; border-left: 3px solid var(--info); background: rgba(74, 163, 255, .08); }
+.cal-g.road { border-left-color: #8b95a8; background: rgba(255, 255, 255, .04); }
+.cal-g.po { border-left-color: var(--gold); background: rgba(255, 201, 64, .08); }
+.cal-g[data-open-box] { cursor: pointer; }
+.cal-opp { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.cal-res { font-size: 10.5px; white-space: nowrap; }
+.cal-res.w { color: var(--good); } .cal-res.l { color: var(--bad); }
+.cal-rv { font-size: 10px; }
+.cal-b2b { font-size: 9px; font-weight: 800; color: var(--warn); border: 1px solid rgba(255, 176, 32, .4); border-radius: 4px; padding: 0 3px; }
+.cal-ev { font-size: 10.5px; color: #dfe6f2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-key { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cal-sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; border-left: 3px solid var(--info); background: rgba(74, 163, 255, .15); }
+.cal-sw.road { border-left-color: #8b95a8; background: rgba(255, 255, 255, .08); }
+.cal-sw.po { border-left-color: var(--gold); background: rgba(255, 201, 64, .15); }
+.cal .li.cal-done { opacity: .55; }
+
+/* the season documentary */
+.doc { max-width: 760px; }
+.doc-ch { padding: 16px 0 14px; border-top: 1px solid var(--line); }
+.doc-ch:first-child { border-top: 0; padding-top: 4px; }
+.doc-kick { font: 800 10.5px/1.2 var(--font-ui); letter-spacing: 1.3px; text-transform: uppercase; color: var(--accent); }
+.doc-h { margin: 4px 0 6px; font: 800 21px/1.2 Georgia, "Times New Roman", serif; color: #f3f6fc; }
+.doc-p { margin: 0 0 8px; font: 15.5px/1.65 Georgia, "Times New Roman", serif; color: #dbe3f0; }
+.doc-q { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--line2); color: #c3cde0; font-style: italic; font-size: 14px; }
+.doc-heads { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.doc-heads .md-tl { font-size: 13px; }
+
+/* a prospect's rating ranges fit on one line */
+.rbar.range { grid-template-columns: 1fr auto; }
+.rbar.range .val { white-space: nowrap; }
+
+/* tips */
+.tip { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin-bottom: 14px; border-radius: 12px; border: 1px solid rgba(74, 163, 255, .35); background: linear-gradient(160deg, rgba(74, 163, 255, .1), rgba(74, 163, 255, .03) 70%), var(--panel); }
+.tip-i { font-size: 22px; flex: none; line-height: 1.2; }
+.tip-b { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; color: #dbe3f0; }
+.tip-b b { color: #f3f6fc; }
+.tip-x { flex: none; }
+.gs-list { display: flex; flex-direction: column; gap: 6px; }
+.gs-item { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.gs-item.done { opacity: .55; text-decoration: line-through; }
+.gs-item .gs-ck { width: 18px; height: 18px; flex: none; border-radius: 5px; border: 1px solid var(--line2); display: grid; place-items: center; font-size: 12px; }
+.gs-item.done .gs-ck { background: rgba(41, 209, 125, .18); border-color: rgba(41, 209, 125, .4); color: var(--good); }
+
+@media (max-width: 760px) {
+  .cal-c { min-height: 58px; padding: 3px; }
+  .cal-g { font-size: 9.5px; padding: 2px 3px; border-left-width: 2px; }
+  .cal-opp img, .cal-opp svg { display: none; }
+  .cal-ev span { display: none; }
+  .cal-res { font-size: 9px; }
+  .cal-sc { display: none; }
+  .cal-b2b { display: none; }
+  .doc-h { font-size: 19px; }
+  .doc-p { font-size: 15px; }
+}

@@ -119,7 +119,7 @@
       function end() {
         phase = 'done';
         const avg = a => (a.length ? a.reduce((s, v) => s + Math.abs(v), 0) / a.length : null);
-        const ms = v => (v == null ? '—' : '±' + Math.round(v * 1000) + ' ms');
+        const ms = v => (v == null ? '-' : '±' + Math.round(v * 1000) + ' ms');
         api.finish(total / N, { made, drives: N, perfectSteps: perfects, avgGatherMs: avg(e1) == null ? null : Math.round(avg(e1) * 1000), avgReleaseMs: avg(e2) == null ? null : Math.round(avg(e2) * 1000), reps },
           [['MADE', `${made}/${N}`], ['PERFECT STEPS', `${perfects}/${N * 2}`], ['GATHER', ms(avg(e1))], ['RELEASE', ms(avg(e2))]]);
       }
@@ -254,7 +254,7 @@
         } else {
           total -= 4; tov++;
           log.push({ read: rep + 1, to: m.name, result: 'turnover' });
-          api.toast('PICKED OFF!', 'bad', open ? `${m.name} was covered — ${open.name} was open` : `${m.name} was covered`);
+          api.toast('PICKED OFF!', 'bad', open ? `${m.name} was covered, ${open.name} was open` : `${m.name} was covered`);
           api.sfx('whistle'); api.flash('bad'); api.shake();
         }
         Object.assign(api.live, { assists: ast, turnovers: tov, reads: rep + 1 });
@@ -265,7 +265,7 @@
         phase = 'done';
         const avg = rts.length ? rts.reduce((a, b) => a + b, 0) / rts.length : null;
         api.finish(total / (10 * N) * 100, { assists: ast, turnovers: tov, late, reads: N, avgReadMs: avg == null ? null : Math.round(avg * 1000), log },
-          [['ASSISTS', `${ast}/${N}`], ['TURNOVERS', String(tov)], ['TOO LATE', String(late)], ['AVG READ', avg == null ? '—' : avg.toFixed(2) + ' s']]);
+          [['ASSISTS', `${ast}/${N}`], ['TURNOVERS', String(tov)], ['TOO LATE', String(late)], ['AVG READ', avg == null ? '-' : avg.toFixed(2) + ' s']]);
       }
 
       sc.key((e, k) => {
@@ -441,7 +441,7 @@
         phase = 'done';
         const miss = reps.filter(r => r.missBy != null), avg = miss.length ? miss.reduce((a, r) => a + r.missBy, 0) / miss.length : null;
         api.finish(total / (10 * N) * 100, { boards, rebounds: N, avgMissFt: avg == null ? null : +avg.toFixed(1), reps },
-          [['BOARDS', `${boards}/${N}`], ['AVG MISS', avg == null ? '—' : avg.toFixed(1) + ' ft'], ['EARLY READS', String(reps.filter(r => r.early).length)], ['NO CALL', String(reps.filter(r => r.missBy == null).length)]]);
+          [['BOARDS', `${boards}/${N}`], ['AVG MISS', avg == null ? '-' : avg.toFixed(1) + ' ft'], ['EARLY READS', String(reps.filter(r => r.early).length)], ['NO CALL', String(reps.filter(r => r.missBy == null).length)]]);
       }
 
       sc.on(api.stage, 'pointerdown', e => {

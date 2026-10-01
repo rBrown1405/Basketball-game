@@ -1,0 +1,2968 @@
+{
+ "seed": 21,
+ "periods": 1,
+ "league": "men",
+ "periodReached": 1,
+ "wallSeconds": 217.394,
+ "msPerStep": {
+  "p50": 2.595,
+  "p99": 12.132,
+  "max": 91.66
+ },
+ "scorecard": {
+  "frames": 67363,
+  "minutes": 18.71,
+  "playerMinutes": 187.3,
+  "feet": {
+   "slideIn_all": {
+    "n": 97216,
+    "p50": 0,
+    "p90": 0.01,
+    "p99": 0.01,
+    "max": 0.1,
+    "overOk": 0,
+    "overBad": 0
+   },
+   "slideIn_heel": {
+    "n": 28658,
+    "p50": 0.01,
+    "p90": 0.01,
+    "p99": 0.01,
+    "max": 0.02,
+    "overOk": 0,
+    "overBad": 0
+   },
+   "slideIn_ball": {
+    "n": 34276,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0.1,
+    "overOk": 0,
+    "overBad": 0
+   },
+   "slideIn_toe": {
+    "n": 34282,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0.1,
+    "overOk": 0,
+    "overBad": 0
+   },
+   "slideOver1in_cause": {},
+   "slideWorst": 0.1,
+   "slideWorstAt": "gait:run BALL t=1018.58 id=2",
+   "slideByContext": {
+    "stance:ready": {
+     "n": 3774,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "slide:walk": {
+     "n": 19488,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.02,
+     "over1in": 0
+    },
+    "back:walk": {
+     "n": 7954,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.02,
+     "over1in": 0
+    },
+    "slide:run": {
+     "n": 8084,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.02,
+     "over1in": 0
+    },
+    "gait:run": {
+     "n": 20091,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.1,
+     "over1in": 0
+    },
+    "gait:walk": {
+     "n": 15790,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.02,
+     "over1in": 0
+    },
+    "clip:jumpTip": {
+     "n": 20,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0,
+     "max": 0,
+     "over1in": 0
+    },
+    "stance:defense": {
+     "n": 1087,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "gait:fast": {
+     "n": 15089,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.08,
+     "over1in": 0
+    },
+    "stance:stand": {
+     "n": 630,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "back:fast": {
+     "n": 119,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.1,
+     "max": 0.1,
+     "over1in": 0
+    },
+    "slide:fast": {
+     "n": 722,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "back:run": {
+     "n": 1966,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.03,
+     "over1in": 0
+    },
+    "stance:dribble": {
+     "n": 805,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "stance:screen": {
+     "n": 32,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0,
+     "max": 0,
+     "over1in": 0
+    },
+    "clip:pullup": {
+     "n": 64,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "": {
+     "n": 79,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:jumpStop": {
+     "n": 139,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "stance:holdChest": {
+     "n": 64,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:dunk": {
+     "n": 41,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:wallUp": {
+     "n": 85,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0,
+     "max": 0,
+     "over1in": 0
+    },
+    "stance:boxout": {
+     "n": 81,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:jumpshot": {
+     "n": 105,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:contestJump": {
+     "n": 47,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:stepback": {
+     "n": 25,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0,
+     "max": 0,
+     "over1in": 0
+    },
+    "stance:handsKnees": {
+     "n": 282,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:freethrow": {
+     "n": 34,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:pivot": {
+     "n": 33,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "stance:triple": {
+     "n": 62,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:turn": {
+     "n": 45,
+     "p50": 0,
+     "p90": 0.01,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:pickup": {
+     "n": 47,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:rebound": {
+     "n": 72,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0,
+     "max": 0,
+     "over1in": 0
+    },
+    "clip:layup": {
+     "n": 126,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    },
+    "clip:block": {
+     "n": 32,
+     "p50": 0,
+     "p90": 0,
+     "p99": 0.01,
+     "max": 0.01,
+     "over1in": 0
+    }
+   },
+   "sinkPointFrames": 0,
+   "sinkPctPlayerFrames": 0,
+   "sinkIn": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "sinkBy": {},
+   "sinkWorstAt": "",
+   "hoverPctPlantFrames": 0
+  },
+  "limits": {
+   "badPctPlayerFrames": 0,
+   "badFrames": 0,
+   "badChannels": [],
+   "firstBad": "",
+   "clampedPctPlayerFrames": 6.931,
+   "clampedChannels": [
+    [
+     "nkTwist",
+     28824
+    ],
+    [
+     "hdTwist",
+     28383
+    ],
+    [
+     "rShF",
+     3201
+    ],
+    [
+     "rShA",
+     3126
+    ],
+    [
+     "lShA",
+     2854
+    ],
+    [
+     "lHipA",
+     2174
+    ],
+    [
+     "rHipA",
+     1987
+    ],
+    [
+     "lShF",
+     1730
+    ]
+   ],
+   "outOfReachPctPlayerFrames": 1.06
+  },
+  "motion": {
+   "accelSnapsPerPlayerMin": 0,
+   "accelSnapContexts": [],
+   "turnOnsets": 2236,
+   "instantTurnPct": 0,
+   "instantTurnsPerPlayerMin": 0,
+   "jointSnapsPerPlayerMin": 34.13,
+   "jointSnapsBy": {
+    "R_HD": 2113,
+    "L_HD": 1460,
+    "R_EL": 1096,
+    "L_EL": 780,
+    "L_KN": 271,
+    "L_TOE": 235,
+    "HT": 19,
+    "R_TOE": 191,
+    "R_KN": 228
+   },
+   "offBalanceStillPct": 11.034
+  },
+  "look": {
+   "nonePct": 15.042,
+   "stalePct": 13.928,
+   "ballPct": 47.777,
+   "pointPct": 21.357,
+   "watchPct": 1.896
+  },
+  "hands": {
+   "dribbleGapIn": {
+    "n": 16029,
+    "p50": 0,
+    "p90": 0.01,
+    "p99": 4.96,
+    "max": 383.1,
+    "overOk": 3.64
+   },
+   "holdGapIn": {
+    "n": 9114,
+    "p50": 0.11,
+    "p90": 1.78,
+    "p99": 22.7,
+    "max": 171.09,
+    "overOk": 26.72
+   },
+   "shotGapIn": {
+    "n": 2623,
+    "p50": 1.14,
+    "p90": 5.79,
+    "p99": 20.83,
+    "max": 38.13,
+    "overOk": 64.81
+   },
+   "passGapIn": {
+    "n": 1549,
+    "p50": 0.69,
+    "p90": 7.04,
+    "p99": 34.23,
+    "max": 42.56,
+    "overOk": 55.07
+   },
+   "catchGapIn": {
+    "n": 192,
+    "p50": 0.02,
+    "p90": 9.34,
+    "p99": 28.93,
+    "max": 240.62,
+    "overOk": 29.69
+   }
+  },
+  "contact": {
+   "torsoOverlapPairFrames": 241,
+   "handInOtherBodyFrames": 3548,
+   "closePairFrames": 248039
+  },
+  "body": {
+   "kneeOverToeDeg": {
+    "n": 591622,
+    "p50": 0.8,
+    "p90": 4.7,
+    "p99": 11.7,
+    "max": 54.3,
+    "cavePct": 0.03,
+    "offPct": 0.01,
+    "offContexts": [
+     [
+      "slide:run",
+      15
+     ],
+     [
+      "clip:pullup",
+      9
+     ],
+     [
+      "gait:walk",
+      8
+     ],
+     [
+      "gait:run",
+      8
+     ],
+     [
+      "slide:fast",
+      5
+     ],
+     [
+      "back:walk",
+      4
+     ],
+     [
+      "slide:walk",
+      4
+     ],
+     [
+      "clip:jumpshot",
+      4
+     ]
+    ]
+   },
+   "counterRotation": {
+    "frames": 114192,
+    "hipShoulderCorrelation": -0.751,
+    "oppositePct": 85.99,
+    "hipYawDeg": {
+     "n": 114192,
+     "p50": 4.9,
+     "p90": 8.5,
+     "p99": 10.2,
+     "max": 22
+    },
+    "shoulderYawDeg": {
+     "n": 114192,
+     "p50": 6.5,
+     "p90": 13.1,
+     "p99": 23.2,
+     "max": 66.1
+    }
+   },
+   "spineShare": {
+    "flex": {
+     "n": 88736,
+     "p50": 0.64,
+     "p90": 0.684,
+     "p99": 0.714,
+     "max": 0.988,
+     "kinkPct": 0.04
+    },
+    "lat": {
+     "n": 414,
+     "p50": 0.572,
+     "p90": 0.606,
+     "p99": 0.622,
+     "max": 0.634,
+     "kinkPct": 0
+    },
+    "twist": {
+     "n": 254142,
+     "p50": 0.824,
+     "p90": 0.84,
+     "p99": 0.858,
+     "max": 0.901,
+     "kinkPct": 0
+    }
+   },
+   "spinePopsPerPlayerMin": 2.94,
+   "spinePopsBy": [
+    [
+     "hdTwist",
+     281
+    ],
+    [
+     "nkTwist",
+     153
+    ],
+    [
+     "chTwist",
+     98
+    ],
+    [
+     "nkFlex",
+     9
+    ],
+    [
+     "spTwist",
+     7
+    ],
+    [
+     "hdFlex",
+     3
+    ]
+   ],
+   "spineAccelDegps2": {
+    "n": 674358,
+    "p50": 637,
+    "p90": 2532,
+    "p99": 6011,
+    "max": 75728
+   },
+   "cadence12to16": {
+    "short": {
+     "players": 8,
+     "heightIn": 72.1,
+     "stepsPerSec": 3.32,
+     "speed": 13.85
+    },
+    "mid": {
+     "players": 19,
+     "heightIn": 77.9,
+     "stepsPerSec": 3.152,
+     "speed": 13.93
+    },
+    "tall": {
+     "players": 4,
+     "heightIn": 85,
+     "stepsPerSec": 2.929,
+     "speed": 13.95
+    },
+    "players": [
+     {
+      "heightIn": 69.5,
+      "stepsPerSec": 3.355,
+      "speed": 13.87,
+      "frames": 1979
+     },
+     {
+      "heightIn": 69.5,
+      "stepsPerSec": 3.432,
+      "speed": 14,
+      "frames": 918
+     },
+     {
+      "heightIn": 70,
+      "stepsPerSec": 3.281,
+      "speed": 13.85,
+      "frames": 2244
+     },
+     {
+      "heightIn": 72,
+      "stepsPerSec": 3.373,
+      "speed": 13.75,
+      "frames": 2269
+     },
+     {
+      "heightIn": 72,
+      "stepsPerSec": 3.365,
+      "speed": 13.76,
+      "frames": 1582
+     },
+     {
+      "heightIn": 74,
+      "stepsPerSec": 3.299,
+      "speed": 13.81,
+      "frames": 1486
+     },
+     {
+      "heightIn": 75,
+      "stepsPerSec": 3.297,
+      "speed": 14.07,
+      "frames": 1362
+     },
+     {
+      "heightIn": 75,
+      "stepsPerSec": 3.225,
+      "speed": 13.83,
+      "frames": 2193
+     },
+     {
+      "heightIn": 76,
+      "stepsPerSec": 3.238,
+      "speed": 13.93,
+      "frames": 2892
+     },
+     {
+      "heightIn": 76,
+      "stepsPerSec": 3.171,
+      "speed": 14.01,
+      "frames": 2254
+     },
+     {
+      "heightIn": 76,
+      "stepsPerSec": 3.209,
+      "speed": 13.9,
+      "frames": 2597
+     },
+     {
+      "heightIn": 76,
+      "stepsPerSec": 3.207,
+      "speed": 13.75,
+      "frames": 1736
+     },
+     {
+      "heightIn": 77,
+      "stepsPerSec": 3.111,
+      "speed": 13.78,
+      "frames": 1296
+     },
+     {
+      "heightIn": 77,
+      "stepsPerSec": 3.099,
+      "speed": 14.04,
+      "frames": 1736
+     },
+     {
+      "heightIn": 77,
+      "stepsPerSec": 3.265,
+      "speed": 13.97,
+      "frames": 1098
+     },
+     {
+      "heightIn": 77,
+      "stepsPerSec": 3.227,
+      "speed": 13.76,
+      "frames": 3474
+     },
+     {
+      "heightIn": 77,
+      "stepsPerSec": 3.202,
+      "speed": 13.99,
+      "frames": 3656
+     },
+     {
+      "heightIn": 77,
+      "stepsPerSec": 3.153,
+      "speed": 13.91,
+      "frames": 3402
+     },
+     {
+      "heightIn": 77,
+      "stepsPerSec": 3.138,
+      "speed": 13.74,
+      "frames": 2165
+     },
+     {
+      "heightIn": 79,
+      "stepsPerSec": 3.121,
+      "speed": 14,
+      "frames": 2827
+     },
+     {
+      "heightIn": 79,
+      "stepsPerSec": 3.142,
+      "speed": 14.08,
+      "frames": 957
+     },
+     {
+      "heightIn": 79,
+      "stepsPerSec": 3.093,
+      "speed": 13.91,
+      "frames": 3209
+     },
+     {
+      "heightIn": 79,
+      "stepsPerSec": 3.12,
+      "speed": 14.04,
+      "frames": 3694
+     },
+     {
+      "heightIn": 79,
+      "stepsPerSec": 3.098,
+      "speed": 13.95,
+      "frames": 997
+     },
+     {
+      "heightIn": 80,
+      "stepsPerSec": 3.047,
+      "speed": 13.79,
+      "frames": 1474
+     },
+     {
+      "heightIn": 80,
+      "stepsPerSec": 3.103,
+      "speed": 14.04,
+      "frames": 3548
+     },
+     {
+      "heightIn": 81,
+      "stepsPerSec": 3.118,
+      "speed": 14,
+      "frames": 3709
+     },
+     {
+      "heightIn": 85,
+      "stepsPerSec": 2.9,
+      "speed": 14.01,
+      "frames": 1019
+     },
+     {
+      "heightIn": 85,
+      "stepsPerSec": 2.982,
+      "speed": 13.94,
+      "frames": 2363
+     },
+     {
+      "heightIn": 85,
+      "stepsPerSec": 2.912,
+      "speed": 13.87,
+      "frames": 1004
+     },
+     {
+      "heightIn": 85,
+      "stepsPerSec": 2.885,
+      "speed": 13.97,
+      "frames": 1807
+     }
+    ]
+   },
+   "plantedGuard": {
+    "pelvisShiftPctPlayerFrames": 7.17,
+    "pelvisShiftIn": {
+     "n": 48386,
+     "p50": 0.59,
+     "p90": 2.8,
+     "p99": 6.03,
+     "max": 9.65
+    },
+    "heelMovedPctPlayerFrames": 0.62,
+    "lastResortSlips": 430
+   }
+  },
+  "floor": {
+   "steps": 34179,
+   "clearStepPct": 99.92,
+   "byMode": {
+    "slide:run": {
+     "steps": 3183,
+     "clearPct": 99.94,
+     "unclearWhy": {
+      "stance": 2,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 3183,
+      "p50": 0.2,
+      "p90": 0.267,
+      "p99": 0.35,
+      "max": 3.067
+     },
+     "swingS": {
+      "n": 3183,
+      "p50": 0.217,
+      "p90": 0.333,
+      "p99": 0.467,
+      "max": 0.55
+     },
+     "clearanceIn": {
+      "n": 3183,
+      "p50": 4.42,
+      "p90": 6.98,
+      "p99": 9.27,
+      "max": 11.71
+     },
+     "landing": {
+      "heelFirstPct": 18.19,
+      "forefootFirstPct": 54.89,
+      "flatPct": 26.92
+     },
+     "ankleContactDeg": {
+      "n": 3183,
+      "p50": 23.4,
+      "p90": 34.9,
+      "p99": 37.8,
+      "max": 42.9
+     },
+     "ankleDeepestDeg": {
+      "n": 3191,
+      "p50": 31.6,
+      "p90": 45.4,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 3191,
+      "p50": 10.8,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 3183,
+      "p50": 9.99,
+      "p90": 26.95,
+      "p99": 45.4,
+      "max": 58.72
+     }
+    },
+    "slide:walk": {
+     "steps": 7011,
+     "clearPct": 99.96,
+     "unclearWhy": {
+      "stance": 3,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 7011,
+      "p50": 0.3,
+      "p90": 0.483,
+      "p99": 1.35,
+      "max": 11.2
+     },
+     "swingS": {
+      "n": 7011,
+      "p50": 0.233,
+      "p90": 0.367,
+      "p99": 0.5,
+      "max": 1.2
+     },
+     "clearanceIn": {
+      "n": 7011,
+      "p50": 3.03,
+      "p90": 3.54,
+      "p99": 6.06,
+      "max": 14.64
+     },
+     "landing": {
+      "heelFirstPct": 15.89,
+      "forefootFirstPct": 62.63,
+      "flatPct": 21.48
+     },
+     "ankleContactDeg": {
+      "n": 7011,
+      "p50": 24.4,
+      "p90": 33.3,
+      "p99": 35.8,
+      "max": 39.8
+     },
+     "ankleDeepestDeg": {
+      "n": 7024,
+      "p50": 31.4,
+      "p90": 43.9,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 7024,
+      "p50": 11.7,
+      "p90": 29.4,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 7011,
+      "p50": 8.13,
+      "p90": 18.9,
+      "p99": 32.46,
+      "max": 69.64
+     }
+    },
+    "gait:run": {
+     "steps": 7025,
+     "clearPct": 99.93,
+     "unclearWhy": {
+      "stance": 5,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 7025,
+      "p50": 0.233,
+      "p90": 0.3,
+      "p99": 0.533,
+      "max": 10.983
+     },
+     "swingS": {
+      "n": 7025,
+      "p50": 0.417,
+      "p90": 0.5,
+      "p99": 0.55,
+      "max": 0.733
+     },
+     "clearanceIn": {
+      "n": 7025,
+      "p50": 11.12,
+      "p90": 14.61,
+      "p99": 16.09,
+      "max": 16.6
+     },
+     "landing": {
+      "heelFirstPct": 75.66,
+      "forefootFirstPct": 11.81,
+      "flatPct": 12.53
+     },
+     "ankleContactDeg": {
+      "n": 7025,
+      "p50": 23.6,
+      "p90": 34.4,
+      "p99": 37.3,
+      "max": 40.8
+     },
+     "ankleDeepestDeg": {
+      "n": 7027,
+      "p50": 33.7,
+      "p90": 47,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 7027,
+      "p50": -2.4,
+      "p90": 18.1,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 7025,
+      "p50": 11.83,
+      "p90": 32.09,
+      "p99": 52.31,
+      "max": 104.38
+     }
+    },
+    "gait:walk": {
+     "steps": 4617,
+     "clearPct": 99.98,
+     "unclearWhy": {
+      "stance": 1,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 4617,
+      "p50": 0.367,
+      "p90": 0.6,
+      "p99": 6.167,
+      "max": 13.417
+     },
+     "swingS": {
+      "n": 4617,
+      "p50": 0.3,
+      "p90": 0.45,
+      "p99": 0.767,
+      "max": 1.183
+     },
+     "clearanceIn": {
+      "n": 4617,
+      "p50": 3.56,
+      "p90": 7.73,
+      "p99": 12.24,
+      "max": 14.73
+     },
+     "landing": {
+      "heelFirstPct": 65.22,
+      "forefootFirstPct": 20.23,
+      "flatPct": 14.55
+     },
+     "ankleContactDeg": {
+      "n": 4617,
+      "p50": 27.8,
+      "p90": 34.2,
+      "p99": 36.7,
+      "max": 40.4
+     },
+     "ankleDeepestDeg": {
+      "n": 4599,
+      "p50": 34.9,
+      "p90": 46.6,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 4599,
+      "p50": 6.4,
+      "p90": 26.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 4617,
+      "p50": 9.9,
+      "p90": 24.22,
+      "p99": 40.22,
+      "max": 96.21
+     }
+    },
+    "stance:ready": {
+     "steps": 1344,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 1344,
+      "p50": 0.383,
+      "p90": 0.7,
+      "p99": 2.35,
+      "max": 12.45
+     },
+     "swingS": {
+      "n": 1344,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.5
+     },
+     "clearanceIn": {
+      "n": 1344,
+      "p50": 3.65,
+      "p90": 3.84,
+      "p99": 4.11,
+      "max": 8.89
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 18.3,
+      "flatPct": 81.7
+     },
+     "ankleContactDeg": {
+      "n": 1344,
+      "p50": 26.7,
+      "p90": 31.9,
+      "p99": 33.4,
+      "max": 36.4
+     },
+     "ankleDeepestDeg": {
+      "n": 1344,
+      "p50": 30.8,
+      "p90": 42,
+      "p99": 47.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 1344,
+      "p50": 20.6,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 1344,
+      "p50": 0.7,
+      "p90": 2.13,
+      "p99": 10.11,
+      "max": 26.71
+     }
+    },
+    "back:walk": {
+     "steps": 2618,
+     "clearPct": 99.96,
+     "unclearWhy": {
+      "stance": 1,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 2618,
+      "p50": 0.367,
+      "p90": 0.567,
+      "p99": 1.567,
+      "max": 10.817
+     },
+     "swingS": {
+      "n": 2618,
+      "p50": 0.283,
+      "p90": 0.433,
+      "p99": 0.683,
+      "max": 1.033
+     },
+     "clearanceIn": {
+      "n": 2618,
+      "p50": 2.16,
+      "p90": 3.57,
+      "p99": 7.02,
+      "max": 9.67
+     },
+     "landing": {
+      "heelFirstPct": 3.02,
+      "forefootFirstPct": 90.11,
+      "flatPct": 6.88
+     },
+     "ankleContactDeg": {
+      "n": 2618,
+      "p50": 31.2,
+      "p90": 34.2,
+      "p99": 36.2,
+      "max": 39.4
+     },
+     "ankleDeepestDeg": {
+      "n": 2621,
+      "p50": 32.1,
+      "p90": 43.4,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 2621,
+      "p50": -15,
+      "p90": 18.3,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 2618,
+      "p50": 9.06,
+      "p90": 19.49,
+      "p99": 32.55,
+      "max": 147.5
+     }
+    },
+    "stance:stand": {
+     "steps": 195,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 195,
+      "p50": 0.417,
+      "p90": 1.167,
+      "p99": 5.217,
+      "max": 6.733
+     },
+     "swingS": {
+      "n": 195,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.4
+     },
+     "clearanceIn": {
+      "n": 195,
+      "p50": 3.64,
+      "p90": 3.85,
+      "p99": 4.11,
+      "max": 16.29
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 17.95,
+      "flatPct": 82.05
+     },
+     "ankleContactDeg": {
+      "n": 195,
+      "p50": 17.6,
+      "p90": 30.1,
+      "p99": 34.5,
+      "max": 34.7
+     },
+     "ankleDeepestDeg": {
+      "n": 196,
+      "p50": 30,
+      "p90": 44,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 196,
+      "p50": 16.9,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 195,
+      "p50": 0.54,
+      "p90": 4.62,
+      "p99": 15.45,
+      "max": 50.36
+     }
+    },
+    "stance:defense": {
+     "steps": 467,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 467,
+      "p50": 0.383,
+      "p90": 1.1,
+      "p99": 11.617,
+      "max": 13.483
+     },
+     "swingS": {
+      "n": 467,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "clearanceIn": {
+      "n": 467,
+      "p50": 3.51,
+      "p90": 3.85,
+      "p99": 4.09,
+      "max": 4.13
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 42.61,
+      "flatPct": 57.39
+     },
+     "ankleContactDeg": {
+      "n": 467,
+      "p50": 30.7,
+      "p90": 33.3,
+      "p99": 34.6,
+      "max": 36
+     },
+     "ankleDeepestDeg": {
+      "n": 468,
+      "p50": 36.2,
+      "p90": 46.1,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 468,
+      "p50": 28.8,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 467,
+      "p50": 0.71,
+      "p90": 3.36,
+      "p99": 13.3,
+      "max": 17.94
+     }
+    },
+    "gait:fast": {
+     "steps": 5860,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 5860,
+      "p50": 0.15,
+      "p90": 0.2,
+      "p99": 0.217,
+      "max": 0.367
+     },
+     "swingS": {
+      "n": 5860,
+      "p50": 0.45,
+      "p90": 0.517,
+      "p99": 0.533,
+      "max": 0.717
+     },
+     "clearanceIn": {
+      "n": 5860,
+      "p50": 14.39,
+      "p90": 18.89,
+      "p99": 21.46,
+      "max": 22.14
+     },
+     "landing": {
+      "heelFirstPct": 37.37,
+      "forefootFirstPct": 44.59,
+      "flatPct": 18.04
+     },
+     "ankleContactDeg": {
+      "n": 5860,
+      "p50": 16,
+      "p90": 31,
+      "p99": 36.9,
+      "max": 40.8
+     },
+     "ankleDeepestDeg": {
+      "n": 5853,
+      "p50": 32.4,
+      "p90": 43.8,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 5853,
+      "p50": -3.6,
+      "p90": 13.5,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 5860,
+      "p50": 11.4,
+      "p90": 33.07,
+      "p99": 63.71,
+      "max": 92.54
+     }
+    },
+    "back:run": {
+     "steps": 901,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 901,
+      "p50": 0.25,
+      "p90": 0.317,
+      "p99": 1.083,
+      "max": 2.4
+     },
+     "swingS": {
+      "n": 901,
+      "p50": 0.3,
+      "p90": 0.4,
+      "p99": 0.467,
+      "max": 0.517
+     },
+     "clearanceIn": {
+      "n": 901,
+      "p50": 6.07,
+      "p90": 8.93,
+      "p99": 10.55,
+      "max": 10.86
+     },
+     "landing": {
+      "heelFirstPct": 0.33,
+      "forefootFirstPct": 95.12,
+      "flatPct": 4.55
+     },
+     "ankleContactDeg": {
+      "n": 901,
+      "p50": 31.2,
+      "p90": 34.4,
+      "p99": 36.2,
+      "max": 37.3
+     },
+     "ankleDeepestDeg": {
+      "n": 902,
+      "p50": 32.7,
+      "p90": 42.7,
+      "p99": 47.8,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 902,
+      "p50": -33.2,
+      "p90": -5.4,
+      "p99": 20.8,
+      "max": 28.7
+     },
+     "landingMovedIn": {
+      "n": 901,
+      "p50": 10.72,
+      "p90": 29.5,
+      "p99": 45.65,
+      "max": 66.75
+     }
+    },
+    "back:fast": {
+     "steps": 52,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 52,
+      "p50": 0.167,
+      "p90": 0.2,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "swingS": {
+      "n": 52,
+      "p50": 0.3,
+      "p90": 0.383,
+      "p99": 0.4,
+      "max": 0.4
+     },
+     "clearanceIn": {
+      "n": 52,
+      "p50": 6.93,
+      "p90": 8.43,
+      "p99": 9.84,
+      "max": 9.84
+     },
+     "landing": {
+      "heelFirstPct": 1.92,
+      "forefootFirstPct": 69.23,
+      "flatPct": 28.85
+     },
+     "ankleContactDeg": {
+      "n": 52,
+      "p50": 18.1,
+      "p90": 34,
+      "p99": 42,
+      "max": 42
+     },
+     "ankleDeepestDeg": {
+      "n": 52,
+      "p50": 30.9,
+      "p90": 39.2,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 52,
+      "p50": -35.6,
+      "p90": -19.7,
+      "p99": -11.3,
+      "max": -11.3
+     },
+     "landingMovedIn": {
+      "n": 52,
+      "p50": 21.94,
+      "p90": 41.38,
+      "p99": 56.75,
+      "max": 56.75
+     }
+    },
+    "slide:fast": {
+     "steps": 317,
+     "clearPct": 98.74,
+     "unclearWhy": {
+      "stance": 4,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 317,
+      "p50": 0.133,
+      "p90": 0.183,
+      "p99": 0.233,
+      "max": 0.25
+     },
+     "swingS": {
+      "n": 317,
+      "p50": 0.267,
+      "p90": 0.417,
+      "p99": 0.483,
+      "max": 0.5
+     },
+     "clearanceIn": {
+      "n": 317,
+      "p50": 6.11,
+      "p90": 8.92,
+      "p99": 10.77,
+      "max": 12.84
+     },
+     "landing": {
+      "heelFirstPct": 14.2,
+      "forefootFirstPct": 51.74,
+      "flatPct": 34.07
+     },
+     "ankleContactDeg": {
+      "n": 317,
+      "p50": 21.3,
+      "p90": 37,
+      "p99": 40,
+      "max": 46.3
+     },
+     "ankleDeepestDeg": {
+      "n": 318,
+      "p50": 27.3,
+      "p90": 43.4,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 318,
+      "p50": 2.4,
+      "p90": 29.1,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 317,
+      "p50": 16.99,
+      "p90": 39.57,
+      "p99": 50.64,
+      "max": 53.88
+     }
+    },
+    "stance:dribble": {
+     "steps": 282,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 282,
+      "p50": 0.383,
+      "p90": 0.9,
+      "p99": 1.833,
+      "max": 1.85
+     },
+     "swingS": {
+      "n": 282,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "clearanceIn": {
+      "n": 282,
+      "p50": 3.15,
+      "p90": 3.67,
+      "p99": 3.91,
+      "max": 7.15
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 46.45,
+      "flatPct": 53.55
+     },
+     "ankleContactDeg": {
+      "n": 282,
+      "p50": 30.7,
+      "p90": 34.3,
+      "p99": 35.7,
+      "max": 36
+     },
+     "ankleDeepestDeg": {
+      "n": 282,
+      "p50": 43.1,
+      "p90": 48.5,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 282,
+      "p50": 31.8,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 282,
+      "p50": 0.67,
+      "p90": 1.81,
+      "p99": 8.57,
+      "max": 14.49
+     }
+    },
+    "stance:screen": {
+     "steps": 10,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 10,
+      "p50": 0.483,
+      "p90": 2.3,
+      "p99": 2.3,
+      "max": 2.3
+     },
+     "swingS": {
+      "n": 10,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "clearanceIn": {
+      "n": 10,
+      "p50": 3.72,
+      "p90": 3.91,
+      "p99": 3.91,
+      "max": 3.91
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 10,
+      "flatPct": 90
+     },
+     "ankleContactDeg": {
+      "n": 10,
+      "p50": 28.1,
+      "p90": 35.5,
+      "p99": 35.5,
+      "max": 35.5
+     },
+     "ankleDeepestDeg": {
+      "n": 10,
+      "p50": 34.7,
+      "p90": 46.2,
+      "p99": 46.2,
+      "max": 46.2
+     },
+     "ankleToeOffDeg": {
+      "n": 10,
+      "p50": 28.4,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 10,
+      "p50": 1.44,
+      "p90": 7.93,
+      "p99": 7.93,
+      "max": 7.93
+     }
+    },
+    "clip:jumpStop": {
+     "steps": 14,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 14,
+      "p50": 0.183,
+      "p90": 0.217,
+      "p99": 0.283,
+      "max": 0.283
+     },
+     "swingS": {
+      "n": 14,
+      "p50": 0.183,
+      "p90": 0.183,
+      "p99": 0.183,
+      "max": 0.183
+     },
+     "clearanceIn": {
+      "n": 14,
+      "p50": 3.65,
+      "p90": 4.86,
+      "p99": 4.91,
+      "max": 4.91
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 21.43,
+      "flatPct": 78.57
+     },
+     "ankleContactDeg": {
+      "n": 14,
+      "p50": 28.6,
+      "p90": 34.8,
+      "p99": 34.9,
+      "max": 34.9
+     },
+     "ankleDeepestDeg": {
+      "n": 14,
+      "p50": 48.3,
+      "p90": 48.5,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 14,
+      "p50": 31.8,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 14,
+      "p50": 0,
+      "p90": 0.38,
+      "p99": 0.48,
+      "max": 0.48
+     }
+    },
+    "stance:holdChest": {
+     "steps": 34,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 34,
+      "p50": 0.433,
+      "p90": 0.833,
+      "p99": 0.883,
+      "max": 0.883
+     },
+     "swingS": {
+      "n": 34,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "clearanceIn": {
+      "n": 34,
+      "p50": 3.11,
+      "p90": 3.4,
+      "p99": 3.82,
+      "max": 3.82
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 0,
+      "flatPct": 100
+     },
+     "ankleContactDeg": {
+      "n": 34,
+      "p50": 21.9,
+      "p90": 25.2,
+      "p99": 25.3,
+      "max": 25.3
+     },
+     "ankleDeepestDeg": {
+      "n": 34,
+      "p50": 44,
+      "p90": 47.5,
+      "p99": 48.1,
+      "max": 48.1
+     },
+     "ankleToeOffDeg": {
+      "n": 34,
+      "p50": 31.2,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 34,
+      "p50": 1.63,
+      "p90": 10.01,
+      "p99": 13.57,
+      "max": 13.57
+     }
+    },
+    "stance:boxout": {
+     "steps": 40,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 40,
+      "p50": 0.383,
+      "p90": 0.833,
+      "p99": 10.817,
+      "max": 10.817
+     },
+     "swingS": {
+      "n": 40,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "clearanceIn": {
+      "n": 40,
+      "p50": 3.35,
+      "p90": 3.82,
+      "p99": 4.09,
+      "max": 4.09
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 52.5,
+      "flatPct": 47.5
+     },
+     "ankleContactDeg": {
+      "n": 40,
+      "p50": 31.6,
+      "p90": 32.9,
+      "p99": 33.4,
+      "max": 33.4
+     },
+     "ankleDeepestDeg": {
+      "n": 40,
+      "p50": 32.4,
+      "p90": 45.3,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 40,
+      "p50": 25.3,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 40,
+      "p50": 1.13,
+      "p90": 8.94,
+      "p99": 14.52,
+      "max": 14.52
+     }
+    },
+    "stance:handsKnees": {
+     "steps": 59,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 59,
+      "p50": 0.333,
+      "p90": 1.133,
+      "p99": 7.417,
+      "max": 7.417
+     },
+     "swingS": {
+      "n": 59,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "clearanceIn": {
+      "n": 59,
+      "p50": 3.11,
+      "p90": 3.87,
+      "p99": 4.1,
+      "max": 4.1
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 25.42,
+      "flatPct": 74.58
+     },
+     "ankleContactDeg": {
+      "n": 59,
+      "p50": 32,
+      "p90": 32.5,
+      "p99": 34.4,
+      "max": 34.4
+     },
+     "ankleDeepestDeg": {
+      "n": 59,
+      "p50": 39.9,
+      "p90": 45,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 59,
+      "p50": 31.8,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 59,
+      "p50": 0.13,
+      "p90": 1.22,
+      "p99": 2.57,
+      "max": 2.57
+     }
+    },
+    "clip:freethrow": {
+     "steps": 20,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 20,
+      "p50": 1.467,
+      "p90": 1.7,
+      "p99": 1.817,
+      "max": 1.817
+     },
+     "swingS": {
+      "n": 20,
+      "p50": 0.167,
+      "p90": 0.167,
+      "p99": 0.167,
+      "max": 0.167
+     },
+     "clearanceIn": {
+      "n": 20,
+      "p50": 2.69,
+      "p90": 2.69,
+      "p99": 2.83,
+      "max": 2.83
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 0,
+      "flatPct": 100
+     },
+     "ankleContactDeg": {
+      "n": 20,
+      "p50": 13.7,
+      "p90": 23.5,
+      "p99": 26.1,
+      "max": 26.1
+     },
+     "ankleDeepestDeg": {
+      "n": 20,
+      "p50": 33.2,
+      "p90": 46.6,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 20,
+      "p50": -8.7,
+      "p90": -1.9,
+      "p99": 25.4,
+      "max": 25.4
+     },
+     "landingMovedIn": {
+      "n": 20,
+      "p50": 0.02,
+      "p90": 0.04,
+      "p99": 0.06,
+      "max": 0.06
+     }
+    },
+    "stance:triple": {
+     "steps": 29,
+     "clearPct": 100,
+     "unclearWhy": {
+      "stance": 0,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 29,
+      "p50": 0.467,
+      "p90": 2.133,
+      "p99": 3.533,
+      "max": 3.533
+     },
+     "swingS": {
+      "n": 29,
+      "p50": 0.233,
+      "p90": 0.233,
+      "p99": 0.233,
+      "max": 0.233
+     },
+     "clearanceIn": {
+      "n": 29,
+      "p50": 3.34,
+      "p90": 3.72,
+      "p99": 3.83,
+      "max": 3.83
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 44.83,
+      "flatPct": 55.17
+     },
+     "ankleContactDeg": {
+      "n": 29,
+      "p50": 30.7,
+      "p90": 34,
+      "p99": 34.1,
+      "max": 34.1
+     },
+     "ankleDeepestDeg": {
+      "n": 29,
+      "p50": 37.1,
+      "p90": 41.9,
+      "p99": 48.2,
+      "max": 48.2
+     },
+     "ankleToeOffDeg": {
+      "n": 29,
+      "p50": 31.8,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 29,
+      "p50": 0.81,
+      "p90": 5.11,
+      "p99": 16.83,
+      "max": 16.83
+     }
+    },
+    "clip:turn": {
+     "steps": 19,
+     "clearPct": 94.74,
+     "unclearWhy": {
+      "stance": 1,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 19,
+      "p50": 0.383,
+      "p90": 3.5,
+      "p99": 4.967,
+      "max": 4.967
+     },
+     "swingS": {
+      "n": 19,
+      "p50": 0.3,
+      "p90": 0.417,
+      "p99": 0.417,
+      "max": 0.417
+     },
+     "clearanceIn": {
+      "n": 19,
+      "p50": 3.52,
+      "p90": 8.33,
+      "p99": 9.98,
+      "max": 9.98
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 10.53,
+      "flatPct": 89.47
+     },
+     "ankleContactDeg": {
+      "n": 19,
+      "p50": 28,
+      "p90": 33.3,
+      "p99": 34.4,
+      "max": 34.4
+     },
+     "ankleDeepestDeg": {
+      "n": 19,
+      "p50": 37,
+      "p90": 45.9,
+      "p99": 47.2,
+      "max": 47.2
+     },
+     "ankleToeOffDeg": {
+      "n": 19,
+      "p50": 27.6,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 19,
+      "p50": 0,
+      "p90": 15.01,
+      "p99": 17.3,
+      "max": 17.3
+     }
+    },
+    "clip:layup": {
+     "steps": 25,
+     "clearPct": 84,
+     "unclearWhy": {
+      "stance": 4,
+      "swing": 0,
+      "lift": 0
+     },
+     "stanceS": {
+      "n": 25,
+      "p50": 0.183,
+      "p90": 0.583,
+      "p99": 1.05,
+      "max": 1.05
+     },
+     "swingS": {
+      "n": 25,
+      "p50": 0.267,
+      "p90": 0.267,
+      "p99": 0.3,
+      "max": 0.3
+     },
+     "clearanceIn": {
+      "n": 25,
+      "p50": 4.94,
+      "p90": 7.25,
+      "p99": 8.11,
+      "max": 8.11
+     },
+     "landing": {
+      "heelFirstPct": 0,
+      "forefootFirstPct": 92,
+      "flatPct": 8
+     },
+     "ankleContactDeg": {
+      "n": 25,
+      "p50": 29.4,
+      "p90": 34.1,
+      "p99": 39.9,
+      "max": 39.9
+     },
+     "ankleDeepestDeg": {
+      "n": 31,
+      "p50": 43.1,
+      "p90": 47.3,
+      "p99": 48.5,
+      "max": 48.5
+     },
+     "ankleToeOffDeg": {
+      "n": 31,
+      "p50": 31.8,
+      "p90": 31.8,
+      "p99": 31.8,
+      "max": 31.8
+     },
+     "landingMovedIn": {
+      "n": 25,
+      "p50": 1.19,
+      "p90": 6.11,
+      "p99": 33.65,
+      "max": 33.65
+     }
+    }
+   },
+   "toesVsTravelDeg": {
+    "n": 133469,
+    "p50": 2.2,
+    "p90": 14,
+    "p99": 27.3,
+    "max": 44.3,
+    "offPct": 3.33
+   },
+   "cadenceBySpeed": {
+    "walk 3-6": {
+     "frames": 60669,
+     "speed": 4.72,
+     "stepsPerSec": 2.74,
+     "stepLengthFt": 1.72
+    },
+    "jog 6-9": {
+     "frames": 70503,
+     "speed": 7.72,
+     "stepsPerSec": 2.99,
+     "stepLengthFt": 2.58
+    },
+    "run 9-13": {
+     "frames": 77525,
+     "speed": 10.88,
+     "stepsPerSec": 3.13,
+     "stepLengthFt": 3.47
+    },
+    "run 13-18": {
+     "frames": 64787,
+     "speed": 14.95,
+     "stepsPerSec": 3.19,
+     "stepLengthFt": 4.68
+    },
+    "sprint 18+": {
+     "frames": 36704,
+     "speed": 21.6,
+     "stepsPerSec": 3.47,
+     "stepLengthFt": 6.22
+    }
+   }
+  },
+  "weight": {
+   "cuts": {
+    "events": 353,
+    "footPlantedPct": 100,
+    "hipDropPct": 100,
+    "hipDropIn": {
+     "n": 353,
+     "p50": 7.58,
+     "p90": 10.07,
+     "p99": 12.09,
+     "max": 14.63
+    },
+    "peakFtps2": {
+     "n": 353,
+     "p50": 37,
+     "p90": 45.6,
+     "p99": 54.7,
+     "max": 55
+    },
+    "missing": []
+   },
+   "brakes": {
+    "events": 1071,
+    "footPlantedPct": 98.8,
+    "hipDropPct": 100,
+    "hipDropIn": {
+     "n": 1071,
+     "p50": 7.43,
+     "p90": 10.83,
+     "p99": 13.83,
+     "max": 16.48
+    },
+    "peakFtps2": {
+     "n": 1071,
+     "p50": 30.1,
+     "p90": 34.7,
+     "p99": 55,
+     "max": 55
+    },
+    "missing": [
+     [
+      "slide:walk no-plant",
+      8
+     ],
+     [
+      "gait:run no-plant",
+      1
+     ],
+     [
+      "gait:walk no-plant",
+      1
+     ],
+     [
+      "back:walk no-plant",
+      1
+     ],
+     [
+      "clip:wallUp no-plant",
+      1
+     ],
+     [
+      "slide:run no-plant",
+      1
+     ]
+    ]
+   },
+   "turnSnapsPerPlayerMin": 0,
+   "byMass": {
+    "light": {
+     "players": 22,
+     "avgLb": 187,
+     "pushFtps2": {
+      "n": 336713,
+      "p50": 18.4,
+      "p90": 30.8,
+      "p99": 39.6,
+      "max": 55
+     },
+     "turnRadps2": {
+      "n": 314681,
+      "p50": 74.5,
+      "p90": 91.3,
+      "p99": 94.9,
+      "max": 153.4
+     }
+    },
+    "mid": {
+     "players": 5,
+     "avgLb": 215,
+     "pushFtps2": {
+      "n": 89900,
+      "p50": 17.5,
+      "p90": 27.1,
+      "p99": 36.9,
+      "max": 55
+     },
+     "turnRadps2": {
+      "n": 77458,
+      "p50": 64.9,
+      "p90": 71.7,
+      "p99": 75.3,
+      "max": 115
+     }
+    },
+    "heavy": {
+     "players": 4,
+     "avgLb": 271,
+     "pushFtps2": {
+      "n": 39958,
+      "p50": 16.7,
+      "p90": 23.4,
+      "p99": 31.9,
+      "max": 55
+     },
+     "turnRadps2": {
+      "n": 32258,
+      "p50": 49.9,
+      "p90": 57.1,
+      "p99": 61,
+      "max": 95.4
+     }
+    }
+   },
+   "hipJumpsPerPlayerMin": 0,
+   "hipJumps": 0,
+   "hipJumpsBy": [],
+   "hipJumpWorstIn": 0,
+   "hipJumpWorstAt": ""
+  },
+  "gait": {
+   "byGait": {
+    "stand": {
+     "frames": 72797,
+     "pops": 51,
+     "popsPerMin": 2.52
+    },
+    "walk": {
+     "frames": 95435,
+     "pops": 83,
+     "popsPerMin": 3.13,
+     "armLegSync": 0.365,
+     "handSwingIn": 37.3,
+     "elbowDeg": 43.2,
+     "armsSwingingPct": 71.8,
+     "armOppositePct": 96.99,
+     "armOppositeFrames": 12348,
+     "armOppositeAllPct": 91.2
+    },
+    "jog": {
+     "frames": 129614,
+     "pops": 183,
+     "popsPerMin": 5.08,
+     "armLegSync": 0.749,
+     "handSwingIn": 38,
+     "elbowDeg": 81.7,
+     "armsSwingingPct": 86.2,
+     "armOppositePct": 98.06,
+     "armOppositeFrames": 45505,
+     "armOppositeAllPct": 95.74
+    },
+    "run": {
+     "frames": 70147,
+     "pops": 83,
+     "popsPerMin": 4.26,
+     "armLegSync": 0.913,
+     "handSwingIn": 46.6,
+     "elbowDeg": 91.1,
+     "armsSwingingPct": 100,
+     "armOppositePct": 98.06,
+     "armOppositeFrames": 38107,
+     "armOppositeAllPct": 98.06
+    },
+    "sprint": {
+     "frames": 25810,
+     "pops": 29,
+     "popsPerMin": 4.04,
+     "armLegSync": 0.924,
+     "handSwingIn": 64,
+     "elbowDeg": 88.3,
+     "armsSwingingPct": 100,
+     "armOppositePct": 97.83,
+     "armOppositeFrames": 17771,
+     "armOppositeAllPct": 97.83
+    },
+    "back": {
+     "frames": 70646,
+     "pops": 114,
+     "popsPerMin": 5.81,
+     "armLegSync": 0.193,
+     "handSwingIn": 20.9,
+     "elbowDeg": 57.8,
+     "armsSwingingPct": 6,
+     "armOppositePct": 100,
+     "armOppositeFrames": 21,
+     "armOppositeAllPct": 92.49
+    },
+    "slide": {
+     "frames": 144046,
+     "pops": 273,
+     "popsPerMin": 6.82
+    }
+   },
+   "locoFrames": 608495,
+   "locoPops": 816,
+   "locoPopsPerMin": 4.83,
+   "popsBy": [
+    [
+     "slide:L_KN",
+     55
+    ],
+    [
+     "slide:L_TOE",
+     53
+    ],
+    [
+     "slide:R_TOE",
+     43
+    ],
+    [
+     "slide:R_HD",
+     38
+    ],
+    [
+     "slide:R_KN",
+     37
+    ],
+    [
+     "back:L_HD",
+     36
+    ],
+    [
+     "jog:L_KN",
+     36
+    ],
+    [
+     "jog:L_HD",
+     36
+    ],
+    [
+     "back:R_HD",
+     35
+    ],
+    [
+     "jog:R_HD",
+     30
+    ],
+    [
+     "run:L_KN",
+     27
+    ],
+    [
+     "walk:L_HD",
+     25
+    ]
+   ],
+   "afterMove": {
+    "frames": 5680,
+    "pops": 34,
+    "popsPerMin": 21.55
+   },
+   "transitions": 22501,
+   "transitionsBy": [
+    [
+     "walk>slide",
+     2512
+    ],
+    [
+     "slide>back",
+     2055
+    ],
+    [
+     "jog>walk",
+     1978
+    ],
+    [
+     "slide>walk",
+     1729
+    ],
+    [
+     "walk>jog",
+     1568
+    ],
+    [
+     "back>slide",
+     1504
+    ],
+    [
+     "run>jog",
+     1380
+    ],
+    [
+     "slide>jog",
+     1305
+    ],
+    [
+     "jog>run",
+     1264
+    ],
+    [
+     "jog>slide",
+     1142
+    ],
+    [
+     "back>walk",
+     1020
+    ],
+    [
+     "walk>back",
+     635
+    ]
+   ],
+   "transitionPops": 538,
+   "transitionPopsBy": [
+    [
+     "back>slide",
+     76
+    ],
+    [
+     "slide>jog",
+     57
+    ],
+    [
+     "jog>slide",
+     45
+    ],
+    [
+     "stand>slide",
+     41
+    ],
+    [
+     "run>jog",
+     40
+    ],
+    [
+     "walk>jog",
+     34
+    ],
+    [
+     "jog>run",
+     29
+    ],
+    [
+     "slide>run",
+     25
+    ],
+    [
+     "slide>walk",
+     23
+    ],
+    [
+     "stand>walk",
+     20
+    ],
+    [
+     "slide>back",
+     20
+    ],
+    [
+     "walk>slide",
+     18
+    ],
+    [
+     "run>slide",
+     17
+    ],
+    [
+     "sprint>slide",
+     17
+    ],
+    [
+     "walk>stand",
+     13
+    ],
+    [
+     "run>sprint",
+     12
+    ],
+    [
+     "back>stand",
+     9
+    ],
+    [
+     "slide>stand",
+     7
+    ],
+    [
+     "stand>back",
+     7
+    ],
+    [
+     "back>jog",
+     6
+    ],
+    [
+     "sprint>run",
+     5
+    ],
+    [
+     "slide>sprint",
+     5
+    ],
+    [
+     "back>walk",
+     4
+    ],
+    [
+     "jog>walk",
+     3
+    ],
+    [
+     "back>run",
+     3
+    ],
+    [
+     "walk>back",
+     2
+    ]
+   ],
+   "transitionPopAt": [
+    "walk>jog 16 t=2.85",
+    "walk>jog 16 t=2.87",
+    "walk>slide 16 t=6.55",
+    "stand>walk 4 t=8.65",
+    "jog>walk 23 t=11.40",
+    "jog>walk 23 t=11.42",
+    "walk>back 23 t=11.73",
+    "slide>run 23 t=19.63",
+    "slide>back 23 t=20.70",
+    "run>slide 23 t=20.90",
+    "slide>jog 17 t=21.33",
+    "sprint>slide 19 t=21.63"
+   ]
+  },
+  "handle": {
+   "contacts": 1109,
+   "contactsOffPct": 17.49,
+   "contactsOff": 194,
+   "contactMaxIn": {
+    "n": 1109,
+    "p50": 0.01,
+    "p90": 2.16,
+    "p99": 15.39,
+    "max": 383.1
+   },
+   "catchIn": {
+    "n": 1109,
+    "p50": 0,
+    "p90": 0.01,
+    "p99": 10.33,
+    "max": 383.1
+   },
+   "offBy": [
+    [
+     "ride",
+     57
+    ],
+    [
+     "push",
+     32
+    ],
+    [
+     "push:btl",
+     23
+    ],
+    [
+     "push:blend",
+     18
+    ],
+    [
+     "ride:btl",
+     16
+    ],
+    [
+     "ride:blend",
+     13
+    ],
+    [
+     "push:cross",
+     10
+    ],
+    [
+     "push:btb",
+     9
+    ],
+    [
+     "ride:cross",
+     5
+    ],
+    [
+     "ride:btb",
+     5
+    ]
+   ],
+   "ballThroughFrames": 4687,
+   "ballThroughBy": [
+    [
+     "held holder forearm",
+     1764
+    ],
+    [
+     "held holder trunk",
+     268
+    ],
+    [
+     "held other upper arm",
+     258
+    ],
+    [
+     "held other trunk",
+     234
+    ],
+    [
+     "dribble own thigh",
+     206
+    ],
+    [
+     "dribble other thigh",
+     178
+    ],
+    [
+     "flight other upper arm",
+     173
+    ],
+    [
+     "held other forearm",
+     150
+    ],
+    [
+     "dribble own forearm",
+     139
+    ],
+    [
+     "held holder upper arm",
+     133
+    ]
+   ],
+   "ballThroughWorstIn": 9.44,
+   "ballThroughWorstAt": "held other trunk 1 t=185.45",
+   "ballFloorFrames": 0,
+   "ballFrames": {
+    "dribble": 33498,
+    "held": 15855,
+    "flight": 15880,
+    "loose": 1625
+   },
+   "bounces": 1019,
+   "movingBounces": 576,
+   "rhythm": {
+    "withInsideStepPct": 53.8,
+    "offS": {
+     "n": 576,
+     "p50": 0.067,
+     "p90": 0.2,
+     "p99": 0.317,
+     "max": 0.333
+    },
+    "periodPerStep": {
+     "n": 576,
+     "p50": 1.94,
+     "p90": 2.56,
+     "p99": 3.29,
+     "max": 3.8
+    },
+    "movesWithStepPct": 76.9,
+    "moveOffS": {
+     "n": 130,
+     "p50": 0.017,
+     "p90": 0.1,
+     "p99": 0.183,
+     "max": 0.217
+    }
+   },
+   "bouncesPerS": {
+    "still": 2.14,
+    "open": 1.62,
+    "pressed": 2.22,
+    "moving": 1.76
+   },
+   "topIn": {
+    "open": {
+     "n": 9,
+     "p50": 33.1,
+     "p90": 34.8,
+     "p99": 34.8,
+     "max": 34.8
+    },
+    "pressed": {
+     "n": 69,
+     "p50": 30.8,
+     "p90": 33.1,
+     "p99": 35,
+     "max": 35
+    },
+    "moving": {
+     "n": 370,
+     "p50": 30.8,
+     "p90": 33.2,
+     "p99": 35.7,
+     "max": 36.8
+    }
+   },
+   "eyesOnBallPct": 0.03,
+   "faceDownDeg": {
+    "n": 33473,
+    "p50": 6.9,
+    "p90": 11.3,
+    "p99": 16.1,
+    "max": 30.5
+   },
+   "pressedFrames": 17268,
+   "offArmUpPct": 46.5,
+   "airFrames": 13318,
+   "airJolts": 1534,
+   "airJoltBy": [
+    [
+     "dribble up",
+     680
+    ],
+    [
+     "dribble down",
+     346
+    ],
+    [
+     "cross up",
+     230
+    ],
+    [
+     "cross down",
+     142
+    ],
+    [
+     "btl down",
+     67
+    ],
+    [
+     "btb up",
+     30
+    ],
+    [
+     "btb down",
+     20
+    ],
+    [
+     "btl up",
+     19
+    ]
+   ],
+   "airWorstFtps2": 7282.5,
+   "airWorstAt": "dribble down 3 t=694.93"
+  },
+  "pass": {
+   "passes": 146,
+   "caught": 144,
+   "byKind": {
+    "chest": 98,
+    "bounce": 15,
+    "nolook": 4,
+    "kick": 8,
+    "lob": 3,
+    "entry": 2,
+    "swing": 6,
+    "outlet": 7,
+    "btb": 3
+   },
+   "handsSetS": {
+    "n": 144,
+    "p50": 0.3,
+    "p90": 0.683,
+    "p99": 0.983,
+    "max": 1.4
+   },
+   "handsLate": 3,
+   "eyesOnS": {
+    "n": 144,
+    "p50": 0.383,
+    "p90": 0.717,
+    "p99": 1.217,
+    "max": 1.3
+   },
+   "eyesLate": 12,
+   "gapNearIn": {
+    "n": 144,
+    "p50": 0.23,
+    "p90": 1.6,
+    "p99": 17.22,
+    "max": 240.62
+   },
+   "gapFarIn": {
+    "n": 144,
+    "p50": 0.69,
+    "p90": 4.96,
+    "p99": 34.35,
+    "max": 249.94
+   },
+   "gapOff": 109,
+   "thruHandsFrames": 51,
+   "thruHandsPasses": 30,
+   "thruWorstIn": 4.86,
+   "thruForearmsAfterFrames": 428,
+   "stopFtps2": {
+    "n": 144,
+    "p50": 1017,
+    "p90": 2157,
+    "p99": 4073,
+    "max": 28553
+   },
+   "stoppedDead": 32,
+   "bentIn": {
+    "n": 146,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "bent": 0,
+   "passerGapIn": {
+    "n": 128,
+    "p50": 4.34,
+    "p90": 35.48,
+    "p99": 42.39,
+    "max": 42.56
+   },
+   "passerOff": 128,
+   "releaseFtps2": {
+    "n": 146,
+    "p50": 745,
+    "p90": 1969,
+    "p99": 3183,
+    "max": 5577
+   },
+   "releaseJolts": 33
+  }
+ }
+}

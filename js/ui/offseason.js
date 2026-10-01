@@ -371,7 +371,7 @@
   UI.addNav({ key: 'resign', label: 'Re-sign Players', icon: '✍️', group: 'Front Office', show: safe(S => S.phase === 'resign'), dot: safe(S => pendingResign(S) > 0) });
   UI.addNav({ key: 'freeagency', label: 'Free Agents', icon: '🖊️', group: 'Front Office' });
   UI.addNav({ key: 'trade', label: 'Trades', icon: '🔄', group: 'Front Office' });
-  UI.addNav({ key: 'scouting', label: 'Scouting', icon: '🔭', group: 'Front Office', show: safe(S => PBC.League.prospects(S).length), dot: safe(S => Dr().canScout(S) && Dr().points(S) >= Dr().BANK_MAX) });
+  UI.addNav({ key: 'scouting', label: 'Scouting', icon: '🔭', group: 'Front Office', show: safe(S => PBC.League.prospects(S).length), dot: safe(S => Dr().canScout(S) && Dr().points(S) >= (Dr().bankMax ? Dr().bankMax(S) : Dr().BANK_MAX)) });
   UI.addNav({ key: 'offseason', label: 'Offseason Report', icon: '📋', group: 'Front Office', show: safe(S => S.offseason || S.lastOffseason) });
 
   // ---------------------------------------------------------------------------
@@ -640,7 +640,7 @@
       if (sc.pos !== 'all') rows = rows.filter(r => r.p.pos === sc.pos);
       const scouted = rows0.filter(r => (r.p.scout && r.p.scout.pts) > 0).length;
       const note = !can ? (u < 0 ? 'You need a job before your scouts go to work.' : 'Your scouts are off until the new draft class is set.')
-        : `Scouting points: +${D.weeklyScoutingPoints(S)} a week during the season (bank up to ${D.BANK_MAX}), plus ${D.PREDRAFT_POINTS} for pre-draft workouts when the offseason begins.${pts >= D.BANK_MAX ? ' <span class="warn-t bold">Your bank is full: spend points or lose them.</span>' : ''}`;
+        : `Scouting points: +${D.weeklyScoutingPoints(S)} a week during the season (bank up to ${D.bankMax ? D.bankMax(S) : D.BANK_MAX}), plus ${D.PREDRAFT_POINTS} for pre-draft workouts when the offseason begins.${pts >= (D.bankMax ? D.bankMax(S) : D.BANK_MAX) ? ' <span class="warn-t bold">Your bank is full: spend points or lose them.</span>' : ''}`;
       root.innerHTML = `<div class="page os">
         ${OU.steps(S)}
         <div class="page-h"><div><h1>Scouting</h1><div class="sub">${year} draft class · ${all.length} prospects · ${U.plural(scouted, 'prospect')} scouted by your staff</div></div>

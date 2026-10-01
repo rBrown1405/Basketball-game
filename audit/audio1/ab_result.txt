@@ -1,0 +1,31 @@
+A/B: the arena audio of 8baee19 (old) against the working copy (new), the same random variations on both sides
+
+One-shots: mean energy of the hits in their window (dBFS), crowd bed off in both
+dribble                      old  -34.7  new  -34.7  diff -0.01 dB   peak old -14.7 new -14.7 dBFS  OK
+bounce                       old  -34.5  new  -34.4  diff +0.08 dB   peak old -14.7 new -14.7 dBFS  OK
+squeak                       old  -44.5  new  -44.5  diff +0.01 dB   peak old -30.2 new -30.1 dBFS  OK
+rim                          old  -35.7  new  -35.7  diff +0.02 dB   peak old -14.5 new -13.9 dBFS  OK
+board                        old  -32.6  new  -32.6  diff -0.01 dB   peak old -15.1 new -15.1 dBFS  OK
+swish                        old  -46.0  new  -45.9  diff +0.01 dB   peak old -23.7 new -23.7 dBFS  OK
+net                          old  -41.5  new  -41.6  diff -0.02 dB   peak old -20.5 new -20.5 dBFS  OK
+dunk                         old  -25.4  new  -25.3  diff +0.03 dB   peak old -3.1 new -3.1 dBFS  OK
+block                        old  -34.4  new  -34.4  diff +0.00 dB   peak old -13.2 new -13.2 dBFS  OK
+whistle                      old  -27.0  new  -27.0  diff +0.01 dB   peak old -13.7 new -13.6 dBFS  OK
+horn                         old  -32.3  new  -32.1  diff +0.24 dB   peak old -21.4 new -19.8 dBFS  OK
+roar 0.65 (home basket)      old  -36.5  new  -36.5  diff -0.01 dB   peak old -16.8 new -16.8 dBFS  OK
+roar 1.1 (home three)        old  -27.7  new  -27.6  diff +0.02 dB   peak old -8.6 new -8.6 dBFS  OK
+murmur 0.5 (away basket)     old  -55.4  new  -55.4  diff +0.00 dB   peak old -32.4 new -32.4 dBFS  OK
+groan 0.8 (away three)       old  -52.5  new  -52.5  diff +0.04 dB   peak old -30.0 new -30.0 dBFS  OK
+ooh 0.6 (home missed three)  old  -51.5  new  -51.5  diff +0.00 dB   peak old -28.9 new -28.9 dBFS  OK
+roar 0.9 (home block)        old  -31.8  new  -31.8  diff +0.00 dB   peak old -12.3 new -12.3 dBFS  OK
+largest difference: 0.24 dB over 17 sounds
+
+Crowd bed and the duck while the booth talks (dBFS)
+old: bed -40.5, while the booth talks -44.5 (-4.0 dB), 3.5 s after it stops -38.5
+new: bed -40.5, while the booth talks -45.6 (-5.0 dB), 3.5 s after it stops -38.5
+bed level, new minus old: -0.01 dB
+level every 0.1 s from 0.5 s before the booth starts to 4 s after it stops (it talks from the 6th value for 3 s):
+old -42 -43 -40 -40 -41 -42 -41 -40 -39 -40 -43 -44 -43 -44 -44 -46 -45 -44 -44 -47 -43 -46 -43 -47 -45 -46 -44 -46 -47 -45 -45 -42 -47 -42 -46 -46 -48 -44 -44 -45 -45 -45 -42 -41 -42 -42 -41 -40 -39 -39 -41 -41 -40 -40 -41 -42 -40 -40 -39 -41 -38 -40 -38 -41 -39 -41 -38 -40 -41 -39 -39 -36 -41 -36 -40 -40
+new -42 -43 -40 -40 -41 -42 -45 -45 -45 -45 -48 -47 -47 -47 -48 -48 -47 -46 -46 -49 -44 -46 -45 -48 -46 -46 -46 -48 -48 -45 -46 -43 -46 -43 -46 -48 -48 -45 -46 -48 -48 -49 -45 -45 -47 -47 -46 -42 -40 -40 -43 -42 -40 -41 -41 -41 -40 -39 -39 -42 -38 -39 -38 -41 -39 -39 -39 -41 -41 -39 -39 -36 -39 -37 -39
+errors: old 0, new 0
+RESULT: PASS (every sound and the bed within 1 dB of the old code; only the duck differs)

@@ -436,7 +436,7 @@
   // Migration, export, import
   // ---------------------------------------------------------------------------
   Store.migrate = function (S) {
-    S.settings = Object.assign({ gimEnabled: true, autoPractice: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast', autoTimeouts: true, autosave: 'always', backupCount: 3 }, S.settings || {});
+    S.settings = Object.assign({ gimEnabled: true, autoPractice: false, staffAdjust: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast', autoTimeouts: true, autosave: 'always', backupCount: 3 }, S.settings || {});
     if (!AUTOSAVE.includes(S.settings.autosave)) S.settings.autosave = 'always';
     const bc = Math.round(+S.settings.backupCount);
     S.settings.backupCount = isFinite(bc) ? Math.max(0, Math.min(Store.MAX_BACKUPS, bc)) : 3;
