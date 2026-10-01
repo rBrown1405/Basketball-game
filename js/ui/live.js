@@ -1159,6 +1159,11 @@
     const callRows = [];
     if (cl && cl.play && PB.get(cl.play.id)) callRows.push(`<div class="lv-call">📋 <b>${U.esc(PB.get(cl.play.id).name)}</b><span class="tiny muted">next ${cl.play.left > 1 ? cl.play.left + ' possessions' : 'possession'}</span><button class="btn ghost sm" data-clear="play">✕</button></div>`);
     for (const fam of ['blob', 'slob']) if (cl && cl.inb[fam] && PB.get(cl.inb[fam])) callRows.push(`<div class="lv-call">↪️ <b>${U.esc(PB.get(cl.inb[fam]).name)}</b><span class="tiny muted">next ${fam === 'blob' ? 'inbound under the basket' : 'sideline inbound'}</span><button class="btn ghost sm" data-clear="${fam}">✕</button></div>`);
+    // (your matchup orders: the huddle's matchups)
+    if (T.orders) {
+      const OPPT = g.t[1 - LG.uIdx], ORDL = { deny: 'Deny', sag: 'Sag off', double: 'Double', force: 'Force weak hand', hack: 'Hack' };
+      for (const id in T.orders) { const o2 = OPPT.players.find(c => c.id === +id); if (o2) callRows.push(`<div class="lv-call">🎯 <b>${ORDL[T.orders[id]]}: ${U.esc(o2.last)}</b><span class="tiny muted">until you change it</span><button class="btn ghost sm" data-clear-ord="${id}">✕</button></div>`); }
+    }
     if (cl && cl.def) callRows.push(`<div class="lv-call">🛡️ <b>${U.esc(C.DEFENSES[cl.def.def].label)}${cl.cov && PB.COVERAGES[cl.cov] ? ' · ' + U.esc(PB.COVERAGES[cl.cov].label) : ''}</b><span class="tiny muted">${cl.def.left > 0 ? cl.def.left + ' more defensive possession' + (cl.def.left === 1 ? '' : 's') : 'back to ' + U.esc(C.DEFENSES[cl.def.prev.def].label) + ' next'}</span><button class="btn ghost sm" data-clear="def">✕</button></div>`);
     const sug = PBC.Adjust ? PBC.Adjust.suggestion(g) : null;
     const sugHtml = sug ? `<div class="lv-sug"><div class="lv-sug-t">💡 Your assistant</div><div class="small">${U.esc(suggestText(sug))}</div>
@@ -1199,6 +1204,9 @@
       };
     });
     { const hb = panel.querySelector('[data-huddle]'); if (hb) hb.onclick = () => { if (!LG.busy) openHuddle('bench'); }; }
+    panel.querySelectorAll('[data-clear-ord]').forEach(b => {
+      b.onclick = () => { const o = Object.assign({}, T.orders || {}); delete o[b.dataset.clearOrd]; PBC.Sim.setOrders(g, LG.uIdx, o); renderCoach(panel); };
+    });
     panel.querySelectorAll('[data-clear]').forEach(b => {
       b.onclick = () => {
         const k = b.dataset.clear;

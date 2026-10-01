@@ -37,10 +37,11 @@
       ];
       return `<table class="lk-tbl"><thead><tr><th></th><th>${U.esc(T.abbr)}</th><th>${U.esc(OT.abbr)}</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>`;
     }
-    const li = (icon, txt) => `<div class="lk-li"><span>${icon}</span><span>${U.esc(txt)}</span></div>`;
+    const cap = (t) => String(t).charAt(0).toUpperCase() + String(t).slice(1);
+    const li = (icon, txt) => `<div class="lk-li"><span>${icon}</span><span>${U.esc(cap(txt))}</span></div>`;
     function reportHtml() {
       const work = rep.working.map(w => li('✅', w.txt)).concat(rep.hot.map(h => li('🔥', h.txt)));
-      const hurt = rep.hurting.map(h => li('⚠️', h.txt.charAt(0).toUpperCase() + h.txt.slice(1))).concat(rep.cold.map(c => li('🧊', c.txt + ', gone cold')));
+      const hurt = rep.hurting.map(h => li('⚠️', h.txt)).concat(rep.cold.map(c => li('🧊', c.txt + ', gone cold')));
       if (rep.star && !rep.hurting.some(h => h.k === 'star')) hurt.push(li('🎯', 'Their best tonight: ' + rep.star.txt));
       const fouls = rep.fouls.length || rep.theirFouls.length
         ? `<div class="lk-sec"><div class="lk-h">Foul trouble</div>${rep.fouls.length ? `<div class="small">Yours: ${U.esc(rep.fouls.map(f => f.txt).join(', '))}</div>` : ''}${rep.theirFouls.length ? `<div class="small">Theirs: ${U.esc(rep.theirFouls.map(f => f.txt).join(', '))}</div>` : ''}</div>` : '';
@@ -53,7 +54,7 @@
     function sugHtml() {
       if (!sugs.length) return '<div class="small muted">No changes. Keep doing what you are doing.</div>';
       return sugs.map(s => `<label class="lk-sug ${st.on[s.id] ? 'on' : ''}"><input type="checkbox" data-sug="${s.id}" ${st.on[s.id] ? 'checked' : ''}>
-        <span class="lk-si">${s.icon}</span><span class="lk-st"><b>${U.esc(s.text)}</b><span class="tiny muted">${U.esc(s.why)}</span></span></label>`).join('');
+        <span class="lk-si">${s.icon}</span><span class="lk-st"><b>${U.esc(s.text)}</b><span class="tiny muted">${U.esc(cap(s.why))}</span></span></label>`).join('');
     }
     function talkHtml() {
       if (st.res) {

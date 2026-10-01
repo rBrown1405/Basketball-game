@@ -274,7 +274,7 @@
       }
     }
     // the hack (the CPU's own call; your bench never does it on its own)
-    a.hack = ON.hack && !a.user && acting ? hackTarget(ctx, D, O, lead) : null;
+    a.hack = !ON.hack ? null : a.user ? orderedHack(ctx, D, O) : acting ? hackTarget(ctx, D, O, lead) : null;
     // a surprise zone out of the other team's timeout (their play was drawn up against man)
     if (ON.ato && acting && toNow && g.lastTO.idx === O.idx && !a.cur && !isZone(D.strat.def) && oppPoss >= 6 && U.chance(0.22 * a.flex)) {
       const list = Adjust.read(g, D.idx);
@@ -386,6 +386,14 @@
     if (ft >= 0.55 || (!half2 && ft >= 0.46)) return null;
     if (!U.chance((ft < 0.46 ? 0.55 : 0.35) * a.flex)) return null;
     return c;
+  }
+  /** your order to hack a man (the huddle's matchups): when you are in the penalty, not in the last two minutes of a
+   *  quarter, about every other trip he is on the floor */
+  function orderedHack(ctx, D, O) {
+    const g = ctx.g, L = g.L;
+    if (!D.orders || g.clock <= 135 || g.period > L.periods || D.fouls + 1 < L.bonus) return null;
+    const c = O.on.find(x => D.orders[x.id] === 'hack' && !x.out && !x.inj);
+    return c && U.chance(0.55) ? c : null;
   }
   /** a hack happened (Sim's hackFoul): the first one is a story, the second in a quarter gets him pulled */
   Adjust.hacked = function (ctx, D, c) {

@@ -1,4 +1,4 @@
-# In-game adjustments: the bench fights back
+# In-game adjustments: the bench fights back, the locker room, matchups
 
 The play caller (`js/core/playcall.js`) already went back to what worked on offense. Nothing answered on defense: a
 CPU coach kept the scheme it tipped off with all night and only called a timeout after a 9-point run. Now every bench
@@ -113,7 +113,77 @@ and 100.4 after; women 85.6 / 82.6 before, 85.9 / 82.5 after. Simulating is abou
 
 Checks: the animation gauntlet 152/152; a two-season headless career exits clean (29.7 s a season); two live games
 headless through the court (`tools/audit/run.js`) reach the final buzzer with no script errors and the court's score
-matching the engine.
+matching the engine, and two more with the coach's calls and the matchup orders on (`--calls 1`: deny their best,
+sag off their worst shooter, double their best post scorer, your best defender on their best) the same. In the browser (desktop 1400 px and phone 390 px), full live games with no console errors: the
+other bench's moves and your assistant's suggestion with Apply, the locker room (report, suggestions, a talk and
+every player's reaction, then the third quarter), and the huddle's Matchups (two orders and a new assignment, shown in
+the Coach tab, honored by the engine).
+
+
+## The halftime locker room
+
+`js/core/locker.js` (`PBC.Locker`) and `js/ui/locker.js`. At halftime of a game you coach live (Settings: Halftime
+locker room, on by default) the game waits while you are in the room.
+
+- **The report**: field goals, threes, free throws, turnovers and points a trip for both teams; what is working (your
+  actions scoring well above this league's usual, players on fire); what is hurting you (the bench's read, players gone
+  cold, their best scorer); foul trouble on both sides; what their bench has done.
+- **The suggestions**, taken with one tap when you go back out: the defense (or the glass) as your bench reads it;
+  denying their star the ball or doubling a star who scores inside (a third of their points, 14 or more); the play that
+  has scored (3 calls or more at 1.4 points a trip or better) for the first two trips of the half; feeding the hot hand
+  (your go-to player); sitting a starter with three fouls for the first half of the third (`c.rest`); the pace when you
+  are down 10 or up 14.
+- **The talk**: stay calm, fire them up, praise them, demand more. Each of your nine players takes it by personality
+  (`js/core/persona.js`; a competitor wants to be pushed, a diva wants praise, a hothead does not need more fire, praise
+  when you are getting beaten rings hollow with the competitors) and by the score: each one's confidence moves 0.15
+  (`c.conf`, which settles back over the player's minutes, and a little of it stays for the game), and the team gets an edge for
+  the third quarter at both ends (logit; taken back at the start of the fourth):
+
+| Talk | up 10+ | up 3-9 | close | down 3-9 | down 10+ |
+|---|---:|---:|---:|---:|---:|
+| Stay calm | +0.01 | +0.02 | +0.03 | +0.02 | 0 |
+| Fire them up | -0.01 | +0.01 | +0.03 | +0.04 | +0.05 |
+| Praise them | +0.03 | +0.03 | +0.01 | -0.01 | -0.03 |
+| Demand more | +0.02 | +0.02 | +0.02 | +0.03 | +0.03 |
+
+  plus 0.02 times how the room took it (-1 to +1), times 1 + 0.15 per Motivator level when it is good (1 - 0.12 per
+  level when it is bad). The other bench gives its own talk (`Locker.autoTalk`: the right one for the score as often as
+  its coach knows it, more for a Motivator), and so does your staff when you sim or skip the room. 300 simulated games:
+  600 talks, every third-quarter edge taken back, points per trip unchanged (1.146).
+
+## Matchups and orders
+
+The huddle (a timeout, or Call a play in the Coach tab) has a **Matchups** block: their five on the floor, who guards
+each (pick a defender; the man he had takes the other's old defender) and an order on each man. The engine pairs the
+two lineups as before (`pairLineups`) and lays your assignments over it (`T.mmUser`); the court is handed the same
+pairing. The orders (`Sim.setOrders`, `T.orders`, logit on his shots unless noted; `Sim.ORDER`):
+
+| Order | On him | Everyone else |
+|---|---|---|
+| Deny the ball | a quarter fewer touches, threes -0.10; his man stays in the passing lane | |
+| Sag off | open jumpers +0.09; his man a big cushion and no deny | -0.05 at the rim and in the paint for each man sagged off (two at most) |
+| Double team | touches x0.85, inside -0.20, outside -0.06, turnovers x1.2 when he has the ball; the defender whose own man is nearest comes up on him inside 18 ft | the man left open: a cleaner look (+0.07 open) |
+| Force the weak hand | at the rim and in the paint -0.06 | |
+| Hack | fouled on purpose about every other trip he is on the floor, when you are in the penalty and not in the last two minutes of a quarter | |
+
+The court plays them (`js/match/defense.js`): `onBallGap` (sag off: a bigger cushion, deny: tighter), `denyK` (deny:
+all the way into the lane, sag: none), `doubler` (the double team, exempt from the lane rule while he is on the ball).
+The Coach tab lists your orders with a button to clear each one.
+
+What an order is worth (`node tools/audit/orders.js <order>`: the home team puts it on the away team's best player,
+sag off on the starter with the worst three-point rating, 1230 games each, home margin about ±0.5):
+
+| | home margin | their target's points |
+|---|---:|---:|
+| no order | +1.48 | 21.6 |
+| Deny | +1.49 | 19.8 |
+| Double | +1.31 | 20.1 (their team 115.9 instead of 116.5) |
+| Force the weak hand | +1.75 | 21.8 |
+| Sag off (their worst shooter) | +2.25 (after toning sag off down from +0.12 to +0.09 and its help from -0.035 to -0.05; it was +0.94) | |
+
+None of them is a free win: denying or doubling a star takes points off his night and his teammates pick them up;
+sagging off a real non-shooter pays a little. The locker room suggests the deny and the double on a star who is
+carrying them.
 
 ## Sources
 

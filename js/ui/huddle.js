@@ -16,6 +16,9 @@
   const NS = [1, 2, 3, 5];
   const DNS = [[3, 'Next 3'], [5, 'Next 5'], [10, 'Next 10'], [Infinity, 'Rest of game']];
   const SCHEME_COV = { switch: 1, drop: 1, blitz: 1, hedge: 1 };
+  // the coach's orders on a man (js/core/sim.js setOrders)
+  const ORD = [['', 'Normal'], ['deny', 'Deny the ball'], ['sag', 'Sag off'], ['double', 'Double team'], ['force', 'Force the weak hand'], ['hack', 'Hack: foul on purpose']];
+  const ORD_LABEL = { deny: 'Deny', sag: 'Sag off', double: 'Double', force: 'Force weak hand', hack: 'Hack' };
   const FILTERS = [['all', 'All'], ['mine', 'My plays'], ['pnr', 'Pick and roll'], ['horns', 'Horns'], ['offscreen', 'Off-screen'], ['handoff', 'Hand-off'], ['post', 'Post'], ['iso', 'Isolation'], ['cut', 'Cutting'], ['spot', 'Motion'], ['zone', 'Vs zone'], ['late', 'Late game']];
   let filter = 'all';
 
@@ -40,7 +43,11 @@
       blob: calls.inb.blob, slob: calls.inb.slob,
       def: T.strat.def, cov: calls.cov, dn: calls.def ? calls.def.left : 5, defDirty: false,
       subPick: null,
+      // who guards whom (their man -> your defender) and your orders on their men
+      mm: PBC.Sim.matchupsFor ? Object.assign({}, PBC.Sim.matchupsFor(g, idx)) : {}, mm0: null, mmDirty: false,
+      ord: Object.assign({}, T.orders || {}), ordDirty: false,
     };
+    st.mm0 = Object.assign({}, st.mm);
     const half = (T.pb ? T.pb.plays : []).filter((p) => !p.inbound);
     const inb = { blob: T.pb ? T.pb.inb.blob : [], slob: T.pb ? T.pb.inb.slob : [] };
     const five = T.on.slice();
@@ -73,6 +80,16 @@
         PBC.Sim.callInbound(g, idx, 'slob', st.slob);
         if (st.blob) out.push(`Under the basket: ${PB.get(st.blob).name}`);
         if (st.slob) out.push(`Sideline: ${PB.get(st.slob).name}`);
+        if (st.mmDirty) {
+          PBC.Sim.setMatchups(g, idx, st.mm);
+          const ch = Object.keys(st.mm).filter((k) => +st.mm[k] !== +st.mm0[k]).map((k) => { const d = T.players.find((c) => c.id === +st.mm[k]), o2 = OPP.players.find((c) => c.id === +k); return d && o2 ? `${d.last} on ${o2.last}` : ''; }).filter(Boolean);
+          if (ch.length) out.push(`🔒 ${ch.join(', ')}`);
+        }
+        if (st.ordDirty) {
+          PBC.Sim.setOrders(g, idx, st.ord);
+          const list = Object.keys(st.ord).map((id) => { const o2 = OPP.players.find((c) => c.id === +id); return o2 ? `${ORD_LABEL[st.ord[id]]}: ${o2.last}` : ''; }).filter(Boolean);
+          out.push(list.length ? `🎯 ${list.join(', ')}` : '🎯 No special orders');
+        }
         if (st.defDirty) {
           PBC.Sim.callDefense(g, idx, st.def, covAllowed(st.def) ? st.cov : null, st.dn);
           const cv = covAllowed(st.def) && st.cov ? ' (' + PB.COVERAGES[st.cov].label + ')' : '';
@@ -101,6 +118,16 @@
           if (filter === 'zone') return p.family === 'zone' || p.tags.includes('zone');
           return p.family === filter;
         }).sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || ((fits[b.id] ? fits[b.id].fit : 0) - (fits[a.id] ? fits[a.id].fit : 0)));
+      }
+      /** their five, who guards each and how (the hack only for a poor free throw shooter) */
+      function mmRows() {
+        return OPP.on.map((o2) => {
+          const ft = PBC.Adjust ? Math.round(PBC.Adjust.ftExpect(g, o2) * 100) : null;
+          const od = st.ord[o2.id] || '';
+          return `<div class="hd-mmr ${od ? 'on' : ''}"><span class="hd-mmo">${UI.avatar(o2.p, 24)}<span class="ellip"><b>${U.esc(o2.last)}</b> <span class="tiny dim">${o2.pos} · ${o2.st.pts}p${ft != null && ft < 65 ? ' · FT ' + ft + '%' : ''}</span></span></span>
+            <select class="inp" data-mmd="${o2.id}" title="Who guards this player">${T.on.map((d) => `<option value="${d.id}" ${+st.mm[o2.id] === d.id ? 'selected' : ''}>${U.esc(d.last)}</option>`).join('')}</select>
+            <select class="inp" data-mmo="${o2.id}">${ORD.filter(([k]) => k !== 'hack' || (ft != null && ft < 65) || od === 'hack').map(([k, l]) => `<option value="${k}" ${od === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
+        }).join('');
       }
       function row(c, where) {
         const pick = st.subPick === c.id;
@@ -143,6 +170,10 @@
               <div class="seg" data-seg="dn">${DNS.map(([k, l]) => `<button data-v="${k}" class="${st.dn === k ? 'on' : ''}">${l}</button>`).join('')}</div>
               <p class="tiny muted">${st.defDirty ? 'Starts on their next possession' + (st.dn === Infinity ? '.' : ', then back to ' + U.esc(dm[calls.def ? calls.def.prev.def : T.strat.def].label) + '.') : 'Now: ' + U.esc(dm[T.strat.def].label) + (PBC.PlayCall ? ' · ' + U.esc((PB.COVERAGES[PBC.PlayCall.coverage(T)] || { label: 'zone' }).label) + ' on ball screens' : '')}</p>
             </div>
+            <div class="hd-col hd-mmc"><div class="hd-h">Matchups <span class="tiny muted">who guards whom, and how</span></div>
+              <div class="hd-mm">${mmRows()}</div>
+              <p class="tiny muted">Deny: fewer touches and threes for that player, harder work for your defender. Sag off: more help in the paint, open jumpers for that player. Double: fewer shots and touches for that player, someone else is open. Hack: only when you are in the penalty, never in the last two minutes of a quarter.</p>
+            </div>
             <div class="hd-col hd-line"><div class="hd-h">Lineup <span class="tiny muted">${st.subPick ? 'now tap the player to replace' : 'tap a bench player, then who comes out'}</span></div>
               ${T.on.map((c) => row(c, 'on')).join('')}
               <div class="small muted" style="margin:8px 0 4px">Bench</div>
@@ -162,6 +193,14 @@
       UI.on(body, 'click', '[data-def]', (e, el) => { st.def = el.dataset.def; st.defDirty = true; if (!covAllowed(st.def)) st.cov = null; render(); });
       UI.on(body, 'click', '[data-cov]', (e, el) => { if (el.classList.contains('dis')) { UI.toast('This scheme decides how ball screens are played: pick a man-to-man scheme to choose a coverage', 'info'); return; } st.cov = el.dataset.cov || null; st.defDirty = true; render(); });
       UI.on(body, 'change', '[data-inb]', (e, el) => { st[el.dataset.inb] = el.value || null; });
+      UI.on(body, 'change', '[data-mmd]', (e, el) => {
+        const oid = el.dataset.mmd, did = +el.value;
+        // (a defender guards one man: the one he had takes this man's old defender)
+        const prev = Object.keys(st.mm).find((k) => +st.mm[k] === did && k !== oid);
+        if (prev != null) st.mm[prev] = st.mm[oid];
+        st.mm[oid] = did; st.mmDirty = true; render();
+      });
+      UI.on(body, 'change', '[data-mmo]', (e, el) => { const oid = el.dataset.mmo; if (el.value) st.ord[oid] = el.value; else delete st.ord[oid]; st.ordDirty = true; render(); });
       UI.on(body, 'click', '[data-undo-subs]', () => { T.manualSubs.length = 0; render(); });
       UI.on(body, 'click', '[data-pc]', (e, el) => {
         const id = +el.dataset.pc, c = T.players.find((x) => x.id === id);

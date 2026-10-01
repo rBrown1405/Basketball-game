@@ -107,7 +107,7 @@
 .hd { display: flex; flex-direction: column; gap: 12px; }
 .hd-top { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
 .hd-sc { font-size: 14px; }
-.hd-grid { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.hd-grid { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; grid-auto-flow: row dense; }
 .hd-col { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
 .hd-h { font: 900 15px/1.2 var(--font-display); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .hd-n { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }

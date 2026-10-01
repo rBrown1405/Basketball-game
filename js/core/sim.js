@@ -46,6 +46,11 @@
     callPassS: 0.5,
   };
   Sim.debug = null;
+  // the head coach's orders on a man (Sim.setOrders; logit on his shots unless noted): deny him the ball (a quarter fewer
+  // touches, his threes contested), sag off him (open jumpers for him, help in the lane for everyone else), double him
+  // (his shots and touches drop, more turnovers, the man left open gets a cleaner look), force his weak hand
+  const ORDER = { denyUse: 0.75, deny3: -0.1, sagOut: 0.09, sagIn: -0.03, sagHelp: -0.05, doubleUse: 0.85, doubleIn: -0.2, doubleOut: -0.06, doubleKick: 0.07, doubleTo: 1.2, forceIn: -0.06 };
+  Sim.ORDER = ORDER;
   Sim.debugConf = null; // ([sum, n, sum of squares] of the shooters' confidence as they shoot, when set)
 
   Sim.attacksRight = (teamIdx, period) => (period <= 2) === (teamIdx === 0);
@@ -394,6 +399,7 @@
     else if (T.strat.goTo2 === c.id) w *= 1.08 * (goToMod > 1 ? 1 + (goToMod - 1) * 0.4 : 1) * goToI * (hero === 1 ? 1 : Math.pow(hero, 0.8));
     else if (hero > 1 && !T.strat.goTo1 && ctx.starId === c.id) w *= hero;
     w *= 1 + c.conf * Sim.K.confUse; // (a confident player looks for his shot, a cold one moves it on)
+    { const od = ctx.D.orders && ctx.D.orders[c.id]; if (od === 'deny') w *= ORDER.denyUse; else if (od === 'double') w *= ORDER.doubleUse; }
     w *= fatigueMult(c);
     // teammates get involved once someone has jacked up a lot of shots (later / softer with the star usage slider)
     w /= 1 + Math.max(0, c.st.fga + c.st.fta * 0.44 - (us === 1 ? 15 : 15 * Math.sqrt(us))) * (us === 1 ? 0.085 : 0.085 / us);
@@ -421,10 +427,26 @@
   }
   function matchupsOf(ctx) {
     const g = ctx.g, O = ctx.O, D = ctx.D;
-    const key = O.idx + ':' + O.on.map(c => c.id).join(',') + '|' + D.on.map(c => c.id).join(',');
+    const key = O.idx + ':' + O.on.map(c => c.id).join(',') + '|' + D.on.map(c => c.id).join(',') + '|' + (D.mmV || 0);
     const cache = g.mm || (g.mm = {});
-    if (!cache[O.idx] || cache[O.idx].key !== key) cache[O.idx] = { key, mm: pairLineups(O.on, D.on) };
+    if (!cache[O.idx] || cache[O.idx].key !== key) cache[O.idx] = { key, mm: assignMatchups(pairLineups(O.on, D.on), O, D) };
     return cache[O.idx].mm;
+  }
+  /** the head coach's assignments (D.mmUser: their man's id -> your defender's id) over the pairing, for the men on the
+   *  floor; a defender guards one man (the man he had takes the other's old defender) */
+  function assignMatchups(mm, O, D) {
+    const want = D.mmUser;
+    if (!want) return mm;
+    for (const o of O.on) {
+      const did = want[o.id];
+      if (did == null) continue;
+      const d = D.on.find(x => x.id === +did);
+      if (!d || mm[o.id] === d) continue;
+      const other = O.on.find(x => mm[x.id] === d), old = mm[o.id];
+      mm[o.id] = d;
+      if (other) mm[other.id] = old;
+    }
+    return mm;
   }
   function matchupDefender(D, off, ctx) {
     const m = ctx && ctx.O && ctx.O.on.includes(off) ? matchupsOf(ctx)[off.id] : null;
@@ -572,6 +594,8 @@
     if (PBC.PlayCall) P.defCov = PBC.PlayCall.coverage(ctx.D);
     P.offSystem = ctx.O.strat.off; // the live view shapes its off-ball movement and ball movement on it
     { const mm = matchupsOf(ctx); P.matchups = {}; for (const o of ctx.O.on) if (mm[o.id]) P.matchups[mm[o.id].id] = o.id; } // defender id -> his man's id
+    // (the head coach's orders on their men: deny, sag, double, force, hack; the court plays them, js/match/defense.js)
+    P.dOrders = ctx.D.orders && Object.keys(ctx.D.orders).length ? Object.assign({}, ctx.D.orders) : null;
     initiate(ctx, opts);
     if (!ctx.done) backcourtRules(ctx);
     runSegments(ctx, opts);
@@ -1039,6 +1063,7 @@
     p *= { vslow: 0.92, slow: 0.96, normal: 1, fast: 1.05, vfast: 1.1 }[O.strat.tempo] || 1;
     p *= 1 + (1 - avgEnergy(O) / 100) * 0.25;
     if (ctx.press && ctx.segN === 0) p *= 1.25;
+    if (D.orders && D.orders[h.id] === 'double') p *= ORDER.doubleTo;
     if (ctx.segN > 0) p *= 0.72;
     const fit = offenseFit(O);
     p *= 1 - fit * 0.07;
@@ -2223,6 +2248,7 @@
     open += offenseFit(O) * 0.05 - defenseFit(D) * 0.05;
     if (ctx.transition && ctx.segN <= 1) open += 0.05;
     else if (ctx.early && ctx.segN <= 1) open += 0.025; // (the defense is not set yet)
+    { const inf = ctx.info, x2 = inf && (inf.poster || inf.handler); if (x2 && x2 !== sh && D.orders && D.orders[x2.id] === 'double') open += ORDER.doubleKick; }
     // defensive intensity slider, playoff effort, gamblers getting beaten
     const g = ctx.g;
     open += -g.sl.contest - 0.035 * Math.min(1.5, g.intensity) + 0.03 * avgDev(D, 'gamble');
@@ -2310,6 +2336,15 @@
     if (dm.zone && dm.zone[zone]) x += dm.zone[zone] * (dm.needs ? 0.6 + 0.4 * (dfit + 1) / 2 * 2 : 1);
     if (dm.play && info && dm.play[info.play]) x += dm.play[info.play] * (dm.needs ? 0.5 + 0.5 * (dfit + 1) / 2 * 2 : 1);
     if (D.strat.def === 'boxone' && ctx.starId === sh.id) x += dm.star;
+    if (D.orders) {
+      const od = D.orders[sh.id], inside = zone === 'rim' || zone === 'paint';
+      if (od === 'deny') x += is3(zone) ? ORDER.deny3 : 0;
+      else if (od === 'sag') x += inside ? ORDER.sagIn : ORDER.sagOut;
+      else if (od === 'double') x += inside ? ORDER.doubleIn : ORDER.doubleOut;
+      else if (od === 'force') x += inside ? ORDER.forceIn : 0;
+      // (every man sagged off is a defender sitting in the lane for everyone else's drives)
+      if (inside && od !== 'sag') { let n = 0; for (const c of O.on) if (D.orders[c.id] === 'sag') n++; if (n) x += ORDER.sagHelp * Math.min(2, n); }
+    }
     if (is3(zone)) {
       const ofit = C.OFFENSES[O.strat.off].mods.needs === 'three' ? offenseFit(O) : 0;
       x += ofit * 0.05;
@@ -3036,6 +3071,21 @@
   };
   /** the coach's calls in force: { play: { id, left, n }, inb, def: { def, cov, left, n } } */
   Sim.calls = (g, idx) => { const T = g.t[idx]; return { play: T.userCall || null, inb: Object.assign({ blob: null, slob: null }, T.userInb), def: T.defCall || null, cov: T.pb ? T.pb.covCall || null : null }; };
+  /** who guards whom for team idx's defense now: { their man's id: your defender's id } */
+  Sim.matchupsFor = (g, idx) => {
+    const mm = matchupsOf({ g, O: g.t[1 - idx], D: g.t[idx] });
+    const out = {};
+    for (const k in mm) out[k] = mm[k].id;
+    return out;
+  };
+  /** the head coach's assignments: { their man's id: your defender's id } (null: the staff's pairing) */
+  Sim.setMatchups = (g, idx, mm) => { const T = g.t[idx]; T.mmUser = mm ? Object.assign({}, mm) : null; T.mmV = (T.mmV || 0) + 1; };
+  /** the head coach's orders on their men: { their man's id: 'deny' | 'sag' | 'double' | 'force' | 'hack' } */
+  Sim.setOrders = (g, idx, orders) => {
+    const T = g.t[idx], o = {};
+    for (const k in orders || {}) if (['deny', 'sag', 'double', 'force', 'hack'].includes(orders[k])) o[k] = orders[k];
+    T.orders = Object.keys(o).length ? o : null;
+  };
   Sim.queueSub = (g, idx, outId, inId) => { g.t[idx].manualSubs.push({ out: outId, in: inId }); };
   Sim.setAutoSubs = (g, idx, on) => { g.t[idx].autoSubs = !!on; };
   Sim.setStrategy = (g, idx, patch) => {

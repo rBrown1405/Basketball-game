@@ -120,6 +120,13 @@
     return cc;
   };
 
+  /** the head coach's order on an offensive player this possession (the engine's P.dOrders: deny, sag, double, force,
+   *  hack), or null */
+  P.order = function (id) {
+    const o = this.poss && this.poss.dOrders;
+    return o ? o[id] || o[String(id)] || null : null;
+  };
+
   // ------------------------------------------------------------ on-ball cushion
   /**
    * How far off the ball handler the defender plays (ft), squared up between him and the rim:
@@ -145,6 +152,9 @@
     const sc = this.scheme;
     gap *= sc === 'pressure' ? 0.85 : sc === 'packline' && dl < 24 ? 1.2 : sc === 'nothree' && dl > 21 ? 0.85 : 1;
     gap *= this.sliderK('defPressure', 1.25, 0.8) * (1 - this.intensity() * 0.1);
+    // (the coach's order on him: sag off and dare him to shoot, or get up into him)
+    const od = this.order(m.id);
+    if (od === 'sag' && dl > 12) gap *= 1.45; else if (od === 'deny') gap *= 0.85;
     return U.clamp(gap, 2, 16);
   };
 
@@ -267,7 +277,31 @@
     const TD = M.Tune.deny, sk = TD.scheme[this.scheme] != null ? TD.scheme[this.scheme] : TD.scheme.man;
     const q = this.rating(a.id, 'perD', 55) * 0.5 + this.rating(a.id, 'defIQ', 55) * 0.3 + this.rating(a.id, 'agility', 65) * 0.2;
     const ab = U.clamp((q - TD.skillFrom) / (TD.skillTo - TD.skillFrom), TD.skillMin, 1);
-    return U.clamp(sk * ab * U.lerp(TD.shooterMin, 1, threat) * this.sliderK('defIQ', 0.8, 1.15), 0, 1);
+    const k = U.clamp(sk * ab * U.lerp(TD.shooterMin, 1, threat) * this.sliderK('defIQ', 0.8, 1.15), 0, 1);
+    // (the coach's order: deny him the ball everywhere, or sag off him to help)
+    const od = this.order(m.id);
+    return od === 'deny' ? Math.max(k, 0.95) : od === 'sag' ? Math.min(k, 0.12) : k;
+  };
+  /** the double team (the coach's order on a man with the ball within ~18 ft of the rim): the defender whose own man is
+   *  nearest him comes; kept for the frame */
+  P.doubler = function (h) {
+    const dd = this._dbl || (this._dbl = { T: -1, id: null });
+    if (dd.T === this.T) return dd.id;
+    dd.T = this.T; dd.id = null;
+    if (!h || this.order(h.id) !== 'double') return null;
+    const rim = this.rim;
+    if (Math.hypot(h.x - rim.x, h.y - rim.y) > 18) return null;
+    let best = null, bd = 1e9;
+    for (const d in this.matchup) {
+      const mid = this.matchup[d];
+      if (String(mid) === String(h.id)) continue;
+      const m = this.v.actor(mid);
+      if (!m) continue;
+      const dist = Math.hypot(m.x - h.x, m.y - h.y);
+      if (dist < bd) { bd = dist; best = d; }
+    }
+    dd.id = best;
+    return best;
   };
 
   // ------------------------------------------------------------ where a defender stands
@@ -308,6 +342,15 @@
       a.setStance('defense');
       const ant = 0.9 * this.sliderK('defIQ', 0.7, 1.15) * (closing ? 1 : a._pc ? a._pc.antK : 1);
       out.vx = closing ? 0 : (a._pc ? a._pc.vx : m.vx) * ant; out.vy = closing ? 0 : (a._pc ? a._pc.vy : m.vy) * ant;
+    } else if (h && String(this.doubler(h)) === String(a.id)) {
+      // the double team: up on the man with the ball from the baseline side, hands up (his own man is left open)
+      gs.on = false;
+      const dx = rim.x - h.x, dy = rim.y - h.y, dl = Math.hypot(dx, dy) || 1;
+      const side = Math.sign(a.y - h.y) || 1;
+      px = h.x + dx / dl * 2.2 + (-dy / dl) * side * 2.2; py = h.y + dy / dl * 2.2 + (dx / dl) * side * 2.2;
+      role = 'double';
+      a.setStance('defense');
+      out.vx = h.vx || 0; out.vy = h.vy || 0;
     } else {
       gs.on = false;
       const dp = this.defPlan();
@@ -406,7 +449,7 @@
     }
     // defensive three seconds (the Director's rule): not guarding anyone within arm's length, he steps out of the
     // lane before his third second, then back in
-    if (!withBall && role !== 'lowman') {
+    if (!withBall && role !== 'lowman' && role !== 'double') {
       const inLane = this.inPaint({ x: px, y: py }, 0) && Math.hypot(m.x - px, m.y - py) > 4.5;
       const dt3 = U.clamp(T - (a._laneT0 != null ? a._laneT0 : T), 0, 0.1); a._laneT0 = T;
       a._laneT = inLane && this.inPaint(a, 0) ? (a._laneT || 0) + dt3 : 0;

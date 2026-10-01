@@ -101,8 +101,15 @@
     const lead = g.score[idx] - g.score[1 - idx];
     // the defense (and the glass), as your bench reads it
     for (const a of PBC.Adjust ? PBC.Adjust.advise(g, idx, 2) : []) {
-      if (a.def) out.push({ id: 'def', kind: 'def', def: a.def, icon: '🛡️', text: `Switch to ${C.DEFENSES[a.def].label}${a.def === 'boxone' && a.star ? ' on ' + a.star : ''}`, why: a.why });
+      if (a.def) out.push({ id: 'def', kind: 'def', def: a.def, icon: '🛡️', text: `Defense: ${C.DEFENSES[a.def].label}${a.def === "boxone" && a.star ? " on " + a.star : ""}`, why: a.why });
       else if (a.crash) out.push({ id: 'crash', kind: 'crash', crash: a.crash, icon: '🏃', text: a.crash === 'getback' ? 'Send everyone back on defense' : 'Stop crashing the offensive glass', why: a.why });
+    }
+    // their star: deny a shooter the ball, double a scorer inside (your orders, the huddle's matchups)
+    const O = g.t[1 - idx];
+    const star = U.maxBy(O.on.filter(c => !c.out), c => c.st.pts);
+    if (star && star.st.pts >= 14 && star.st.pts >= 0.3 * g.score[1 - idx] && !(T.orders && T.orders[star.id])) {
+      const inside = star.r.post + star.r.close > star.r.three + star.r.mid;
+      out.push({ id: 'order', kind: 'order', pid: star.id, order: inside ? 'double' : 'deny', icon: '🎯', text: inside ? `Double-team ${star.last}` : `Deny ${star.last} the ball`, why: `${star.st.pts} of their ${g.score[1 - idx]} points` });
     }
     // the play that has worked: open the half with it
     if (T.pb && PBC.Playbook) {
@@ -137,6 +144,7 @@
     else if (s.kind === 'feed') Sim.setStrategy(g, idx, { goTo1: s.pid, goTo2: T.strat.goTo1 && T.strat.goTo1 !== s.pid ? T.strat.goTo1 : T.strat.goTo2 });
     else if (s.kind === 'sit') { const c = T.players.find(x => x.id === s.pid); if (c) c.rest = { q: half(g) + 1, until: g.L.quarterLen * 0.5 }; }
     else if (s.kind === 'tempo') Sim.setStrategy(g, idx, { tempo: s.tempo });
+    else if (s.kind === 'order') Sim.setOrders(g, idx, Object.assign({}, T.orders || {}, { [s.pid]: s.order }));
     else return false;
     return true;
   };

@@ -601,6 +601,20 @@
           R.calls.defMade++;
         }
         dc = UT.defCall ? { def: UT.defCall.def, cov: UT.defCall.cov, left: UT.defCall.left, prev: UT.defCall.prev } : null;
+        // the matchup orders (js/core/adjust.js, the huddle): deny their best, sag off their worst shooter, double their
+        // best post scorer, and the best defender on their best; cleared after a while
+        if (guard === 40 && PBC.Sim.setOrders) {
+          const OT = g.t[1 - u], on = OT.on;
+          const best = on.reduce((a, c) => (!a || c.p.ovr > a.p.ovr ? c : a), null);
+          const poor = on.filter((c) => c !== best).reduce((a, c) => (!a || c.r.three < a.r.three ? c : a), null);
+          const post = on.filter((c) => c !== best && c !== poor).reduce((a, c) => (!a || c.r.post > a.r.post ? c : a), null);
+          const o = {}; if (best) o[best.id] = 'deny'; if (poor) o[poor.id] = 'sag'; if (post) o[post.id] = 'double';
+          PBC.Sim.setOrders(g, u, o);
+          const stopper = UT.on.reduce((a, c) => (!a || c.r.perD > a.r.perD ? c : a), null);
+          if (best && stopper) PBC.Sim.setMatchups(g, u, { [best.id]: stopper.id });
+          R.calls.orders = (R.calls.orders || 0) + 1;
+        }
+        if (guard === 160 && PBC.Sim.setOrders) { PBC.Sim.setOrders(g, u, null); PBC.Sim.setMatchups(g, u, null); }
       }
       const P = PBC.Sim.nextPossession(g);
       if (!P) break;
