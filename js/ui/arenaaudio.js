@@ -212,6 +212,8 @@
       else if (e.made && e.team === HOME) crowd('roar', RE.ftHomeMade);
     }));
     offs.push(Bus.on('game.timeout', () => crowd('murmur', RE.timeout)));
+    // a man broken down by a dribble combo (the court's 'ankle' event): the "oooh", bigger when he goes down
+    offs.push(Bus.on('game.ankle', (ev) => crowd('ooh', RE.ankle * (ev.e && ev.e.fall ? 1.3 : 1))));
     offs.push(Bus.on('live.final', (ev) => {
       if (!ensure()) return;
       if (host.court) host.court.finalHorn(); else playSfx('horn', 1, { force: true });

@@ -398,7 +398,8 @@
     const along = g ? (g.x - h.x) * ux + (g.y - h.y) * uy : -99, across = g ? Math.abs((g.x - h.x) * -uy + (g.y - h.y) * ux) : 99;
     // (or his man is sold on a move, pulled the wrong way by more than biteBeatFt: the dribble breakdown, the moment to go)
     const sold = g && g._pc && g._pc.man === h && g._pc.bite && T < g._pc.bite.until ? g._pc.bite : null;
-    const beaten = !g || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt) || (!!sold && Math.hypot(sold.dx, sold.dy) > TR.biteBeatFt);
+    const broken = !!(g && g._broken && T < g._broken.until);
+    const beaten = !g || broken || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt) || (!!sold && Math.hypot(sold.dx, sold.dy) > TR.biteBeatFt);
     const open = near >= TR.openFt, wide = near >= TR.wideFt && dR < TR.wideRangeFt;
     h._openFt = near; h._beaten = beaten;
     if (!open && !beaten) return;
@@ -473,7 +474,13 @@
       type = skill > 0.55 && r < 0.32 ? 'btl' : skill > 0.65 && r < 0.46 ? 'btb' : 'cross';
     }
     if (type) {
-      b.dribbleMove(type, { period: type === 'cross' ? 0.36 : 0.44 });
+      // (a shifty handler sizing his man up strings a second move on the first when his man buys it: a short chain read like
+      // the size-up's, Tune.combo.flowChainP)
+      if (skill > 0.55 && d && dd < 7 && speed < 7 && !this.driving(a) && !b.working() && Math.random() < M.Tune.combo.flowChainP) {
+        const plan = this.comboPlan(a, null, T + 1.4);
+        plan.max = Math.min(plan.max, 2); plan.first = type;
+        b.dribbleChain((ball, info) => this.comboNext(a, plan, ball, info), { onDone: () => this.comboDone(a, plan) });
+      } else b.dribbleMove(type, { period: type === 'cross' ? 0.36 : 0.44 });
       // the body goes with it: a short push step toward the new ball side (only when he is not headed somewhere)
       const g = a.goal;
       const idle = g.mode === 'idle' || (g.mode === 'move' && g.by == null && Math.hypot(g.x - a.x, g.y - a.y) < 1.5);

@@ -561,6 +561,18 @@
             }
             break;
           }
+          case 'ankle': {
+            // the court broke a man down with a dribble combo (js/match/defense.js ankleBreak)
+            const h = pl(ev.player), d = pl(ev.defender);
+            if (!h) break;
+            const mv = { cross: 'crossover', btl: 'between the legs', btb: 'behind the back', inout: 'in and out', hesi: 'hesitation' };
+            const lastMv = ev.moves && ev.moves.length ? mv[ev.moves[ev.moves.length - 1]] || 'move' : 'move';
+            const dn = d ? d.last : 'the defender';
+            if (ev.fall) say('pbp', pick([`OH! ${h.last} puts ${dn} on the floor!`, `${dn} goes DOWN! What a move by ${h.last}!`, `${h.last}... and ${dn} is on the deck! Oh my.`]), { pri: 9, ttl: 3 });
+            else say('pbp', pick([`${h.last} shakes ${dn} loose with the ${lastMv}!`, `Nasty. ${dn} bit on the ${lastMv} and ${h.last} is gone.`, `${h.last} has ${dn} on skates!`]), { pri: 8, ttl: 3 });
+            if (chance(0.6 * chatty())) say('color', pick(['That is why you stay down and stay square. Guess once, and the handler has you.', 'Handle like that, the defender is guessing. Once you guess wrong, it is over.', `${dn} is going to see that one on the highlight shows tonight.`, `Count the moves. ${ev.moves && ev.moves.length >= 3 ? 'Three, four, and the defender is reacting to the one before.' : 'The second one is the one that gets you.'}`]), { pri: 6, ttl: 9 });
+            break;
+          }
           case 'adjust': {
             // a bench's adjustment (js/core/adjust.js)
             const who = nick(ev.team), k = ev.k, d = ev.def;

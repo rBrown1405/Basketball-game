@@ -226,7 +226,11 @@
     let pc = a._pc;
     if (!pc || pc.man !== m || !(dt > 0) || T - pc.t > 0.25) pc = a._pc = { man: m, x: m.x, y: m.y, vx: m.vx, vy: m.vy, t: T, antK: 1, bite: null };
     pc.t = T;
-    const k = this.shiftyK(m, a), lag = U.lerp(TS.lagS[0], TS.lagS[1], k) / this.sliderK('defIQ', 0.8, 1.2);
+    const k = this.shiftyK(m, a);
+    let lag = U.lerp(TS.lagS[0], TS.lagS[1], k) / this.sliderK('defIQ', 0.8, 1.2);
+    // (broken down by a move, Director.ankleBreak: gathering himself, he reads the handler that much later)
+    const bk = a._broken && T < a._broken.until ? a._broken : null;
+    if (bk) lag *= M.Tune.combo.brokenLagK;
     const e = 1 - Math.exp(-dt / Math.max(0.01, lag));
     pc.vx += (m.vx - pc.vx) * e; pc.vy += (m.vy - pc.vy) * e;
     pc.x += (m.x - pc.x) * e; pc.y += (m.y - pc.y) * e;
@@ -239,7 +243,23 @@
       const u = (T - bt.t0) / (bt.until - bt.t0), w = U.smooth(Math.min(1, u / 0.2)) * (1 - U.smooth((u - 0.45) / 0.55));
       x += bt.dx * w; y += bt.dy * w; pc.antK = 1 - bt.antCut * w;
     } else if (bt) pc.bite = null;
+    if (bk) pc.antK = 0;
     return { x, y };
+  };
+  /** how far the moves have pulled the man on the ball's weight right now (ft; defBite's pc.wob, settled back since) */
+  P.wobble = function (d) {
+    const pc = d && d._pc, w = pc && pc.wob;
+    if (!w) return 0;
+    const TC = M.Tune.combo;
+    const bal = U.clamp(((this.rating(d.id, 'agility', 65) * 0.5 + this.rating(d.id, 'defIQ', 55) * 0.5) - 45) / 40, 0, 1);
+    return w.v * Math.exp(-(this.T - w.t) / U.lerp(TC.leanTauS[0], TC.leanTauS[1], bal));
+  };
+  /** how far gone the man on the ball's weight has to be for a move to break him (ft): a lockdown defender needs more than
+   *  a slow one (shiftyK), and the look the engine gave the handler sets it (open: sooner; tight: his man reads it) */
+  P.breakFt = function (h, d) {
+    const TC = M.Tune.combo, k = this.shiftyK(h, d);
+    const cl = h._comboLook && this.T < h._comboLook.until ? h._comboLook : null;
+    return U.lerp(TC.breakFt[1], TC.breakFt[0], k) * (cl ? cl.k : 1) * this.sliderK('defIQ', 0.85, 1.15);
   };
   /** a dribble move is made (Ball, as its bounce starts): the man on the ball buys it as much as the handler is better than
    *  him (shiftyK; Tune.shifty): a crossover, between the legs or behind the back sells the side the ball is leaving, an in
@@ -250,9 +270,12 @@
     if (!this.active || this.phase !== 'front' || !h || h.team !== this.off) return;
     const d = this.guardOf(h.id);
     if (!d || d.isBusy() || Math.hypot(d.x - h.x, d.y - h.y) > M.Tune.shifty.nearFt) return;
-    const TS = M.Tune.shifty, k = this.shiftyK(h, d), T = this.T;
-    // (a heady defender reads it now and then anyway)
-    if (Math.random() < TS.readP * (1 - k)) return;
+    const TS = M.Tune.shifty, TC = M.Tune.combo, k = this.shiftyK(h, d), T = this.T;
+    // (a heady defender reads it now and then anyway; a look the engine gave the handler as tight, his man reads most of it)
+    const cl = h._comboLook && T < h._comboLook.until ? h._comboLook : null;
+    let readP = TS.readP * (1 - k);
+    if (cl && cl.tight) readP = Math.max(readP, TC.tightReadP);
+    if (Math.random() < readP) { const pc0 = d._pc; if (pc0 && pc0.man === h) pc0.lastBite = { t0: T, mv, read: true }; return; }
     const c = Math.cos(h.facing), s = Math.sin(h.facing);
     // the handler's right (x toward his right hand side), his forward
     const rx = s, ry = -c;
@@ -264,11 +287,50 @@
     else if (mv === 'hesi') { const f = U.lerp(TS.hesiFt[0], TS.hesiFt[1], k); dx = -c * f; dy = -s * f; dur = U.lerp(TS.hesiS[0], TS.hesiS[1], k); antCut = 0.9; }
     else return;
     const pc = d._pc || (d._pc = { man: h, x: h.x, y: h.y, vx: h.vx, vy: h.vy, t: T, antK: 1, bite: null });
-    pc.bite = { t0: T, until: T + dur, dx, dy, antCut, mv };
+    // the combo: his weight is where the moves before this one pulled it (pc.wob, settled back since); a move back against
+    // the way it went, a counter, sells him more (he was going the other way) and is what breaks him
+    const wob0 = this.wobble(d), lb = pc.lastBite && !pc.lastBite.read ? pc.lastBite : null;
+    const brk = this.breakFt(h, d);
+    const counter = !!lb && T - lb.t0 < 1.5 && wob0 > 0.3 && lb.dx * dx + lb.dy * dy < 0;
+    if (counter) { const cK = U.lerp(TC.counterK[0], TC.counterK[1], U.clamp(wob0 / brk, 0, 1)); dx *= cK; dy *= cK; antCut = Math.min(1, antCut + 0.2); }
+    pc.bite = { t0: T, until: T + dur, dx, dy, antCut, mv, counter };
+    pc.lastBite = { t0: T, mv, dx, dy, counter };
     this.bites = (this.bites || 0) + 1;
+    if (counter) this.counters = (this.counters || 0) + 1;
     // (a big bite leaves him off balance: his weight goes the way it sold him, a stumble step to catch it when it is big)
-    const bl = Math.hypot(dx, dy), knock = U.lerp(TS.biteKnock[0], TS.biteKnock[1], k * Math.min(1, bl / TS.biteFt[1]));
+    const bl = Math.hypot(dx, dy), knock = U.lerp(TS.biteKnock[0], TS.biteKnock[1], k * Math.min(1, bl / TS.biteFt[1])) * (counter ? TC.counterKnock : 1);
+    // (his weight goes only when the move is made at him: nothing from a crossover at the arc with his man 7 ft off, all of
+    // it squared up inside 3 ft, Tune.combo.wobFt)
+    const dd = Math.hypot(d.x - h.x, d.y - h.y), prox = U.clamp((TC.wobFt[1] - dd) / (TC.wobFt[1] - TC.wobFt[0]), 0, 1);
+    const wob = wob0 + bl * TC.leanK * prox;
+    pc.wob = { v: wob, t: T };
+    if (wob > brk) { this.ankleBreak(h, d, U.clamp((wob - brk) / (0.6 * brk), 0, 1) * 0.8 + 0.2, dx, dy, counter); return; }
     if (bl > 0.3 && knock > 3) d.impact(dx / bl, dy / bl, knock);
+  };
+  /** the man on the ball is broken (defBite: his weight gone past breakFt): a stumble step the way it went, a fall now and
+   *  then (the fall clip), and he reacts late and slow while he gathers himself (_perceive, Actor.slow); the handler reads
+   *  it (readOpen: beaten) and goes. The live view hears of it (an 'ankle' event: the line, the graphic, the booth, the
+   *  crowd, a replay) */
+  P.ankleBreak = function (h, d, sev, dx, dy, counter) {
+    const TC = M.Tune.combo, T = this.T;
+    if (d._broken && T < d._broken.until) return;
+    const bl = Math.hypot(dx, dy) || 1, nx = dx / bl, ny = dy / bl;
+    const k = this.shiftyK(h, d);
+    const fall = !d.isBusy() && !((d.jumpZ || 0) > 0.05) && Math.random() < U.lerp(TC.fallP[0], TC.fallP[1], sev * k);
+    const dur = U.lerp(TC.brokenS[0], TC.brokenS[1], sev) + (fall ? TC.fallBusyS : 0);
+    d._broken = { until: T + dur, k: sev, t0: T, fall };
+    if (d.slow) d.slow(dur, TC.brokenVK);
+    if (fall) { d.stopClip(0); d.play('fall', { facing: Math.atan2(-ny, -nx), mirror: false }); }
+    else d.impact(nx, ny, U.lerp(TC.knock[0], TC.knock[1], sev));
+    if (d._pc) d._pc.wob = null;
+    this.breaks = (this.breaks || 0) + 1;
+    if (fall) this.falls = (this.falls || 0) + 1;
+    // (the moves that did it: the chain's so far and the one that broke him, defBite's last)
+    const plan = h._combo, cur = d._pc && d._pc.lastBite && !d._pc.lastBite.read ? d._pc.lastBite.mv : null;
+    const moves = (plan && plan.log ? plan.log.map((m) => m.mv) : []).concat(cur ? [cur] : []);
+    if (plan) plan.broke = true;
+    if (this.dbgOn && this.dbgOn()) { const lh = this.v.look(h.id), ld = this.v.look(d.id); this.dbgRead('ANKLE BREAKER ' + (lh ? lh.last || lh.name : '') + ' on ' + (ld ? ld.last || ld.name : '') + (fall ? ' (down!)' : '') + ': ' + (moves.join(', ') || 'one move') + (counter ? ', the counter' : ''), '#ff8787'); }
+    if (this.emitExtra) this.emitExtra({ type: 'ankle', player: h.id, defender: d.id, team: h.team, k: sev, fall, counter, moves, x: h.x, y: h.y });
   };
 
   /** how hard an off-ball defender one pass away denies his man (0 sagging off, 1 all over the lane): the scheme (Tune.deny.scheme)

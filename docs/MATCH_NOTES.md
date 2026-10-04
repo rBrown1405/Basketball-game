@@ -584,11 +584,30 @@ Asked for by the user: after a rebound hit the floor, players stood and watched 
 Asked for by the user: a way for the ball handler to size his man up and break him down, then blow by for a layup, a drive
 and kick, or a shot.
 
-* **The size-up** (`Director.sizeUpCombo`, `Tune.shifty.sizeUp`): a move in place before the attack is a string of dribble
-  moves (crossovers, between the legs, behind the back, in and outs, a hesitation), longer and trickier with a better handle
-  (four tiers), played on the dribble's own rhythm (`Ball.dribbleCombo`).
-* **His man bites** (`defBite`, the old shifty handler's read): each move pulls the man on the ball the way it sells; a big
-  bite knocks him off balance (`biteKnock`, a stumble step past ~6.5 ft/s).
+* **The size-up is a combo read move by move** (`Director.comboPlan` / `comboNext` / `comboDone`, `Ball.dribbleChain`,
+  `Tune.combo`; it was a string drawn from a table, `Tune.shifty.sizeUp`): the handler makes a move, reads his man, and
+  picks the next one. His man bought it: the counter straight back the other way (a crossover, between the legs or behind the
+  back goes back to the side he just left), or a change of pace (a hesitation, an in and out) now and then. His man read it:
+  a change of pace or an in and out, and a sharp man who has read two is left alone. A chain is 1 move for a 45 handle to 5
+  for a 90 (`maxMoves`), never past the attacking move the engine has next; a shifty handler sizing his man up in flow
+  (`handleBall`) strings a second move on the first 30 % of the time. Research: a move is set up by the one before it
+  (Hardaway's between the legs one way and the crossover straight back; Iverson's fakes to get the man leaning).
+* **His man's weight** (`defBite`, `pc.wob`, `Director.wobble`): each move he buys pulls his weight the way it sold him
+  (`leanK` x the bite, ft), settling back with a time constant of 1.5 s for a stiff defender to 0.7 s for a sharp one
+  (`leanTauS`, by agility and head). A move back against the way it went, the counter, sells him up to 60 % more and knocks
+  him harder (`counterK`, `counterKnock`): the change of direction with his weight already committed is what breaks him
+  (research: the ankle breaker's biomechanics, the center of mass outside the base of support). A big bite still knocks him
+  off balance as before (`biteKnock`).
+* **Broken** (`Director.ankleBreak`): his weight gone past `breakFt` (2.4 ft against a man the handler is much better than,
+  3.6 against a lockdown defender; x the Defensive IQ slider), a stumble step the way it went (`knock`, 7.5 to 10 ft/s) or,
+  now and then on a big break against a man the handler is much better than, the fall (the charge's fall clip, `fallP`), and
+  for 0.6 to 1.1 s (`brokenS`) he reacts three times slower (`_perceive`) and runs at 55 % (`Actor.slow`); the handler reads
+  him as beaten (`readOpen`) and goes. The live view hears of it (an `ankle` event from the court, `Director.emitExtra`): the
+  play-by-play line with the moves, the lower third, the booth, the crowd's "oooh" (`game.ankle`), and a replay of it.
+* **What the engine decided is what the combo plays out**: the engine has already drawn the handler's look (the contest,
+  `openEdge`); the chain reads it (`a._comboLook` from the next shot's `contest` and its `edge`, now on the shot event): a
+  look that came out open, his man can be broken sooner (`openK`); tight, his man reads most of the moves (`tightReadP`)
+  and the bar is high (`tightK`). No result changes: the combo is how the look happened.
 * **The burst** (`Director.breakdown`, `Actor.burst`): out of a move his man bought (or a step on a man he is much quicker
   than), the first steps past him come with a burst: up to 18 % more top speed and 90 % more push for 0.9 s, by how far his
   man was sold and how much better the handler is (`burst*`); his man stays sold a little longer and chases slower
@@ -596,6 +615,16 @@ and kick, or a shot.
   goes now: the layup, the kick to the open man, or the pull-up.
 * Measured (3 real quarters): 107 drives, 34 with a burst; his man beaten 0.7 s into the drive on 47 % of the bursts
   against 26 % without one.
+* Measured with the combos (three full games headless through the court, seeds 3, 5 and 8; the audit's rows `cb*` carry
+  the same counts): 48 to 108 chains a game at 1.2 to 1.3 moves each (the engine's attacking move follows most of them,
+  so a size-up reads as two to four moves; completed chains run 1 to 3 moves, by handle), the man on the ball buys about
+  two thirds of the moves made at him, 23 to 29 counters a game, and 3 to 6 men broken down a game (every one on a counter
+  or a second bought move, none on a single move), with a fall in about one of three breaks before `fallP` was halved.
+  The audit's own three games in the browser (`tools/audit/run.js --games 4`, the fourth cut off by the clock): 124
+  chains a game at 1.5 moves, 60 counters, 3.7 men broken down, none put on the floor, no script errors, the court's
+  score the engine's. The first cut had 22 breaks and 4 falls a game: one bought move at a big mismatch already crossed the bar, and a
+  crossover made at the arc with the man 7 ft off counted the same as one squared up inside 3 ft; the bar went up, a move's
+  pull was weighted by how close the man is (`wobFt`), and the decay was slowed so a second and third move stack.
 
 ### Post moves: working for an opening, with contact
 

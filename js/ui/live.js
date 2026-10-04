@@ -771,8 +771,28 @@
   }
 
   // events from the court view (fired when they visibly happen)
+  const MOVE_WORD = { cross: 'crossover', btl: 'between the legs', btb: 'behind the back', inout: 'in and out', hesi: 'hesitation', spin: 'spin' };
+  /** the court broke a man down with a dribble combo (js/match/defense.js ankleBreak): the line, the graphic and the
+   *  booth, the crowd (game.ankle on the audio bus), and a replay of it unless the possession has a bigger moment */
+  function ankleBreaker(ev) {
+    const g = LG.g, pc = id => { for (const T of g.t) { const c = T.players.find(x => x.id === id); if (c) return c; } return null; };
+    const h = pc(ev.player), d = pc(ev.defender);
+    if (!h) return;
+    const words = (ev.moves || []).map(m => MOVE_WORD[m] || m);
+    const who = d ? d.last : 'the defender';
+    pushLine({ q: LG.P.period, clock: Math.max(0, LG.clockShow != null ? LG.clockShow : LG.P.clockStart), text: `🔥 ${h.last} ${ev.fall ? 'puts ' + who + ' on the floor' : 'breaks ' + who + ' down'}${words.length ? ': ' + words.join(', ') : ''}`, type: 'note', team: ev.team });
+    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+    gameAudio(ev, LG.P);
+    if (LG.view && LG.view.time) {
+      const score = ev.fall ? 3.2 : 2.4;
+      if (!LG.highlight || score > LG.highlight.score) LG.highlight = { t: LG.view.time, score, label: ev.fall || ev.k >= 0.5 ? 'ANKLE BREAKER' : 'CROSSED UP', shot: null, focus: { x: ev.x, y: ev.y }, team: ev.team, before: 2.4, after: 1.3, speed: 0.4 };
+    }
+    live('ankle', { fall: !!ev.fall, k: ev.k });
+  }
+
   function onViewEvent(ev) {
     if (!LG) return;
+    if (ev.type === 'ankle') { ankleBreaker(ev); return; }
     if (ev.type === 'score') {
       LG.dispScore[ev.team] += ev.pts; flashScore(ev.team);
       noteHighlight(ev.shotEvent || {}, true);

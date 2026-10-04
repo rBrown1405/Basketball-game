@@ -1690,17 +1690,19 @@
       };
       const setup = (fireAt) => {
         if (mv === 'size_up') {
-          // the size-up (the dribble breakdown): squared up to his man and low, a string of moves in place from his handle (a poor
-          // handler a crossover or a hesitation, a good one between the legs, crossovers, behind the back, an in and out), each
-          // one selling his man (Director.defBite), done as the move comes due; one his man buys gets the burst past him that
-          // follows (onFire of the attacking move: breakdown). (It was one between the legs)
+          // the size-up (the dribble breakdown): squared up to his man and low, a chain of moves in place read move by move
+          // (Director.comboNext: his man buys one, the counter straight back; he reads one, a change of pace), each one selling
+          // his man (Director.defBite) and pulling his weight further, until it breaks him (ankleBreak) or the engine's move
+          // comes due (one his man is still sold on gets the burst past him: onFire of the attacking move, breakdown).
+          // (It was a string drawn from a table, and before that one between the legs)
           a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
-          const combo = this.sizeUpCombo(a), TH = M.Tune.handle;
-          const len = combo.reduce((p, m) => p + (m === 'hesi' ? TH.hesiPeriodS : TH.comboPeriodS[m] || 0.4), 0);
-          this.at(Math.max(this.T + extra, fireAt - len - 0.1), () => {
+          // (the chain goes as soon as he has the ball in place: each move waits for the dribble's beat, so a chain of three or
+          // four takes two seconds and more)
+          const plan = this.comboPlan(a, ev, fireAt);
+          this.at(Math.max(this.T + extra + 0.15, fireAt - plan.lead - 0.1), () => {
             if (b.holder !== a || a.isBusy()) return;
             if (b.state !== 'dribble') b.dribble(a);
-            if (b.state === 'dribble' && b.dr && !b.working()) b.dribbleCombo(combo);
+            if (b.state === 'dribble' && b.dr && !b.working()) b.dribbleChain((ball, info) => this.comboNext(a, plan, ball, info), { onDone: () => this.comboDone(a, plan) });
           }, 'sizeup');
         } else if (mv === 'jab') {
           // (the rules: a jab out of the triple threat is his before he has dribbled; already dribbling, picking the ball up
@@ -1840,13 +1842,77 @@
           a.moveTo(a.x - (this.rim.x - a.x) * 0.1, a.y, { speed: 8, face: this.rim, stance: 'dribble' });
         }
       };
-      return Math.max(0.5, extra + (mv === 'size_up' ? 1.0 : mv === 'spin' ? a.spinDur() : 0.3));
+      return Math.max(0.5, extra + (mv === 'size_up' ? Math.min(2.2, this.comboLead(a)) : mv === 'spin' ? a.spinDur() : 0.3));
     }
-    /** the size-up's moves for this handler (Tune.shifty.sizeUp): the better his handle, the longer and the flashier the string */
-    sizeUpCombo(a) {
-      const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1), L = M.Tune.shifty.sizeUp;
-      const set = hk < 0.3 ? L[0] : hk < 0.6 ? L[1] : hk < 0.85 ? L[2] : L[3];
-      return set[Math.floor(Math.random() * set.length)].slice();
+    // ---- dribble combos (the dribble work: "chain dribble moves into combos that break the defender")
+    /** how long a chain this handler has in him (Tune.combo.maxMoves, by handle) and the time to reserve for it (s) */
+    comboMax(a) { return Math.round(U.lerp(M.Tune.combo.maxMoves[0], M.Tune.combo.maxMoves[1], U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1))); }
+    comboLead(a) { return this.comboMax(a) * 0.55 + 0.3; }
+    /**
+     * The plan of a chain for handler a before the engine's move at fireAt (ev: the size-up's event; null in flow). What the
+     * engine gave the handler's next look is what the chain plays out (a._comboLook, read by defBite and breakFt): a look it
+     * had come out open, his man can be broken sooner; tight, his man reads most of it and is hard to break; a mismatch the
+     * engine measured (the shot's edge) moves it too. The chain's own reads are logged (plan.log) for the debug view and the
+     * live view's line
+     */
+    comboPlan(a, ev, fireAt) {
+      const TC = M.Tune.combo;
+      const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
+      const nx = ev ? this.findNextAfter(ev, (e) => e.shooter === a.id || e.from === a.id) : null;
+      const look = nx && nx.type === 'shot' && nx.shooter === a.id ? (nx.contest || 'contested') : nx && nx.type === 'pass' ? 'pass' : null;
+      const edge = nx && nx.edge != null ? U.clamp(+nx.edge, -2.5, 2.5) : 0;
+      const plan = { hk, look, max: this.comboMax(a), tEnd: fireAt - 0.12, n: 0, log: [], bites: 0, reads: 0, counters: 0, tLast: null, lastBit: false, broke: false, first: null };
+      plan.lead = this.comboLead(a);
+      a._comboLook = { until: fireAt + 0.6, k: (look === 'open' ? TC.openK : look === 'tight' ? TC.tightK : 1) * U.clamp(1 - 0.12 * edge, 0.7, 1.3), tight: look === 'tight' };
+      a._combo = plan;
+      return plan;
+    }
+    /** the next move of a chain (Ball.dribbleChain's next): the read of the last one, then the move for it */
+    comboNext(a, plan, ball, info) {
+      const TC = M.Tune.combo, TH = M.Tune.handle, T = this.T, d = this.guardOf(a.id);
+      const periodOf = (t) => (t === 'hesi' ? TH.hesiPeriodS : t === 'inout' ? TH.inoutPeriodS : TH.comboPeriodS[t] || 0.4);
+      const pc = d && d._pc && d._pc.man === a ? d._pc : null;
+      // the last move: bought (his weight pulled) or read
+      if (info.done) {
+        const lb = pc && pc.lastBite && pc.lastBite.mv === info.done && pc.lastBite.t0 >= (plan.tLast != null ? plan.tLast - 0.05 : 0) ? pc.lastBite : null;
+        const bit = !!lb && !lb.read;
+        plan.log.push({ mv: info.done, bit, counter: !!(lb && lb.counter) });
+        if (bit) plan.bites++; else plan.reads++;
+        if (lb && lb.counter) plan.counters++;
+        plan.lastBit = bit;
+      }
+      if (plan.n >= plan.max || !d || (d._broken && T < d._broken.until) || plan.broke) return null;
+      const hk = plan.hk, k = this.shiftyK(a, d);
+      // (a sharp man who has read it twice: nothing more to sell him, the move comes)
+      if (!plan.lastBit && plan.reads >= TC.stopReadN && k < 0.35) return null;
+      // the moves this handler has from hand to hand
+      const sw = hk < 0.3 ? ['cross'] : hk < 0.6 ? ['cross', 'btl'] : ['cross', 'btl', 'btb'];
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      let type;
+      if (plan.n === 0) type = plan.first || (Math.random() < 0.25 && hk > 0.35 ? 'hesi' : pick(sw));
+      else if (plan.lastBit) type = Math.random() < U.lerp(TC.counterP[0], TC.counterP[1], hk) ? pick(sw) : (hk > 0.5 && Math.random() < 0.5 ? 'inout' : 'hesi');
+      else if (Math.random() < TC.readSwitchP) type = info.done === 'hesi' ? (hk > 0.5 ? 'inout' : pick(sw)) : (Math.random() < 0.5 || hk <= 0.5 ? 'hesi' : 'inout');
+      else type = pick(sw);
+      if (T + periodOf(type) > plan.tEnd) return null;
+      if (!plan.n) this.chains = (this.chains || 0) + 1; // (a chain counts once its first move goes)
+      this.chainMoves = (this.chainMoves || 0) + 1;
+      plan.n++; plan.tLast = T;
+      return { type, period: periodOf(type) };
+    }
+    /** the chain ended (its last move done, or the engine's move took over, replaced): the debug view's line and the counters */
+    comboDone(a, plan, replaced) {
+      if (a._combo === plan) a._combo = null;
+      if (plan.counters) this.chainCounters = (this.chainCounters || 0) + plan.counters;
+      void replaced;
+      if (this.dbgOn && this.dbgOn() && plan.log.length) {
+        const lk = this.v.look(a.id);
+        this.dbgRead('COMBO ' + (lk ? lk.last || lk.name : '') + ': ' + plan.log.map((m) => m.mv + (m.bit ? (m.counter ? ' (bit, the counter)' : ' (bit)') : ' (read)')).join(', ') + (plan.broke ? '; broke him' : plan.look ? '; the look: ' + plan.look : ''), '#ffd43b');
+      }
+    }
+    /** an event of the court's own for the live view (an ankle breaker): not one of the engine's, nothing waits on it */
+    emitExtra(ev) {
+      if (!ev || !this.cb || !this.cb.onEvent) return;
+      U.safe(() => this.cb.onEvent(ev), null, 'onEvent');
     }
     /** the dribble breakdown: an attacking move (a drive, a crossover, a hesitation, a spin) made while his man is still sold on
      *  the last move (his read pulled the wrong way, defBite, or it ended a moment ago: Tune.shifty.burstLateS), or by a quick
@@ -1857,7 +1923,10 @@
       const TS = M.Tune.shifty;
       if (!d || !a || d.team === a.team || Math.hypot(d.x - a.x, d.y - a.y) > TS.nearFt) return;
       const k = this.shiftyK(a, d), pc = d._pc, bt = pc && pc.bite && pc.man === a ? pc.bite : null;
-      const sold = bt && this.T < bt.until + TS.burstLateS ? Math.min(1, Math.hypot(bt.dx, bt.dy) / TS.biteFt[1]) : 0;
+      let sold = bt && this.T < bt.until + TS.burstLateS ? Math.min(1, Math.hypot(bt.dx, bt.dy) / TS.biteFt[1]) : 0;
+      // (the combo: his weight gone the way the moves pulled it counts too; broken, he is all the way sold)
+      if (d._broken && this.T < d._broken.until) sold = 1;
+      else if (pc && pc.man === a) sold = Math.max(sold, Math.min(1, this.wobble(d) / this.breakFt(a, d)) * M.Tune.combo.burstK);
       const kb = U.clamp(sold * 0.7 + (k - 0.5) * 0.6, 0, 1);
       if (kb < TS.burstMinK) return;
       a.burst(TS.burstS, kb);

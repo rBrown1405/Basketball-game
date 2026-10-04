@@ -205,6 +205,18 @@ function metrics(games) {
       m.cCovHonored = c('covPoss') ? pct(c('covHonored'), c('covPoss')) : null;
       m.cDefReverted = c('defEnded') ? pct(c('defReverted'), c('defEnded')) : null;
     }
+    // dribble combos (the dribble work: a size-up read move by move, the counters, the men on the ball broken down)
+    const CB = PB.filter((g) => g.combo);
+    if (CB.length) {
+      const c = (k) => sum(CB, (g) => g.combo[k] || 0), n = CB.length;
+      m.cbChains = c('chains') / n;
+      m.cbMoves = c('chains') ? c('moves') / c('chains') : null;
+      m.cbBites = c('bites') / n;
+      m.cbCounters = c('counters') / n;
+      m.cbBreaks = c('breaks') / n;
+      m.cbFalls = c('falls') / n;
+      m.cbBreakdowns = c('breakdowns') / n;
+    }
     if (U('n')) {
       m.cUserPerGame = U('n') / pn;
       m.cUserDone = pct(U('done'), U('n'));
@@ -428,6 +440,13 @@ const SECTIONS = [
     ['cMineSpotFar', '  more than 10 ft away', '%', 'down', ''],
     ['cInbUsed', 'Inbound calls run on the next throw-in under the basket', '%', 'up', ''],
     ['cDefHonored', 'Defensive possessions under the coach\'s call played in the called scheme', '%', 'up', '100'],
+    ['cbChains', 'Dribble combos per game (a size-up read move by move; the dribble work)', '', '', ''],
+    ['cbMoves', '  moves per combo', '', '', '1 to 5 by handle'],
+    ['cbBites', 'Dribble moves the man on the ball bought per game (every move at him, in a combo or not)', '', '', ''],
+    ['cbCounters', '  counters per game (a move straight back against the way his weight went)', '', '', ''],
+    ['cbBreaks', 'Men on the ball broken down per game (a stumble, the handler goes)', '', '', 'a few a game at most'],
+    ['cbFalls', '  of them put on the floor', '', '', 'rare'],
+    ['cbBreakdowns', 'Bursts out of a move the man on the ball bought (the breakdown) per game', '', '', ''],
     ['cCovHonored', '  with the called pick-and-roll coverage', '%', 'up', '100'],
     ['cDefReverted', 'Defensive calls that went back to the team\'s own scheme when they ran out', '%', 'up', '100'],
   ]],

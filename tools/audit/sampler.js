@@ -660,6 +660,9 @@
     R.score = v.score ? v.score.slice() : null;
     R.engineScore = g.score.slice();
     R.final = !!g.final;
+    // dribble combos (the dribble work, js/match/choreo.js comboPlan, defense.js defBite / ankleBreak): the chains, their
+    // moves, what the man on the ball bought, the counters, the men broken down, the falls, the bursts out of a move he bought
+    { const dr = v.director; R.combo = { chains: dr.chains || 0, moves: dr.chainMoves || 0, bites: dr.bites || 0, counters: dr.counters || 0, breaks: dr.breaks || 0, falls: dr.falls || 0, breakdowns: dr.breakdowns || 0 }; }
     // play tracking (Phase 5, js/core/playstats.js): the game's tallies, to check them against the game itself
     const PSt = window.PBC.PlayStats;
     if (g.pstats && PSt) {

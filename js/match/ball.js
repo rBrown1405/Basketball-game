@@ -273,8 +273,10 @@
     dribbleMove(type, o) {
       const d = this.dr;
       if (!d) { if (this._dribSoon) this._dribSoon.moves.push([type, o]); return; }
-      // (a move asked for on its own replaces what is left of a combo)
-      d.combo = null; d.comboDone = null;
+      // (a move asked for on its own replaces what is left of a combo or a chain; a chain's onDone hears it ended)
+      const cb = d.chain ? d.comboDone : null;
+      d.combo = null; d.chain = null; d.comboDone = null;
+      if (cb) U.safe(() => cb(this, true), null, 'chain');
       this._queueMove(d, type, o);
     }
     /** a move into the dribble: after the one waiting for its beat if there is one (a combination), or at once if
@@ -302,16 +304,33 @@
       d.comboDone = (o && o.onDone) || null;
       this._comboNext(d);
     }
+    /**
+     * a chain: moves back to back like a combo, but the next one is asked for as each ends (the dribble breakdown: the
+     * handler reads his man between moves and counters what he bought). next(ball, { done: the move just made, n })
+     * returns the next move (a type or {type, period}) or null to stop; o.onDone(ball) when it ends. A move asked for
+     * meanwhile replaces the rest
+     */
+    dribbleChain(next, o) {
+      const d = this.dr;
+      if (!d || typeof next !== 'function') return;
+      d.combo = []; d.chain = { next, n: 0, last: null };
+      d.comboDone = (o && o.onDone) || null;
+      this._comboNext(d);
+    }
     _comboNext(d) {
       if (this.dr !== d) return;
-      const m = d.combo && d.combo.shift();
-      if (!m) { d.combo = null; const cb = d.comboDone; d.comboDone = null; if (cb) U.safe(() => cb(this), null, 'combo'); return; }
+      let m = d.combo && d.combo.shift();
+      if (!m && d.chain) {
+        const ch = d.chain, nm = U.safe(() => ch.next(this, { done: ch.last, n: ch.n }), null, 'chain');
+        if (nm && d.chain === ch) { m = typeof nm === 'string' ? { type: nm } : nm; ch.n++; ch.last = m.type; } else d.chain = null;
+      }
+      if (!m) { d.combo = null; d.chain = null; const cb = d.comboDone; d.comboDone = null; if (cb) U.safe(() => cb(this), null, 'combo'); return; }
       // (through the same queue as a single move: the hand it goes to, its beat on the feet, Trial 8)
       // (one bounce per move, Tune.handle.comboPeriodS; a hesitation hangs as long as one on its own, Tune.handle.hesiPeriodS)
       this._queueMove(d, m.type, { period: m.period || M.Tune.handle.comboPeriodS[m.type], onDone: () => this._comboNext(d) });
     }
-    /** is a combo (or a single move) under way or waiting to go? */
-    working() { const d = this.dr; return !!(d && (d.move || d.pendingMove || d.nextMove || (d.combo && d.combo.length))); }
+    /** is a combo, a chain (or a single move) under way or waiting to go? */
+    working() { const d = this.dr; return !!(d && (d.move || d.pendingMove || d.nextMove || (d.combo && d.combo.length) || d.chain)); }
     /**
      * the spin move's pull: the dribbling hand takes the ball as it comes up and keeps it on top, pulled back tight
      * to the hip while the body turns (it goes around with him); after `hold` s it is pushed down and crosses to the

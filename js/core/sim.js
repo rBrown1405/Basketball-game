@@ -2468,6 +2468,7 @@
     const shot = {
       type: 'shot', t: U.round(ctx.t, 2), team: O.idx, shooter: sh.id, pts, zone, kind, x: loc.x, y: loc.y, dist: loc.d,
       contest, defender: d.id, assist: plan.assister ? plan.assister.id : null, made: undefined, blocked: false, blocker: null,
+      edge: plan.edge != null ? U.round(plan.edge, 2) : undefined, // (the shooter's edge over his man, SD: the court's combos read it)
       fouled: false, fouler: null, andOne: false, pending: false,
       // how he got the look (for the live view and the broadcast): beat his man, got open, or a tough shot over him
       created: contest === 'open' ? (lookKind(plan) === 'dribble' ? 'beat' : lookKind(plan) === 'catch' ? 'open' : 'inside') : contest === 'tight' ? 'tough' : null,

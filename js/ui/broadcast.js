@@ -207,6 +207,9 @@
           if (run.pts >= 8 && run.team === ev.team && (run.pts === 8 || run.pts % 4 === 0)) showRun(ev.team, run.pts);
         } else if (ev.type === 'timeout') {
           if (!teamPanel(ev.team)) tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">TIMEOUT</span>`, ev.team, 3.5);
+        } else if (ev.type === 'ankle') {
+          const x = pcOf(ev.player);
+          if (x) lowerThird(x.c, x.i, ev.fall || ev.k >= 0.5 ? 'ANKLE BREAKER' : 'CROSSED UP', 4.5);
         } else if (ev.type === 'adjust') {
           const lab = adjTag(ev);
           if (lab) tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">${esc(lab)}</span>`, ev.team, 4);

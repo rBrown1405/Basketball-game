@@ -900,14 +900,8 @@
       restK: [1.25, 0.55],          // ...and rests between probes this share of his offense's rest (a shifty guard keeps at it)
       probeFtps: 13,                // a probe's attack goes this fast (ft/s before the pace factor; was 11), its retreat
       retreatFtps: 9, swingFtps: 11, // this fast (was 6.5) and a change of sides this fast (was 8.5)
-      // the dribble breakdown (the shot physics pass: "a size-up, then a speed boost to blow by"). The size-up's strings of
-      // moves in place, by handle (under 30 %, 30-60, 60-85, 85 and up of the way from a 45 to a 90 handle)...
-      sizeUp: [
-        [['cross'], ['hesi']],
-        [['btl', 'cross'], ['cross', 'hesi'], ['btl', 'hesi']],
-        [['btl', 'cross', 'btl'], ['btl', 'btb'], ['inout', 'cross'], ['cross', 'btl', 'hesi']],
-        [['btl', 'btl', 'cross', 'hesi'], ['btb', 'btl', 'cross'], ['btl', 'inout', 'btb'], ['cross', 'btl', 'btl', 'hesi']],
-      ],
+      // the dribble breakdown (the shot physics pass: "a size-up, then a speed boost to blow by"). The size-up is a chain of
+      // moves read one by one (Tune.combo, below; it was a string drawn from a table here)...
       // ...and the burst out of a move his man bought (Director.breakdown, Actor.burst): for burstS, his top speed up to
       // burstVK and his push up to burstAK more (at a full bite on a man he is much quicker than); a move made within
       // burstLateS of the bite's end still counts; his man stays sold burstHoldS x more; less than burstMinK, no burst
@@ -916,6 +910,36 @@
       // a big bite leaves the man on the ball off balance (a knock his way, Actor.impact: from biteKnock[0] ft/s at the least
       // to biteKnock[1] at a full bite on a man the handler is much better than; a stumble step from ~6.5)
       biteKnock: [3, 9],
+    },
+
+    // ---------------------------------------------------------------- dribble combos (the dribble work: "chain dribble moves
+    // into combos that break the defender"). A size-up is no longer a string drawn from a table: the handler reads his man
+    // after every move (Director.comboNext) and counters what he bought. The man on the ball carries his weight (defense.js
+    // pc.wob: how far the moves have pulled it, ft, settling back) and a move back against it is what breaks him (research:
+    // the ankle breaker is a change of direction the defender has to make with his weight already committed; coaching: a
+    // move is set up by the one before it, Hardaway's between the legs one way and the crossover straight back)
+    combo: {
+      maxMoves: [1, 5],             // a chain is this long at most, from a 45 handle to a 90 (never past the move the engine has next)
+      counterP: [0.5, 0.95],        // his man bought the last move: the counter straight back this often (by handle), else a change of pace
+      readSwitchP: 0.7,             // his man read it: a change of pace or an in and out this often, else the same kind again
+      stopReadN: 2,                 // ...and a sharp man (shiftyK under 0.35) who has read this many is left alone: the move comes
+      leanK: 0.75,                  // each bite adds this share of its pull to his weight (ft; one bite never breaks a man: the most it
+                                    // pulls, 2.8 ft at a full mismatch, lands under breakFt; the counter after it does)...
+      leanTauS: [2.2, 1.2],         // ...which settles back with this time constant (s; a stiff defender to a sharp one, by agility and head:
+                                    // moves come every half second or so, so a second and a third bought move stack on the first)
+      counterK: [1, 1.6],           // a move against the way his weight has gone sells him this much more (x; by how far it had gone, up to breakFt)...
+      counterKnock: 1.3,            // ...and knocks him harder (x)
+      wobFt: [3, 6.5],              // ...a move made with his man this close (ft) pulls his weight fully, none at all from this far
+      breakFt: [3.4, 5.0],          // his weight this far gone and he is broken (ft; a lockdown defender needs more: by shiftyK), scaled by the
+      openK: 0.75, tightK: 1.6,     // engine's look for the handler (open: sooner; tight: his man reads it, readP up to tightReadP, and the bar high)
+      tightReadP: 0.85,
+      brokenS: [0.6, 1.1],          // broken: he reacts late and slow for this long (s; by the break's size)...
+      brokenLagK: 3, brokenVK: 0.55, // ...his reaction this many times slower, his top speed this share...
+      knock: [7.5, 10],             // ...knocked the way his weight went this hard (a stumble step, Actor.impact; by the break's size)...
+      fallP: [0.02, 0.2],           // ...and down this often (by the break's size x the mismatch: a big one on a man the handler is much better than)
+      fallBusyS: 1.4,               // (the fall clip keeps him down about this long past the break's own time)
+      burstK: 0.5,                  // his weight gone counts this much toward the burst out of the next attacking move (Director.breakdown)
+      flowChainP: 0.3,              // sizing a man up in flow (handleBall), a shifty handler strings a second move on the first this often
     },
 
     // ---------------------------------------------------------------- the post moves (the shot physics pass: "players in the

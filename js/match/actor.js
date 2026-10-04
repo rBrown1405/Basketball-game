@@ -508,6 +508,12 @@
       this._burst = { until: (this.time || 0) + dur, vK: 1 + TS.burstVK * kk, aK: 1 + TS.burstAK * kk };
       return this;
     }
+    /** slowed (broken down by a dribble move, Director.ankleBreak): for dur s his top speed is vK of what it was and his
+     *  push off the floor a little softer, while he gathers himself */
+    slow(dur, vK) {
+      this._slow = { until: (this.time || 0) + dur, vK: U.clamp(vK, 0.2, 1) };
+      return this;
+    }
     hesitate() {
       const b = this.view && this.view.ball;
       if (b && b.state === 'dribble' && b.dr && b.dr.actor === this && !b.dr.move && !b.dr.pendingMove) {
@@ -1090,7 +1096,8 @@
         }
         // (a burst past his man: a moment quicker than he can run otherwise, Actor.burst)
         const bu = this._burst && this.time < this._burst.until ? this._burst : null, bvK = bu ? bu.vK : 1;
-        want = Math.min(want, this.maxSpeed * 1.08 * bvK);
+        const svK = this._slow && this.time < this._slow.until ? this._slow.vK : 1;
+        want = Math.min(want, this.maxSpeed * 1.08 * bvK * svK);
         // the traveling rule (the gameplay pass): his dribble picked up and the ball in his hands, he gets the steps it
         // takes to stop (Tune.rules: gather steps, a stride or two past the pick-up) and then only pivots; an order to go
         // somewhere with it is not taken (walking on with it was a travel), a clip's own steps aside (a layup, a jumper)
@@ -1148,7 +1155,7 @@
       // (the harder push of Tune.urgency's starts is for a player on the move; one sliding or backpedalling out of the
       // defensive stance keeps the gentler one his footwork was built on, Trial 5: pushed harder, a hip popped)
       const TUr = M.Tune.urgency, stA = A.STANCE[this.stance], hard = this.urgK > 1 && !(stA && stA.slide);
-      const bA = this._burst && this.time < this._burst.until ? this._burst.aK : 1;
+      const bA = (this._burst && this.time < this._burst.until ? this._burst.aK : 1) * (this._slow && this.time < this._slow.until ? 0.75 : 1);
       const accelNow = Math.min(this.accel * bA, ((hard ? TUr.startFtps2 : TUr.slideStartFtps2) + (hard ? TUr.startPerFtps : TUr.slideStartPerFtps) * Math.max(Math.hypot(dvx, dvy), spd)) * bA);
       // the body is a mass (Trial 4): the push toward the wanted velocity builds up and eases off at a human rate of
       // force development (Tune.weight.jerkFtps3) instead of switching on and off in one step, and eases off as the
