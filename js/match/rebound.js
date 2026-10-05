@@ -196,6 +196,10 @@
     const a = pr.actor, b = this.v.ball, T = TG();
     if (!a || b.holder) return;
     this.chaseCarom(pr);
+    // (no spot to go up at: the carom was never settled for them (it was already on its way off the rim when settleCarom came,
+    // or the ball's segments had changed under it): they run it down off the floor like a loose one. Sent to an undefined spot,
+    // the rebounder's position went NaN and the whole court with it for the rest of the game)
+    if (pr.style !== 'floor' && !(isFinite(pr.jx) && isFinite(pr.jy))) { pr.style = 'floor'; pr.floor = true; }
     const lock = (dur) => { if (a.team === this.off) this.lockOff(a, dur); else this.lockDef(a, dur); };
     lock(Math.max(0.5, pr.tGrabT - this.T) + 1.5);
     a.lookAt(b, { hold: Math.max(0.2, pr.tGrabT - this.T) });

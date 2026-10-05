@@ -332,6 +332,20 @@
       const me = r.probeAnchor ? { u: this.U_(r.probeAnchor.x), v: r.probeAnchor.y } : this.uv(a);
       const rimU = this.U_(this.rim.x);
       const kind = Math.random();
+      // a size-up in place (the dribble breakdown's chain, Director.comboNext): squared up to his man, the ball rocked side to side
+      // with a pound dribble between, read move by move, until the engine's move comes or it has run its course; the shifty
+      // handler's own probe (Tune.combo.probeSizeP of them, from a 60 handle up), the user: "I need more dribble size-ups"
+      const TC = M.Tune.combo, dm = this.guardOf(a.id), ddm = dm ? Math.hypot(dm.x - a.x, dm.y - a.y) : 99;
+      if (hk > 0.3 && kind < TC.probeSizeP && ddm < 9 && b.holder === a && b.state === 'dribble' && !b.working() && !this.driving(a)) {
+        const plan = this.comboPlan(a, null, T + 2.8);
+        plan.max = Math.min(plan.max, TC.flowMax); plan.lead = this.comboLead(a, plan.max); plan.probe = true;
+        r.probe = { pts: [], i: 0, end: T + 2.8, sizeup: true, t0: T };
+        a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
+        a.lookAt(dm);
+        this.startChain(a, plan, T + 2.7);
+        this.probeSizeups = (this.probeSizeups || 0) + 1;
+        return true;
+      }
       if (kind < 0.55 && me.u > 16) {
         // attack a gap two or three dribbles, then retreat dribble back out
         const du = rimU - me.u, dv = 25 - me.v, dl = Math.hypot(du, dv) || 1;
@@ -351,6 +365,12 @@
       }
     }
     const pb = r.probe;
+    // (the size-up in place: he holds his ground through it, the chain's steps doing the moving, until it is over)
+    if (pb.sizeup) {
+      if (T < pb.end && (b.working() || T < pb.t0 + 0.8)) return true;
+      r.probe = null; r.probeNext = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) * U.lerp(TS.restK[0], TS.restK[1], hk) * 0.7;
+      return false;
+    }
     const cur = pb.pts[pb.i];
     if (!cur) { r.probe = null; r.probeNext = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) * U.lerp(TS.restK[0], TS.restK[1], hk); return false; }
     const [pt, sp, face] = cur;
@@ -386,7 +406,10 @@
    *  drive at the rim, and the next play goes from wherever it gets him (the kick out of it, the pass inside) */
   P.readOpen = function () {
     const v = this.v, b = v.ball, h = b.holder, T = this.T, TR = M.Tune.reads;
-    if (!this.active || this.frozen || this.phase !== 'front' || this.tempo === 'push' || !h || h.team !== this.off || h.isBusy()) return;
+    if (!this.active || this.frozen || this.phase !== 'front' || !h || h.team !== this.off || h.isBusy()) return;
+    // (on a break too, once the ball is in the frontcourt: the open lane is taken and the finish brought forward; the fast break's
+    // handler pushed to the top and waited for the engine's beat with nobody near him)
+    if (this.tempo === 'push' && this.U_(h.x) > TR.pushReadU) return;
     if (b.state !== 'dribble' && b.state !== 'held') return;
     const bt = this.beat, ev = bt && bt.ev;
     if (bt && !bt.fired && DEAD_BEATS[bt.type]) return;
@@ -476,9 +499,9 @@
     if (type) {
       // (a shifty handler sizing his man up strings a second move on the first when his man buys it: a short chain read like
       // the size-up's, Tune.combo.flowChainP)
-      if (skill > 0.55 && d && dd < 7 && speed < 7 && !this.driving(a) && !b.working() && Math.random() < M.Tune.combo.flowChainP) {
-        const plan = this.comboPlan(a, null, T + 1.4);
-        plan.max = Math.min(plan.max, 2); plan.first = type;
+      if (skill > 0.45 && d && dd < 7 && speed < 7 && !this.driving(a) && !b.working() && Math.random() < M.Tune.combo.flowChainP) {
+        const plan = this.comboPlan(a, null, T + 2.4);
+        plan.max = Math.min(plan.max, M.Tune.combo.flowMax); plan.first = type; plan.lead = this.comboLead(a, plan.max);
         b.dribbleChain((ball, info) => this.comboNext(a, plan, ball, info), { onDone: () => this.comboDone(a, plan) });
       } else b.dribbleMove(type, { period: type === 'cross' ? 0.36 : 0.44 });
       // the body goes with it: a short push step toward the new ball side (only when he is not headed somewhere)

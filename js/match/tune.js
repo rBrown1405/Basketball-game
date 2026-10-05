@@ -877,6 +877,8 @@
                                     // jog), on to the top of the key where the handler sets it up (it used to be timed to the
                                     // engine's crossing, crept up at 7 ft/s and waited at half court)
       advanceTopU: 27,              // ...there, this far from the baseline he attacks at least (ft; the top spot or further out)
+      pushToU: 21,                  // on a break the man with the ball pushes it to this far from the baseline (ft, the top of the
+                                    // key's inside edge), toward the middle, wherever he caught it (Director.handlerAmbient)
       offHoldK: 0.4,                // off the ball in the half court the holds between a player's cuts, lifts and relocations
                                     // are this share of what they were (~1-3 s standing between small shuffles)...
       offMoveK: 1.35,               // ...and the moves themselves this much longer (a v-cut 5-9 ft, a relocation 2-5 ft)
@@ -919,7 +921,20 @@
     // the ankle breaker is a change of direction the defender has to make with his weight already committed; coaching: a
     // move is set up by the one before it, Hardaway's between the legs one way and the crossover straight back)
     combo: {
-      maxMoves: [1, 5],             // a chain is this long at most, from a 45 handle to a 90 (never past the move the engine has next)
+      maxMoves: [1, 5],             // a chain is this long at most, from a 45 handle to a 90 (never past the move the engine has next;
+                                    // two at least from a 60 handle up: one move is no size-up)
+      // the size-up that reads (the user: "I don't see the combo moves happening, I need more dribble animations and dribble size
+      // ups, they should look natural"): its rhythm and its body. Between the moves a pound dribble poundP of the time (by handle:
+      // a handler setting his man up pounds it, one stringing them tight does not; coaching: rhythm dribbles), each move a short
+      // step to the side the ball goes, the weight over it (rockFt, by handle; the rock of a size-up, Director.moveBody), a
+      // hesitation a step up into it; a man tight on him (retreatFt), a shifty handler steps back off him first, a retreat dribble,
+      // retreatP of the time
+      poundP: [0.7, 0.35], rockFt: [0.8, 1.3], retreatP: 0.3, retreatFt: 4,
+      // ...and before the engine's own attacking move (a crossover, a hesitation, a drive, a spin) a short size-up (setupMax moves),
+      // setupP of the time (by handle), when his man is in front within setupFt and there is setupMinS before the move
+      setupP: [0.35, 0.9], setupFt: 9, setupMinS: 1.5, setupMax: 2,
+      flowMax: 3,                   // a size-up in flow (handleBall, the probe below) runs to this many moves
+      probeSizeP: 0.3,              // a handler's probe (flowHandler: attack a gap, change sides) is a size-up in place this often instead
       counterP: [0.5, 0.95],        // his man bought the last move: the counter straight back this often (by handle), else a change of pace
       readSwitchP: 0.7,             // his man read it: a change of pace or an in and out this often, else the same kind again
       stopReadN: 2,                 // ...and a sharp man (shiftyK under 0.35) who has read this many is left alone: the move comes
@@ -939,7 +954,7 @@
       fallP: [0.02, 0.2],           // ...and down this often (by the break's size x the mismatch: a big one on a man the handler is much better than)
       fallBusyS: 1.4,               // (the fall clip keeps him down about this long past the break's own time)
       burstK: 0.5,                  // his weight gone counts this much toward the burst out of the next attacking move (Director.breakdown)
-      flowChainP: 0.3,              // sizing a man up in flow (handleBall), a shifty handler strings a second move on the first this often
+      flowChainP: 0.7,              // sizing a man up in flow (handleBall), a shifty handler strings more moves on the first this often (was 0.3)
     },
 
     // ---------------------------------------------------------------- the post moves (the shot physics pass: "players in the
@@ -974,6 +989,19 @@
                                     // his man's hip...
       stepK: 5,                     // ...the shoulder under him as he comes down
       moveP: 0.92,                  // a post-up works a move first this often (the rest go straight up)
+      // the back-down (the user: "in the post there isn't any post moves and the post defense, the contact is very minimal, it
+      // should be a dog fight"; Director.p_move 'backdown'): a fight, not a bump or two with the man 2 ft off. The bodies touch
+      // (Tune.glass.touchH apart plus backGapFt, as a box-out's), his man's forearm in his back; the bumps come bumpGapS apart,
+      // up to backBumps of them as the time before the shot allows, each knocking his man back toward the rim backK x the
+      // strength edge (0.75-1.35) and holding the post man up backHoldK of that the other way (a stronger defender gives less
+      // ground); between them his man leans and shoves (shoveK, every shoveS), and a big edge knocks his man into a balance step
+      // (backStumbleEdge). The audio's body contacts hear the bodies
+      backGapFt: 0.05, backBumps: 4, bumpGapS: 0.74, backK: 8.5, backHoldK: 0.5, shoveK: [4.5, 6], shoveS: [0.3, 0.5], backStumbleEdge: 1.15,
+      guardTouchFt: 0.05,           // (the man on a post move's back, postGuard: touching, this much more than the torsos' depth; was 2.1 ft off)
+      // the fight for position before the ball comes (Director.paintContact): a man posting up (on the block, or set in his
+      // post-up) and his man bump every fightS (s), this hard (fightK, ft/s), fightP of the time: the seal and the shove back
+      fightS: [0.45, 0.9], fightK: [4.5, 7], fightP: 0.7,
+      frontFt: [1.4, 0.6],          // ...his man guards a post man from this far toward the ball and toward the rim (ft; was 1.9, 0.9), on his body
     },
 
     // ---------------------------------------------------------------- reading the space (the gameplay pass: a handler whose man
@@ -996,6 +1024,15 @@
       wideRangeFt: 26,              // too, past his man or not (the help has to come to him; the kick-out follows from there)
       moveLeadS: 0.35,              // his own move next (a drive, a hesitation, a crossover, a spin): it comes now, brought forward
                                     // so it keeps this much beyond its beat's own time (s), pullMaxS at most
+      // the fast break (the user: "on the fast breaks the players don't drive to the hoop, they will be open 99% of the time and
+      // they just run to the corner"; Director.ambient's lanes, handlerAmbient, assignSpots 'transition')
+      pushReadU: 38,                // on a break the reads above are on once the ball is this far from the baseline it attacks (ft)
+      pushCutBackN: 1,              // a wing running his lane with this many defenders back at most (level with him or nearer the
+                                    // rim), the ball within pushCutBehindFt behind him, cuts to the rim (the corner rim run)...
+      pushCutBehindFt: 30,
+      pushCutSideFt: 5.5,           // ...a stride off the middle to his side (ft)...
+      pushCutMaxS: 3.2,             // ...for this long at most (s), then he fills his corner...
+      pushCutGapS: 4,               // ...and not again within this (s)
     },
 
     // ---------------------------------------------------------------- denying the ball (the gameplay pass: one pass away the

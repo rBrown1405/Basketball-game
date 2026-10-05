@@ -438,7 +438,9 @@
       } else if (dRimM < 11 && dBallM < 22 && (mSide === hSide || dBallM < 18)) {
         // post (ball side): 3/4 front with the ball on his side below the top, else behind him, on the rim side; a
         // weak-side post man is guarded from the help line like any man two passes away
-        if (mSide === hSide && bu < 26) { px = m.x + ux * 1.9 + rx * 0.9; py = m.y + uy * 1.9 + ry * 0.9; } else { px = m.x + rx * 2.3; py = m.y + ry * 2.3; }
+        // (on his body, Tune.post.frontFt: the fight for position, Director.paintContact)
+        const FF = M.Tune.post.frontFt;
+        if (mSide === hSide && bu < 26) { px = m.x + ux * FF[0] + rx * FF[1]; py = m.y + uy * FF[0] + ry * FF[1]; } else { px = m.x + rx * (FF[0] + FF[1]); py = m.y + ry * (FF[0] + FF[1]); }
         role = 'post'; leash = 4;
       } else if (!twoAway) {
         // one pass away: a hand and a foot in the passing lane, a step off toward the rim; a pack line sags instead,

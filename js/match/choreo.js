@@ -14,6 +14,9 @@
   const PASS_CLIP = { chest: 'passChest', bounce: 'passBounce', overhead: 'passOverhead', outlet: 'passOutlet', entry: 'passBounce', kick: 'passPush', swing: 'passChest', lob: 'passLob', alley: 'passLob' };
   const SHOT_CLIP = { dunk: 'dunk', layup: 'layup', reverse: 'reverse', floater: 'floater', hook: 'hook', jumper: 'jumpshot', pullup: 'pullup', stepback: 'stepback', fadeaway: 'fadeaway', tip: 'tip', alley: 'alley', catch_shoot: 'jumpshot' };
   const RIM_SHOTS = { dunk: 1, layup: 1, reverse: 1, alley: 1, tip: 1 };
+  const RW = [0, 0]; // (scratch: the way to the rim, p_move 'backdown')
+  // (the engine's attacking moves a handler sizes his man up before, Director.setupPlan)
+  const SETUP_MOVES = { crossover: 1, btl: 1, btb: 1, hesi: 1, drive: 1, spin: 1 };
   const DUNK_CLIPS = { dunk: 1, dunk2: 1, alley: 1 };
   // (the beats with the ball dead, or on its way to being: liveBall)
   const DEAD_BEATS = { inbound: 1, ft: 1, foul: 1, timeout: 1, sub: 1, jump_ball: 1, period_end: 1 };
@@ -182,8 +185,41 @@
       // (the jobs its start plans, for retime)
       const j0 = this.jobs.length;
       if (beat.onStart) U.safe(() => beat.onStart(beat.fireAt), this, 'onStart ' + ev.type);
+      // (a size-up before the next event when it is an attacking move of the man with the ball: planned from this beat, since a
+      // move's own beat starts only a beat before it, too late for a chain)
+      U.safe(() => this.planSetupAhead(beat), this, 'setup ahead');
       beat.jobs = this.jobs.slice(j0);
       this._why = null;
+    }
+    /** the next event an attacking move (SETUP_MOVES) of the man who has the ball, or is getting it from this beat (a pass or a
+     *  handoff to him), and this a beat he stands through (a set, the pass, the handoff): a size-up before it is tried when there
+     *  is just time left for it (setupPlan, setupLead), to end as the move comes */
+    planSetupAhead(beat) {
+      const nx = this.events[this.ei];
+      if (!beat || !nx || nx.type !== 'move' || !SETUP_MOVES[nx.move] || nx.player == null) return;
+      if (beat.type !== 'set' && beat.type !== 'pass' && beat.type !== 'handoff') return;
+      const a = this.A(nx.player), b = this.v.ball;
+      if (!a) return;
+      const toHim = (beat.type === 'pass' || beat.type === 'handoff') && String(beat.ev.to) === String(a.id);
+      if (!toHim && b.holder !== a) return;
+      const tMove = beat.fireAt + Math.max(0, (+nx.t || 0) - beat.g1);
+      const tTry = tMove - this.setupLead(a, nx.move);
+      // (after the catch, with a beat to settle; a man with it already can start now)
+      if (tTry < (toHim ? beat.fireAt + 0.6 : this.T + 0.1)) return;
+      this.at(tTry, () => {
+        // (the move still to come, as this beat or the next: the engine's events may have been cut short meanwhile)
+        const bt = this.beat;
+        if (!this.active || !bt || (bt !== beat && bt.ev !== nx)) return;
+        const fireAt = bt.ev === nx ? bt.fireAt : tMove;
+        if (a._combo || b.working()) return;
+        const plan = this.setupPlan(a, nx, fireAt);
+        if (!plan) return;
+        const r = this.role[a.id];
+        if (r) { r.until = Math.max(r.until || 0, fireAt + 0.8); r.probe = null; }
+        a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
+        this.startChain(a, plan, fireAt - plan.tail);
+        this.setupsAhead = (this.setupsAhead || 0) + 1;
+      }, 'size-up before the move');
     }
     /** the beat played sooner (readOpen, the gameplay pass: a shooter who is open goes now instead of standing with the ball
      *  until the engine's time comes): the jobs its start planned for the old time dropped and planned again for the new,
@@ -301,9 +337,19 @@
         wingN: [21, 6.5], wingF: [21, 43.5], cornerN: [2.5, 2.5], cornerF: [2.5, 47.5],
         blockN: [7, 16.5], blockF: [7, 33.5], elbowN: [19, 17.5], elbowF: [19, 32.5], high: [18, 25],
         shortN: [5, 10], shortF: [5, 40], dunkerN: [3, 14.5], dunkerF: [3, 35.5],
+        // (a break's rim run ends here, the block's edge of the lane: the man the finish is for runs the middle to it)
+        rimN: [6, 16.5], rimF: [6, 33.5],
       };
     }
     spotPt(name) { const s = this.spotTable()[name] || [25, 25]; return this.P(s[0], s[1]); }
+    /** the named spot nearest a point (x, y) */
+    nearestSpot(x, y, names) {
+      let best = null, bd = 1e9;
+      for (const n of names) { const p = this.spotPt(n), d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = n; } }
+      return best;
+    }
+    /** how many of the defense are back already, level with this man or nearer the basket he attacks (a break's numbers) */
+    defendersAhead(a) { const u = this.U_(a.x); let n = 0; for (const d of this.defActors()) if (this.U_(d.x) < u + 3) n++; return n; }
     assignSpots(kind, ev) {
       const offs = this.v.onCourt[this.off];
       const handlerId = this.handlerId();
@@ -338,6 +384,22 @@
           const had = Object.keys(assigned).find((id) => assigned[id] === 'elbowN');
           if (had != null && had !== String(ev.screener)) assigned[had] = assigned[ev.screener];
           assigned[ev.screener] = 'elbowN';
+        }
+      }
+      // a break: the man the engine's finish is for runs the lane to the rim, not to a corner (he ran wide to the corner, stood in
+      // it and got the ball back out of it to drive in from there: "on the fast breaks the players don't drive to the hoop, they
+      // just run to the corner"); a trailer's jumper comes from the spot nearest where the engine put it
+      if (kind === 'transition') {
+        const sh = this.findNext((e) => e.type === 'shot');
+        if (sh && sh.shooter != null && String(sh.shooter) !== String(handlerId) && assigned[sh.shooter]) {
+          let want = null;
+          if (RIM_SHOTS[sh.kind] || sh.kind === 'floater') { const sa = this.A(sh.shooter); want = sa && sa.y > 25 ? 'rimF' : 'rimN'; }
+          else if (isFinite(+sh.x) && isFinite(+sh.y)) want = this.nearestSpot(+sh.x, +sh.y, ['cornerN', 'cornerF', 'wingN', 'wingF', 'slotN', 'slotF', 'top']);
+          if (want && assigned[sh.shooter] !== want) {
+            const had = Object.keys(assigned).find((id) => assigned[id] === want);
+            if (had != null && had !== String(sh.shooter)) assigned[had] = assigned[sh.shooter];
+            assigned[sh.shooter] = want;
+          }
         }
       }
       for (const id of offs) {
@@ -699,25 +761,44 @@
         // the wings and corners run wide along the sidelines ahead of the ball, the rim runner takes the middle
         // to the basket, the trailer comes up behind the ball; each peels off to his half-court spot once level
         // with it (instead of the whole team jogging up the floor in one pack)
-        let lane = false;
+        let lane = false, cut = false;
         if (this.tempo === 'push' || this.phase === 'start') {
           const u = this.U_(a.x), su = this.U_(r.spot.x), bu = this.U_(b.x);
           const sn = r.spotName || '', far = sn.slice(-1) === 'F';
+          const rimRun = sn.indexOf('rim') === 0 || sn.indexOf('dunker') === 0 || sn.indexOf('block') === 0 || sn.indexOf('short') === 0;
+          const soon = !!(this.flowSoon && this.flowSoon()[a.id]);
           if (u > su + 10) {
             lane = true;
             if (sn.indexOf('corner') === 0 || sn.indexOf('wing') === 0) { tx = this.X(Math.max(su, u - 16)); ty = far ? 45.5 : 4.5; }
-            else if (sn.indexOf('dunker') === 0 || sn.indexOf('block') === 0 || sn.indexOf('short') === 0) { tx = this.X(Math.max(su, u - 18)); ty = U.lerp(a.y, far ? 31 : 19, 0.35); }
+            else if (rimRun) { tx = this.X(Math.max(su, u - 18)); ty = U.lerp(a.y, far ? 31 : 19, 0.35); }
             else { tx = this.X(Math.max(su, Math.min(u, Math.max(bu + 7, u - 14)))); ty = U.lerp(a.y, r.spot.y, 0.3); } // (never back up)
             tx = this.X(U.clamp(this.U_(tx), 2.2, 91.8));
           }
           // (behind the ball or still in the backcourt: run to get ahead of it; on a walked-up ball they jog up
           // with it instead of racing ahead as if on a break, then standing there)
           if (lane && this.tempo === 'push' && (u > bu - 4 || u > 47)) lane = 'run';
+          // the wing ahead of the defense cuts to the rim (the fast break: "they will be open 99% of the time and they just run
+          // to the corner"; coaching: the corner rim run, a wing who has beaten the defense down the floor cuts to the basket for
+          // the layup while it is not set, and fills the corner when the ball does not come): with one defender back at most
+          // (Tune.reads.pushCutBackN) and the ball within pushCutBehindFt behind him, he goes at the rim, a stride off the middle
+          // to his side; at the rim with no ball, or the break over (the ball walked to the top), he peels off to his corner
+          if (this.tempo === 'push' && !soon && !rimRun && (sn.indexOf('corner') === 0 || sn.indexOf('wing') === 0)) {
+            const TR = M.Tune.reads;
+            if (!r.rimCut && !(r.rimCutDone > T - TR.pushCutGapS) && u > 11 && u < 44 && u < bu - 3 && bu - u < TR.pushCutBehindFt && this.defendersAhead(a) <= TR.pushCutBackN) {
+              r.rimCut = { t: T, y: 25 + (a.y > 25 ? 1 : -1) * TR.pushCutSideFt };
+              this.rimCuts = (this.rimCuts || 0) + 1;
+            }
+            if (r.rimCut) {
+              if (u < 9 || bu < 20 || T - r.rimCut.t > TR.pushCutMaxS || (b.holder && b.holder.team !== this.off)) { r.rimCutDone = T; r.rimCut = null; }
+              else { tx = this.X(6); ty = r.rimCut.y; lane = 'run'; cut = true; }
+            }
+          }
           // on a break the runners stay in front of the ball, not a whole play ahead of it: the wings a step or three
           // ahead in their lanes, ready for the pass (a heady one reads it and gets further out in front), instead of
           // reaching the rim two seconds before the ball and standing there; the man the next pass or shot is for
-          // goes all the way
-          if (this.tempo === 'push' && !(this.flowSoon && this.flowSoon()[a.id])) {
+          // goes all the way, and so do the rim runner (he sprints to the front of the rim ahead of the ball, coaching) and a
+          // wing cutting to it
+          if (this.tempo === 'push' && !soon && !rimRun && !cut) {
             const lead = 12 + 9 * this.aware(a, 'off');
             if (this.U_(tx) < bu - lead) tx = this.X(Math.max(this.U_(tx), bu - lead));
           }
@@ -811,12 +892,23 @@
       for (const id in this.dtask) { if (keep && keep.indexOf(id) >= 0) continue; this.dtask[id] = null; }
     }
     handlerAmbient(a, r, dt) {
-      const b = this.v.ball;
+      const b = this.v.ball, TU = M.Tune.urgency;
       // wander near the handler spot while dribbling; face the basket
       if (!r.spot) r.spot = this.spotPt('top');
-      if (this.T > r.next) { const TU = M.Tune.urgency; r.jx = (Math.random() - 0.5) * 6 * TU.offMoveK; r.jy = (Math.random() - 0.5) * 6 * TU.offMoveK; r.next = this.T + (1.5 + Math.random() * 1.5) * TU.offHoldK; }
-      // (inside the lines, Tune.rules.lineFt: a spot in the corner and its wander went on past the baseline, the gameplay pass)
-      const lm = M.Tune.rules.lineFt, tx = U.clamp(r.spot.x + r.jx, lm, 94 - lm), ty = U.clamp(r.spot.y + r.jy, lm, 50 - lm);
+      let tx, ty;
+      if (this.tempo === 'push' && this.phase === 'front') {
+        // on a break the man with the ball pushes it at the basket from wherever he has it, down to the top of the key's inside
+        // edge (Tune.urgency.pushToU) and toward the middle: the kick or his own finish goes from there (readOpen takes the open
+        // lane on from it). A man who caught it on the break kept the corner spot he had been running to and dribbled into the
+        // corner with it; the man up top stopped at the top spot and waited for the play
+        const u = this.U_(a.x);
+        tx = this.X(U.clamp(Math.min(u - 3, 30), Math.min(u, TU.pushToU), 40)); ty = u < TU.pushToU + 1 ? a.y : U.lerp(a.y, 25, 0.3);
+      } else {
+        if (this.T > r.next) { r.jx = (Math.random() - 0.5) * 6 * TU.offMoveK; r.jy = (Math.random() - 0.5) * 6 * TU.offMoveK; r.next = this.T + (1.5 + Math.random() * 1.5) * TU.offHoldK; }
+        // (inside the lines, Tune.rules.lineFt: a spot in the corner and its wander went on past the baseline, the gameplay pass)
+        const lm = M.Tune.rules.lineFt;
+        tx = U.clamp(r.spot.x + r.jx, lm, 94 - lm); ty = U.clamp(r.spot.y + r.jy, lm, 50 - lm);
+      }
       const d = Math.hypot(tx - a.x, ty - a.y);
       a.moveTo(tx, ty, { speed: this.tempo === 'push' ? 20 : d > 8 ? 15 : 9, face: d > 6 ? 'move' : this.rim, stance: 'dribble' });
       if (b.state === 'held' && b.holder === a && !a.throwing() && !(a.holdBallUntil > this.T) && (a.speed > 1 || Math.random() < 0.02)) b.dribble(a);
@@ -1397,6 +1489,9 @@
         if (r) r.until = fireAt;
         const go = () => {
           const eta = fireAt - this.T;
+          // (already across, the court ahead of the engine's timeline, a man who took the outlet and ran: no going back to the
+          // crossing for its beat; on he goes, handlerAmbient's push)
+          if (this.U_(h.x) < this.U_(cross.x) - 2) return;
           if (push) h.moveTo(cross.x + this.dir * 8, cross.y, { by: this.T + eta * 1.1, speed: h.maxSpeed, face: 'move', stance: 'dribble', pace: 7 });
           else {
             // a walked-up ball comes up at a jog, on to the top of the key where the handler sets it up (it was timed
@@ -1677,16 +1772,34 @@
       const b = v.ball;
       beat.onStart = (fireAt) => {
         const r = this.role[a.id];
+        const tSet = fireAt - 1.0;
+        const st = { set: false, chain: false };
+        const settle = () => { if (st.set) return; st.set = true; if (r) { r.until = fireAt + 0.8; r.probe = null; } setup(fireAt); };
+        // a size-up is the work itself and starts at once (set up a second before its beat, as the other moves are, the chain
+        // had time for one move: no size-up at all)
+        if (mv === 'size_up') { settle(); return; }
+        // a size-up before an attacking move (setupPlan): tried when there is just time left for it (setupLead), so a man still
+        // on the move at the beat's start, or probing, or waiting on the ball, has settled by then; it ends as the move comes
+        if (SETUP_MOVES[mv]) {
+          const tChain = fireAt - this.setupLead(a, mv);
+          const tryChain = () => {
+            if (st.chain || st.set) return;
+            const chain = this.setupPlan(a, ev, fireAt);
+            if (!chain) return;
+            st.chain = true; settle();
+            this.startChain(a, chain, fireAt - chain.tail);
+          };
+          if (tChain > this.T + 0.05) this.at(tChain, tryChain, 'size-up before the move'); else tryChain();
+          if (st.chain) return;
+        }
         // a long wait before the move: he keeps working the ball (probe dribbles, a jab, a hesitation) and only sets up
         // for the move ~a second before it, instead of standing in place dribbling for seconds
-        const tSet = fireAt - 1.0;
         if (r && b.holder === a && tSet - this.T > 0.8 && mv !== 'spin' && this.flowOK && this.flowOK() && !this.driving(a)) {
           r.until = 0; r.probe = null; r.probeNext = Math.min(r.probeNext || 0, this.T + 0.2);
-          this.at(tSet, () => { if (r) { r.until = fireAt + 0.8; r.probe = null; } setup(fireAt); }, 'move setup');
+          this.at(tSet, settle, 'move setup');
           return;
         }
-        if (r) r.until = fireAt + 0.8;
-        setup(fireAt);
+        settle();
       };
       const setup = (fireAt) => {
         if (mv === 'size_up') {
@@ -1696,14 +1809,9 @@
           // comes due (one his man is still sold on gets the burst past him: onFire of the attacking move, breakdown).
           // (It was a string drawn from a table, and before that one between the legs)
           a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
-          // (the chain goes as soon as he has the ball in place: each move waits for the dribble's beat, so a chain of three or
-          // four takes two seconds and more)
-          const plan = this.comboPlan(a, ev, fireAt);
-          this.at(Math.max(this.T + extra + 0.15, fireAt - plan.lead - 0.1), () => {
-            if (b.holder !== a || a.isBusy()) return;
-            if (b.state !== 'dribble') b.dribble(a);
-            if (b.state === 'dribble' && b.dr && !b.working()) b.dribbleChain((ball, info) => this.comboNext(a, plan, ball, info), { onDone: () => this.comboDone(a, plan) });
-          }, 'sizeup');
+          // (the chain goes as soon as he has the ball in place: each move waits for the dribble's beat, a pound dribble between
+          // some, so a chain of three or four takes two seconds and more)
+          this.startChain(a, this.comboPlan(a, ev, fireAt), fireAt - 0.12, extra);
         } else if (mv === 'jab') {
           // (the rules: a jab out of the triple threat is his before he has dribbled; already dribbling, picking the ball up
           // to jab left him a dead dribble, and the drive or move after it was a double dribble: a dribbler's jab is a
@@ -1722,26 +1830,54 @@
             a.spinMove({ exitFacing: this.rimAngleFrom(a.x, a.y), exitTo: { x: a.x + (this.rim.x - a.x) * 0.3, y: a.y + (this.rim.y - a.y) * 0.3 } });
           }, 'spin');
         } else if (mv === 'backdown') {
+          // the back-down: a fight (the user: "the contact is very minimal, it should be a dog fight"; Tune.post.back*). His man on his
+          // back with the bodies touching (the torsos' depth apart, as a box-out's) and the forearm in it (the postD stance; NBA rule:
+          // a hand or forearm with a bent elbow on the back of a post player with the ball is legal), giving ground as he is backed
+          // down and holding what his strength lets him; the shoulder and hip into his chest off a low dribble, as many bumps as there
+          // is time for, each gaining a foot and knocking him back a step; between them the lean and the shoves both ways
+          const TP = M.Tune.post;
           a.setStance('postUp');
           a.setFace(this.rimAngleFrom(a.x, a.y) + Math.PI);
           const pd = this.guardOf(a.id);
-          if (pd) { this.dtask[pd.id] = { until: fireAt + 1.5 }; pd.setStance('postD'); pd.track(() => { const dx = this.rim.x - a.x, dy = this.rim.y - a.y, dl = Math.hypot(dx, dy) || 1; return { x: a.x + dx / dl * 2.1, y: a.y + dy / dl * 2.1, vx: a.vx, vy: a.vy }; }, { stance: 'postD' }); pd.setFace(() => Math.atan2(a.y - pd.y, a.x - pd.x)); }
-          // backing him down: two or three bumps when there is time (a low dribble, the shoulder and hip into his
-          // chest), gaining a foot each; his man is knocked back a step on every bump and gives ground
+          const edge = this.postEdge(a, pd);
+          const rimward = () => { const dx = this.rim.x - a.x, dy = this.rim.y - a.y, dl = Math.hypot(dx, dy) || 1; RW[0] = dx / dl; RW[1] = dy / dl; return RW; };
+          if (pd) {
+            const cf = M.Tune.glass.touchH * (pd.H + a.H) + TP.backGapFt;
+            this.dtask[pd.id] = { until: fireAt + 1.5 };
+            pd._contact = { with: a, until: fireAt + 1.2 };
+            pd.setStance('postD');
+            pd.track(() => { const q = rimward(); return { x: a.x + q[0] * cf, y: a.y + q[1] * cf, vx: a.vx, vy: a.vy }; }, { stance: 'postD', speed: pd.maxSpeed * 0.8 });
+            pd.setFace(() => Math.atan2(a.y - pd.y, a.x - pd.x));
+          }
           const room = fireAt - 0.8 - (this.T + extra);
-          const nBump = room > 1.4 ? 3 : room > 0.7 ? 2 : 1;
+          const nBump = Math.max(1, Math.min(TP.backBumps, Math.floor(room / TP.bumpGapS) + 1));
+          const t0 = fireAt - 0.8 - (nBump - 1) * TP.bumpGapS;
           for (let k = 0; k < nBump; k++) {
-            this.at(Math.max(this.T + extra, fireAt - 0.8 - (nBump - 1 - k) * 0.72), () => {
+            this.at(Math.max(this.T + extra, t0 + k * TP.bumpGapS), () => {
               if (b.holder !== a || a.isBusy()) return;
               if (b.state !== 'dribble') b.dribble(a, a.lefty ? 0 : 1, { low: 1 });
               a.play('backdown', { facing: this.rimAngleFrom(a.x, a.y) + Math.PI, onEvent: (name) => {
                 if (name !== 'bump' || !pd) return;
-                const dx = this.rim.x - pd.x, dy = this.rim.y - pd.y, dl = Math.hypot(dx, dy) || 1;
-                // (as a knock he takes and gives ground to, ~0.4 ft over a third of a second: his speed kicked by 4.5 ft/s
-                // in one step was an instant change of speed, Trial 4)
-                pd.impact(dx / dl, dy / dl, 7.5);
+                const q = rimward();
+                // (a knock he takes and gives ground to; a stronger man knocks him harder, into a balance step at a big edge, and is
+                // held up less by him)
+                pd.impact(q[0], q[1], TP.backK * edge, { stumble: edge >= TP.backStumbleEdge });
+                a.impact(-q[0], -q[1], TP.backK * TP.backHoldK / edge);
+                this.postContacts = (this.postContacts || 0) + 1;
               } });
             }, 'backdown');
+          }
+          if (pd) {
+            const shove = () => {
+              if (this.active === false || this.T > fireAt - 0.15 || b.holder !== a) return;
+              if (!pd.isBusy() && Math.hypot(pd.x - a.x, pd.y - a.y) < 3.2) {
+                const q = rimward(), k = U.lerp(TP.shoveK[0], TP.shoveK[1], Math.random());
+                if (Math.random() < 0.5) { a.impact(-q[0], -q[1], k / edge); pd.impact(q[0], q[1], k * 0.5 * edge); } else { pd.impact(q[0], q[1], k * edge); a.impact(-q[0], -q[1], k * 0.5 / edge); }
+                this.postShoves = (this.postShoves || 0) + 1;
+              }
+              this.at(this.T + U.lerp(TP.shoveS[0], TP.shoveS[1], Math.random()), shove, 'post shove');
+            };
+            this.at(Math.max(this.T + extra, t0 - 0.5), shove, 'post shove');
           }
         } else {
           a.setStance('dribble');
@@ -1842,12 +1978,72 @@
           a.moveTo(a.x - (this.rim.x - a.x) * 0.1, a.y, { speed: 8, face: this.rim, stance: 'dribble' });
         }
       };
-      return Math.max(0.5, extra + (mv === 'size_up' ? Math.min(2.2, this.comboLead(a)) : mv === 'spin' ? a.spinDur() : 0.3));
+      return Math.max(0.5, extra + (mv === 'size_up' ? Math.min(3.0, this.comboLead(a)) : mv === 'spin' ? a.spinDur() : 0.3));
+    }
+    /** a size-up before the engine's attacking move (a crossover, a hesitation, a drive, a spin: ev.move), when there is time for it
+     *  and his man is in front of him (Tune.combo.setup*): a short chain, read like the size-up's, ending as the move comes (the
+     *  moves came out of nothing, a man dribbling in place into a drive). Null when not */
+    /** how long before an attacking move its size-up is tried (s): the move's own lead-in, the chain and a beat to settle */
+    setupLead(a, mv) { return (mv === 'spin' ? a.spinDur() + 0.25 : 0.35) + this.comboLead(a, M.Tune.combo.setupMax) + 0.25; }
+    setupPlan(a, ev, fireAt) {
+      const TC = M.Tune.combo, b = this.v.ball, mv = ev.move;
+      // (why not, for the debug view: this.setupWhy)
+      const no = (w) => { if (this.dbgOn && this.dbgOn()) { const sw = this.setupWhy || (this.setupWhy = {}); sw[w] = (sw[w] || 0) + 1; } return null; };
+      if (!SETUP_MOVES[mv]) return null;
+      if (b.holder !== a) return no('no ball');
+      if (a.isBusy() || this.driving(a)) return no('busy');
+      // (a probe's attack goes at 13 ft/s and its retreat at 9: out of either he squares up for it)
+      if (a.speed > 10) return no('moving');
+      const d = this.guardOf(a.id);
+      if (!d) return no('no man');
+      const dd = Math.hypot(d.x - a.x, d.y - a.y), c = Math.cos(a.facing), s = Math.sin(a.facing), fwd = (d.x - a.x) * c + (d.y - a.y) * s;
+      if (dd > TC.setupFt || fwd < 0.5) return no('man not in front');
+      const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
+      if (Math.random() > U.lerp(TC.setupP[0], TC.setupP[1], hk)) return no('not this time');
+      const tail = mv === 'spin' ? a.spinDur() + 0.25 : 0.35;
+      if (fireAt - tail - this.T < TC.setupMinS) return no('no time');
+      const plan = this.comboPlan(a, ev, fireAt - tail);
+      plan.max = Math.min(plan.max, TC.setupMax); plan.lead = this.comboLead(a, plan.max); plan.tail = tail; plan.setup = true;
+      this.setups = (this.setups || 0) + 1;
+      return plan;
+    }
+    /** starts a planned chain (comboPlan) so it ends by endAt: the ball in a dribble, then the chain (Ball.dribbleChain) */
+    startChain(a, plan, endAt, extra) {
+      const b = this.v.ball;
+      const no = (w) => { if (this.dbgOn && this.dbgOn()) { const sw = this.chainWhy || (this.chainWhy = {}); sw[w] = (sw[w] || 0) + 1; } };
+      this.at(Math.max(this.T + (extra || 0) + 0.15, endAt - plan.lead - 0.1), () => {
+        if (b.holder !== a) return no('no ball');
+        if (a.isBusy() || this.driving(a)) return no('busy');
+        if (b.state !== 'dribble') b.dribble(a);
+        if (b.state !== 'dribble' || !b.dr) return no('no dribble');
+        if (b.working()) return no('a move already going');
+        b.dribbleChain((ball, info) => this.comboNext(a, plan, ball, info), { onDone: () => this.comboDone(a, plan) });
+        if (plan.setup) this.setupChains = (this.setupChains || 0) + 1;
+      }, 'sizeup');
+    }
+    /** the body goes with a size-up's move (the ball's move start, mv.rock): a short step to the side the ball goes, the weight
+     *  over it (the rock of a size-up, side to side with the ball; an in and out steps the way the fake goes), a hesitation a step
+     *  up into it. Standing or near it only: on the move the stride carries the weight */
+    moveBody(a, mv, h0) {
+      const TC = M.Tune.combo;
+      if (!this.active || a.isBusy() || a.speed > 3.5) return;
+      const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
+      const c = Math.cos(a.facing), s = Math.sin(a.facing);
+      if (mv.type === 'hesi') { a.moveTo(a.x + c * 0.5, a.y + s * 0.5, { speed: 5, stance: 'dribble', face: this.rim }); this.rocks = (this.rocks || 0) + 1; return; }
+      const toHand = mv.toHand != null ? mv.toHand : 1 - h0, side = toHand ? 1 : -1;
+      const sd = mv.type === 'inout' ? -side : side, k = U.lerp(TC.rockFt[0], TC.rockFt[1], hk) * (mv.type === 'inout' ? 0.6 : 1);
+      // (his right: (sin f, -cos f))
+      a.moveTo(a.x + s * sd * k, a.y - c * sd * k, { speed: 7, stance: 'dribble', face: this.rim });
+      this.rocks = (this.rocks || 0) + 1;
     }
     // ---- dribble combos (the dribble work: "chain dribble moves into combos that break the defender")
     /** how long a chain this handler has in him (Tune.combo.maxMoves, by handle) and the time to reserve for it (s) */
-    comboMax(a) { return Math.round(U.lerp(M.Tune.combo.maxMoves[0], M.Tune.combo.maxMoves[1], U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1))); }
-    comboLead(a) { return this.comboMax(a) * 0.55 + 0.3; }
+    comboMax(a) { const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1); return Math.max(hk > 0.3 ? 2 : 1, Math.round(U.lerp(M.Tune.combo.maxMoves[0], M.Tune.combo.maxMoves[1], hk))); }
+    /** the time to reserve for a chain of n moves (s): a move's bounce and the pound dribbles between (Tune.combo.poundP) */
+    comboLead(a, n) {
+      const TC = M.Tune.combo, hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
+      return (n || this.comboMax(a)) * (0.45 + 0.5 * U.lerp(TC.poundP[0], TC.poundP[1], hk)) + 0.35;
+    }
     /**
      * The plan of a chain for handler a before the engine's move at fireAt (ev: the size-up's event; null in flow). What the
      * engine gave the handler's next look is what the chain plays out (a._comboLook, read by defBite and breakFt): a look it
@@ -1893,11 +2089,15 @@
       else if (plan.lastBit) type = Math.random() < U.lerp(TC.counterP[0], TC.counterP[1], hk) ? pick(sw) : (hk > 0.5 && Math.random() < 0.5 ? 'inout' : 'hesi');
       else if (Math.random() < TC.readSwitchP) type = info.done === 'hesi' ? (hk > 0.5 ? 'inout' : pick(sw)) : (Math.random() < 0.5 || hk <= 0.5 ? 'hesi' : 'inout');
       else type = pick(sw);
-      if (T + periodOf(type) > plan.tEnd) return null;
+      // the rhythm: a pound dribble before the move some of the time (Tune.combo.poundP, by handle), none before the first
+      let wait = plan.n > 0 && Math.random() < U.lerp(TC.poundP[0], TC.poundP[1], hk) ? 1 : 0;
+      // (his man tight on him: a shifty handler steps back off him first, a retreat dribble, and the move comes out of it)
+      if (plan.n > 0 && !plan.retreated && hk > 0.5 && Math.hypot(d.x - a.x, d.y - a.y) < TC.retreatFt && Math.random() < TC.retreatP && T + 1.1 < plan.tEnd && a.retreat && a.speed < 4 && a.retreat({ dist: 2.5 })) { plan.retreated = true; wait = 1; this.retreats = (this.retreats || 0) + 1; }
+      if (T + periodOf(type) + wait * 0.5 > plan.tEnd) return null;
       if (!plan.n) this.chains = (this.chains || 0) + 1; // (a chain counts once its first move goes)
       this.chainMoves = (this.chainMoves || 0) + 1;
       plan.n++; plan.tLast = T;
-      return { type, period: periodOf(type) };
+      return { type, period: periodOf(type), wait, rock: true };
     }
     /** the chain ended (its last move done, or the engine's move took over, replaced): the debug view's line and the counters */
     comboDone(a, plan, replaced) {
@@ -1951,9 +2151,17 @@
      * Squared up in the paint with his man in front of him (a big who caught it facing), the pump fake into the up and under or
      * the hook. o: { postUp, postTurn, rimFinish }. Returns { move, parts: [{ name, dur, opt, fn }], pd, contest } or null.
      */
+    /** the post man's edge in strength over his man (the contact's knocks, 0.75-1.35; 1 with no man on him) */
+    postEdge(sh, pd) {
+      if (!pd) return 1;
+      const lk = this.v.look(sh.id) || {}, dl = this.v.look(pd.id) || {};
+      return U.clamp(1 + ((lk.strength != null ? +lk.strength : 62) - (dl.strength != null ? +dl.strength : 62)) / 60, 0.75, 1.35);
+    }
     postPlan(ev, sh, kind, clipName, o) {
       const TP = M.Tune.post, v = this.v, b = v.ball;
-      if (b.holder !== sh || ev.pending || this.active === false) return null;
+      // (why no move, for the debug view: this.postWhy)
+      const no = (w) => { if (this.dbgOn && this.dbgOn()) { const pw = this.postWhy || (this.postWhy = {}); pw[w] = (pw[w] || 0) + 1; } return null; };
+      if (b.holder !== sh || ev.pending || this.active === false) return no('no ball');
       const rimA = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x), dRim = Math.hypot(this.rim.x - sh.x, this.rim.y - sh.y);
       const d0 = this.A(ev.defender), pd0 = d0 && d0.team === this.def ? d0 : this.guardOf(sh.id);
       const pd = pd0 && pd0.team === this.def && Math.hypot(pd0.x - sh.x, pd0.y - sh.y) < 6.5 ? pd0 : null;
@@ -1961,13 +2169,14 @@
       let table;
       if (o.postUp) table = o.rimFinish ? TP.rim : hook ? TP.hook : o.postTurn ? TP.fade : null;
       else {
-        if (!(o.rimFinish || hook) || dRim > TP.faceFt || !pd || sh.speed > 7) return null;
+        if (!(o.rimFinish || hook) || dRim > TP.faceFt || !pd || sh.speed > 7) return no('faced up, no move');
         const dd = Math.hypot(pd.x - sh.x, pd.y - sh.y), inFront = Math.abs(U.wrapPi(Math.atan2(pd.y - sh.y, pd.x - sh.x) - rimA));
-        if (dd > TP.faceNearFt || inFront > 0.9 || Math.abs(U.wrapPi(sh.facing - rimA)) > 1.2) return null;
+        if (dd > TP.faceNearFt || inFront > 0.9 || Math.abs(U.wrapPi(sh.facing - rimA)) > 1.2) return no('faced up, man not in front');
         table = TP.faceUp;
       }
       // (ev.postMove: the move asked for, the shot lab's scenarios)
-      if (!table || (!ev.postMove && Math.random() > TP.moveP)) return null;
+      if (!table) return no('post-up, no table for ' + kind);
+      if (!ev.postMove && Math.random() > TP.moveP) return no('straight up');
       const contest = ev.contest === 'open' || ev.contest === 'tight' ? ev.contest : 'contested';
       const lk = v.look(sh.id) || {}, r01 = (k, d) => U.clamp(((lk[k] != null ? +lk[k] : d) - 40) / 50, 0, 1);
       const str = r01('strength', 62), craft = r01('post', 50) * 0.7 + r01('agility', 60) * 0.3;
@@ -1978,13 +2187,12 @@
       if (ev.blocked) delete w.upUnder;
       if (!pd) { delete w.spin; delete w.dropStep; }
       let sum = 0; for (const k in w) sum += w[k];
-      if (!(sum > 0)) return null;
+      if (!(sum > 0)) return no('no move fits');
       let u = Math.random() * sum, move = ev.postMove || null;
       if (!move) for (const k in w) { u -= w[k]; if (u <= 0) { move = k; break; } }
-      if (!move || move === 'none') return null;
+      if (!move || move === 'none') return no('none drawn');
       // the edge of his strength over his man's (the contact's knocks, 0.75-1.35)
-      const dl = pd ? v.look(pd.id) || {} : {};
-      const edge = pd ? U.clamp(1 + ((lk.strength != null ? +lk.strength : 62) - (dl.strength != null ? +dl.strength : 62)) / 60, 0.75, 1.35) : 1;
+      const edge = this.postEdge(sh, pd);
       const ck = contest === 'open' ? 1 : contest === 'contested' ? 0.5 : 0;
       // the baseline side of him (his back to the basket, the side the end line is on): +1 his left, -1 his right
       const base = this.rim.x < 47 ? 0 : 94, fx = Math.cos(sh.facing), fy = Math.sin(sh.facing);
@@ -1997,13 +2205,13 @@
       const bump = () => ({ name: 'bump', dur: TP.bumpS, opt: true, st: 'postHold', fn: () => this.postBump(sh, pm) });
       const drop = (dir) => ({ name: 'drop step', dur: sh.pivotDur(rimA, { dir }) || 0.2, st: facePost ? 'postHold' : 'holdChest', fn: () => this.postDrop(sh, pm, dir) });
       if (move === 'dropStep') {
-        if (o.postUp && facePost) { P.push(bump()); P.push(drop(pm.dir)); } else if (o.postUp) P.push(drop(pm.dir)); else return null;
+        if (o.postUp && facePost) { P.push(bump()); P.push(drop(pm.dir)); } else if (o.postUp) P.push(drop(pm.dir)); else return no('drop step faced up');
       } else if (move === 'spin') {
-        if (!o.postUp || !facePost) return null;
+        if (!o.postUp || !facePost) return no('spin faced up');
         P.push(bump());
         P.push({ name: 'spin', dur: sh.pivotDur(rimA, { dir: -pm.dir, quick: TP.spinQuick }) || 0.3, st: 'postHold', fn: () => this.postSpin(sh, pm, -pm.dir) });
       } else if (move === 'upUnder') {
-        if (!o.rimFinish && !hook) return null;
+        if (!o.rimFinish && !hook) return no('up and under, no finish');
         const fu = sh.pivotDur(rimA);
         if (fu > 0) P.push({ name: 'face up', dur: fu + 0.06, st: 'postHold', fn: () => {
           // (squared up where he stands, a touch toward the rim, the ball chinned)
@@ -2018,10 +2226,10 @@
         const goDir = o.postTurn ? ((clipName === 'postFadeL') !== !!sh.lefty ? 1 : -1) : pm.dir;
         pm.fakeDir = -goDir;
         if (o.postUp && facePost) P.push({ name: 'shoulder fake', dur: 0.34, st: 'postHold', fn: () => this.postShoulderFake(sh, pm) });
-        else return null;
+        else return no('fake faced up');
         if (!o.postTurn) P.push(drop(goDir));
       }
-      if (!P.length) return null;
+      if (!P.length) return no('no parts');
       pm.dur = P.reduce((s, p) => s + p.dur, 0);
       return pm;
     }
@@ -2034,7 +2242,7 @@
       const parts = pm.parts.slice();
       let tot = parts.reduce((s, p) => s + p.dur, 0);
       for (let i = 0; tot > avail && i < parts.length;) { if (parts[i].opt) { tot -= parts[i].dur; parts.splice(i, 1); } else i++; }
-      if (!parts.length || tot > avail + 0.12) return false;
+      if (!parts.length || tot > avail + 0.12) { if (this.dbgOn && this.dbgOn()) { const pw = this.postWhy || (this.postWhy = {}); pw['no time for ' + pm.move] = (pw['no time for ' + pm.move] || 0) + 1; } return false; }
       const t0 = Math.max(this.T + 0.05, clipStart - tot);
       pm.st = { off: null };
       pm.clipStart = clipStart;
@@ -2079,10 +2287,13 @@
      *  reactions (pm.st.off: a fake's bite, the seal round the hip, the spin's lost man) eased in and out on top */
     postGuard(pd, sh, pm) {
       const st = pm.st;
+      // (on his body, the torsos' depth apart, the forearm in his back: he was 2.1 ft off, a gap you could see through)
+      const cf = M.Tune.glass.touchH * (pd.H + sh.H) + M.Tune.post.guardTouchFt;
+      pd._contact = { with: sh, until: pm.clipStart + 0.3 };
       pd.setStance('postD');
       pd.track(() => {
         const dx = this.rim.x - sh.x, dy = this.rim.y - sh.y, dl = Math.hypot(dx, dy) || 1;
-        let x = sh.x + dx / dl * 2.1, y = sh.y + dy / dl * 2.1;
+        let x = sh.x + dx / dl * cf, y = sh.y + dy / dl * cf;
         const o = st.off;
         if (o) {
           const k = U.smooth((this.T - o.t0) / (o.inS || 0.15)) * (1 - U.smooth((this.T - o.t1) / (o.outS || 0.3)));
@@ -2341,9 +2552,19 @@
         if (isFinite(sx) && isFinite(sy)) {
           if (RIM_SHOTS[nx.kind]) {
             if (nx.kind === 'alley' || nx.kind === 'tip') return { x: sx, y: sy };
-            // catch on the way to the rim
-            const dx = sx - this.rim.x, dy = sy - this.rim.y, dl = Math.hypot(dx, dy) || 1;
-            return this.clampCourt({ x: sx + dx / dl * 8, y: sy + dy / dl * 8 }, 1.5);
+            // (a man already at the rim takes it where he is, a step to the ball: a break's rim runner; the catch 8 ft out had him
+            // come back out of the paint for it and drive in again)
+            if (Math.hypot(to.x - this.rim.x, to.y - this.rim.y) < 9) {
+              const bb = this.v.ball, ex = bb.x - to.x, ey = bb.y - to.y, el = Math.hypot(ex, ey) || 1;
+              return this.clampCourt({ x: to.x + ex / el * 1.5, y: to.y + ey / el * 1.5 }, 1.5);
+            }
+            // catch on his way to the rim: 8 ft short of the spot, back along the line from the rim out to where he is now (it was
+            // out from the spot the way the spot lay from the rim: a spot on the baseline side put the catch behind the basket,
+            // and a break's rim runner ran out of bounds for it)
+            const ax = to.x - this.rim.x, ay = to.y - this.rim.y, al = Math.hypot(ax, ay) || 1;
+            const cp = this.clampCourt({ x: sx + ax / al * 8, y: sy + ay / al * 8 }, 1.5);
+            if (this.U_(cp.x) < 3) cp.x = this.X(3);
+            return cp;
           }
           if (nx.kind === 'catch_shoot' || nx.kind === 'jumper') return { x: sx, y: sy };
           const dx = sx - this.rim.x, dy = sy - this.rim.y, dl = Math.hypot(dx, dy) || 1;
@@ -2402,7 +2623,10 @@
       const b = v.ball;
       const catchAndShoot = kind === 'catch_shoot' || (kind === 'jumper' && b.state === 'flight');
       // already under the basket (putbacks, short rolls): standing finish where he is
-      const dRimNow = Math.hypot(sh.x - this.rim.x, sh.y - this.rim.y);
+      // (the ball on its way to him: from where he catches it, Actor.expectPass's catch point; planned from where he was as the
+      // pass went, a break's finisher caught it under the rim and backed out ten feet to take a run at it)
+      const cpt = b.state === 'flight' && b.passTarget === sh && sh._rc && sh._rc.C ? sh._rc.C : null;
+      const dRimNow = cpt ? Math.hypot(cpt[0] - this.rim.x, cpt[1] - this.rim.y) : Math.hypot(sh.x - this.rim.x, sh.y - this.rim.y);
       let standFinish = false;
       if (kind === 'tip' && dRimNow > 6.5) clipName = dRimNow < 9.5 ? 'putback' : 'layup';
       // (a putback: the shot straight after his own offensive rebound, no post move first, straight back up with it)
@@ -2413,8 +2637,10 @@
       const TPo = M.Tune.post, postIn = postUp && !ownBoard && RIM_SHOTS[kind] && kind !== 'alley' && kind !== 'tip' && dRimNow < TPo.rangeFt;
       // (a dunk is always thrown down at the rim: a standing putback dunk only from close in, otherwise a
       // short running dunk whose run-up absorbs the distance)
-      if ((RIM_SHOTS[kind] && kind !== 'alley' && dRimNow < (kind === 'dunk' ? 5.5 : 9.5)) || (kind === 'tip' && dRimNow <= 6.5) || postIn) {
-        if (kind !== 'tip') clipName = (kind === 'dunk' && reaches('putbackDunk') && dRimNow < (postIn ? 7.5 : 5.5)) ? 'putbackDunk' : 'putback';
+      // (a dunk from inside its run-up by a man standing or nearly, a break's rim runner who caught it under the basket: a standing
+      // two-foot finish, the putback dunk where his gather reaches the rim; he backed out ten feet to take a run at it)
+      if ((RIM_SHOTS[kind] && kind !== 'alley' && dRimNow < (kind === 'dunk' ? (sh.speed < 6 || cpt ? 7.5 : 5.5) : 9.5)) || (kind === 'tip' && dRimNow <= 6.5) || postIn) {
+        if (kind !== 'tip') clipName = (kind === 'dunk' && reaches('putbackDunk') && dRimNow < (postIn ? 7.5 : 6.5)) ? 'putbackDunk' : 'putback';
         standFinish = true;
       }
       // the post move first (postPlan): a post-up works his man before the shot, with contact; squared up in the paint with his
@@ -2431,6 +2657,20 @@
       // higher and quicker, leaning away), their speed and jump already in them (M.Anims.shotClip)
       const contestK = RIM_SHOTS[kind] || kind === 'floater' ? 0 : ev.contest === 'tight' ? 1 : ev.contest === 'open' ? 0 : 0.5;
       let clip = M.Anims.shotClip(sh, clipName, { contest: contestK });
+      // (a running finish whose run-up would start out of bounds, a man on the block or under the basket: a standing finish from
+      // where he is instead; a break's rim runner ran behind the baseline to start his run-up at the rim)
+      if (RIM_SHOTS[kind] && kind !== 'alley' && kind !== 'tip' && !standFinish && !pm) {
+        const rr0 = this.clipRootAt(clip, clip.events.release);
+        if (rr0.fwd > 1) {
+          const aA0 = Math.atan2(this.rim.y - sh.y, this.rim.x - sh.x), L0 = rr0.fwd + 3;
+          const ox0 = this.rim.x - Math.cos(aA0) * L0, oy0 = this.rim.y - Math.sin(aA0) * L0;
+          if (this.U_(ox0) < 1.0 || oy0 < 1.0 || oy0 > 49.0) {
+            standFinish = true;
+            clipName = kind === 'dunk' && reaches('putbackDunk') && dRimNow < 6.5 ? 'putbackDunk' : 'putback';
+            clip = M.Anims.shotClip(sh, clipName, { contest: contestK });
+          }
+        }
+      }
       const jumper = /jumpshot|pullup|stepback|fadeaway/.test(clipName);
       const spk = 1;
       const rel = clip.events.release / spk;
@@ -4169,6 +4409,19 @@
         if (!d || d.isBusy() || T < (pc[o.id] || 0)) continue;
         const dd = Math.hypot(d.x - o.x, d.y - o.y);
         if (dd > 3.4) continue;
+        // a man posting up (on the block, or set in his post-up) and his man: the fight for position (Tune.post.fight*), bodies on
+        // each other every half second or so, the post man sealing, his man shoving him off the block, the two in contact
+        const ro = this.role[o.id], sn = (ro && ro.spotName) || '';
+        if (o.stance === 'postUp' || /^(block|dunker|short|rim)/.test(sn)) {
+          const TP = M.Tune.post;
+          if (dd < 3) { d._contact = { with: o, until: T + 0.8 }; }
+          if (Math.random() > TP.fightP) { pc[o.id] = T + 0.3; continue; }
+          pc[o.id] = T + U.lerp(TP.fightS[0], TP.fightS[1], Math.random());
+          const k = U.lerp(TP.fightK[0], TP.fightK[1], Math.random()) * phys;
+          if (Math.random() < 0.5) this.bump(o, d, k); else this.bump(d, o, k);
+          this.postFights = (this.postFights || 0) + 1;
+          continue;
+        }
         if (Math.random() > 0.35) { pc[o.id] = T + 0.4; continue; }
         pc[o.id] = T + 1.2 + Math.random() * 1.4;
         const k = (4.5 + Math.random() * 3) * phys;

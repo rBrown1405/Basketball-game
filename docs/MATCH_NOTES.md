@@ -847,3 +847,121 @@ Human Kinetics (six perimeter moves for reading the defense: forget the play and
 position), Breakthrough Basketball (make your opponent react: attack first), Better Basketball (read and react against set
 plays), Hoop Tactics (early offense: attack before the defense is organized), Coaching Toolbox (gap drives), NBA 2K's
 developer notes and its forums (teammates who would not take an open shot unless a play was run for them).
+
+## The size-up that reads, the fast break that attacks, the post that fights
+
+Asked for by the user, in one message: "I don't see the combo moves at all happening, I need more dribble animations and
+dribble size-ups, they should look natural"; "on the fast breaks the players don't drive to the hoop, they will be open 99 % of
+the time and they just run to the corner"; "in the post there isn't any post moves and the post defense, the contact is very
+minimal, it should be a dog fight". Measured first (a headless game through the court, the possession's play, every order
+given, where the finisher was when the pass went): the size-up chains averaged 1.3 moves and one second, half the iso
+size-ups never started a chain at all (set up a second before the beat like any other move, the chain had time for one), the
+transition finisher ran wide to the corner, stood in it and got the ball back out of it to drive in, a man who caught the
+outlet dribbled into the corner spot he had been running to, a post-up got a move about half the time and its back-down
+was one to three bumps with the man two feet off him.
+
+### The size-up that reads
+
+* **Rhythm** (`Tune.combo.poundP`, `Ball._queueMove`'s `wait`, `Director.comboNext`): a pound dribble between a chain's
+  moves some of the time (70 % for a 45 handle setting his man up, 35 % for a 90 stringing them tight; coaching: rhythm
+  dribbles). A move waits its bounces out (`after`, the dribble's cycle count) before it goes on the next beat of the feet.
+* **The body** (`Director.moveBody`, `Tune.combo.rockFt`): each move of a chain is a short step to the side the ball goes,
+  the weight over it, 0.8 to 1.3 ft by handle (the rock of a size-up; an in and out steps the way the fake goes), a hesitation
+  a step up into it; standing or near it only, on the move the stride carries the weight. The man tight on him
+  (`retreatFt`), a shifty handler steps back off him first, a retreat dribble (`Actor.retreat`), 30 % of the time.
+* **Where the size-ups come from.** The iso's own size-up starts at once (its beat's time is the chain's: `p_move`
+  'size_up' no longer waits for the setup a second before the beat). A handler's probe in flow (`flowHandler`) is a size-up
+  in place 30 % of the time (`probeSizeP`): squared up to his man, the chain run to three moves, held through, instead of an
+  attack at a gap or a change of sides; sizing his man up in flow (`handleBall`) strings more moves on the first 70 % of the
+  time (`flowChainP`, from a 60 handle) up to three (`flowMax`). Before an engine attacking move (a crossover, a
+  hesitation, a drive, a spin) a short size-up is tried when there is time for it (`setupPlan`, `planSetupAhead`,
+  `setupLead`): planned from the beat before, since a move's own beat starts only a beat ahead of it; the engine's events
+  rarely leave the time (its moves come half a second after a catch or a screen), so it is a rare extra. A chain is two
+  moves at least from a 60 handle (`comboMax`).
+
+### The fast break that attacks
+
+* **The finisher runs the lane to the rim** (`assignSpots` 'transition', the `rimN` / `rimF` spots at the block's edge):
+  the man the engine's finish is for gets the rim run, not a corner; a trailer's jumper comes from the spot nearest where
+  the engine put it. The rim runner (and a wing cutting to the rim) goes all the way ahead of the ball instead of being held
+  a stride in front of it.
+* **The corner rim run** (`Director.ambient`'s lanes, `Tune.reads.pushCut*`): a wing running his lane with one defender back
+  at most (level with him or nearer the rim) and the ball within 30 ft behind him cuts to the rim, a stride off the middle
+  to his side; at the rim with no ball, or the break over (the ball walked to the top), he fills his corner. Coaching: the
+  corner rim run, and the numbers (2 on 1 is a layup).
+* **The man with the ball pushes it** (`handlerAmbient`, `Tune.urgency.pushToU`): on a break he goes at the basket from
+  wherever he caught it, to the top of the key's inside edge and toward the middle, never back out to a corner spot or to
+  the crossing (`p_advance` leaves a man already across alone). The reads are on in transition once the ball is in the
+  frontcourt (`readOpen`, `Tune.reads.pushReadU`): the open lane is taken, the finish brought forward.
+* **The catch and the finish**: a rim runner's catch is on his way to the rim, 8 ft short of the spot back along the line
+  from the rim to him (it was out from the spot the way the spot lay from the rim, behind the basket for a spot on the
+  baseline side), and a man already at the rim takes it where he is (`catchSpotFor`). A finish is planned from where the
+  catch will be when the ball is on its way (`p_shot`, the catch point), a dunk from inside its run-up is a standing two-foot
+  finish (the putback dunk where his gather reaches), and a run-up that would start out of bounds is a standing finish
+  instead: the finisher caught it under the basket and backed out ten feet to take a run at it, or ran behind the baseline
+  to start one.
+* **The lines** (`Actor._lineAware`): everyone on the floor minds the sidelines and baselines now, not only the man with the
+  ball (a man a pass is in the air to excepted, the throw planned on his run): a rim runner sent to the block at a sprint
+  braked late and ran seven feet out behind the baseline, the wings a yard outside the sidelines.
+* **A fix found on the way**: a rebounder whose carom was never settled for him (it was already off the rim when the settle
+  came) was sent to an undefined spot; his position went NaN and the whole court with it for the rest of the game
+  (`rebound.js` `readCarom`, `Actor.moveTo`). He runs it down off the floor now.
+
+### The post that fights
+
+* **The back-down** (`p_move` 'backdown', `Tune.post.back*`): his man on his back with the bodies touching (the torsos'
+  depth apart, as a box-out's, `Tune.glass.touchH`; he was 2.1 ft off) and the forearm in it (the `postD` stance; NBA rule:
+  a hand or forearm with a bent elbow on the back of a post player with the ball is legal), giving ground as he is backed down
+  and holding what his strength lets him. The shoulder and hip into his chest off a low dribble, up to four bumps 0.74 s
+  apart as the time before the shot allows, each gaining a foot and knocking him back toward the rim (8.5 ft/s x the
+  strength edge, 0.75 to 1.35), the post man held up half of that the other way (a stronger defender gives less ground), a
+  big edge knocking the defender into a balance step (`Actor.impact`'s `stumble` option). Between the bumps the lean and the
+  shoves both ways every 0.3 to 0.5 s (`shoveK`, `shoveS`).
+* **The fight for position before the ball comes** (`paintContact`, `Tune.post.fight*`, `frontFt`): a man posting up (on
+  the block, or set in his post-up) and his man bump every 0.45 to 0.9 s, 70 % of the time, 4.5 to 7 ft/s, the post man
+  sealing and his man shoving him off the block, the two in contact; his man guards him from 1.4 ft toward the ball and 0.6
+  toward the rim (was 1.9 and 0.9), on his body. The man on a post move's back (`postGuard`) is touching him too.
+* **Why no move** (`postPlan`'s `postWhy`, `runPost`): the debug view's counts of why a shot got no post move. Most are not
+  post-ups at all (a shot planned before the ball is in his hands, a face-up with no man in front); of the back-downs
+  themselves, 75 % work a move, the rest go straight up, draw none, or kick out.
+
+### Measured (this pass)
+
+Headless games through the court (`tools/audit/load.js`, a scratch script that wraps the court: the possession's play, every
+chain's length and source, every order given to the offense in transition with its caller, the post plan's reasons), two
+periods each on three seeds, before and after:
+
+| | before | after |
+|---|---|---|
+| moves per size-up chain | 1.25 to 1.39 | 2.0 to 2.2 |
+| chains of 3+ moves, per half | 0 | 10 to 25 |
+| mean length of a chain (s) | 1.0 | 1.4 to 1.8 |
+| rock steps per half | 0 | 40 to 77 |
+| transition rim finishers who had run to a corner first | 1 to 4 per game | 0 |
+| transition shooters through a corner first | 16 to 33 % | 0 to 22 % (the trailers' jumpers, and long possessions) |
+| rim cuts on the break, per half | 0 | 2 to 6 |
+| shoves in back-downs, per half | 0 | 5 to 34 |
+| bumps fighting for post position, per half | (the paint's bumps, ~0.35 a second near a man) | 150 to 200 |
+| post moves worked per back-down | ~50 % | ~75 % |
+
+The gauntlet (`tools/audit/check.js`) passes, 152 checks, and the engine's score and the court's agree in every game. The
+audit's report has rows for the rock steps, the size-ups probed with, the rim cuts, the post moves, shoves and fights
+(`cbRocks`, `cbSizeups`, `fg*`).
+
+### Limitations (this pass)
+
+* The engine's event spacing leaves little room for a size-up before its own attacking moves (they come half a second after
+  the catch or the screen); the size-ups come from the iso and from the flow's probes and hand switches, where the handler
+  has the ball with nothing due.
+* The post fight is contact and ground, not a duel of its own: the engine decides the shot and how open it was; the court
+  shows the fight that got there. The whistle (a foul in the post) is the engine's as before.
+* The break's finish is still the engine's finisher (its pick by finishing and speed) at the engine's time; the court only
+  runs him to the rim and gets the ball to him on his way. A rim runner there well before a slow outlet stands on the block.
+
+### Sources
+
+Coaching Toolbox (modern transition concepts: the rim runner, wide wings, the trailer), Taylor Jannsen's transition offense
+notes (the corner rim run, converting numbers), FastModel Sports and Breakthrough Basketball (transition drills), the NBA
+video rulebook (legal post defense: the hand or forearm with a bent elbow on the back), Sikana and wikiHow (post defense
+technique: the forearm in contact, the fight for position), NBA 2K's dev blogs and forums (size-ups as rhythm: a slow rocking
+crossover or quick machine-gun crosses, the hesitation that freezes a man), and the dribble breakdown's own sources above.

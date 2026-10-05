@@ -187,6 +187,8 @@
      *  their braking the arrival plans on, 0.8: a gentler stop starts braking sooner and is there stopped, Trial 11)} */
     moveTo(x, y, o) {
       o = o || {};
+      // (an order to nowhere is no order: a NaN spot poisoned the position for good)
+      if (!(isFinite(x) && isFinite(y))) return this;
       if (this._rcHold(x, y)) return this;
       this._note('move');
       const g = this.goal;
@@ -530,7 +532,7 @@
     /** a body contact: pushed along (nx, ny) with `speed` ft/s of the closing speed. The body is knocked a little off
      *  its line and thrown off balance (the torso goes with the push, the arms come out, the head lags), then he
      *  recovers; in the air too, where it does not stop the shot, only how it looks getting there */
-    impact(nx, ny, speed) {
+    impact(nx, ny, speed, o) {
       if (!(speed > 3)) return;
       const s = Math.min(speed, 12), h = this.hit;
       if (h && h.t < 0.2 && h.s >= s) return;
@@ -543,7 +545,8 @@
       // knocked hard enough, he has to catch his balance: a quick step the way he was pushed (in the air, when he
       // comes down)
       // (not leaning on a man on purpose, a box-out, a post-up or a screen, where the bodies push all the time)
-      const lean = this.stance === 'boxout' || this.stance === 'postD' || this.stance === 'postUp' || this.stance === 'screen';
+      // (o.stumble: the step all the same, a man backed down by one much stronger than him, the post fight)
+      const lean = (this.stance === 'boxout' || this.stance === 'postD' || this.stance === 'postUp' || this.stance === 'screen') && !(o && o.stumble);
       if (s > 6.5 && !lean && (air || !this.clip)) this._stumble = { nx, ny, k: U.smooth((s - 6) / 6), t: air ? null : this.time + 0.06 };
     }
     /** a defender reaching for the ball: he protects it, the near shoulder turned into the reach and the ball pulled
@@ -1296,7 +1299,11 @@
       if (this.oobOK > (this.time || 0)) return false;
       const v = this.view, d = v && v.director, b = v && v.ball;
       if (!d || !d.active || !b || !(d.liveBall && d.liveBall())) return false;
-      return b.holder === me && (b.state === 'held' || b.state === 'dribble');
+      if (b.holder === me && (b.state === 'held' || b.state === 'dribble')) return true;
+      // (and everyone else on the floor too, the fast break pass: a rim runner sent to the block at a sprint braked late (the
+      // brake comes on with the jerk it has, Tune.weight) and ran seven feet out behind the baseline; the wings ran their lanes
+      // a yard outside the sidelines. Not a man a pass is in the air to: the throw was planned on the run he is on)
+      return me.kind === 'player' && !(b.state === 'flight' && b.passTarget === me);
     }
     _avoid(dvx, dvy) {
       const out = this._avOut || (this._avOut = [0, 0]);

@@ -284,7 +284,8 @@
     _queueMove(d, type, o) {
       // (an in and out and a hesitation keep the ball in the same hand)
       const same = type === 'inout' || type === 'hesi', TH = M.Tune.handle, urgent = !!(o && o.urgent);
-      const mv = { type, same, urgent, onDone: o && o.onDone, period: (o && o.period) || (type === 'hesi' ? TH.hesiPeriodS : type === 'inout' ? TH.inoutPeriodS : 0.36) };
+      // (o.wait: this many plain bounces first, a size-up's rhythm dribbles between its moves; o.rock: the body goes with it, Director.moveBody)
+      const mv = { type, same, urgent, onDone: o && o.onDone, period: (o && o.period) || (type === 'hesi' ? TH.hesiPeriodS : type === 'inout' ? TH.inoutPeriodS : 0.36), rock: !!(o && o.rock), after: o && o.wait > 0 ? (d.cycle || 0) + o.wait : 0 };
       // (one waiting for its beat already: this one goes after it, a combination, Trial 8; it used to replace it, the move
       // asked for first never made. The hand it goes to is set as it becomes the next one. An urgent one goes first)
       if (d.pendingMove && !d.pendingMove.spin && !urgent) { d.nextMove = mv; return; }
@@ -327,7 +328,7 @@
       if (!m) { d.combo = null; d.chain = null; const cb = d.comboDone; d.comboDone = null; if (cb) U.safe(() => cb(this), null, 'combo'); return; }
       // (through the same queue as a single move: the hand it goes to, its beat on the feet, Trial 8)
       // (one bounce per move, Tune.handle.comboPeriodS; a hesitation hangs as long as one on its own, Tune.handle.hesiPeriodS)
-      this._queueMove(d, m.type, { period: m.period || M.Tune.handle.comboPeriodS[m.type], onDone: () => this._comboNext(d) });
+      this._queueMove(d, m.type, { period: m.period || M.Tune.handle.comboPeriodS[m.type], wait: m.wait, rock: m.rock, onDone: () => this._comboNext(d) });
     }
     /** is a combo, a chain (or a single move) under way or waiting to go? */
     working() { const d = this.dr; return !!(d && (d.move || d.pendingMove || d.nextMove || (d.combo && d.combo.length) || d.chain)); }
@@ -1154,11 +1155,13 @@
         if (!d.pendingMove && !d.move && d.nextMove) { const nm = d.nextMove; d.nextMove = null; nm.toHand = nm.same ? d.hand : 1 - d.hand; d.pendingMove = nm; }
         d.planned = false;
       }
-      if (!d.planned && d.pendingMove && !d.move && !(d.pull && d.pull.on) && (d.pendingMove.urgent || this._moveOnBeat(d, a))) {
+      if (!d.planned && d.pendingMove && !d.move && !(d.pull && d.pull.on) && (d.cycle || 0) >= (d.pendingMove.after || 0) && (d.pendingMove.urgent || this._moveOnBeat(d, a))) {
         d.move = d.pendingMove; d.pendingMove = null; d.moveStarted = true;
-        // (the man on the ball reads it, and may buy it: Director.defBite, the gameplay pass)
+        // (the man on the ball reads it, and may buy it: Director.defBite, the gameplay pass; and the body goes with a size-up's move,
+        // Director.moveBody)
         const dir = this.view && this.view.director;
         if (dir && dir.defBite) { const mv = d.move, h0 = d.hand; U.safe(() => dir.defBite(a, mv.spin ? 'spin' : mv.type, h0, mv.toHand), null, 'defBite'); }
+        if (dir && d.move.rock && dir.moveBody) { const mv = d.move, h0 = d.hand; U.safe(() => dir.moveBody(a, mv, h0), null, 'moveBody'); }
       }
       if (!d.planned) {
         if (d.plan) d.plan.hang = null;

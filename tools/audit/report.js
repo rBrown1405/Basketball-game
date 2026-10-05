@@ -216,6 +216,17 @@ function metrics(games) {
       m.cbBreaks = c('breaks') / n;
       m.cbFalls = c('falls') / n;
       m.cbBreakdowns = c('breakdowns') / n;
+      m.cbRocks = c('rocks') / n;
+      m.cbSizeups = c('sizeups') / n;
+    }
+    // the fast break's rim cuts and the post fight
+    const FG = PB.filter((g) => g.fight);
+    if (FG.length) {
+      const c = (k) => sum(FG, (g) => g.fight[k] || 0), n = FG.length;
+      m.fgRimCuts = c('rimCuts') / n;
+      m.fgPostMoves = c('postMoves') / n;
+      m.fgPostShoves = c('postShoves') / n;
+      m.fgPostFights = c('postFights') / n;
     }
     if (U('n')) {
       m.cUserPerGame = U('n') / pn;
@@ -447,6 +458,12 @@ const SECTIONS = [
     ['cbBreaks', 'Men on the ball broken down per game (a stumble, the handler goes)', '', '', 'a few a game at most'],
     ['cbFalls', '  of them put on the floor', '', '', 'rare'],
     ['cbBreakdowns', 'Bursts out of a move the man on the ball bought (the breakdown) per game', '', '', ''],
+    ['cbRocks', 'Size-up steps per game (the body rocking with a chain\'s moves)', '', '', ''],
+    ['cbSizeups', 'Size-ups in place a handler probed with per game', '', '', ''],
+    ['fgRimCuts', 'Rim cuts on the break per game (a wing ahead of the defense going to the basket)', '', '', ''],
+    ['fgPostMoves', 'Post moves worked before a post-up\'s shot per game', '', '', ''],
+    ['fgPostShoves', 'Shoves in a back-down per game (the post fight)', '', '', ''],
+    ['fgPostFights', 'Bumps fighting for post position per game', '', '', ''],
     ['cCovHonored', '  with the called pick-and-roll coverage', '%', 'up', '100'],
     ['cDefReverted', 'Defensive calls that went back to the team\'s own scheme when they ran out', '%', 'up', '100'],
   ]],
