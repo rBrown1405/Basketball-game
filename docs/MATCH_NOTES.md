@@ -257,7 +257,7 @@ would make the view more faithful if they ever become available (all optional, t
 
 ## Live Game AI sliders (League Settings)
 
-Eight sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
+Nine sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
 set by the engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1,
 100 -> hi):
 
@@ -271,6 +271,7 @@ set by the engine's own sliders. The director reads them through `Director.slide
 | Help Defense (`helpD`) | how far help defenders may sag off their man toward the ball |
 | Player Speed (`moveSpeed`) | top speed, first-step push, braking and body turns of every player (0.8x to 1.25x), and the pace the director moves them at; read by the actor (`paceOf`) |
 | Offense Edge (`offEdge`) | how much quicker the side with the ball moves than the side without it and how late the defense reacts (`Tune.edge` x 0 at 0, x 1 at 50, x 2 at 100; `Director.edgeK`, `edgeLag`) |
+| Contact Drives (`contactDrives`) | how often a driver with a help defender in the lane goes at his chest to draw the foul (`Tune.traffic.contactP` x 0 at 0, x 1 at 50, x 2 at 100; a shot the engine fouled always has the contact; `contactDrivePlan`) |
 
 ## Movement, handling, the post and contact
 
@@ -1006,7 +1007,8 @@ well, right now players don't drive in traffic, they should, to try and draw a f
   shoulder into the chest as they meet, in the air too (8.5 to 11 ft/s x the game's physicality), the help knocked back into
   a balance step and the driver absorbing 35 % of it, his own man's hip check a quarter harder. A fouled shot gets the
   whistle the engine gave it; the rest go up through the contact. The court knows the foul-drawing rating now (`drawFoul`
-  in the player look).
+  in the player look). How often the voluntary ones come is the Contact Drives slider in League Settings (0 none, 50 as
+  tuned, 100 twice as often); a fouled shot's contact is the whistle's and stays.
 
 ### Measured (this pass)
 

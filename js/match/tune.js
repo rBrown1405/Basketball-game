@@ -1058,7 +1058,8 @@
     // drawing (a 45 to a 90), with a look that was not open. He closes on the help at up to meetFtps instead of braking to a
     // walk (Tune.weight.meetBallFtps), the shoulder in first (chestK, x the game's physicality), the help knocked back into a
     // balance step and the driver absorbing absorbK of it, his own man's hip check hipK x harder; a fouled shot gets the
-    // whistle the engine gave it, the rest go up through the contact
+    // whistle the engine gave it, the rest go up through the contact. contactP is scaled by the Contact Drives slider (League
+    // Settings: 0 none of these, 50 as here, 100 twice); a fouled shot's contact is the whistle's and stays
     traffic: { contactP: [0.15, 0.75], helpFt: 10, meetFtps: 12, chestK: [8.5, 11], absorbK: 0.35, hipK: 1.25, setFt: 4.5 }, // (setFt: the help sets himself this far in front of the rim on the driver's line)
 
     // ---------------------------------------------------------------- denying the ball (the gameplay pass: one pass away the

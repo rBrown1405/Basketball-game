@@ -4502,7 +4502,8 @@
       if (nx.fouled) return { fouled: true };
       if (nx.contest === 'open') return null;
       const lk = this.v.look(a.id) || {}, df = lk.drawFoul != null ? +lk.drawFoul : 55;
-      const p = U.lerp(TT.contactP[0], TT.contactP[1], U.clamp((df - 45) / 45, 0, 1));
+      // (the Contact Drives slider, League Settings: 0 none of these, 50 as tuned, 100 twice as often)
+      const p = U.lerp(TT.contactP[0], TT.contactP[1], U.clamp((df - 45) / 45, 0, 1)) * this.sliderK('contactDrives', 0, 2);
       return Math.random() < p ? { fouled: false } : null;
     }
     /**

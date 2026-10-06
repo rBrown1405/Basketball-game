@@ -99,6 +99,8 @@
       desc: 'How far help defenders sink toward the ball and how hard they collapse on drives. More help protects the rim but leaves shooters open on the kick-out.' },
     { key: 'offEdge', group: 'ai', label: 'Offense Edge', map: ['lin0', 0, 2], fmt: 'level', lo: 'Even', hi: 'A step ahead',
       desc: 'How much quicker the side with the ball moves than the side without it, and how late the defense reacts: a step of space on cuts, drives and closeouts. At 0 the two sides are even; at 50 the offense runs about 6% quicker and the defense reads it 60 ms late; at 100 twice that.' },
+    { key: 'contactDrives', group: 'ai', label: 'Contact Drives', map: ['lin0', 0, 2], fmt: 'level', lo: 'Avoid contact', hi: 'Seek contact',
+      desc: 'How often a driver with a help defender in the lane goes at his chest to draw the foul instead of around him. At 0 only a drive the whistle actually catches has the contact; at 50 contact seekers do it most of the time and the rest now and then; at 100 twice as often. The whistle itself is set by Shooting Fouls.' },
     // User team
     { key: 'userShooting', group: 'user', label: 'Your Team: Shooting', map: ['add', -0.35, 0.35], fmt: 'fg', base: 0.47,
       desc: 'Make percentage for your team only. Higher makes the game easier.' },
