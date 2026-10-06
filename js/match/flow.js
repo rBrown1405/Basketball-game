@@ -423,9 +423,12 @@
     const sold = g && g._pc && g._pc.man === h && g._pc.bite && T < g._pc.bite.until ? g._pc.bite : null;
     const broken = !!(g && g._broken && T < g._broken.until);
     const beaten = !g || broken || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt) || (!!sold && Math.hypot(sold.dx, sold.dy) > TR.biteBeatFt);
-    const open = near >= TR.openFt, wide = near >= TR.wideFt && dR < TR.wideRangeFt;
+    // (the Attack Basket slider, League Settings, Director.attackK: 0 nobody attacks a gap and the open look waits for its time; 50
+    // as tuned; 100 a lane half as wide counts as open, the drives come sooner, deeper and oftener, the look pulled further)
+    const ak = this.attackK(), akW = 0.5 + 0.5 * ak;
+    const open = near >= TR.openFt / akW, wide = near >= TR.wideFt / akW && dR < TR.wideRangeFt;
     h._openFt = near; h._beaten = beaten;
-    if (!open && !beaten) return;
+    if (ak <= 0.02 || (!open && !beaten)) return;
     const own = bt && !bt.fired && ev && (ev.player === h.id || ev.from === h.id || ev.shooter === h.id || ev.by === h.id);
     // his own shot is next: now
     if (own && ev.type === 'shot' && this.A(ev.shooter) === h) {
@@ -434,19 +437,20 @@
       // behind him by now; the user: "wide open but doesn't take the shot")
       const sp = bt.spot || (isFinite(+ev.x) ? { x: +ev.x, y: +ev.y } : h), dSp = Math.hypot(h.x - sp.x, h.y - sp.y);
       const left = bt.fireAt - T, need = Math.min(bt.need || 0.5, dSp / 10 * 1.25 + 0.25 + (bt.relS != null ? bt.relS : 0.7)) + TR.pullLeadS;
-      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS, left - need))) { bt.pulled = true; this.readShots = (this.readShots || 0) + 1; }
+      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS * Math.min(ak, 1.5), left - need))) { bt.pulled = true; this.readShots = (this.readShots || 0) + 1; }
       return;
     }
     // his own move at the defense is next: now (a drive goes, a hesitation or a crossover into it)
     if (own && ev.type === 'move' && this.A(ev.player) === h && PULL_MOVES[ev.move]) {
       if (bt.pulled) return;
       const left = bt.fireAt - T, need = (bt.need || 0.5) + TR.moveLeadS;
-      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS, left - need))) { bt.pulled = true; this.readMoves = (this.readMoves || 0) + 1; }
+      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS * Math.min(ak, 1.5), left - need))) { bt.pulled = true; this.readMoves = (this.readMoves || 0) + 1; }
       return;
     }
     // something else is next: past his man (or wide open in range), he attacks the gap; not into a play of his own about to
     // go, nor a drive already on, nor out of a dribble he has used up (then it is the pass or the shot the engine has next)
-    if (!(beaten || wide) || this.driving(h) || (h._attackT || -9) > T - TR.attackGapS || dR < TR.attackStopFt + 3) return;
+    const stopFt = TR.attackStopFt * (1.2 - 0.2 * ak), gapS = TR.attackGapS / ak;
+    if (!(beaten || wide) || this.driving(h) || (h._attackT || -9) > T - gapS || dR < stopFt + 3) return;
     if (b.state !== 'dribble' && (h.dribUsed || h.throwing() || h.holdBallUntil > T)) return;
     const r = this.role[h.id];
     if (!r || r.path) return;
@@ -454,7 +458,7 @@
     // (a play's step of his waits for it: the next beat plans from wherever the drive leaves him)
     if (r.pb && !beaten) return;
     if (b.state !== 'dribble' && b.dribble(h) === false) return;
-    const go = dR - TR.attackStopFt;
+    const go = dR - stopFt;
     h._attackT = T;
     r.until = T + TR.attackS; r.probe = null; r.probeAnchor = null;
     h.moveTo(h.x + ux * go, h.y + uy * go, { speed: h.maxSpeed * TR.attackK, face: 'move', stance: 'dribble' });

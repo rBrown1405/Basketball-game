@@ -105,6 +105,8 @@
       desc: 'How often a post-up works a move before the shot (the drop step, the up and under, the spin, the shoulder fake) instead of going straight up, and how often the crafty ones shake twice. At 0 none; at 50 nearly every post-up; at 100 every one, with the double fake twice as often. How often teams post up at all comes from their players\' tendencies.' },
     { key: 'hardFalls', group: 'ai', label: 'Hard Falls', map: ['lin0', 0, 2], fmt: 'level', lo: 'Stay up', hi: 'Hit the deck',
       desc: 'How often a shooter knocked on a heavily contested layup or jumper, or a defender run through on a contact drive, goes down to the floor. At 0 nobody falls; at 50 a few a game, more on fouls and at the rim; at 100 twice as often. Nothing about the shot or the call changes.' },
+    { key: 'attackBasket', group: 'ai', label: 'Attack Basket', map: ['lin0', 0, 2], fmt: 'level', lo: 'Settle', hi: 'Rim runners',
+      desc: 'How eagerly the man with the ball attacks the basket when the defense gives him a lane: the drive at the gap past his man or into a wide-open floor, a fast break pushed on to the rim instead of to the top of the key, the open look taken now instead of at its time. At 0 none of that happens and he waits for the play; at 50 as tuned; at 100 a lane half as wide counts as open and the drives come sooner, deeper and more often. Who shoots and whether it goes in are still the engine\'s.' },
     // User team
     { key: 'userShooting', group: 'user', label: 'Your Team: Shooting', map: ['add', -0.35, 0.35], fmt: 'fg', base: 0.47,
       desc: 'Make percentage for your team only. Higher makes the game easier.' },
