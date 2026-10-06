@@ -2185,11 +2185,15 @@
       }
       // (ev.postMove: the move asked for, the shot lab's scenarios)
       if (!table) return no('post-up, no table for ' + kind);
-      if (!ev.postMove && Math.random() > TP.moveP) return no('straight up');
+      // (the Post Moves slider, League Settings: 0 none, 50 as tuned, 100 every post-up, none of the tables' straight-up
+      // finishes and the double fake twice as often)
+      const pk = this.sliderK('postMoves', 0, 2);
+      if (!ev.postMove && Math.random() > Math.min(1, TP.moveP * pk)) return no('straight up');
       const contest = ev.contest === 'open' || ev.contest === 'tight' ? ev.contest : 'contested';
       const lk = v.look(sh.id) || {}, r01 = (k, d) => U.clamp(((lk[k] != null ? +lk[k] : d) - 40) / 50, 0, 1);
       const str = r01('strength', 62), craft = r01('post', 50) * 0.7 + r01('agility', 60) * 0.3;
       const w = Object.assign({}, table[contest]);
+      if (w.none && pk > 1) w.none *= 2 - pk;
       if (w.dropStep) w.dropStep *= 0.5 + str;
       for (const k of ['upUnder', 'spin', 'fake']) if (w[k]) w[k] *= 0.5 + craft;
       // (a blocked shot: his man stayed down for it, no fake got him up; no man near: nothing to work on but the fake itself)
@@ -2237,7 +2241,7 @@
         if (!(o.postUp && facePost)) return no('fake faced up');
         // (the dream shake, for the crafty: a fake over the shoulder he will go, a second back over the other, and the move the
         // first way with his man leaning the wrong one; the first fake goes when there is no time for both, Tune.post.doubleFakeP)
-        if (craft > 0.5 && Math.random() < TP.doubleFakeP) {
+        if (craft > 0.5 && Math.random() < TP.doubleFakeP * pk) {
           P.push({ name: 'shoulder fake', dur: TP.fakeS, opt: true, st: 'postHold', fn: () => this.postShoulderFake(sh, pm, goDir) });
           P.push({ name: 'fake back', dur: TP.fakeS, st: 'postHold', fn: () => this.postShoulderFake(sh, pm, -goDir) });
           pm.shake = true;

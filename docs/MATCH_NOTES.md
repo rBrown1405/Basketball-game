@@ -257,7 +257,7 @@ would make the view more faithful if they ever become available (all optional, t
 
 ## Live Game AI sliders (League Settings)
 
-Nine sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
+Ten sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
 set by the engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1,
 100 -> hi):
 
@@ -272,6 +272,7 @@ set by the engine's own sliders. The director reads them through `Director.slide
 | Player Speed (`moveSpeed`) | top speed, first-step push, braking and body turns of every player (0.8x to 1.25x), and the pace the director moves them at; read by the actor (`paceOf`) |
 | Offense Edge (`offEdge`) | how much quicker the side with the ball moves than the side without it and how late the defense reacts (`Tune.edge` x 0 at 0, x 1 at 50, x 2 at 100; `Director.edgeK`, `edgeLag`) |
 | Contact Drives (`contactDrives`) | how often a driver with a help defender in the lane goes at his chest to draw the foul (`Tune.traffic.contactP` x 0 at 0, x 1 at 50, x 2 at 100; a shot the engine fouled always has the contact; `contactDrivePlan`) |
+| Post Moves (`postMoves`) | how often a post-up works a move before its shot (`Tune.post.moveP` x 0 at 0, x 1 at 50, every one at 100 with no straight-up finishes left in the tables and the double fake twice as often; `postPlan`) |
 
 ## Movement, handling, the post and contact
 
@@ -983,7 +984,8 @@ well, right now players don't drive in traffic, they should, to try and draw a f
   97 % of post-ups work a move (was 92).
 * **The dream shake** (`doubleFakeP`, `postPlan`'s 'fake' branch): a crafty post man (post craft over 0.5) fakes over
   the shoulder he will go, fakes back over the other, and goes the first way with his man leaning the wrong one, 45 % of
-  his fakes; the first fake is the part dropped when there is no time for both.
+  his fakes; the first fake is the part dropped when there is no time for both. How often the moves come at all is the
+  Post Moves slider in League Settings (0 none, 50 as tuned, 100 every post-up with the double fake twice as often).
 * **A line for every move** (`runPost`'s 'post' event, `js/ui/live.js` `postMove`, `js/ui/commentary.js` 'post'): as the
   move starts the play-by-play says "Stephens with the drop step on Hill", "pump fakes... and steps through", "spins off
   Hill", "shakes Hill: a fake one way, back the other", and the booth calls it, before the shot's own line.

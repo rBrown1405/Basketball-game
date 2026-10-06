@@ -1004,7 +1004,8 @@
       stepFt: 3.2, stepSideFt: 1.1, // the step through: the free foot this far on toward the rim and this far to the side, past
                                     // his man's hip...
       stepK: 5,                     // ...the shoulder under him as he comes down
-      moveP: 0.97,                  // a post-up works a move first this often (the rest go straight up; was 0.92)
+      moveP: 0.97,                  // a post-up works a move first this often (the rest go straight up; was 0.92). Scaled by the
+                                    // Post Moves slider (League Settings: 0 none, 50 this, 100 every one), as is doubleFakeP
       // the back-down (the user: "in the post there isn't any post moves and the post defense, the contact is very minimal, it
       // should be a dog fight"; Director.p_move 'backdown'): a fight, not a bump or two with the man 2 ft off. The bodies touch
       // (Tune.glass.touchH apart plus backGapFt, as a box-out's), his man's forearm in his back; the bumps come bumpGapS apart,
