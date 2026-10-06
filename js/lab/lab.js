@@ -444,6 +444,13 @@
     LABEL[n] = words.charAt(0).toUpperCase() + words.slice(1);
     clipScenario(n, /^ref/.test(n) ? 'Referee signals' : 'Other moves');
   }
+  // motion capture clips (js/match/mocap.js, retargeted by tools/mocap): each plays on the player from where it stands,
+  // the feet held where they land
+  if (M.Mocap) {
+    for (const c of M.Mocap.list()) {
+      add(c.group || 'Motion capture', 'mocap:' + c.name, c.label, 0.4 + c.dur + 0.8, (ctx) => { M.Mocap.attach(ctx.a, c.name, { delay: 0.4 }); });
+    }
+  }
 
   // ------------------------------------------------------------ the lab
   const SET0 = { scenario: 'jog', height: 78, height2: 77, hand: 'R', gender: 'M', speed: 80, agility: 80, rate: 1, cam: -40, camH: 5.4, dist: 15,

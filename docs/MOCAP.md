@@ -1,0 +1,55 @@
+# Motion capture on our players
+
+Real motion capture, played on the game's own skeleton (`js/match/rig.js`). The procedural layers that make players
+react to the game (feet held on the floor, IK, the ball in the hands) stay on top of it.
+
+## The pipeline
+
+1. **A take** comes in as BVH (the CMU database) or FBX (marketplace packs). FBX goes through Blender first:
+   `pip install bpy` (Blender as a Python module), then
+   `python3 -I tools/mocap/fbx2bvh.py <file.fbx | folder> <out folder>` (one BVH per action, Blender's own importer
+   and exporter).
+2. **Retarget** (`tools/mocap/retarget.js`). Our rig is posed like the take's rest pose, with its elbow and knee
+   hinges measured from the take itself (where they bend) and the thumbs where the take's are. Every part of our
+   body then turns, frame by frame, the way the take's matching joint turned from rest, and the rig's angles are read
+   off joint by joint from our own solved parents. Lengths never carry over: the take is scaled to our leg, the
+   hips go where the take's go, the feet are put on the floor where the take's are on it, and the frames each foot
+   is planted (low and still) are recorded. Which joints are which per skeleton: `tools/mocap/maps.js` (`cmu`, `ue4`,
+   `ue5`; the up axis is read off the rest pose).
+3. **Pack** (`tools/mocap/pack.js <list.json> <takes folder> <out.js>`): a list of takes (file, name, label, trim)
+   becomes a script under `js/mocap/` (30 frames a second, integers).
+4. **Play** (`js/match/mocap.js`, `PBC.Match.Mocap`): the pose comes from the frames (cubic between them), the body
+   follows the clip's track scaled to the player's height, and each foot on the floor is held where it landed by
+   the legs' IK: on its heel during a clear heel strike, on its ball otherwise (pivots turn on the ball), let go over
+   `Tune.mocap.liftS` as it lifts. Tunables: `Tune.mocap`.
+
+Check a retarget: every bone's direction against the take's (`node tools/mocap/verify.js <take.bvh> [map] [from s]`),
+and the Animation Lab's planted-foot slide meter on every clip.
+
+## Packs
+
+| Pack | Clips | Source and terms | In the repository |
+|---|---|---|---|
+| CMU basketball (`js/mocap/cmu_bball.js`, list `tools/mocap/cmu_bball.json`) | 42: dribbling (forward, back, sideways, turns, crossovers, low freestyle, through the legs), shots (set, jump, free throw, layup, crossover into a shot), game-speed moves (spins, go left and right, feints, shot fakes, drives, pivots, tight turns) and defense (slides, zigzag, stop and go) | CMU Graphics Lab Motion Capture Database, mocap.cs.cmu.edu, created with funding from NSF EIA-0196217; free for research and commercial use; BVH conversion by B. Hahne, no added restrictions | yes |
+| Animo "Basketball" (Fab), 167 clips on the UE4 mannequin | bought by the owner | licensed: the files and anything converted from them must not be public | **no**: kept in a private repository; this repository is public (`js/mocap/private/` and `tools/mocap/private/` are ignored by git) |
+
+In the lab: the "Motion capture (CMU)" group, one scenario per clip.
+
+## First results (CMU, a 6'6" player)
+
+- Bone directions against the take, 06_14 (crossover then a shot, from 0.3 s): upper arms, forearms, thighs and
+  shanks within 0.2 deg (median), 0.7 deg (90th percentile), 4.8 deg at worst.
+- The CMU elbows and knees are exact hinges (0.0 deg spread over every bent frame); the elbow's hinge sits 30 deg off
+  where a T-pose's is usually assumed, which is why the hinges are measured from the take instead of assumed.
+- Planted feet in the lab, every clip: 0 to 0.5 in of slide in 40 of 42; 1.5 in on a push-off in the turning
+  dribble; 1.0 in in the pivoting take (it pivots).
+- One take (06_02) starts with its ankles at their rest angles for 0.7 s (the toes through the floor): frames with
+  no ankle rotation at all are skipped by the importer.
+- An FBX round trip through Blender keeps every joint within 0.02 units (about a tenth of an inch); a skeleton whose
+  bind pose is not a person's neutral posture (Blender rebuilding CMU's zero-length neck bone) moves the head's
+  neutral with it, so a new pack's rest pose is checked by eye on its idle.
+
+## Open
+
+- No ball yet on the mocap clips: the dribble needs its bounce timed to the hand's pushes in the clip.
+- In the game itself the players still use the procedural animation; the mocap clips play in the lab only.
