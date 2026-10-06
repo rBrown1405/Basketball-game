@@ -889,6 +889,24 @@
                                     // sin^2 over the swing); people clear it by ~1.3 cm at the lowest point of a swing
     },
 
+    // ---------------------------------------------------------------- motion capture clips (js/match/mocap.js)
+    // Clips retargeted onto the rig by tools/mocap. Each foot the clip has on the floor is held where it landed by the
+    // legs' IK; as it lifts off, the IK lets go over liftS so the leg eases back onto the clip's own swing (the planted
+    // spot and the clip's foot can be an inch or two apart by then: bodies of other sizes, the take's own slide)
+    // A planted foot is held on its heel only while the clip has its toes up by more than heelDeg (a heel strike; held
+    // there until they come back to half of it), and on its ball otherwise: pivots turn on the ball, and a foot a few
+    // degrees toes-up on the retargeted body (the take's foot is not ours) still pivots on it
+    // A dribbling clip brings its ball: a push is a hand dropping faster than pushFtps (ft/s) at its fastest; the ball is
+    // let go there and caught catchLeadS before the hand that takes it reaches its highest point, flying no less than
+    // minFlightS in between (one bounce)
+    mocap: {
+      liftS: 0.1,
+      heelDeg: 8,
+      pushFtps: 3.5,
+      catchLeadS: 0.05,
+      minFlightS: 0.2,
+    },
+
     // ---------------------------------------------------------------- urgency (the gameplay pass: everyone moved slowly)
     // Off the ball the game averaged 5.5 ft/s with 35% of the time at a jog or faster, against ~6.5 ft/s (4.3-4.6 mph)
     // in the NBA's tracking; the ball was walked up the floor at the 7 ft/s floor between walking and jogging (the NBA
