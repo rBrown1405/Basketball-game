@@ -122,7 +122,7 @@ play-by-play line) and `team` (team index).
 | `rebound` | `player` (id or `null` = team rebound), `team`, `off` (bool) | rebound secured |
 | `turnover` | `player`, `kind`, `stealer?` | kinds: `bad_pass`, `lost_ball`, `offensive_foul`, `travel`, `out_of_bounds`, `shot_clock`, `three_seconds` |
 | `foul` | `fouler`, `on`, `kind:'shooting'\|'personal'\|'loose_ball'\|'offensive'\|'intentional'`, `fts` (0–3) | whistle |
-| `ft` | `shooter`, `made`, `num`, `of` | free throw |
+| `ft` | `shooter`, `made`, `num`, `of` (and `pm`, `conf` as on a shot) | free throw |
 | `period_end` | — | horn: period is over |
 
 #### `shot` event
@@ -142,6 +142,11 @@ play-by-play line) and `team` (team index).
   defender: id,               // the closest defender (the one who contests)
   assist: id | null,
   pending: false,             // true only for Game Impact Moments (see §6)
+  pm: 0.382, conf: 0.25,      // optional: how likely the make was, and the shooter's confidence (-1 to 1) taking it;
+                              // the court's aim (Match.Aim) reads them to show how it meets the rim
+  postMove: 'dropStep',       // optional, never sent by the engine: the post move a post-up works first ('dropStep',
+                              // 'upUnder', 'spin', 'fake' or 'none'); the court picks one itself from the look's kind and
+                              // contest (Director.postPlan), the shot lab's scenarios name theirs
   text: 'Hill makes 26-ft three (Brown assists)' }
 ```
 

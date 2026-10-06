@@ -155,13 +155,20 @@
     }
     if (!best) {
       // (nowhere they can get to it in the air: of the natural caroms down to the floor, a small pop off the rim, Tune.glass.popFtps
-      // up, and down d0 away, the one that comes down nearest them, and they run it down)
+      // up, and down round d0 away, the one that comes down nearest them against everyone else (the others go after it too,
+      // Director.scrambleLoose: it is theirs, so it comes their way), and they run it down)
       const tL = (T.popFtps + Math.sqrt(T.popFtps * T.popFtps + 2 * G * Math.max(0, C[2] - R))) / G;
+      const others = this.offActors().concat(this.defActors()).filter((o) => o !== a);
       for (let i = 0; i < NA; i++) {
-        const ang = a0 + (i / (NA - 1) * 2 - 1) * cone, x = rim.x + Math.cos(ang) * d0, y = rim.y + Math.sin(ang) * d0;
-        if ((x - this.rim.x) * this.dir > 0.6 || x < 1 || x > 93 || y < 1 || y > 49) continue;
-        const dd = Math.hypot(x - ax, y - ay);
-        if (!best || dd < best.dd) best = { x, y, tz: R, style: 'floor', tC: tL, f: 0, jx: x, jy: y, v0: M.Ball.aim(C, [x, y, R], tL), dd };
+        for (const dk of T.floorDistK) {
+          const ang = a0 + (i / (NA - 1) * 2 - 1) * cone, dist = U.clamp(d0 * dk, 2.2, 18), x = rim.x + Math.cos(ang) * dist, y = rim.y + Math.sin(ang) * dist;
+          if ((x - this.rim.x) * this.dir > 0.6 || x < 1 || x > 93 || y < 1 || y > 49) continue;
+          const dd = Math.hypot(x - ax, y - ay);
+          let dO = Infinity;
+          for (const o of others) dO = Math.min(dO, Math.hypot(o.x - x, o.y - y));
+          const score = dd - T.floorOthersK * Math.min(dO, dd + 6) + 0.15 * Math.abs(dist - d0);
+          if (!best || score < best.score) best = { x, y, tz: R, style: 'floor', tC: tL, f: 0, jx: x, jy: y, v0: M.Ball.aim(C, [x, y, R], tL), dd, score };
+        }
       }
       if (!best) { const x = rim.x + Math.cos(a0) * d0, y = rim.y + Math.sin(a0) * d0; best = { x, y, tz: R, style: 'floor', tC: tL, f: 0, jx: x, jy: y, v0: M.Ball.aim(C, [x, y, R], tL) }; }
     }
@@ -189,6 +196,10 @@
     const a = pr.actor, b = this.v.ball, T = TG();
     if (!a || b.holder) return;
     this.chaseCarom(pr);
+    // (no spot to go up at: the carom was never settled for them (it was already on its way off the rim when settleCarom came,
+    // or the ball's segments had changed under it): they run it down off the floor like a loose one. Sent to an undefined spot,
+    // the rebounder's position went NaN and the whole court with it for the rest of the game)
+    if (pr.style !== 'floor' && !(isFinite(pr.jx) && isFinite(pr.jy))) { pr.style = 'floor'; pr.floor = true; }
     const lock = (dur) => { if (a.team === this.off) this.lockOff(a, dur); else this.lockDef(a, dur); };
     lock(Math.max(0.5, pr.tGrabT - this.T) + 1.5);
     a.lookAt(b, { hold: Math.max(0.2, pr.tGrabT - this.T) });
@@ -256,13 +267,13 @@
     return b.posAt(b.time + 3, out);
   };
   /** how long a run of d ft the way (ux, uy) takes them to be there and stopped: runStartS to get going, braking what they have
-   *  going the other way (and sideways), up toward Tune.glass.runK of their top speed and down to a stop at the steering's own
+   *  going the other way (and sideways), up toward Tune.glass.chaseK of their top speed and down to a stop at the steering's own
    *  arrival rate (Actor._steer: brakeK of their braking; planned with a margin, Tune.glass.gatherBrakeK); too fast to stop in
    *  it, on past and back (noOver: not to be had). rel: { vx, vy, V } their speed and their top speed as seen from something
    *  moving (a run onto a point that moves) */
   P.arriveTime = function (a, d, ux, uy, rel, noOver, brakeK) {
     const T = TG();
-    const V = rel ? rel.V : (a.maxSpeed || 22) * T.runK, A = (a.accel || 20) * 0.9, Ab = (a.decel || A * 1.35) * (brakeK || T.gatherBrakeK);
+    const V = rel ? rel.V : (a.maxSpeed || 22) * T.chaseK, A = (a.accel || 20) * 0.9, Ab = (a.decel || A * 1.35) * (brakeK || T.gatherBrakeK);
     const vx = rel ? rel.vx : a.vx || 0, vy = rel ? rel.vy : a.vy || 0, v0 = vx * ux + vy * uy, vs = U.clamp(v0, 0, V);
     let t = T.runStartS, dd = d;
     if (v0 < 0) { t += -v0 / Ab; dd += v0 * v0 / (2 * Ab); }
@@ -288,7 +299,7 @@
     const cc = M.Anims.get('catch'), cev = cc.events.catch, cK = (cc.ballKeys ? cc.ballKeys[1](cev) : 0.3) * H;
     const pc = M.Anims.get('pickup'), g = pc.events.grab, pK = (pc.ballKeys ? pc.ballKeys[1](g) : 0.3) * H;
     const zHi = T.longTakeH * H * 1.25, zLo = T.gatherCatchLoH * H, zPick = T.gatherPickHiH * H;
-    const V0 = (a.maxSpeed || 22) * T.runK;
+    const V0 = (a.maxSpeed || 22) * T.chaseK;
     // (in a move of their own, they are after it once it is over)
     const busy = a.isBusy() ? Math.max(0, (a.clip.clip.dur - a.clip.t) / (a.clip.speed || 1)) : 0;
     for (let t = 0.05; t <= 3 + 1e-9; t += 0.05) {
@@ -352,7 +363,7 @@
     if (pl && (pl.segs !== b.segs || this.T > pl.t)) pl = null;
     if (pl) {
       const left = pl.t - this.T, qx = pl.sx - pl.vbx * left, qy = pl.sy - pl.vby * left, dq = Math.hypot(qx - a.x, qy - a.y);
-      const V = Math.max(3, (a.maxSpeed || 22) * T.runK - Math.hypot(pl.vbx, pl.vby));
+      const V = Math.max(3, (a.maxSpeed || 22) * T.chaseK - Math.hypot(pl.vbx, pl.vby));
       if (dq > 0.3 && this.arriveTime(a, dq, (qx - a.x) / dq, (qy - a.y) / dq, { vx: (a.vx || 0) - pl.vbx, vy: (a.vy || 0) - pl.vby, V }, false, 0.8) > left + T.gatherSlackS + (pl.kind === 'pick' ? 0 : pl.lead)) pl = null;
     }
     if (!pl) pl = pk.plan = this.gatherPlan(a);
@@ -387,6 +398,41 @@
   };
   /** the old name (callers from before runDown) */
   P.pickUp = function (a, pk) { return this.runDown(a, pk); };
+  /** a rebound gone to the floor is fought for: the nearest of each side (Tune.glass.scrambleN within scrambleRebFt of it, not the
+   *  one the engine gives it to) go after it flat out a reaction after it comes off, each onto the ball from the side they come
+   *  from, a hand's reach from it (scrambleKeepFt) and a half step behind whoever is nearest it of the two (scrambleBehindFt: it is
+   *  the engine's rebounder's), the hands out for it from scrambleReachFt and the body low. Called on every tick of the chase.
+   *  (They used to stop 2.8 ft short of where it first came down and watch it bounce and roll on, the rebounder the only one after
+   *  it, the shot physics pass; then ringed it a stride off, standing, the user: "all the players will circle the ball and just
+   *  stare at it instead of fighting for the ball") */
+  P.scrambleLoose = function (pr) {
+    const b = this.v.ball, T = TG(), a = pr.actor;
+    if (!a || b.holder) return;
+    if (!pr.scr) {
+      const near = (list) => list.filter((q) => q !== a && !q.isBusy() && Math.hypot(q.x - b.x, q.y - b.y) < T.scrambleRebFt)
+        .sort((p, q) => Math.hypot(p.x - b.x, p.y - b.y) - Math.hypot(q.x - b.x, q.y - b.y)).slice(0, T.scrambleN);
+      pr.scr = near(this.offActors()).concat(near(this.defActors()));
+      for (const q of pr.scr) {
+        q.track(() => {
+          // (onto the ball a little ahead of where it is, to the keep-off distance from it on their own side)
+          if (b.holder) return { x: q.x, y: q.y, vx: 0, vy: 0 };
+          // (nearer than that already, they hold there rather than back off it)
+          const p = b.posAt(b.time + T.scrambleLeadS, TMP2), dx = q.x - p[0], dy = q.y - p[1], dl = Math.hypot(dx, dy) || 1;
+          const keep = Math.max(T.scrambleKeepFt, Math.min(Math.hypot(a.x - p[0], a.y - p[1]) + T.scrambleBehindFt, T.scrambleMaxFt));
+          if (dl < keep) return { x: q.x, y: q.y, vx: 0, vy: 0 };
+          return { x: U.clamp(p[0] + dx / dl * keep, 1, 93), y: U.clamp(p[1] + dy / dl * keep, 1, 49), vx: 0, vy: 0 };
+        }, { speed: q.maxSpeed, face: (me) => Math.atan2(b.y - me.y, b.x - me.x), stance: 'ready' });
+      }
+    }
+    for (const q of pr.scr) {
+      if (q.isBusy()) continue;
+      if (q.team === this.off) this.lockOff(q, 0.4); else this.lockDef(q, 0.4);
+      // (near it: down low, the hands out onto it; not theirs, it goes on to the rebounder through them)
+      const near = Math.hypot(q.x - b.x, q.y - b.y) < T.scrambleReachFt;
+      q.setStance(near ? 'defense' : 'ready');
+      if (near && !(q._reach && q._reach.b === b && q._reach.until > this.T + 0.1)) q.reachFor(b, this.T + 0.2, { until: this.T + 0.45, hands: [0, 1], lead: 0.2, w: 0.85 });
+    }
+  };
   /** once a step: a free ball (a carom off the rim or the glass, a make coming down out of the net, a blocked or a loose ball)
    *  coming into someone's trunk or head (at Tune.glass.bodyHitFtps or more) comes off them: the way it hit them, with most of
    *  its speed along the hit gone into the body (bodyE of it back) and some of the rest (bodyMu), and on as a loose ball; whoever
@@ -448,8 +494,12 @@
       if (this.pendingRebound !== pr || b.holder || beat.fired) return;
       // (a ball whose flight ended in the air never floats there: it falls)
       if (b.state !== 'flight' && b.state !== 'loose' && b.z > R + 0.3 && !pr.grabbed) { b.loose([0, 0, 0]); pr.style = 'floor'; pr.floor = true; }
+      // (the engine has it live: a carom rolling for a line dies short of it, Director.keepLooseIn; it was run down ~16 ft
+      // past the baseline, the gameplay pass)
+      if (this.keepLooseIn && this.keepLooseIn()) { pk.plan = null; pk.t = null; }
       if (pr.style === 'floor' && this.T >= (pr.tContactT || 0) + TG().readS) {
         lock(0.4); // (chasing it: nothing else moves him meanwhile)
+        this.scrambleLoose(pr);
         if (this.runDown(a, pk)) return;
       }
       this.at(this.T + (pk.t != null ? 1 / 60 : 0.05), chase, 'chase the ball');

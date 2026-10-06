@@ -188,7 +188,7 @@
       cap: 1.51e6, tax: 1.8e6, apron: 1.9e6, minSalary: 66e3, maxPct: [0.16, 0.17, 0.18], mle: 110e3,
       rookieTop: 90e3, rookieFirstRoundLow: 70e3, rookieSecond: 66e3,
       draftRounds: 3, lotteryTeams: 4,
-      shotBase: { rim: 0.55, paint: 0.385, mid: 0.378, c3: 0.365, ab3: 0.33 },
+      shotBase: { rim: 0.54, paint: 0.385, mid: 0.378, c3: 0.365, ab3: 0.33 }, // (rim 0.55 before the play styles: the finishers finish more of them)
       threeRate: 0.56, ftBase: 0.012,
       tradeDeadlineFrac: 0.6, allStarFrac: 0.55,
     },
@@ -293,12 +293,12 @@
     hedge: {
       label: 'Hedge the Pick and Roll', icon: '🚧',
       desc: 'The big jumps out hard above every ball screen to stop the handler, then recovers to his man. Takes away pull-ups and turn-the-corner drives; the roller and the weak side are covered by rotations. Needs mobile bigs.',
-      mods: { play: { pnr: -0.08, handoff: -0.05 }, to: 1.04, open: 0.02, fatigue: 1.05, needs: 'mobile' },
+      mods: { play: { pnr: -0.08, handoff: -0.05 }, to: 1.04, toOn: { pnr: 1, handoff: 1 }, open: 0.02, fatigue: 1.05, needs: 'mobile' },
     },
     blitz: {
       label: 'Blitz / Trap', icon: '🪤',
       desc: 'Double the ball handler on every pick-and-roll. Forces turnovers but leaves the roller and shooters open.',
-      mods: { to: 1.14, play: { pnr: -0.12 }, open: 0.05, foul: 1.05, fatigue: 1.08, freq: { c3: 1.1 } },
+      mods: { to: 1.14, toOn: { pnr: 1, handoff: 1 }, play: { pnr: -0.12 }, open: 0.05, foul: 1.05, fatigue: 1.08, freq: { c3: 1.1 } },
     },
     zone23: {
       label: '2-3 Zone', icon: '🧊',
@@ -399,6 +399,46 @@
     { id: 'big_fa', label: 'Closer', desc: 'Sign a free agent rated 85+.', pts: 3 },
     { id: 'survivor', label: 'Survivor', desc: 'Coach 10 seasons.', pts: 6 },
     { id: 'hired_again', label: 'Second Act', desc: 'Get hired by a new team after being fired.', pts: 2 },
+    // the long game: wins and titles over a career
+    { id: 'win_750', label: 'Seven-Fifty', desc: 'Win 750 career games.', pts: 20 },
+    { id: 'win_1000', label: 'The Thousand', desc: 'Win 1,000 career games.', pts: 30 },
+    { id: 'seventy_wins', label: 'Seventy', desc: 'Win 70+ games in a full season (an 85% win rate).', pts: 10 },
+    { id: 'titles_5', label: 'Five Rings', desc: 'Win five championships.', pts: 40 },
+    { id: 'sweep_title', label: 'Perfect Run', desc: 'Win the title losing three playoff games or fewer.', pts: 8 },
+    { id: 'rebuild', label: 'From the Ashes', desc: 'Win the title within three seasons of finishing under .330.', pts: 10 },
+    { id: 'coy_3', label: 'Coach of the Decade', desc: 'Win Coach of the Year three times.', pts: 10 },
+    { id: 'lifer', label: 'Lifer', desc: 'Coach 20 seasons.', pts: 12 },
+    { id: 'one_team', label: 'One-Team Coach', desc: 'Coach 10 seasons with the same team.', pts: 8 },
+    // the playoffs
+    { id: 'game7_win', label: 'Game 7', desc: 'Win a Game 7.', pts: 4 },
+    { id: 'comeback_3_1', label: 'Never Say Die', desc: 'Come back from 3-1 down to win a playoff series.', pts: 6 },
+    { id: 'rival_series', label: 'Settled on the Court', desc: 'Win a playoff series against a rival.', pts: 4 },
+    { id: 'blood_feud', label: 'Bad Blood', desc: 'Have a rivalry with another team reach a blood feud.', pts: 3 },
+    // your players
+    { id: 'mvp_3', label: 'MVP Machine', desc: 'Coach the league MVP in three seasons.', pts: 8 },
+    { id: 'roy_player', label: 'Rookie Whisperer', desc: 'Coach the Rookie of the Year.', pts: 3 },
+    { id: 'dpoy_player', label: 'Lockdown', desc: 'Coach the Defensive Player of the Year.', pts: 3 },
+    { id: 'dev_jump', label: 'Diamond in the Rough', desc: 'A player you drafted gains 15+ OVR with you.', pts: 5 },
+    { id: 'all_star_3', label: 'Star Factory', desc: 'Have three All-Stars in one season.', pts: 4 },
+    { id: 'asg_mvp', label: 'Midseason Classic', desc: 'One of your players is the All-Star Game MVP.', pts: 3 },
+    { id: 'three_champ', label: 'Splash', desc: 'One of your players wins the three-point contest.', pts: 2 },
+    { id: 'dunk_champ', label: 'Liftoff', desc: 'One of your players wins the dunk contest.', pts: 2 },
+    { id: 'goat_player', label: 'Coached the GOAT', desc: 'Coach the player at the top of the all-time list.', pts: 6 },
+    { id: 'hof_player', label: 'Hall of Fame Maker', desc: 'A player you coached for five seasons enters the Hall of Fame.', pts: 6 },
+    { id: 'number_retired', label: 'Banner Night', desc: 'Your team retires the number of a player you coached for five seasons.', pts: 4 },
+    // the legacy
+    { id: 'goat_coach_10', label: 'All-Time Great', desc: 'Reach the top 10 of the greatest coaches of all time.', pts: 8 },
+    { id: 'goat_coach_1', label: 'The Greatest', desc: 'Top the list of the greatest coaches of all time.', pts: 25 },
+    // the front office
+    { id: 'desk_100', label: 'Front Office Pro', desc: 'Answer 100 decisions at the Desk.', pts: 3 },
+    { id: 'desk_500', label: 'Chief Executive', desc: 'Answer 500 decisions at the Desk.', pts: 6 },
+    { id: 'word_10', label: 'True to Your Word', desc: 'Keep 10 promises to your players.', pts: 4 },
+    { id: 'chem_90', label: 'One Team', desc: 'Get your team\'s chemistry to 90.', pts: 3 },
+    { id: 'media_darling', label: 'Media Darling', desc: 'Get your standing with the media to 85.', pts: 3 },
+    { id: 'owner_demand_3', label: 'The Owner\'s Favorite', desc: 'Meet the owner\'s demand in three seasons.', pts: 4 },
+    { id: 'facility_max', label: 'State of the Art', desc: 'Open a level 5 facility.', pts: 4 },
+    { id: 'skill_master', label: 'Master of the Craft', desc: 'Master a coaching skill.', pts: 6 },
+    { id: 'skill_complete', label: 'Complete Coach', desc: 'Reach level 3 in every coaching skill.', pts: 8 },
   ];
 
   PBC.Config = {

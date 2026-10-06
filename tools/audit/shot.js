@@ -57,6 +57,8 @@ function run(PBC, sc) {
   for (const x of a) x.solve();
   const mt = new M.Debug.Meters(() => ({ people: W.list, ball, time: W.time, view: null, dt, countAll: true }));
   const popLog = [];
+  // (a post move's man: how high he went off his feet, the hardest knock he took, how far off his line to the rim he was put)
+  const pdx = { air: 0, knock: 0 };
   for (let n = 1; n * dt <= sc.T + 1e-9; n++) {
     const t = Math.round(n * dt * 1200) / 1200;
     clock.t = t; W.time = t;
@@ -65,6 +67,7 @@ function run(PBC, sc) {
     ball.update(dt, t);
     for (const x of a) x.solve();
     mt.frame();
+    for (const x of a) if (x.team === 1) { pdx.air = Math.max(pdx.air, x.jumpZ || 0); if (x.hit && x.hit.t < 0.05) pdx.knock = Math.max(pdx.knock, x.hit.s); }
     // (every joint pop, who and where in the move: the lab's list of them)
     for (const x of a) {
       const tr = mt.tr.get(x);
@@ -74,7 +77,9 @@ function run(PBC, sc) {
   mt.shotFlush && mt.shotFlush();
   const S = mt.summary();
   const pops = S.motion.jointSnapsBy;
-  return { id: sc.id, name: sc.name, shot: S.shot, recs: mt.S.sh.recs, pops, popsN: Object.values(pops).reduce((p, v) => p + v, 0), popLog, holder: ball.holder ? ball.holder.id : null, state: ball.state };
+  const D = c.D, pm = a[0] && a[0]._postMove;
+  const post = D.postLog ? { move: pm ? pm.move : null, contacts: D.postContacts || 0, defAirFt: +pdx.air.toFixed(2), defKnock: +pdx.knock.toFixed(1) } : null;
+  return { id: sc.id, name: sc.name, shot: S.shot, recs: mt.S.sh.recs, pops, popsN: Object.values(pops).reduce((p, v) => p + v, 0), popLog, holder: ball.holder ? ball.holder.id : null, state: ball.state, post };
 }
 
 module.exports = { world, run, scenarios: (PBC) => PBC.Match.ShotLab.scenarios() };

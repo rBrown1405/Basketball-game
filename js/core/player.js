@@ -278,6 +278,8 @@
   /** Choose an unused jersey number on a team. */
   function assignNumber(S, p) {
     const used = new Set(Object.values(S.players).filter(q => q.tid === p.tid && q.id !== p.id).map(q => q.num));
+    // (numbers the franchise has retired stay in the rafters)
+    if (PBC.Legacy && PBC.Legacy.retiredNums) for (const n of PBC.Legacy.retiredNums(S, p.tid)) used.add(n);
     const favs = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 30, 31, 32, 33, 34, 35, 41, 42, 44, 45, 50, 55];
     if (!used.has(p.num) && p.num) return p.num;
     const opts = U.shuffle(favs).filter(n => !used.has(n));
@@ -306,9 +308,40 @@
     return U.sortBy(tags, t => t[1]).slice(0, n).filter(t => t[1] < 55).map(t => t[0]);
   }
 
+  // ---------- the ratings over a career ----------
+  // (a snapshot of all his ratings in two digits each, in C.RATINGS order: 54 characters a season, kept in his history so
+  // the player card can show what came and went every year; ratings added to the game later read as missing in old ones)
+  const RATING_KEYS = C.RATINGS.map(x => x.key);
+  /** his ratings now, as a snapshot string */
+  function snapRatings(r) {
+    let s = '';
+    for (const k of RATING_KEYS) { const v = Math.round(U.clamp(r && r[k] != null ? +r[k] : 0, 0, 99)); s += v < 10 ? '0' + v : String(v); }
+    return s;
+  }
+  /** a snapshot string back into { key: rating } (null when there is none) */
+  function readRatings(s) {
+    if (typeof s !== 'string' || !s.length) return null;
+    const o = {};
+    for (let i = 0; i < RATING_KEYS.length && i * 2 + 1 < s.length; i++) o[RATING_KEYS[i]] = +s.substr(i * 2, 2);
+    return o;
+  }
+  /** his career as rating points over time: [{ season, age, ovr, pot, tid, r (all ratings, or null), start (where he came in),
+   *  now (today), retired (what he retired with) }], oldest first. hist entries are the end of each season; hist0 where he
+   *  started */
+  function ratingHistory(p, S) {
+    const out = [];
+    if (p.hist0) out.push({ season: p.hist0.season, age: p.hist0.age, ovr: p.hist0.ovr, pot: p.hist0.pot, tid: p.hist0.tid, r: readRatings(p.hist0.rt), start: true });
+    for (const h of p.hist || []) out.push({ season: h.season, age: h.age, ovr: h.ovr, pot: h.pot, tid: h.tid, r: readRatings(h.rt) });
+    if (p.tid !== -3) out.push({ season: S ? S.season : null, age: p.age, ovr: p.ovr, pot: p.pot, tid: p.tid, r: Object.assign({}, p.r), now: true });
+    // (a retired player: where the last summer left him, the ratings he retired with)
+    else if (p.retired) out.push({ season: p.retired.season, age: p.retired.age || p.age, ovr: p.ovr, pot: p.pot, tid: p.retired.tid, r: Object.assign({}, p.r), retired: true });
+    return out;
+  }
+
   PBC.Player = {
     create, genName, genLook, genRatings, calcOvr, ovrAt, bestPositions, genPotential, growthLeft, genPersonality,
     marketValue, maxSalary, contractYears, rookieSalary, genInjury, injuryLabel, addTraining, progress,
     name, shortName, isInjured, assignNumber, strengths, weaknesses, INJURIES,
+    RATING_KEYS, snapRatings, readRatings, ratingHistory,
   };
 })();

@@ -100,8 +100,9 @@
     if (r.pathSpot) { r.spot = r.pathSpot; r.spotName = 'flow'; }
     r.path = null; r.pathSpot = null; r.jx = 0; r.jy = 0;
     const pr = this.flowProfile();
-    // (Offensive Awareness slider: heady players rest less between actions, stagnant ones stand around longer)
-    r.next = this.T + (r.pathRest != null ? r.pathRest : U.lerp(pr.rest[0], pr.rest[1], Math.random())) / this.sliderK('offIQ', 0.6, 1.5);
+    // (Offensive Awareness slider: heady players rest less between actions, stagnant ones stand around longer; and a game's
+    // urgency, Tune.urgency.flowRestK, the gameplay pass)
+    r.next = this.T + (r.pathRest != null ? r.pathRest : U.lerp(pr.rest[0], pr.rest[1], Math.random()) * M.Tune.urgency.flowRestK) / this.sliderK('offIQ', 0.6, 1.5);
   };
   /** drive `a` along its action path; returns true while the path is in control */
   P.flowPath = function (a, r) {
@@ -128,7 +129,8 @@
         r.pi++;
         continue;
       }
-      a.moveTo(wp.x, wp.y, { speed: wp.speed || 12, face, stance: wp.stance || (wp.speed > 9 ? 'stand' : 'ready') });
+      // (an action's legs a little quicker in a game than they were written, Tune.urgency.flowSpeedK)
+      a.moveTo(wp.x, wp.y, { speed: (wp.speed || 12) * M.Tune.urgency.flowSpeedK, face, stance: wp.stance || (wp.speed > 9 ? 'stand' : 'ready') });
       a.lookAt({ x: b.x, y: b.y });
       return true;
     }
@@ -146,6 +148,8 @@
     const w = Object.assign({}, pr.act);
     if (soon) { w.screen *= 0.2; w.cut *= 0.25; w.exchange *= 0.3; } // keep him near where the next play wants him
     if (big) { w.screen *= 1.6; w.relocate *= 0.6; w.big = 2.2; } else { w.big = 0; }
+    // (his play style, Style.court: a movement shooter never stops relocating, a slasher cuts, a hustle big screens more)
+    w.relocate *= this.styK(a.id, 'relocate'); w.cut *= this.styK(a.id, 'cutK'); w.screen *= this.styK(a.id, 'screenK');
     if (me.u < 9 && !big) w.cut *= 0.4; // already at the rim area
     const pick = U.pickKey ? U.pickKey(w) : pickKey(w);
     let ok = false;
@@ -157,7 +161,7 @@
       case 'big': ok = this.flowBig(a); break;
       default: ok = false;
     }
-    if (!ok) { this.offBallAction(a, r); r.next = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) / this.sliderK('offIQ', 0.6, 1.5); }
+    if (!ok) { this.offBallAction(a, r); r.next = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) * M.Tune.urgency.flowRestK / this.sliderK('offIQ', 0.6, 1.5); }
     return ok;
   };
   function pickKey(w) {
@@ -204,7 +208,7 @@
     const brush = { x: sPt.x + (this.X(E[0]) - sPt.x) * 0.12, y: sPt.y + (E[1] - sPt.y) * 0.12 };
     const ePt = this.ptUV(E[0], E[1]);
     this.setPath(user, [
-      { x: setup.x, y: setup.y, speed: 7, wait: tArrive - 0.25, wx: setup.x, wy: setup.y, tol: 1.3 },
+      { x: setup.x, y: setup.y, speed: 9, wait: tArrive - 0.25, wx: setup.x, wy: setup.y, tol: 1.3 },
       { x: brush.x, y: brush.y, speed: 14, tol: 1.6 },
       { x: ePt.x, y: ePt.y, speed: 12.5, stance: 'ready', hold: 0.5, face: 'move' },
     ], E, null, 'offscreen');
@@ -227,7 +231,7 @@
     const rimPt = this.ptUV(rimU + 3.5, 25 + (me.v < 25 ? -2.5 : 2.5));
     const exPt = this.ptUV(ex[0], ex[1]);
     this.setPath(a, [
-      { x: away.x, y: away.y, speed: denied ? 9 : 7, tol: 1.2 },
+      { x: away.x, y: away.y, speed: denied ? 10 : 9, tol: 1.2 },
       { x: rimPt.x, y: rimPt.y, speed: 14, tol: 2.2 },
       { x: exPt.x, y: exPt.y, speed: 10.5 },
     ], ex, null, 'cut');
@@ -249,8 +253,8 @@
     const jab = this.ptUV(me.u - du / dl * 1.8, me.v - dv / dl * 1.8);
     const pt = this.ptUV(spot[0], spot[1]);
     this.setPath(a, [
-      { x: jab.x, y: jab.y, speed: 8, tol: 0.9 },
-      { x: pt.x, y: pt.y, speed: 10, stance: 'ready', hold: 0.3 },
+      { x: jab.x, y: jab.y, speed: 10, tol: 0.9 },
+      { x: pt.x, y: pt.y, speed: 12, stance: 'ready', hold: 0.3 },
     ], spot, null, 'relocate');
     return true;
   };
@@ -319,7 +323,9 @@
   // ------------------------------------------------------------ handler probing
   P.flowHandler = function (a, r) {
     const b = this.v.ball, T = this.T;
-    const pr = this.flowProfile();
+    const pr = this.flowProfile(), TS = M.Tune.shifty;
+    // (how shifty: his handle, 45 nothing to 90 all of it; the gameplay pass)
+    const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
     if (!r.probe || T > r.probe.end) {
       r.probe = null;
       if (T < (r.probeNext || 0)) return false;
@@ -328,6 +334,20 @@
       const me = r.probeAnchor ? { u: this.U_(r.probeAnchor.x), v: r.probeAnchor.y } : this.uv(a);
       const rimU = this.U_(this.rim.x);
       const kind = Math.random();
+      // a size-up in place (the dribble breakdown's chain, Director.comboNext): squared up to his man, the ball rocked side to side
+      // with a pound dribble between, read move by move, until the engine's move comes or it has run its course; the shifty
+      // handler's own probe (Tune.combo.probeSizeP of them, from a 60 handle up), the user: "I need more dribble size-ups"
+      const TC = M.Tune.combo, dm = this.guardOf(a.id), ddm = dm ? Math.hypot(dm.x - a.x, dm.y - a.y) : 99;
+      if (hk > 0.3 && kind < TC.probeSizeP && ddm < 9 && b.holder === a && b.state === 'dribble' && !b.working() && !this.driving(a)) {
+        const plan = this.comboPlan(a, null, T + 2.8);
+        plan.max = Math.min(plan.max, TC.flowMax); plan.lead = this.comboLead(a, plan.max); plan.probe = true;
+        r.probe = { pts: [], i: 0, end: T + 2.8, sizeup: true, t0: T };
+        a.moveTo(a.x, a.y, { speed: 3, face: this.rim, stance: 'dribble' });
+        a.lookAt(dm);
+        this.startChain(a, plan, T + 2.7);
+        this.probeSizeups = (this.probeSizeups || 0) + 1;
+        return true;
+      }
       if (kind < 0.55 && me.u > 16) {
         // attack a gap two or three dribbles, then retreat dribble back out
         const du = rimU - me.u, dv = 25 - me.v, dl = Math.hypot(du, dv) || 1;
@@ -335,27 +355,215 @@
         const go = r.probeAnchor ? 3 + Math.random() * 3 : 5 + Math.random() * 4;
         const inPt = this.ptUV(me.u + du / dl * go, me.v + dv / dl * go + side);
         const outPt = this.ptUV(me.u + du / dl * (go - 5), me.v + dv / dl * (go - 5) + side * 0.5);
-        r.probe = { pts: [[inPt, 11, 'move'], [outPt, 6.5, 'rim']], i: 0, end: T + 3.4, cross: Math.random() < 0.6 };
+        r.probe = { pts: [[inPt, TS.probeFtps, 'move'], [outPt, TS.retreatFtps, 'rim']], i: 0, end: T + 3.4, cross: Math.random() < U.lerp(0.6, 0.9, hk) };
+        // (a shifty one sells it first: a hesitation, then the burst at the gap)
+        if (b.holder === a && b.state === 'dribble' && Math.random() < 0.45 * hk) a.hesitate();
       } else {
         // change sides along the arc with a crossover
         const sw = r.probeAnchor ? 3 + Math.random() * 3 : 7 + Math.random() * 5;
         const tv = me.v < 25 ? me.v + sw : me.v - sw;
         const pt = this.ptUV(Math.max(22, me.u + (Math.random() - 0.5) * 4), tv);
-        r.probe = { pts: [[pt, 8.5, 'rim']], i: 0, end: T + 2.6, cross: true };
+        r.probe = { pts: [[pt, TS.swingFtps, 'rim']], i: 0, end: T + 2.6, cross: true };
       }
     }
     const pb = r.probe;
+    // (the size-up in place: he holds his ground through it, the chain's steps doing the moving, until it is over)
+    if (pb.sizeup) {
+      if (T < pb.end && (b.working() || T < pb.t0 + 0.8)) return true;
+      r.probe = null; r.probeNext = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) * U.lerp(TS.restK[0], TS.restK[1], hk) * 0.7;
+      return false;
+    }
     const cur = pb.pts[pb.i];
-    if (!cur) { r.probe = null; r.probeNext = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()); return false; }
+    if (!cur) { r.probe = null; r.probeNext = T + U.lerp(pr.rest[0], pr.rest[1], Math.random()) * U.lerp(TS.restK[0], TS.restK[1], hk); return false; }
     const [pt, sp, face] = cur;
     if (Math.hypot(pt.x - a.x, pt.y - a.y) < 1.2) {
       pb.i++;
-      if (pb.cross && b.holder === a && b.state === 'dribble' && b.dr && !b.dr.move && !b.dr.pendingMove) b.dribbleMove('cross');
+      // (at the turn a move to lose his man: the better the handle the more often and the more of them, an in and out, a
+      // hesitation, between the legs or behind the back as well as the crossover; each one sells the man on him, defBite)
+      if (pb.cross && b.holder === a && b.state === 'dribble' && b.dr && !b.dr.move && !b.dr.pendingMove && Math.random() < U.lerp(TS.moveP[0], TS.moveP[1], hk) + (hk < 0.2 ? 0.3 : 0)) {
+        const q = Math.random();
+        const mv = hk > 0.5 && q < 0.25 ? 'inout' : hk > 0.35 && q < 0.42 ? 'hesi' : hk > 0.65 && q < 0.6 ? (Math.random() < 0.5 ? 'btl' : 'btb') : 'cross';
+        if (mv === 'hesi') a.hesitate(); else b.dribbleMove(mv);
+      }
       return true;
     }
     a.moveTo(pt.x, pt.y, { speed: sp, face: face === 'rim' ? this.rim : 'move', stance: 'dribble' });
     if (b.state === 'held' && b.holder === a && !a.throwing() && !(a.holdBallUntil > this.T)) b.dribble(a);
     a.lookAt(null);
+    return true;
+  };
+
+  // ------------------------------------------------------------ reading the space (the gameplay pass)
+  // (a handler with his man beaten, behind him or beside him, or with nobody near him, kept dribbling where he was until the
+  // engine's next play came due; players read how far the nearest defender is now: Tune.reads)
+  const PULL_KINDS = { jumper: 1, pullup: 1, stepback: 1, fadeaway: 1, floater: 1, layup: 1, reverse: 1, dunk: 1 };
+  // (his own moves that attack: brought forward the same way; a size-up, a jab or a back-down is his to take his time over)
+  const PULL_MOVES = { drive: 1, hesi: 1, crossover: 1, btl: 1, btb: 1, spin: 1 };
+  // (the ball dead or about to be: nothing to read)
+  const DEAD_BEATS = { ft: 1, foul: 1, timeout: 1, sub: 1, inbound: 1, jump_ball: 1 };
+  /** the man with the ball, every frame: how far the nearest defender is, and whether the man on him is still between him and
+   *  the rim. Open (Tune.reads.openFt) or past his man, and his own shot or attacking move is the engine's next play: he goes
+   *  with it now (Director.retime brings the beat forward, pullMaxS at most); past his man, or wide open (wideFt) in range,
+   *  and something else is next (a set, a play's step, a screen coming, his own pass a while off): he attacks the gap, a
+   *  drive at the rim, and the next play goes from wherever it gets him (the kick out of it, the pass inside) */
+  P.readOpen = function () {
+    const v = this.v, b = v.ball, h = b.holder, T = this.T, TR = M.Tune.reads;
+    if (!this.active || this.frozen || this.phase !== 'front' || !h || h.team !== this.off || h.isBusy()) return;
+    // (on a break too, once the ball is in the frontcourt: the open lane is taken and the finish brought forward; the fast break's
+    // handler pushed to the top and waited for the engine's beat with nobody near him)
+    if (this.tempo === 'push' && this.U_(h.x) > TR.pushReadU) return;
+    if (b.state !== 'dribble' && b.state !== 'held') return;
+    const bt = this.beat, ev = bt && bt.ev;
+    if (bt && !bt.fired && DEAD_BEATS[bt.type]) return;
+    const rim = this.rim, dR = Math.hypot(h.x - rim.x, h.y - rim.y);
+    if (dR > TR.rangeFt || dR < 4) return;
+    let near = 99;
+    for (const d of this.defActors()) { const dd = Math.hypot(d.x - h.x, d.y - h.y); if (dd < near) near = dd; }
+    const g = this.guardOf(h.id), ux = (rim.x - h.x) / dR, uy = (rim.y - h.y) / dR;
+    const along = g ? (g.x - h.x) * ux + (g.y - h.y) * uy : -99, across = g ? Math.abs((g.x - h.x) * -uy + (g.y - h.y) * ux) : 99;
+    // (or his man is sold on a move, pulled the wrong way by more than biteBeatFt: the dribble breakdown, the moment to go)
+    const sold = g && g._pc && g._pc.man === h && g._pc.bite && T < g._pc.bite.until ? g._pc.bite : null;
+    const broken = !!(g && g._broken && T < g._broken.until);
+    const beaten = !g || broken || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt) || (!!sold && Math.hypot(sold.dx, sold.dy) > TR.biteBeatFt);
+    // (the Attack Basket slider, League Settings, Director.attackK: 0 nobody attacks a gap and the open look waits for its time; 50
+    // as tuned; 100 a lane half as wide counts as open, the drives come sooner, deeper and oftener, the look pulled further)
+    // (his play style too: an explosive slasher attacks every gap, a floor general looks to set up first; Style.court attack)
+    const ak = this.attackK() * this.styK(h.id, 'attack'), akW = 0.5 + 0.5 * ak;
+    const open = near >= TR.openFt / akW, wide = near >= TR.wideFt / akW && dR < TR.wideRangeFt;
+    h._openFt = near; h._beaten = beaten;
+    if (ak <= 0.02 || (!open && !beaten)) return;
+    const own = bt && !bt.fired && ev && (ev.player === h.id || ev.from === h.id || ev.shooter === h.id || ev.by === h.id);
+    // his own shot is next: now
+    if (own && ev.type === 'shot' && this.A(ev.shooter) === h) {
+      if (bt.pulled || ev.pending || !PULL_KINDS[ev.kind]) return;
+      // (what the shot needs from here, not from where he was as its beat was planned: the run to its spot it allowed for is mostly
+      // behind him by now; the user: "wide open but doesn't take the shot")
+      const sp = bt.spot || (isFinite(+ev.x) ? { x: +ev.x, y: +ev.y } : h), dSp = Math.hypot(h.x - sp.x, h.y - sp.y);
+      const left = bt.fireAt - T, need = Math.min(bt.need || 0.5, dSp / 10 * 1.25 + 0.25 + (bt.relS != null ? bt.relS : 0.7)) + TR.pullLeadS;
+      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS * Math.min(ak, 1.5), left - need))) { bt.pulled = true; this.readShots = (this.readShots || 0) + 1; }
+      return;
+    }
+    // his own move at the defense is next: now (a drive goes, a hesitation or a crossover into it)
+    if (own && ev.type === 'move' && this.A(ev.player) === h && PULL_MOVES[ev.move]) {
+      if (bt.pulled) return;
+      const left = bt.fireAt - T, need = (bt.need || 0.5) + TR.moveLeadS;
+      if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS * Math.min(ak, 1.5), left - need))) { bt.pulled = true; this.readMoves = (this.readMoves || 0) + 1; }
+      return;
+    }
+    // something else is next: past his man (or wide open in range), he attacks the gap; not into a play of his own about to
+    // go, nor a drive already on, nor out of a dribble he has used up (then it is the pass or the shot the engine has next)
+    const stopFt = TR.attackStopFt * (1.2 - 0.2 * ak), gapS = TR.attackGapS / ak;
+    if (!(beaten || wide) || this.driving(h) || (h._attackT || -9) > T - gapS || dR < stopFt + 3) return;
+    if (b.state !== 'dribble' && (h.dribUsed || h.throwing() || h.holdBallUntil > T)) return;
+    const r = this.role[h.id];
+    if (!r || r.path) return;
+    if (own && bt.fireAt - T < TR.attackClearS) return;
+    // (a play's step of his waits for it: the next beat plans from wherever the drive leaves him)
+    if (r.pb && !beaten) return;
+    if (b.state !== 'dribble' && b.dribble(h) === false) return;
+    const go = dR - stopFt;
+    h._attackT = T;
+    r.until = T + TR.attackS; r.probe = null; r.probeAnchor = null;
+    h.moveTo(h.x + ux * go, h.y + uy * go, { speed: h.maxSpeed * TR.attackK, face: 'move', stance: 'dribble' });
+    h.lookAt(null);
+    this.attacks = (this.attacks || 0) + 1;
+    if (wide && !beaten) this.wideAttacks = (this.wideAttacks || 0) + 1;
+  };
+
+  // ------------------------------------------------------------ the read on the catch
+  // (the user: "they base their openness on how close the man guarding them is ... they should be aware of the man that's supposed
+  // to guard them and the other defenders, the help defenders; if he's completely left alone he should just let it fly, if he has
+  // good shooting stats, unless he's a center that can't shoot, then he'll pass")
+  /** how close the nearest defender can get to `a` by his release, tRel s from now (ft), and who: each defender carries on at
+   *  the speed he has toward him through his reaction to the catch (his own man's quicker than a helper's, plus the Offense
+   *  Edge's lag), then closes at that or at least ownCloseK / helpCloseK of his top speed; one busy in a move of his own (a
+   *  fall, a box-out's clip) only once it is over */
+  P.closeoutGap = function (a, tRel) {
+    const TR = M.Tune.catchRead, lag = this.edgeLag ? this.edgeLag() : 0;
+    let gap = 99, by = null;
+    for (const d of this.defActors()) {
+      const dx = a.x - d.x, dy = a.y - d.y, dist = Math.hypot(dx, dy) || 0.01;
+      const vr = Math.max(0, ((d.vx || 0) * dx + (d.vy || 0) * dy) / dist);
+      const own = this.matchup && String(this.matchup[d.id]) === String(a.id);
+      let react = (own ? TR.reactS : TR.helpReactS) + lag;
+      if (d.isBusy() && d.clip) react += Math.max(0, (d.clip.clip.dur - d.clip.t) / (d.clip.speed || 1));
+      const v2 = Math.max(vr, (d.maxSpeed || 20) * (own ? TR.ownCloseK : TR.helpCloseK));
+      const t1 = Math.min(react, tRel), t2 = Math.max(0, tRel - react);
+      const s = vr * t1 + v2 * t2;
+      const g = Math.max(0, dist - s);
+      if (g < gap) { gap = g; by = d; }
+    }
+    return { gap, by };
+  };
+  /** a man who has just caught the ball reads the floor (passBall's catch): left alone, nobody able to get within
+   *  Tune.catchRead.wideFt of him by his release, he lets it fly if he can shoot it from there (a center who cannot passes it on).
+   *  The possession's shot left open for the read (the engine's, Sim.liveRead through the possession's handles) becomes his,
+   *  the passer credited if it goes, and the rest of the play is not run. A catch on the court's own ball movement between the
+   *  engine's events counts too */
+  P.courtRead = function (to, from) {
+    const v = this.v, b = v.ball, P0 = this.poss, TR = M.Tune.catchRead;
+    if (!this.active || this.frozen || !P0 || !P0.live || !P0.pendingShot || !P0.pendingShot.live) return false;
+    if (b.holder !== to || to.team !== this.off || !from || from.team !== this.off || from === to) return false;
+    if (this.phase !== 'front' || to.isBusy() || to.stance === 'postUp' || to.stance === 'postHold') return false;
+    // (the last of the engine's events already played: the cut comes after it)
+    let after = null;
+    for (let i = this.ei - 1; i >= 0; i--) if (this.events[i] && this.events[i]._emitted) { after = this.events[i]; break; }
+    if (!after || !LIVE_BEATS[after.type]) return false;
+    // (one read per catch of an engine pass)
+    const pe = to._rcEv;
+    if (pe && pe._read) return false;
+    if (pe) pe._read = true;
+    const shot = P0.pendingShot;
+    const u = this.U_(to.x);
+    if (u < TR.minU || u > TR.maxU) return false;
+    const p = { x: to.x, y: to.y }, zone = this.zoneAt(p), dR = Math.hypot(p.x - this.rim.x, p.y - this.rim.y);
+    // (his own jumper the shot left open anyway: readOpen brings it forward)
+    if (String(shot.shooter) === String(to.id) && shot.zone !== 'rim' && shot.zone !== 'paint') return false;
+    // (his release after the catch: a Catch & Shoot badge gets it off quicker)
+    const cs = this.bdgT(to.id, 'catchShoot');
+    const tRel = TR.relS * Math.max(0.7, 1 - TR.csRelK * cs) / this.sliderK('shootOpen', 0.8, 1.25);
+    const cg = this.closeoutGap(to, tRel);
+    this.catchReads = (this.catchReads || 0) + 1;
+    if (cg.gap < TR.openFt) return false;
+    const wide = cg.gap >= TR.wideFt;
+    if (wide) this.wideCatches = (this.wideCatches || 0) + 1; else this.openCatches = (this.openCatches || 0) + 1;
+    // can he shoot it from there?
+    const lk = v.look(to.id) || {}, rate = (k, d) => (lk[k] != null ? +lk[k] : d);
+    // (left alone, a fair shooter is all-in; just open, it takes a good one)
+    const s0 = wide ? TR.wideFrom : TR.skillFrom, s1 = wide ? TR.wideTo : TR.skillTo;
+    const sk = (r) => U.clamp((r - s0) / (s1 - s0), 0, 1);
+    let skill;
+    if (zone === 'rim' || zone === 'paint') skill = dR < TR.rimFt ? 1 : sk(Math.max(rate('close', 55), rate('mid', 55)));
+    else if (zone === 'mid') skill = sk(rate('mid', 55));
+    else {
+      // (from way out only a deep shooter: 3PT deepFrom or better, the Limitless Range badge or a Deep Range Shooter's style)
+      const t3 = rate('three', 50), deep = t3 >= TR.deepFrom || this.bdgT(to.id, 'deepRange') > 0 || this.styK(to.id, 'deep') >= 0.3;
+      skill = dR > TR.deepFt && !deep ? 0 : sk(t3);
+    }
+    const conf = P0.conf && P0.conf[to.id] != null ? U.clamp(+P0.conf[to.id], -1, 1) : 0;
+    // (wide open: if he can shoot it, he does; just open, a closeout coming, a shooter who is feeling it more than one who is not,
+    // a Catch & Shoot badge more; his style's bar: a floor general looks for the extra pass first, a deep range shooter less)
+    const bar = this.styK(to.id, 'bar');
+    let pShoot = skill > 0 ? U.lerp(TR.minP, TR.maxP, skill) * (wide ? 1 : TR.openK * (1 + TR.csK * cs)) * Math.max(0.2, 1 + TR.confK * conf * (wide ? 1 : TR.openConfK)) / Math.pow(bar, wide ? 0.5 : 1) * this.sliderK('shootOpen', 0.5, 1.5) : 0;
+    if (skill > 0 && this.shotClock() < TR.lateScS) pShoot = Math.max(pShoot, TR.lateP);
+    pShoot = U.clamp(pShoot, 0, 0.98);
+    const who = (lk.last || ('#' + to.id));
+    if (!(Math.random() < pShoot)) {
+      this.passedOpen = (this.passedOpen || 0) + 1;
+      if (this.dbgOn && this.dbgOn()) this.dbgRead && this.dbgRead('READ ' + who + ': ' + (wide ? 'left alone' : 'open') + ' (' + cg.gap.toFixed(1) + ' ft at the release) but passes it on (' + Math.round(pShoot * 100) + '%)', '#ffd8a8');
+      return false;
+    }
+    const shotEv = P0.live.read({ shooter: to.id, from: from.id, after, t: this.g + tRel, x: p.x, y: p.y, zone, open: cg.gap, contest: wide ? 'open' : 'contested' });
+    if (!shotEv) {
+      this.readRefused = (this.readRefused || 0) + 1;
+      const Sm = window.PBC && window.PBC.Sim, rw = this.refusedWhy || (this.refusedWhy = {}), w = (Sm && Sm.liveRead && Sm.liveRead.why) || '?';
+      rw[w] = (rw[w] || 0) + 1;
+      return false;
+    }
+    this.courtShots = (this.courtShots || 0) + 1;
+    if (wide) this.courtShotsWide = (this.courtShotsWide || 0) + 1;
+    if (this.dbgOn && this.dbgOn()) this.dbgRead && this.dbgRead('READ ' + who + ': ' + (wide ? 'left alone' : 'open') + ' (' + cg.gap.toFixed(1) + ' ft at the release), lets it fly from ' + zone, '#8ce99a');
+    this.liveRedirect(shotEv);
     return true;
   };
 
@@ -372,6 +580,9 @@
     // the move starting on a ball snatched off the floor and the steps going three, Trial 9)
     const bt = this.beat;
     if (bt && !bt.fired && bt.type === 'shot' && bt.ev && bt.ev.shooter === a.id && bt.fireAt - T < M.Tune.shot.noMoveBeforeShotS) return;
+    // (nor into his own pass: a move under way as the pass began kept him from turning to it and the throw went out of the side of
+    // his body, the user: "players sometimes don't face the correct way when passing")
+    if (bt && !bt.fired && (bt.type === 'pass' || bt.type === 'handoff') && bt.ev && bt.ev.from === a.id && bt.fireAt - T < M.Tune.pass.noMoveBeforePassS) return;
     const hs = a._hs || (a._hs = { next: T + 0.3 + Math.random() * 0.5 });
     if (T < hs.next) return;
     const skill = a.rHandle == null ? 0.5 : a.rHandle;
@@ -396,7 +607,13 @@
       type = skill > 0.55 && r < 0.32 ? 'btl' : skill > 0.65 && r < 0.46 ? 'btb' : 'cross';
     }
     if (type) {
-      b.dribbleMove(type, { period: type === 'cross' ? 0.36 : 0.44 });
+      // (a shifty handler sizing his man up strings a second move on the first when his man buys it: a short chain read like
+      // the size-up's, Tune.combo.flowChainP)
+      if (skill > 0.45 && d && dd < 7 && speed < 7 && !this.driving(a) && !b.working() && Math.random() < M.Tune.combo.flowChainP) {
+        const plan = this.comboPlan(a, null, T + 2.4);
+        plan.max = Math.min(plan.max, M.Tune.combo.flowMax); plan.first = type; plan.lead = this.comboLead(a, plan.max);
+        b.dribbleChain((ball, info) => this.comboNext(a, plan, ball, info), { onDone: () => this.comboDone(a, plan) });
+      } else b.dribbleMove(type, { period: type === 'cross' ? 0.36 : 0.44 });
       // the body goes with it: a short push step toward the new ball side (only when he is not headed somewhere)
       const g = a.goal;
       const idle = g.mode === 'idle' || (g.mode === 'move' && g.by == null && Math.hypot(g.x - a.x, g.y - a.y) < 1.5);

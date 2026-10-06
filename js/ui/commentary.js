@@ -368,6 +368,8 @@
         B.milestones[c.id + ':' + ms] = 1;
         return pick([`That's ${pts} for ${n} tonight. ${pr.He} has been unstoppable.`, `${n} is up to ${pts}. They have no answer for ${pr.him}.`, `${pts} points for ${n}, and ${pr.he} is not done.`]);
       }
+      // (a badge showing, Silver or better: js/core/badges.js)
+      if (sh.badge && sh.badge.player === sh.shooter && sh.badge.tier >= 2 && chance(0.55)) { const bl = badgeColor(sh, n, pr); if (bl) return bl; }
       if (sh.kind === 'dunk' || sh.kind === 'alley') {
         return pick([`Watch the explosion there. ${n} was up and through before anybody could rotate.`, `That's a statement. The whole building felt that one.`, `You just don't leave the lane open against ${n}.`, `${n} ${blurb(sh.shooter)}.`, `That's the kind of play that changes the energy in a game.`]);
       }
@@ -377,6 +379,24 @@
       if (chance(0.22)) { const b = blurb(sh.shooter); if (b) return `${n}, ${b}.`; }
       if (chance(0.25) && c.st.pts >= 10) return `${n} has ${statLine(c)}.`;
       return null;
+    }
+    /** the booth on a badge (a made shot's sh.badge): what that player does that others do not */
+    function badgeColor(sh, n, pr) {
+      switch (sh.badge.key) {
+        case 'deepRange': return pick([`${n} pulled that from ${sh.dist} feet like it was a free throw. That range bends the whole defense.`, `You have to pick ${pr.him} up as soon as ${pr.he} crosses half court. That range is not normal.`, `From way, way downtown. ${n} has the deepest range in the building.`]);
+        case 'deadeye': return pick([`A hand right in ${pr.his} face, and it did not matter one bit.`, `That was well defended and it still went in. ${n} does not see the contest.`]);
+        case 'catchShoot': return pick([`Catch and release in one motion. ${n} does not need a second look.`, `The ball barely touched ${pr.his} hands. That is a shooter.`]);
+        case 'pullUp': return pick([`${n} makes that shot out of nothing. One dribble and up.`, `That pull-up is automatic for ${n}.`]);
+        case 'midMaestro': return pick([`The lost art of the mid-range, and ${n} lives there.`, `${n} in ${pr.his} spot. That is money from the elbow.`]);
+        case 'clutchShooter': return pick([`This is when ${n} wants the ball. Ice in the veins.`, `Big moment, big shot. That is ${n}.`]);
+        case 'posterizer': return pick([`${n} went right at the contest and through it. Somebody is on a poster.`, `Do not jump with ${n}. That is a highlight for a long time.`]);
+        case 'acrobat': return pick([`Look at the body control by ${n}, finishing around the defense.`, `How does ${n} get that to go? Hung in the air and found the angle.`]);
+        case 'physicalFinisher': return pick([`${n} invites that contact. As strong a finisher as there is.`, `${pr.He} went right into the chest and finished anyway.`]);
+        case 'floatGame': return pick([`That floater is ${n}'s bread and butter. Soft touch over the bigs.`, `Up and over the length. ${n} has a beautiful floater.`]);
+        case 'postPowerhouse': return pick([`${n} goes to work on the block. Old-school post play.`, `Nobody can stop ${n} down low one on one.`]);
+        case 'putbackBoss': return pick([`${n} is relentless on the glass.`, `Second effort from ${n}. ${pr.He} just wanted it more.`]);
+        default: return null;
+      }
     }
     /** hot underdogs, cold favorites and upsets brewing (said once, at halftime or after the third) */
     function storyOfTheNight(bx, sc) {
@@ -453,6 +473,10 @@
           say('color', line, { pri: 7, ttl: 18 });
           const pe = persona(s0.id);
           if (chance(0.7)) say('color', `${s0.last}${pe === 'cocky' || pe === 'showman' ? ' loves the big stage' : pe === 'cold' ? ' is ice cold in big moments' : pe === 'leader' ? ' runs everything for this team' : ' sets the tone for this group'}. ${pick(['Should be a good one.', 'Let us get it going.', 'Here we go.'])}`, { pri: 5, ttl: 20 });
+        }
+        // the storylines around tonight's teams (the media)
+        if (PBC.Media && PBC.Media.boothLines && !stakes.playoff) {
+          try { for (const l of PBC.Media.boothLines(S, T[0].id, T[1].id)) say('color', l, { pri: 6, ttl: 18 }); } catch (e) { /* the booth goes on */ }
         }
       },
       onPossession(P) {
@@ -555,6 +579,59 @@
               const s0 = star(ev.team);
               if (s0) say('color', `${s0.last} has ${statLine(s0)}. ${pick(['They need even more from ' + pron(s0.id).him + '.', 'Everything runs through ' + pron(s0.id).him + '.', 'Coming out of this timeout, look for ' + pron(s0.id).him + ' again.'])}`, { pri: 4, ttl: 9 });
             }
+            break;
+          }
+          case 'ankle': {
+            // the court broke a man down with a dribble combo (js/match/defense.js ankleBreak)
+            const h = pl(ev.player), d = pl(ev.defender);
+            if (!h) break;
+            const mv = { cross: 'crossover', btl: 'between the legs', btb: 'behind the back', inout: 'in and out', hesi: 'hesitation' };
+            const lastMv = ev.moves && ev.moves.length ? mv[ev.moves[ev.moves.length - 1]] || 'move' : 'move';
+            const dn = d ? d.last : 'the defender';
+            if (ev.fall) say('pbp', pick([`OH! ${h.last} puts ${dn} on the floor!`, `${dn} goes DOWN! What a move by ${h.last}!`, `${h.last}... and ${dn} is on the deck! Oh my.`]), { pri: 9, ttl: 3 });
+            else say('pbp', pick([`${h.last} shakes ${dn} loose with the ${lastMv}!`, `Nasty. ${dn} bit on the ${lastMv} and ${h.last} is gone.`, `${h.last} has ${dn} on skates!`]), { pri: 8, ttl: 3 });
+            if (chance(0.6 * chatty())) say('color', pick(['That is why you stay down and stay square. Guess once, and the handler has you.', 'Handle like that, the defender is guessing. Once you guess wrong, it is over.', `${dn} is going to see that one on the highlight shows tonight.`, `Count the moves. ${ev.moves && ev.moves.length >= 3 ? 'Three, four, and the defender is reacting to the one before.' : 'The second one is the one that gets you.'}`]), { pri: 6, ttl: 9 });
+            break;
+          }
+          case 'floor': {
+            // a player went down off a knock (js/match/choreo.js goDown): a shooter on a heavily contested shot, the help run through
+            const h = pl(ev.player), by = pl(ev.by);
+            if (!h) break;
+            const bn = by ? by.last : 'the defender';
+            if (ev.charge) say('pbp', pick([`${h.last} is flattened! ${bn} went right through him.`, `Oh! ${h.last} goes down, ${bn} ran him over.`, `${bn} through the chest of ${h.last}, and ${h.last} is on the floor.`]), { pri: 7, ttl: 3 });
+            else say('pbp', pick([`${h.last} goes DOWN. Hard landing.`, `And ${h.last} is on the floor after that one.`, `${h.last} down hard after the contact${ev.fouled ? ', and they got the whistle' : ''}.`]), { pri: 7, ttl: 3 });
+            if (chance(0.5 * chatty())) say('color', pick(['You hold your breath when they land like that. Give him a second.', 'That is the kind of contact the league has been trying to take out of the game. He was in the air.', `${h.last} will feel that one tomorrow.`]), { pri: 6, ttl: 8 });
+            break;
+          }
+          case 'post': {
+            // the court worked a post move before the shot (js/match/choreo.js runPost): the call as it starts, the shot's own after
+            const h = pl(ev.player), d = pl(ev.defender);
+            if (!h) break;
+            const dn = d ? d.last : 'the defender';
+            const line = ev.move === 'dropStep' ? pick([`${h.last} backs ${dn} down... drop step!`, `Drop step from ${h.last}, right past ${dn}.`, `${h.last} with the drop step on ${dn}...`])
+              : ev.move === 'upUnder' ? pick([`${h.last} pump fakes... ${dn} bites... steps through!`, `Up and under from ${h.last}!`, `The fake, and ${h.last} goes under ${dn}...`])
+              : ev.move === 'spin' ? pick([`${h.last} spins off ${dn}!`, `Spin move, ${h.last}, right round ${dn}...`, `${h.last} turns ${dn} around with the spin...`])
+              : ev.shake ? pick([`${h.last} shakes ${dn}... one way, back the other...`, `The dream shake from ${h.last}! ${dn} is leaning the wrong way.`, `${h.last} gets ${dn} going one way and comes back the other...`])
+              : pick([`Shoulder fake from ${h.last}, and ${dn} leans...`, `${h.last} fakes ${dn} off his feet...`, `The shoulder fake, ${h.last} the other way...`]);
+            say('pbp', line, { pri: 6, ttl: 2.2 });
+            if (chance(0.35 * chatty())) say('color', pick(['Footwork in the post. You do not see enough of that anymore.', `${dn} has to stay down there. Guess, and you are done.`, 'That is a big man who has done his work on the block.']), { pri: 5, ttl: 8 });
+            break;
+          }
+          case 'adjust': {
+            // a bench's adjustment (js/core/adjust.js)
+            const who = nick(ev.team), k = ev.k, d = ev.def;
+            let line = null;
+            if (k === 'hack') { const p = pl(ev.on); if (p) line = pick([`The ${who} are going to put ${p.last} on the line on purpose. Make your free throws.`, `Here comes the hack. ${p.last} has to prove it at the stripe now.`]); }
+            else if (k === 'press') line = pick([`The ${who} pick it up full court. They need turnovers.`, `Here comes the press. The ${who} have to speed this game up.`]);
+            else if (k === 'trans') line = pick([`The ${who} are getting back on defense now. Too many easy ones the other way.`, `You can see the ${who} sending bodies back. No more run-outs.`]);
+            else if (k === 'fouls') line = chance(0.5) ? `With the fouls piling up, the ${who} have to be careful now.` : null;
+            else if (k === 'base') line = chance(0.6 * chatty()) ? pick([`The ${who} go back to what they do.`, `And the ${who} are back in their base defense.`]) : null;
+            else if (d === 'boxone') line = pick([`Box-and-one from the ${who}! You do not see that very often.`, `The ${who} are chasing their best scorer everywhere and playing zone behind it.`]);
+            else if (d === 'zone23' || d === 'zone32' || d === 'zone131') line = pick([`The ${who} are in a zone now. Somebody has to knock down a shot against it.`, `Zone from the ${who}. Watch the ball movement here.`, k === 'ato' ? `Out of the timeout the ${who} show zone. They are trying to take away whatever was drawn up.` : `The ${who} switch it up and go zone.`]);
+            else if (d === 'blitz') line = pick([`The ${who} are sending two at the ball on every screen now.`, `Now they are trapping the pick and roll. Somebody has to make the play out of it.`]);
+            else if (d === 'packline') line = pick([`The ${who} are packing the paint. They are daring them to shoot it.`, `Everybody collapses into the lane now. No more layups, that is the message.`]);
+            else if (d) line = pick([`Adjustment from the ${who} bench.`, `The ${who} change up the coverage.`]);
+            if (line) say('color', line, { pri: 5, ttl: 8 });
             break;
           }
           case 'sub': {

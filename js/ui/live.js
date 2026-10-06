@@ -24,11 +24,16 @@
     };
   }
   function playerLook(p, teamIdx) {
-    return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle,
+    return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, drawFoul: p.r.drawFoul,
       // (the court's defense and offense read these: cushion by shooting, help by awareness, roles for bigs)
-      three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch,
-      expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral' };
+      three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, strength: p.r.strength, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, offIQ: Math.round(p.r.shotIQ * 0.55 + p.r.vision * 0.45), defIQ: Math.round(p.r.helpD * 0.7 + p.r.hustle * 0.3),
+      expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral',
+      // (his play style and badges: how he plays it on the floor, js/core/style.js and js/core/badges.js)
+      sty: PBC.Style ? PBC.Style.court(p) : null, bdg: PBC.Badges ? PBC.Badges.court(p) : null };
   }
+  // (the player editor's model preview dresses him the way the game does: js/ui/model3d.js)
+  UI.playerLook = playerLook;
+  UI.teamLookOf = teamLook;
   UI.matchContext = function (S, g) {
     const L = PBC.League.cfg(S);
     const home = S.teams[g.tids[0]], away = S.teams[g.tids[1]];
@@ -38,12 +43,21 @@
       league: L.key, periodLen: L.quarterLen, otLen: L.otLen, threePt: L.threePt,
       home: teamLook(home, true), away: teamLook(away, false), players,
       lineups: [g.t[0].on.map(c => c.id), g.t[1].on.map(c => c.id)], defScheme: [g.t[0].strat.def, g.t[1].strat.def],
+      badgeK: g.bk != null ? g.bk : 1, // (the Badge Impact slider, for what the badges do on the court)
     };
   };
 
   /** Presentation stakes of a scheduled game: playoff round, series score, elimination, Game 7. */
   UI.gameStakes = function (S, sg) {
-    const out = { playoff: !!(sg && sg.playoff), playIn: !!(sg && sg.playIn), level: 0, round: 0, roundName: '', gameNum: 0, len: 0, seriesW: [0, 0], elimination: false, decisive: false, game7: false, clinch: [false, false], label: '', short: '' };
+    const out = { playoff: !!(sg && sg.playoff), playIn: !!(sg && sg.playIn), level: 0, round: 0, roundName: '', gameNum: 0, len: 0, seriesW: [0, 0], elimination: false, decisive: false, game7: false, clinch: [false, false], label: '', short: '', rivalry: null };
+    // a rivalry (js/core/rivals.js): the building knows
+    const rv = sg && PBC.Rivals ? PBC.Rivals.level(S, sg.h, sg.a) : null;
+    if (rv) out.rivalry = rv;
+    if (rv && !sg.playoff) {
+      out.level = 0.12 * rv.lvl;
+      out.label = `${rv.label.toUpperCase()} ${rv.icon}`;
+      out.short = rv.label.toUpperCase();
+    }
     if (!sg || !sg.playoff || !S.playoffs) return out;
     const P = S.playoffs, L = PBC.League.cfg(S);
     if (sg.playIn) {
@@ -143,7 +157,8 @@
       const vs = viewSettings(S);
       root.innerHTML = `<div class="page pregame ${stakes.playoff ? 'po-pregame' : ''}">
         <div class="hero"><div class="hero-in">
-          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game${arenaName(home ? me : opp) ? ' · ' + U.esc(arenaName(home ? me : opp)) : ''}</span><div class="spacer"></div>${series ? `<span class="tag gold">${U.esc(series)}</span>` : ''}</div>
+          <div class="row"><span class="tiny up dim" style="letter-spacing:2px">${PBC.League.dateLabel(S, sg.day, true)} · ${home ? 'Home' : 'Road'} game${arenaName(home ? me : opp) ? ' · ' + U.esc(arenaName(home ? me : opp)) : ''}</span><div class="spacer"></div>${stakes.rivalry ? `<span class="tag bad" title="Rivalry heat ${stakes.rivalry.heat}">${stakes.rivalry.icon} ${U.esc(stakes.rivalry.label)}</span>` : ''}${series ? `<span class="tag gold">${U.esc(series)}</span>` : ''}</div>
+          ${stakes.rivalry ? (() => { const h = PBC.Rivals.h2h(S, me.id, opp.id); const hl = PBC.Rivals.historyLine(S, me.id, opp.id); return `<div class="small muted" style="margin-top:6px">Against the ${U.esc(opp.name)}: ${h[0]}-${h[1]} in the regular season since your league began.${hl ? ' ' + U.esc(hl) : ''}</div>`; })() : ''}
           ${stakes.elimination ? `<div class="po-stakes">${stakes.game7 ? '🔥 GAME 7. WINNER TAKES ALL.' : stakes.clinch[home ? 0 : 1] && stakes.clinch[home ? 1 : 0] ? '🔥 DECIDING GAME' : stakes.clinch[home ? 1 : 0] ? '⚠️ ELIMINATION GAME: lose and your season is over' : '🏆 CLOSEOUT GAME: win and you advance'}</div>` : ''}
           <div class="vs-card" style="margin:14px 0">
             <div class="vs-team">${UI.teamBadge(home ? opp : me, 92)}<div class="nm">${U.esc((home ? opp : me).city)}<br>${U.esc((home ? opp : me).name)}</div><div class="small muted">${st[(home ? opp : me).id].w}-${st[(home ? opp : me).id].l} · ${pg((home ? opp : me).id, 'pts')} ppg</div></div>
@@ -215,7 +230,7 @@
 
   function startLive(root, S, sg) {
     stopLive();
-    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff, sg });
+    const g = PBC.Sim.createGame(S, sg.h, sg.a, { gid: sg.gid, playoff: !!sg.playoff, sg, live: true });
     const uIdx = g.userIdx;
     const teams = [S.teams[sg.h], S.teams[sg.a]];
     const stakes = UI.gameStakes(S, sg);
@@ -263,6 +278,8 @@
         const canvas = root.querySelector('#court');
         LG.view = UI.makeCourtView(canvas, S, g);
         if (!LG.view) throw new Error('no court view');
+        // (a watched game: the court reads the floor on each catch and a man left alone can take the shot, PBC.Sim.liveRead)
+        g.liveReads = true;
         LG.onResize = () => { const st = root.querySelector('#stage'); if (LG && LG.view && LG.view.resize && st) LG.view.resize(st.clientWidth, st.clientHeight); };
         LG.onResize();
       } catch (e) {
@@ -273,7 +290,7 @@
         const cv = root.querySelector('#court'); if (cv) cv.remove();
       }
     }
-    if (!LG.view) { LG.onResize = () => {}; buildTextStage(); }
+    if (!LG.view) { g.liveReads = false; LG.onResize = () => {}; buildTextStage(); }
     window.addEventListener('resize', LG.onResize);
     if (window.ResizeObserver && LG.view) { LG.ro = new ResizeObserver(() => LG && LG.onResize()); LG.ro.observe(root.querySelector('#stage')); }
     // broadcast package: audio, commentary booth, TV graphics
@@ -657,7 +674,7 @@
   function snapStats() {
     const g = LG.g;
     LG.snap = {};
-    for (const T of g.t) for (const c of T.players) LG.snap[c.id] = { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy };
+    for (const T of g.t) for (const c of T.players) LG.snap[c.id] = { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy, conf: c.conf };
     LG.boxSnap = PBC.Sim.box(g);
   }
 
@@ -672,6 +689,8 @@
       if (!LG) return;
       LG.busy = false;
     }
+    // (a shot the court left open for its read and never came to: drawn now, so the game goes on)
+    if (g.pending && g.pending.live) PBC.Sim.resolveLive(g, g.pending.P);
     snapStats();
     // Game Impact Moment?
     const gimCtx = PBC.Sim.gimCheck(g);
@@ -704,6 +723,7 @@
   /** after a possession is fully shown: quarter breaks, replays of big plays, then the next trip */
   function afterPossession(P) {
     if (!LG) return;
+    checkSuggestion();
     const last = P.events[P.events.length - 1];
     const hl = LG.highlight; LG.highlight = null;
     const periodEnd = last && last.type === 'period_end';
@@ -733,13 +753,84 @@
     const secs = LG.S.settings.tvGraphics === false ? 0 : (per === 2 ? 7 : 5) / Math.sqrt(Math.max(1, LG.speed / 2));
     if (LG.bc) LG.bc.showPeriodCard(per, PBC.Sim.box(g));
     live('break', { per });
-    if (secs <= 0.2) { if (LG.bc) LG.bc.hidePeriodCard(); LG.possDone = true; return; }
-    holdFor(secs, () => { if (LG) { if (LG.bc) LG.bc.hidePeriodCard(); LG.possDone = true; } });
+    // halftime: the locker room (js/ui/locker.js) before the third quarter
+    const locker = PBC.Locker && UI.lockerRoom && PBC.Locker.isHalftime(g, per) && LG.S.settings.lockerRoom !== false;
+    const go = () => { if (!LG) return; if (LG.bc) LG.bc.hidePeriodCard(); if (locker) openLocker(); else LG.possDone = true; };
+    if (secs <= 0.2) { go(); return; }
+    holdFor(secs, go);
+  }
+  async function openLocker() {
+    if (!LG || LG.lockerOpen || LG.lockerDone) { if (LG && LG.lockerDone && !LG.lockerOpen) LG.possDone = true; return; }
+    // (the loop waits: no possession, no play-by-play ticker, until you send them back out)
+    LG.lockerOpen = true; LG.busy = true;
+    if (LG.au && LG.au.setPaused) LG.au.setPaused(true);
+    let out = null;
+    try { out = await UI.lockerRoom({ g: LG.g, idx: LG.uIdx, S: LG.S, teams: LG.teams }); } catch (e) { console.error('locker', e); }
+    if (!LG) return;
+    if (LG.au && LG.au.setPaused) LG.au.setPaused(LG.paused);
+    if (out) {
+      const tk = out.talk && PBC.Locker.TALKS[out.talk];
+      if (tk) pushLine({ q: LG.g.period, clock: LG.g.clock, text: `🗣️ Halftime talk: ${tk.label}${out.mine && out.verdict ? '. ' + out.verdict : ' (your staff)'}`, type: 'note', team: LG.uIdx });
+      if (out.applied.length) UI.toast(out.applied.map(U.esc).join('<br>'), 'good', 4200);
+      live('locker', { talk: out.talk, applied: out.applied });
+    }
+    LG.lockerOpen = false; LG.lockerDone = true; LG.busy = false;
+    if (LG.tab === 'coach') renderPanel(true);
+    renderOnCourt();
+    LG.possDone = true;
   }
 
   // events from the court view (fired when they visibly happen)
+  const MOVE_WORD = { cross: 'crossover', btl: 'between the legs', btb: 'behind the back', inout: 'in and out', hesi: 'hesitation', spin: 'spin' };
+  /** the court broke a man down with a dribble combo (js/match/defense.js ankleBreak): the line, the graphic and the
+   *  booth, the crowd (game.ankle on the audio bus), and a replay of it unless the possession has a bigger moment */
+  function ankleBreaker(ev) {
+    const g = LG.g, pc = id => { for (const T of g.t) { const c = T.players.find(x => x.id === id); if (c) return c; } return null; };
+    const h = pc(ev.player), d = pc(ev.defender);
+    if (!h) return;
+    const words = (ev.moves || []).map(m => MOVE_WORD[m] || m);
+    const who = d ? d.last : 'the defender';
+    pushLine({ q: LG.P.period, clock: Math.max(0, LG.clockShow != null ? LG.clockShow : LG.P.clockStart), text: `🔥 ${h.last} ${ev.fall ? 'puts ' + who + ' on the floor' : 'breaks ' + who + ' down'}${words.length ? ': ' + words.join(', ') : ''}`, type: 'note', team: ev.team });
+    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+    gameAudio(ev, LG.P);
+    if (LG.view && LG.view.time) {
+      const score = ev.fall ? 3.2 : 2.4;
+      if (!LG.highlight || score > LG.highlight.score) LG.highlight = { t: LG.view.time, score, label: ev.fall || ev.k >= 0.5 ? 'ANKLE BREAKER' : 'CROSSED UP', shot: null, focus: { x: ev.x, y: ev.y }, team: ev.team, before: 2.4, after: 1.3, speed: 0.4 };
+    }
+    live('ankle', { fall: !!ev.fall, k: ev.k });
+  }
+
+  /** the court worked a post move before a shot (js/match/choreo.js runPost's 'post' event; the user: "make the post moves
+   *  more visible"): a line as it starts, and the booth's call */
+  const POST_WORD = { dropStep: 'the drop step', upUnder: 'the up and under', spin: 'the spin', fake: 'the shoulder fake' };
+  function postMove(ev) {
+    const g = LG.g, pc = id => { for (const T of g.t) { const c = T.players.find(x => x.id === id); if (c) return c; } return null; };
+    const h = pc(ev.player), d = pc(ev.defender);
+    if (!h) return;
+    const on = d ? ' on ' + d.last : '';
+    const text = ev.move === 'fake' && ev.shake ? `${h.last} shakes${d ? ' ' + d.last : ''}: a fake one way, back the other` : ev.move === 'upUnder' ? `${h.last} pump fakes${on}... and steps through` : ev.move === 'spin' ? `${h.last} spins off${d ? ' ' + d.last : ' his man'}` : `${h.last} with ${POST_WORD[ev.move] || 'the move'}${on}`;
+    pushLine({ q: LG.P.period, clock: Math.max(0, LG.clockShow != null ? LG.clockShow : LG.P.clockStart), text, type: 'note', team: ev.team });
+    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+    gameAudio(ev, LG.P);
+  }
+
+  /** a player went down to the floor off a knock (js/match/choreo.js goDown's 'floor' event: a shooter on a heavily contested
+   *  finish or jumper, the help a contact drive went through): the line and the booth's call */
+  function wentDown(ev) {
+    const g = LG.g, pc = id => { for (const T of g.t) { const c = T.players.find(x => x.id === id); if (c) return c; } return null; };
+    const h = pc(ev.player), by = pc(ev.by);
+    if (!h) return;
+    const text = ev.charge ? `${h.last} is run over${by ? ' by ' + by.last : ''} and goes down` : ev.fouled ? `${h.last} goes down hard on the foul${by ? ' by ' + by.last : ''}` : `${h.last} goes down hard on the ${ev.shot === 'jumper' || ev.shot === 'pullup' || ev.shot === 'stepback' || ev.shot === 'catch_shoot' ? 'jumper' : 'finish'}${by ? ', ' + by.last + ' into him' : ''}`;
+    pushLine({ q: LG.P.period, clock: Math.max(0, LG.clockShow != null ? LG.clockShow : LG.P.clockStart), text, type: 'note', team: ev.team });
+    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+    gameAudio(ev, LG.P);
+  }
+
   function onViewEvent(ev) {
     if (!LG) return;
+    if (ev.type === 'ankle') { ankleBreaker(ev); return; }
+    if (ev.type === 'post') { postMove(ev); return; }
+    if (ev.type === 'floor') { wentDown(ev); return; }
     if (ev.type === 'score') {
       LG.dispScore[ev.team] += ev.pts; flashScore(ev.team);
       noteHighlight(ev.shotEvent || {}, true);
@@ -752,7 +843,7 @@
     if (ev.type === 'turnover' && ev.stealer && LG.P && LG.P.events.some(e => e.type === 'shot' && e.made && (e.kind === 'dunk' || e.kind === 'layup'))) { /* steal & score handled on score */ }
     if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
     gameAudio(ev, LG.P);
-    if (ev.type === 'shot' && ev.pending) resolveGimShot(ev);
+    if (ev.type === 'shot' && ev.pending && ev.gim) resolveGimShot(ev);
   }
 
   // ---------------------------------------------------------------------------
@@ -816,7 +907,45 @@
     if (ev.text) pushLine({ q: LG.P.period, clock: Math.max(0, LG.P.clockStart - ev.t), text: ev.text, type: ev.type, team: ev.team, made: ev.made });
     if (!LG.view && LG.textStage) textVisual(ev);
     if (ev.type === 'sub' || ev.type === 'timeout') renderOnCourt();
+    if (ev.type === 'adjust') adjustSeen(ev);
     void g;
+  }
+
+  // ---------------------------------------------------------------------------
+  // The benches' adjustments (js/core/adjust.js): the other bench's as they happen, your assistant's suggestions
+  // ---------------------------------------------------------------------------
+  function adjustSeen(ev) {
+    UI.toast(U.esc(String(ev.text || '').replace(/^🧠 /, '')), ev.team === LG.uIdx ? 'good' : 'info', 4200);
+    if (LG.tab === 'coach') renderPanel(true);
+  }
+  function suggestText(s) {
+    const why = s.why ? s.why.charAt(0).toUpperCase() + s.why.slice(1) + '. ' : '';
+    if (s.crash) return why + (s.crash === 'getback' ? 'Send everyone back on defense?' : 'Stop crashing the offensive glass?');
+    const lab = C.DEFENSES[s.def] ? C.DEFENSES[s.def].label : s.def;
+    if (s.k === 'base') return `${why}Go back to ${lab}?`;
+    if (s.k === 'press') return `${why}Press them full court?`;
+    return `${why}Try ${lab}${s.def === 'boxone' && s.star ? ' on ' + s.star : ''}?`;
+  }
+  UI.suggestText = suggestText;
+  /** a new suggestion from your bench: a toast once, and the Coach tab shows it */
+  function checkSuggestion() {
+    const s = PBC.Adjust ? PBC.Adjust.suggestion(LG.g) : null;
+    if (!s || LG.sugSeen === s.id) return;
+    LG.sugSeen = s.id;
+    UI.toast(`💡 Your assistant: ${U.esc(suggestText(s))} <span class="dim">(Coach tab)</span>`, 'info', 5200);
+    if (LG.tab === 'coach') renderPanel(true);
+  }
+  /** take your bench's suggestion (a defense from now on, or the glass) */
+  function applySuggestion(s) {
+    const g = LG.g;
+    if (!s) return;
+    if (s.crash) { PBC.Sim.setStrategy(g, LG.uIdx, { crash: s.crash }); UI.toast(`${C.CRASH[s.crash].label}: coming up`, 'good'); }
+    else {
+      PBC.Sim.callDefense(g, LG.uIdx, s.def, null, Infinity);
+      if (LG.view && LG.view.setDefScheme) LG.view.setDefScheme(LG.uIdx, s.def);
+      UI.toast(`${C.DEFENSES[s.def].label}: coming up`, 'good');
+    }
+    live('adjust', { key: s.crash ? 'crash' : 'def', val: s.crash || s.def, from: 'assistant' });
   }
 
   function syncScore(P) {
@@ -973,7 +1102,7 @@
       gameAudio(ev, tx.P);
       // (no court in text mode: the result goes out with the shot)
       if (ev.type === 'shot' && !ev.pending && LG.at) LG.at.shotResult(ev, { via: 'text', text: true, sc: LG.dispScore });
-      if (ev.type === 'shot' && ev.pending) { tx.waiting = true; resolveGimShot(ev); return; }
+      if (ev.type === 'shot' && ev.pending && !ev.live) { tx.waiting = true; resolveGimShot(ev); return; }
     }
     if (tx.idx >= tx.P.events.length && tx.t >= tx.end) {
       LG.clockShow = tx.P.clockEnd != null ? tx.P.clockEnd : LG.g.clock;
@@ -1079,7 +1208,7 @@
     const st = T.strat;
     const sel = (key, obj) => `<select class="inp" data-cs="${key}">${Object.keys(obj).map(k => `<option value="${k}" ${st[key] === k ? 'selected' : ''}>${obj[k].label}</option>`).join('')}</select>`;
     const row = c => `<div class="cp-row ${LG.subPick === c.id ? 'pick' : ''} ${c.out || c.inj ? 'dis' : ''}" data-pc="${c.id}">
-      ${UI.avatar(c.p, 26)}<span class="ellip" style="flex:1">${U.esc(c.last)} <span class="dim tiny">${c.pos}</span></span>
+      ${UI.avatar(c.p, 26)}<span class="ellip" style="flex:1">${U.esc(c.last)}${confTag(c.conf)} <span class="dim tiny">${c.pos}</span></span>
       <span class="tiny ${c.pf >= 4 ? 'bad-t' : 'dim'}">${c.pf}PF</span><span class="tiny">${c.st.pts}p</span>
       <span class="en"><i style="width:${Math.round(c.energy)}%;background:${c.energy > 70 ? 'var(--good)' : c.energy > 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span></div>`;
     const bench = T.players.filter(c => !c.on);
@@ -1088,15 +1217,29 @@
     const callRows = [];
     if (cl && cl.play && PB.get(cl.play.id)) callRows.push(`<div class="lv-call">📋 <b>${U.esc(PB.get(cl.play.id).name)}</b><span class="tiny muted">next ${cl.play.left > 1 ? cl.play.left + ' possessions' : 'possession'}</span><button class="btn ghost sm" data-clear="play">✕</button></div>`);
     for (const fam of ['blob', 'slob']) if (cl && cl.inb[fam] && PB.get(cl.inb[fam])) callRows.push(`<div class="lv-call">↪️ <b>${U.esc(PB.get(cl.inb[fam]).name)}</b><span class="tiny muted">next ${fam === 'blob' ? 'inbound under the basket' : 'sideline inbound'}</span><button class="btn ghost sm" data-clear="${fam}">✕</button></div>`);
+    // (your matchup orders: the huddle's matchups)
+    if (T.orders) {
+      const OPPT = g.t[1 - LG.uIdx], ORDL = { deny: 'Deny', sag: 'Sag off', double: 'Double', force: 'Force weak hand', hack: 'Hack' };
+      for (const id in T.orders) { const o2 = OPPT.players.find(c => c.id === +id); if (o2) callRows.push(`<div class="lv-call">🎯 <b>${ORDL[T.orders[id]]}: ${U.esc(o2.last)}</b><span class="tiny muted">until you change it</span><button class="btn ghost sm" data-clear-ord="${id}">✕</button></div>`); }
+    }
     if (cl && cl.def) callRows.push(`<div class="lv-call">🛡️ <b>${U.esc(C.DEFENSES[cl.def.def].label)}${cl.cov && PB.COVERAGES[cl.cov] ? ' · ' + U.esc(PB.COVERAGES[cl.cov].label) : ''}</b><span class="tiny muted">${cl.def.left > 0 ? cl.def.left + ' more defensive possession' + (cl.def.left === 1 ? '' : 's') : 'back to ' + U.esc(C.DEFENSES[cl.def.prev.def].label) + ' next'}</span><button class="btn ghost sm" data-clear="def">✕</button></div>`);
-    panel.innerHTML = `<div class="lv-coach">
+    const sug = PBC.Adjust ? PBC.Adjust.suggestion(g) : null;
+    const sugHtml = sug ? `<div class="lv-sug"><div class="lv-sug-t">💡 Your assistant</div><div class="small">${U.esc(suggestText(sug))}</div>
+      <div class="row" style="gap:6px;margin-top:7px"><button class="btn sm primary" data-sug="apply">Apply</button><button class="btn sm ghost" data-sug="no">Not now</button></div></div>` : '';
+    const oa = g.t[1 - LG.uIdx].adj;
+    const their = oa ? oa.log.slice(-3).reverse() : [];
+    const theirHtml = their.length ? `<div class="lv-calls" style="margin-top:10px"><span class="small up muted">Their bench</span>${their.map(e => `<div class="lv-call"><span style="flex:1;min-width:0">${U.esc(e.text)}</span><span class="tiny muted" style="white-space:nowrap">${U.periodName(e.q, true)} ${U.clock(e.c, true)}</span></div>`).join('')}</div>` : '';
+    const staffOn = !!(T.adj && T.adj.on && !T.adj.manual);
+    panel.innerHTML = `<div class="lv-coach">${sugHtml}
       <div class="lv-calls"><div class="row" style="justify-content:space-between"><span class="small up muted">Your calls</span><button class="btn sm" data-huddle>📋 Call a play</button></div>
         ${callRows.join('') || '<div class="tiny muted">None: your staff calls each possession. Call a timeout (T) or use the button to call a play or set the defense.</div>'}</div>
       <div class="small up muted">On the floor ${LG.subPick ? '<span class="tag accent">pick who comes out</span>' : ''}</div>${T.on.map(row).join('')}
       <div class="small up muted" style="margin-top:10px">Bench <span class="tiny dim">(tap a bench player, then the player to replace)</span></div>${bench.map(row).join('')}
       ${queued.length ? `<div class="tag warn" style="margin-top:6px">Queued at next dead ball: ${U.esc(queued.join(', '))}</div>` : ''}
       ${tonightHtml()}
-      <label class="chk" style="margin:10px 0"><input type="checkbox" id="auto-subs" ${T.autoSubs ? 'checked' : ''}> Auto substitutions</label>
+      ${theirHtml}
+      <label class="chk" style="margin:10px 0 4px"><input type="checkbox" id="auto-subs" ${T.autoSubs ? 'checked' : ''}> Auto substitutions</label>
+      ${T.adj ? `<label class="chk" style="margin:0 0 10px" title="Your staff changes the defense when something is hurting you (it never touches a defense you called). Off: it only suggests."><input type="checkbox" id="staff-adj" ${staffOn ? 'checked' : ''}> Let my staff adjust the defense</label>` : ''}
       <div class="cp-grid"><label>Offense</label>${sel('off', C.OFFENSES)}<label>Defense</label>${sel('def', C.DEFENSES)}<label>Tempo</label>${sel('tempo', C.TEMPOS)}
         <label>Focus</label>${sel('focus', C.FOCUS)}<label>Glass</label>${sel('crash', C.CRASH)}<label>Pressure</label>${sel('pressure', C.PRESSURE)}</div>
       <p class="tiny muted">Changes take effect on the next possession. Timeouts left: ${T.timeouts}.</p></div>`;
@@ -1109,7 +1252,19 @@
       };
     });
     panel.querySelector('#auto-subs').onchange = e => PBC.Sim.setAutoSubs(g, LG.uIdx, e.target.checked);
+    { const sa = panel.querySelector('#staff-adj'); if (sa) sa.onchange = e => { PBC.Adjust.setStaff(g, LG.uIdx, e.target.checked); LG.S.settings.staffAdjust = e.target.checked; if (UI.markDirty) UI.markDirty(); renderCoach(panel); }; }
+    panel.querySelectorAll('[data-sug]').forEach(b => {
+      b.onclick = () => {
+        const s = PBC.Adjust.suggestion(g);
+        if (b.dataset.sug === 'apply') applySuggestion(s);
+        PBC.Adjust.dismiss(g);
+        renderCoach(panel);
+      };
+    });
     { const hb = panel.querySelector('[data-huddle]'); if (hb) hb.onclick = () => { if (!LG.busy) openHuddle('bench'); }; }
+    panel.querySelectorAll('[data-clear-ord]').forEach(b => {
+      b.onclick = () => { const o = Object.assign({}, T.orders || {}); delete o[b.dataset.clearOrd]; PBC.Sim.setOrders(g, LG.uIdx, o); renderCoach(panel); };
+    });
     panel.querySelectorAll('[data-clear]').forEach(b => {
       b.onclick = () => {
         const k = b.dataset.clear;
@@ -1135,6 +1290,12 @@
     });
   }
 
+  /** the confidence system (the engine's c.conf, -1 to 1): a flame for a player who is heating up, ice for one gone cold */
+  function confTag(v) {
+    if (!(v >= 0.45 || v <= -0.45)) return '';
+    const pct = Math.round(Math.abs(v) * 100);
+    return v > 0 ? ` <span class="conf-tag" title="Confidence ${pct}%: heating up">🔥</span>` : ` <span class="conf-tag" title="Confidence -${pct}%: gone cold">🧊</span>`;
+  }
   function renderOnCourt() {
     if (!LG) return;
     const el = LG.root.querySelector('#oncourt');
@@ -1142,11 +1303,11 @@
     const g = LG.g;
     const html = [LG.uIdx, 1 - LG.uIdx].map(i => {
       const T = g.t[i];
-      const sn = c => (!LG.possDone && LG.snap && LG.snap[c.id]) || { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy };
+      const sn = c => (!LG.possDone && LG.snap && LG.snap[c.id]) || { pts: c.st.pts, reb: c.st.orb + c.st.drb, ast: c.st.ast, pf: c.pf, energy: c.energy, conf: c.conf };
       const onIds = LG.view && LG.view.onCourt ? LG.view.onCourt[i] : null;
       const on = onIds && onIds.length === 5 ? onIds.map(id => T.players.find(c => c.id === id)).filter(Boolean) : T.on;
       return `<div class="oc-team"><span class="oc-ab" style="background:${LG.teams[i].colors.primary};color:${U.textOn(LG.teams[i].colors.primary)}">${LG.teams[i].abbr}</span>${on.map(c => { const x = sn(c); return `
-        <div class="oc-p" title="${U.esc(c.name)}">${UI.avatar(c.p, 30)}<div class="oc-i"><div class="ellip"><b>${U.esc(c.last)}</b></div><div class="tiny dim">${x.pts} pts · ${x.reb} reb · ${x.ast} ast · ${x.pf} PF</div>
+        <div class="oc-p" title="${U.esc(c.name)}">${UI.avatar(c.p, 30)}<div class="oc-i"><div class="ellip"><b>${U.esc(c.last)}</b>${confTag(x.conf)}</div><div class="tiny dim">${x.pts} pts · ${x.reb} reb · ${x.ast} ast · ${x.pf} PF</div>
         <span class="en"><i style="width:${Math.round(x.energy)}%;background:${x.energy > 70 ? 'var(--good)' : x.energy > 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span></div></div>`; }).join('')}</div>`;
     }).join('');
     if (el._html !== html) { el._html = html; el.innerHTML = html; }
@@ -1189,6 +1350,8 @@
   function fastForward(stop) {
     const g = LG.g;
     let guard = 0;
+    // (the possession on the court, still open for its read: drawn first)
+    if (g.pending) PBC.Sim.resolvePending(g, g.pending.P, { quality: 'good' });
     while (!g.final && guard++ < 1000) {
       if (stop && stop(g)) break;
       const P = PBC.Sim.nextPossession(g);
@@ -1212,6 +1375,7 @@
       stage.insertAdjacentHTML('afterbegin', '<canvas id="court"></canvas>');
       try {
         LG.view = UI.makeCourtView(stage.querySelector('#court'), LG.S, LG.g);
+        LG.g.liveReads = !!LG.view;
         if (LG.view) {
           LG.view.period = LG.g.period;
           if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: LG.stakes.playoff, level: LG.stakes.level, effort: LG.g.intensity, label: LG.stakes.short, finals: LG.stakes.playoff && LG.stakes.roundName === 'Finals' });
@@ -1285,6 +1449,8 @@
     const pl = pog ? box.teams.flatMap(t => t.players).find(x => x.pid === pog.id) : null;
     const overlay = LG.root.querySelector('#overlay');
     const stakes = LG.stakes;
+    // the press is waiting after a big night (the Desk)
+    const press = S.desk ? S.desk.items.find(i => !i.done && i.t === 'press_post' && i.data && i.data.gid === sg.gid) : null;
     let seriesLine = '';
     if (stakes.playoff && S.playoffs && sg.series) {
       const s = S.playoffs.series.find(x => x.id === sg.series);
@@ -1304,9 +1470,11 @@
         ${seriesLine ? `<div class="fc-series">${U.esc(seriesLine)}</div>` : ''}
         ${pog ? `<div class="fc-pog">${UI.avatar(pog, 64)}<div><div class="tiny up gold-t">Player of the game</div><div class="bold">${U.esc(PBC.Player.name(pog))}</div><div class="small muted">${pl.pts} pts · ${pl.orb + pl.drb} reb · ${pl.ast} ast · ${pl.fgm}-${pl.fga} FG</div></div></div>` : ''}
         ${box.gims && box.gims.length ? `<div class="small">🎯 Game Impact Moments: ${box.gims.filter(x => x.made).length}/${box.gims.length} made</div>` : ''}
-        <div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary lg" data-fin="home">Continue ▸</button><button class="btn lg" data-fin="box">Box score</button></div></div>`;
+        <div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary lg" data-fin="home">Continue ▸</button><button class="btn lg" data-fin="box">Box score</button>${press ? '<button class="btn lg" data-fin="desk">🎙️ Face the press</button>' : ''}</div></div>`;
       overlay.querySelector('[data-fin="home"]').onclick = () => closeGame();
       overlay.querySelector('[data-fin="box"]').onclick = () => { closeGame(); UI.openBox(sg.gid); };
+      const pb = overlay.querySelector('[data-fin="desk"]');
+      if (pb) pb.onclick = () => { closeGame(); if (UI.current().key === 'home') UI.go('desk'); };
     }, LG.view ? 2600 : 200);
   }
 

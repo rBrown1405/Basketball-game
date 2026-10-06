@@ -15,7 +15,7 @@
     { key: 'shooting', label: 'Shooting', icon: '🎯', desc: 'Shot selection and how often shots go in.' },
     { key: 'defense', label: 'Ball Security & Defense', icon: '🛡️', desc: 'Turnovers, steals, blocks, contests and fouls.' },
     { key: 'rebounding', label: 'Rebounding', icon: '🙌', desc: 'Battle on the glass.' },
-    { key: 'players', label: 'Players', icon: '🏃', desc: 'Fatigue, injuries, stars and clutch play.' },
+    { key: 'players', label: 'Players', icon: '🏃', desc: 'Fatigue, injuries, stars, clutch play and badges.' },
     { key: 'game', label: 'Game', icon: '🏟️', desc: 'Home court, upsets and how hard teams go in the playoffs.' },
     { key: 'ai', label: 'Live Game AI', icon: '🧠', desc: 'How players read the floor in the live game you watch: positioning, spacing, help and shot decisions. (The results are set by the groups above.)' },
     { key: 'user', label: 'User Team Difficulty', icon: '🎮', desc: 'Handicaps that only apply to your team (50 = fair).' },
@@ -75,6 +75,8 @@
       desc: 'How much the best scorers and go-to players dominate the shots.' },
     { key: 'clutch', group: 'players', label: 'Clutch Factor', map: ['mult0', 0.3, 3], fmt: 'x0', lo: 'Off', hi: 'Legends',
       desc: 'How much the Clutch rating matters in close games late.' },
+    { key: 'badges', group: 'players', label: 'Badge Impact', map: ['lin0', 0, 2], fmt: 'x0', lo: 'Off', hi: 'Legendary',
+      desc: 'How much player badges count (Deadeye, Limitless Range, Posterizer, Clamps and the rest): the shots they make, the whistles they draw, the steals, the rebounds, the confidence, and what they do on the live court. 0 turns them off, 50 is as tuned, 100 is twice as much. The league keeps its averages either way: the badges share them out among the players who have them.' },
     // Game
     { key: 'homeCourt', group: 'game', label: 'Home Court Advantage', map: ['lin0', 0, 3], fmt: 'x0', lo: 'Neutral', hi: 'Fortress',
       desc: 'Shooting, whistle and free throw edge for the home team.' },
@@ -97,6 +99,16 @@
       desc: 'How fast players run, cut, turn and react in the live game you watch. At 50 top speeds and first steps match NBA player tracking.' },
     { key: 'helpD', group: 'ai', label: 'Help Defense', map: ['lin', 0.5, 1.5], fmt: 'level', lo: 'Stay home', hi: 'Swarm',
       desc: 'How far help defenders sink toward the ball and how hard they collapse on drives. More help protects the rim but leaves shooters open on the kick-out.' },
+    { key: 'offEdge', group: 'ai', label: 'Offense Edge', map: ['lin0', 0, 2], fmt: 'level', lo: 'Even', hi: 'A step ahead',
+      desc: 'How much quicker the side with the ball moves than the side without it, and how late the defense reacts: a step of space on cuts, drives and closeouts. At 0 the two sides are even; at 50 the offense runs about 6% quicker and the defense reads it 60 ms late; at 100 twice that.' },
+    { key: 'contactDrives', group: 'ai', label: 'Contact Drives', map: ['lin0', 0, 2], fmt: 'level', lo: 'Avoid contact', hi: 'Seek contact',
+      desc: 'How often a driver with a help defender in the lane goes at his chest to draw the foul instead of around him. At 0 only a drive the whistle actually catches has the contact; at 50 contact seekers do it most of the time and the rest now and then; at 100 twice as often. The whistle itself is set by Shooting Fouls.' },
+    { key: 'postMoves', group: 'ai', label: 'Post Moves', map: ['lin0', 0, 2], fmt: 'level', lo: 'Straight up', hi: 'Work the block',
+      desc: 'How often a post-up works a move before the shot (the drop step, the up and under, the spin, the shoulder fake) instead of going straight up, and how often the crafty ones shake twice. At 0 none; at 50 nearly every post-up; at 100 every one, with the double fake twice as often. How often teams post up at all comes from their players\' tendencies.' },
+    { key: 'hardFalls', group: 'ai', label: 'Hard Falls', map: ['lin0', 0, 2], fmt: 'level', lo: 'Stay up', hi: 'Hit the deck',
+      desc: 'How often a shooter knocked on a heavily contested layup or jumper, or a defender run through on a contact drive, goes down to the floor. At 0 nobody falls; at 50 a few a game, more on fouls and at the rim; at 100 twice as often. Nothing about the shot or the call changes.' },
+    { key: 'attackBasket', group: 'ai', label: 'Attack Basket', map: ['lin0', 0, 2], fmt: 'level', lo: 'Settle', hi: 'Rim runners',
+      desc: 'How eagerly the man with the ball attacks the basket when the defense gives him a lane: the drive at the gap past his man or into a wide-open floor, a fast break pushed on to the rim instead of to the top of the key, the open look taken now instead of at its time. At 0 none of that happens and he waits for the play; at 50 as tuned; at 100 a lane half as wide counts as open and the drives come sooner, deeper and more often. Who shoots and whether it goes in are still the engine\'s.' },
     // User team
     { key: 'userShooting', group: 'user', label: 'Your Team: Shooting', map: ['add', -0.35, 0.35], fmt: 'fg', base: 0.47,
       desc: 'Make percentage for your team only. Higher makes the game easier.' },
@@ -125,6 +137,10 @@
       desc: 'How often computer teams trade with each other (in season and during the offseason).' },
     { key: 'tradeDifficulty', group: 'league', label: 'Trade Difficulty', map: ['add', -0.12, 0.15], fmt: 'margin', lo: 'Pushovers', hi: 'Sharks',
       desc: 'How much extra value AI teams demand in trades with you (on top of the career difficulty).' },
+    { key: 'desk', group: 'league', label: 'Front Office Desk', map: ['lin0', 0, 2], fmt: 'x0', lo: 'Off', hi: 'Busy',
+      desc: 'How often situations land on your desk: players, the owner, the press, your staff and other front offices. Off turns the Desk off.' },
+    { key: 'chemistry', group: 'league', label: 'Chemistry on the Court', map: ['lin0', 0, 2], fmt: 'x0', lo: 'Off', hi: 'Strong',
+      desc: 'How much team chemistry and a player\'s morale move his confidence in games (centred on the league average). Off plays games as before the Desk.' },
   ];
   const BY_KEY = {};
   DEFS.forEach(d => { if (d.def == null) d.def = 50; BY_KEY[d.key] = d; });
@@ -255,7 +271,7 @@
     pace: 1, trans: 1, three: 1, dunk: 1, l3: 0, lMid: 0, lIn: 0, ft: 0, sfoul: 1,
     to: 1, stl: 1, blk: 1, contest: 0, nsfoul: 1, oreb: 0,
     fatigue: 1, inj: 1, injSev: 1, usage: 1, clutch: 1, home: 1, upset: 1, po: 1,
-    uShoot: 0, uDef: 0, uTo: 1, quick: 1,
+    uShoot: 0, uDef: 0, uTo: 1, quick: 1, badge: 1,
   };
 
   /** Multipliers/offsets for the game engine (cached by Sim.createGame on g.sl). All identity at the defaults. */
@@ -269,7 +285,7 @@
       fatigue: m('fatigue'), inj: m('injuries'), injSev: m('injurySeverity'), usage: m('starUsage'), clutch: m('clutch'),
       home: m('homeCourt'), upset: m('upsets'), po: m('playoffIntensity'),
       uShoot: m('userShooting'), uDef: m('userDefense'), uTo: m('userBallSecurity'),
-      quick: m('shootOpen'),
+      quick: m('shootOpen'), badge: m('badges'),
     };
   }
 
@@ -289,6 +305,7 @@
       tradeRequests: s.tradeRequests !== false, tradeRequestFreq: m('tradeRequestFreq'),
       contractDemands: m('contractDemands'), loyalty: m('loyalty'), aiTrades: m('aiTrades'),
       tradeDifficulty: m('tradeDifficulty'), injuries: m('injuries'), injurySeverity: m('injurySeverity'),
+      desk: m('desk'), chemistry: m('chemistry'),
     };
   }
 

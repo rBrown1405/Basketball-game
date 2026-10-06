@@ -601,6 +601,20 @@
           R.calls.defMade++;
         }
         dc = UT.defCall ? { def: UT.defCall.def, cov: UT.defCall.cov, left: UT.defCall.left, prev: UT.defCall.prev } : null;
+        // the matchup orders (js/core/adjust.js, the huddle): deny their best, sag off their worst shooter, double their
+        // best post scorer, and the best defender on their best; cleared after a while
+        if (guard === 40 && PBC.Sim.setOrders) {
+          const OT = g.t[1 - u], on = OT.on;
+          const best = on.reduce((a, c) => (!a || c.p.ovr > a.p.ovr ? c : a), null);
+          const poor = on.filter((c) => c !== best).reduce((a, c) => (!a || c.r.three < a.r.three ? c : a), null);
+          const post = on.filter((c) => c !== best && c !== poor).reduce((a, c) => (!a || c.r.post > a.r.post ? c : a), null);
+          const o = {}; if (best) o[best.id] = 'deny'; if (poor) o[poor.id] = 'sag'; if (post) o[post.id] = 'double';
+          PBC.Sim.setOrders(g, u, o);
+          const stopper = UT.on.reduce((a, c) => (!a || c.r.perD > a.r.perD ? c : a), null);
+          if (best && stopper) PBC.Sim.setMatchups(g, u, { [best.id]: stopper.id });
+          R.calls.orders = (R.calls.orders || 0) + 1;
+        }
+        if (guard === 160 && PBC.Sim.setOrders) { PBC.Sim.setOrders(g, u, null); PBC.Sim.setMatchups(g, u, null); }
       }
       const P = PBC.Sim.nextPossession(g);
       if (!P) break;
@@ -646,6 +660,13 @@
     R.score = v.score ? v.score.slice() : null;
     R.engineScore = g.score.slice();
     R.final = !!g.final;
+    // dribble combos (the dribble work, js/match/choreo.js comboPlan, defense.js defBite / ankleBreak): the chains, their
+    // moves, what the man on the ball bought, the counters, the men broken down, the falls, the bursts out of a move he bought
+    // (and the size-up's body: the rock steps with its moves, the retreats, the size-ups in place a handler probes with)
+    { const dr = v.director; R.combo = { chains: dr.chains || 0, moves: dr.chainMoves || 0, bites: dr.bites || 0, counters: dr.counters || 0, breaks: dr.breaks || 0, falls: dr.falls || 0, breakdowns: dr.breakdowns || 0, rocks: dr.rocks || 0, retreats: dr.retreats || 0, sizeups: dr.probeSizeups || 0 }; }
+    // the fast break's rim cuts (a wing ahead of the defense cutting to the rim) and the post fight (the back-down's shoves, the
+    // fight for position before the entry, the post moves worked)
+    { const dr = v.director; R.fight = { rimCuts: dr.rimCuts || 0, postShoves: dr.postShoves || 0, postFights: dr.postFights || 0, postMoves: dr.postLog ? dr.postLog.n || 0 : 0, postContacts: dr.postContacts || 0, contactDrives: dr.contactDrives || 0, contactHits: dr.contactHits || 0, floorFalls: dr.floorFalls || 0, helpFalls: dr.helpFalls || 0, readShots: dr.readShots || 0 }; }
     // play tracking (Phase 5, js/core/playstats.js): the game's tallies, to check them against the game itself
     const PSt = window.PBC.PlayStats;
     if (g.pstats && PSt) {

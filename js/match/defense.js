@@ -32,6 +32,12 @@
   const TMP = new Float64Array(3);
   /** a rating of a player from the Live view's player info (ratings 25-99), or `d` */
   P.rating = function (id, k, d) { const l = this.v.look(id); const x = l ? +l[k] : NaN; return isFinite(x) ? x : d; };
+  /** his play style's court multiplier k (js/core/style.js Style.court: attack, combo, relocate, cutK, roll, postMove, clamp...),
+   *  1 without one (0 for the additive flair and deep) */
+  P.styK = function (id, k) { const l = this.v.look(id), s = l && l.sty; const x = s ? +s[k] : NaN; return isFinite(x) ? x : (k === 'flair' || k === 'deep' || k === 'heat' ? 0 : 1); };
+  /** his tier of a badge on the court (js/core/badges.js Badges.court: deepRange, catchShoot, quickStep, ankles, clamps,
+   *  posterizer, postPower, heatCheck), times the Badge Impact slider; 0 without it */
+  P.bdgT = function (id, k) { const l = this.v.look(id), b = l && l.bdg; if (!b || !b[k]) return 0; const bk = this.v.ctx && this.v.ctx.badgeK != null ? +this.v.ctx.badgeK : 1; return b[k] * (isFinite(bk) ? bk : 1); };
 
   // ------------------------------------------------------------ matchups
   /** the engine's pairing (P.matchups: defender id -> his man's id) where both are on the floor, lineup order for the
@@ -120,6 +126,13 @@
     return cc;
   };
 
+  /** the head coach's order on an offensive player this possession (the engine's P.dOrders: deny, sag, double, force,
+   *  hack), or null */
+  P.order = function (id) {
+    const o = this.poss && this.poss.dOrders;
+    return o ? o[id] || o[String(id)] || null : null;
+  };
+
   // ------------------------------------------------------------ on-ball cushion
   /**
    * How far off the ball handler the defender plays (ft), squared up between him and the rim:
@@ -145,6 +158,12 @@
     const sc = this.scheme;
     gap *= sc === 'pressure' ? 0.85 : sc === 'packline' && dl < 24 ? 1.2 : sc === 'nothree' && dl > 21 ? 0.85 : 1;
     gap *= this.sliderK('defPressure', 1.25, 0.8) * (1 - this.intensity() * 0.1);
+    // (the coach's order on him: sag off and dare him to shoot, or get up into him)
+    const od = this.order(m.id);
+    if (od === 'sag' && dl > 12) gap *= 1.45; else if (od === 'deny') gap *= 0.85;
+    // (a Limitless Range shooter is picked up out where he can shoot it; a lockdown defender's style and Clamps play up on the ball)
+    if (dl > 25 && this.bdgT(m.id, 'deepRange') > 0) gap = Math.min(gap, M.Tune.badges.deepPickupFt);
+    gap *= Math.max(0.75, 1 - 0.5 * (this.styK(a.id, 'clamp') - 1) - M.Tune.badges.clampsGapK * this.bdgT(a.id, 'clamps'));
     return U.clamp(gap, 2, 16);
   };
 
@@ -200,6 +219,166 @@
     return dp;
   };
 
+  // ------------------------------------------------------------ the man on the ball against a shifty handler
+  // (a gameplay pass: he stood on the handler's own spot and speed every frame, so no probe, crossover or hesitation ever
+  // made an inch of space, and the offense never had any)
+  /** how good the handler is against him: 0 (a lockdown defender on a big who can't dribble) to 1 (the other way) */
+  P.shiftyK = function (h, d) {
+    const hd = this.rating(h.id, 'handle', 55), ag = this.rating(h.id, 'agility', 65);
+    // (a lockdown defender's style is worth more on the ball: Style.court clamp)
+    const pd = this.rating(d.id, 'perD', 55) + (this.styK(d.id, 'clamp') - 1) * 40, da = this.rating(d.id, 'agility', 65), iq = this.rating(d.id, 'defIQ', 55);
+    // (badges: a Quick First Step and an Ankle Breaker against Clamps)
+    const TB = M.Tune.badges, bd = TB.shiftyQuick * this.bdgT(h.id, 'quickStep') + TB.shiftyAnkles * this.bdgT(h.id, 'ankles') - TB.shiftyClamps * this.bdgT(d.id, 'clamps');
+    return U.clamp(0.5 + ((hd * 0.7 + ag * 0.3) - (pd * 0.6 + da * 0.25 + iq * 0.15)) / 50 + bd, 0, 1);
+  };
+  /** where the man on the ball sees the handler: followed a reaction behind (Tune.shifty.lagS, by shiftyK), and pulled the
+   *  way a move he bought sold him (defBite) while it lasts. Kept on the defender (a._pc) */
+  P._perceive = function (a, m, T, dt) {
+    const TS = M.Tune.shifty;
+    let pc = a._pc;
+    if (!pc || pc.man !== m || !(dt > 0) || T - pc.t > 0.25) pc = a._pc = { man: m, x: m.x, y: m.y, vx: m.vx, vy: m.vy, t: T, antK: 1, bite: null };
+    pc.t = T;
+    const k = this.shiftyK(m, a);
+    // (the offense's edge, Tune.edge.defLagS: a beat later in reading him)
+    let lag = U.lerp(TS.lagS[0], TS.lagS[1], k) / this.sliderK('defIQ', 0.8, 1.2) + this.edgeLag();
+    // (broken down by a move, Director.ankleBreak: gathering himself, he reads the handler that much later)
+    const bk = a._broken && T < a._broken.until ? a._broken : null;
+    if (bk) lag *= M.Tune.combo.brokenLagK;
+    const e = 1 - Math.exp(-dt / Math.max(0.01, lag));
+    pc.vx += (m.vx - pc.vx) * e; pc.vy += (m.vy - pc.vy) * e;
+    pc.x += (m.x - pc.x) * e; pc.y += (m.y - pc.y) * e;
+    pc.antK = 1;
+    let x = pc.x, y = pc.y;
+    const bt = pc.bite;
+    if (bt && T < bt.until) {
+      // (sold: pulled the fake's way, easing in over its first fifth and back out by its end; his read of the handler's pace
+      // gone meanwhile, a hesitation's above all: he stands up)
+      const u = (T - bt.t0) / (bt.until - bt.t0), w = U.smooth(Math.min(1, u / 0.2)) * (1 - U.smooth((u - 0.45) / 0.55));
+      x += bt.dx * w; y += bt.dy * w; pc.antK = 1 - bt.antCut * w;
+    } else if (bt) pc.bite = null;
+    if (bk) pc.antK = 0;
+    return { x, y };
+  };
+  /** how far the moves have pulled the man on the ball's weight right now (ft; defBite's pc.wob, settled back since) */
+  P.wobble = function (d) {
+    const pc = d && d._pc, w = pc && pc.wob;
+    if (!w) return 0;
+    const TC = M.Tune.combo;
+    const bal = U.clamp(((this.rating(d.id, 'agility', 65) * 0.5 + this.rating(d.id, 'defIQ', 55) * 0.5) - 45) / 40, 0, 1);
+    return w.v * Math.exp(-(this.T - w.t) / U.lerp(TC.leanTauS[0], TC.leanTauS[1], bal));
+  };
+  /** how far gone the man on the ball's weight has to be for a move to break him (ft): a lockdown defender needs more than
+   *  a slow one (shiftyK), and the look the engine gave the handler sets it (open: sooner; tight: his man reads it) */
+  P.breakFt = function (h, d) {
+    const TC = M.Tune.combo, k = this.shiftyK(h, d);
+    const cl = h._comboLook && this.T < h._comboLook.until ? h._comboLook : null;
+    return U.lerp(TC.breakFt[1], TC.breakFt[0], k) * (cl ? cl.k : 1) * this.sliderK('defIQ', 0.85, 1.15) * Math.max(0.6, 1 - M.Tune.badges.ankleBreakK * this.bdgT(h.id, 'ankles'));
+  };
+  /** a dribble move is made (Ball, as its bounce starts): the man on the ball buys it as much as the handler is better than
+   *  him (shiftyK; Tune.shifty): a crossover, between the legs or behind the back sells the side the ball is leaving, an in
+   *  and out the other side, a spin the way he was going, a hesitation stands him up (he gives a step and stops reading the
+   *  handler's pace). Research: space comes from a change of pace or direction the defender has to react to (coaching:
+   *  hesitation, in and out, crossover after two or three hard dribbles) */
+  P.defBite = function (h, mv, hand, toHand) {
+    if (!this.active || this.phase !== 'front' || !h || h.team !== this.off) return;
+    const d = this.guardOf(h.id);
+    if (!d || d.isBusy() || Math.hypot(d.x - h.x, d.y - h.y) > M.Tune.shifty.nearFt) return;
+    const TS = M.Tune.shifty, TC = M.Tune.combo, k = this.shiftyK(h, d), T = this.T;
+    // (a heady defender reads it now and then anyway; a look the engine gave the handler as tight, his man reads most of it)
+    const cl = h._comboLook && T < h._comboLook.until ? h._comboLook : null;
+    let readP = TS.readP * (1 - k);
+    if (cl && cl.tight) readP = Math.max(readP, TC.tightReadP);
+    if (Math.random() < readP) { const pc0 = d._pc; if (pc0 && pc0.man === h) pc0.lastBite = { t0: T, mv, read: true }; return; }
+    const c = Math.cos(h.facing), s = Math.sin(h.facing);
+    // the handler's right (x toward his right hand side), his forward
+    const rx = s, ry = -c;
+    let dx = 0, dy = 0, ft = U.lerp(TS.biteFt[0], TS.biteFt[1], k), dur = U.lerp(TS.biteS[0], TS.biteS[1], k), antCut = 0.6;
+    const sideOf = (hh) => (hh ? 1 : -1);
+    if (mv === 'cross' || mv === 'btl' || mv === 'btb') { const sd = sideOf(hand); dx = rx * sd * ft; dy = ry * sd * ft; }
+    else if (mv === 'inout') { const sd = -sideOf(hand); dx = rx * sd * ft; dy = ry * sd * ft; }
+    else if (mv === 'spin') { const sd = sideOf(hand); dx = rx * sd * ft * 0.8; dy = ry * sd * ft * 0.8; dur *= 1.2; }
+    else if (mv === 'hesi') { const f = U.lerp(TS.hesiFt[0], TS.hesiFt[1], k); dx = -c * f; dy = -s * f; dur = U.lerp(TS.hesiS[0], TS.hesiS[1], k); antCut = 0.9; }
+    else return;
+    const pc = d._pc || (d._pc = { man: h, x: h.x, y: h.y, vx: h.vx, vy: h.vy, t: T, antK: 1, bite: null });
+    // the combo: his weight is where the moves before this one pulled it (pc.wob, settled back since); a move back against
+    // the way it went, a counter, sells him more (he was going the other way) and is what breaks him
+    const wob0 = this.wobble(d), lb = pc.lastBite && !pc.lastBite.read ? pc.lastBite : null;
+    const brk = this.breakFt(h, d);
+    const counter = !!lb && T - lb.t0 < 1.5 && wob0 > 0.3 && lb.dx * dx + lb.dy * dy < 0;
+    if (counter) { const cK = U.lerp(TC.counterK[0], TC.counterK[1], U.clamp(wob0 / brk, 0, 1)); dx *= cK; dy *= cK; antCut = Math.min(1, antCut + 0.2); }
+    pc.bite = { t0: T, until: T + dur, dx, dy, antCut, mv, counter };
+    pc.lastBite = { t0: T, mv, dx, dy, counter };
+    this.bites = (this.bites || 0) + 1;
+    if (counter) this.counters = (this.counters || 0) + 1;
+    // (a big bite leaves him off balance: his weight goes the way it sold him, a stumble step to catch it when it is big)
+    const bl = Math.hypot(dx, dy), knock = U.lerp(TS.biteKnock[0], TS.biteKnock[1], k * Math.min(1, bl / TS.biteFt[1])) * (counter ? TC.counterKnock : 1);
+    // (his weight goes only when the move is made at him: nothing from a crossover at the arc with his man 7 ft off, all of
+    // it squared up inside 3 ft, Tune.combo.wobFt)
+    const dd = Math.hypot(d.x - h.x, d.y - h.y), prox = U.clamp((TC.wobFt[1] - dd) / (TC.wobFt[1] - TC.wobFt[0]), 0, 1);
+    const wob = wob0 + bl * TC.leanK * prox;
+    pc.wob = { v: wob, t: T };
+    if (wob > brk) { this.ankleBreak(h, d, U.clamp((wob - brk) / (0.6 * brk), 0, 1) * 0.8 + 0.2, dx, dy, counter); return; }
+    if (bl > 0.3 && knock > 3) d.impact(dx / bl, dy / bl, knock);
+  };
+  /** the man on the ball is broken (defBite: his weight gone past breakFt): a stumble step the way it went, a fall now and
+   *  then (the fall clip), and he reacts late and slow while he gathers himself (_perceive, Actor.slow); the handler reads
+   *  it (readOpen: beaten) and goes. The live view hears of it (an 'ankle' event: the line, the graphic, the booth, the
+   *  crowd, a replay) */
+  P.ankleBreak = function (h, d, sev, dx, dy, counter) {
+    const TC = M.Tune.combo, T = this.T;
+    if (d._broken && T < d._broken.until) return;
+    const bl = Math.hypot(dx, dy) || 1, nx = dx / bl, ny = dy / bl;
+    const k = this.shiftyK(h, d);
+    const fall = !d.isBusy() && !((d.jumpZ || 0) > 0.05) && Math.random() < U.lerp(TC.fallP[0], TC.fallP[1], sev * k) * (1 + M.Tune.badges.ankleFallK * this.bdgT(h.id, 'ankles'));
+    const dur = U.lerp(TC.brokenS[0], TC.brokenS[1], sev) + (fall ? TC.fallBusyS : 0);
+    d._broken = { until: T + dur, k: sev, t0: T, fall };
+    if (d.slow) d.slow(dur, TC.brokenVK);
+    if (fall) { d.stopClip(0); d.play('fall', { facing: Math.atan2(-ny, -nx), mirror: false }); }
+    else d.impact(nx, ny, U.lerp(TC.knock[0], TC.knock[1], sev));
+    if (d._pc) d._pc.wob = null;
+    this.breaks = (this.breaks || 0) + 1;
+    if (fall) this.falls = (this.falls || 0) + 1;
+    // (the moves that did it: the chain's so far and the one that broke him, defBite's last)
+    const plan = h._combo, cur = d._pc && d._pc.lastBite && !d._pc.lastBite.read ? d._pc.lastBite.mv : null;
+    const moves = (plan && plan.log ? plan.log.map((m) => m.mv) : []).concat(cur ? [cur] : []);
+    if (plan) plan.broke = true;
+    if (this.dbgOn && this.dbgOn()) { const lh = this.v.look(h.id), ld = this.v.look(d.id); this.dbgRead('ANKLE BREAKER ' + (lh ? lh.last || lh.name : '') + ' on ' + (ld ? ld.last || ld.name : '') + (fall ? ' (down!)' : '') + ': ' + (moves.join(', ') || 'one move') + (counter ? ', the counter' : ''), '#ff8787'); }
+    if (this.emitExtra) this.emitExtra({ type: 'ankle', player: h.id, defender: d.id, team: h.team, k: sev, fall, counter, moves, x: h.x, y: h.y });
+  };
+
+  /** how hard an off-ball defender one pass away denies his man (0 sagging off, 1 all over the lane): the scheme (Tune.deny.scheme)
+   *  times his defense (perimeter defense, head, quickness against Tune.deny.skillFrom/To), and more on a shooter */
+  P.denyK = function (a, m, threat) {
+    const TD = M.Tune.deny, sk = TD.scheme[this.scheme] != null ? TD.scheme[this.scheme] : TD.scheme.man;
+    const q = this.rating(a.id, 'perD', 55) * 0.5 + this.rating(a.id, 'defIQ', 55) * 0.3 + this.rating(a.id, 'agility', 65) * 0.2;
+    const ab = U.clamp((q - TD.skillFrom) / (TD.skillTo - TD.skillFrom), TD.skillMin, 1);
+    const k = U.clamp(sk * ab * U.lerp(TD.shooterMin, 1, threat) * this.sliderK('defIQ', 0.8, 1.15), 0, 1);
+    // (the coach's order: deny him the ball everywhere, or sag off him to help)
+    const od = this.order(m.id);
+    return od === 'deny' ? Math.max(k, 0.95) : od === 'sag' ? Math.min(k, 0.12) : k;
+  };
+  /** the double team (the coach's order on a man with the ball within ~18 ft of the rim): the defender whose own man is
+   *  nearest him comes; kept for the frame */
+  P.doubler = function (h) {
+    const dd = this._dbl || (this._dbl = { T: -1, id: null });
+    if (dd.T === this.T) return dd.id;
+    dd.T = this.T; dd.id = null;
+    if (!h || this.order(h.id) !== 'double') return null;
+    const rim = this.rim;
+    if (Math.hypot(h.x - rim.x, h.y - rim.y) > 18) return null;
+    let best = null, bd = 1e9;
+    for (const d in this.matchup) {
+      const mid = this.matchup[d];
+      if (String(mid) === String(h.id)) continue;
+      const m = this.v.actor(mid);
+      if (!m) continue;
+      const dist = Math.hypot(m.x - h.x, m.y - h.y);
+      if (dist < bd) { bd = dist; best = d; }
+    }
+    dd.id = best;
+    return best;
+  };
+
   // ------------------------------------------------------------ where a defender stands
   P.guardPos = function (a) {
     const v = this.v, b = v.ball, rim = this.rim;
@@ -223,8 +402,11 @@
     const dtg = U.clamp(T - gs.t, 0, 0.1); gs.t = T;
     if (withBall) {
       // on the ball, or closing out to where the pass to his man is going
-      const cx = closing ? pf.x : m.x, cy = closing ? pf.y : m.y;
+      let cx = closing ? pf.x : m.x, cy = closing ? pf.y : m.y;
       const dx = rim.x - cx, dy = rim.y - cy, dl = Math.hypot(dx, dy) || 1;
+      // (he reads the handler a moment late, the better the handle against his feet the later, and a move he bought
+      // takes him the wrong way for a moment: _perceive, defBite; closing out he runs at the catch)
+      if (!closing) { const pc = this._perceive(a, m, T, dtg); cx = pc.x; cy = pc.y; }
       const want = this.onBallGap(a, m, dl);
       if (!gs.on) { gs.on = true; gs.gap = closing ? want : U.clamp(Math.hypot(a.x - cx, a.y - cy), 2, 30); }
       // (closing in is free, a closeout goes straight for its spot; giving ground only ~1.5 ft/s unless the handler
@@ -233,8 +415,17 @@
       px = cx + dx / dl * gs.gap; py = cy + dy / dl * gs.gap;
       role = closing ? 'closeout' : 'onBall';
       a.setStance('defense');
-      const ant = 0.9 * this.sliderK('defIQ', 0.7, 1.15);
-      out.vx = closing ? 0 : m.vx * ant; out.vy = closing ? 0 : m.vy * ant;
+      const ant = 0.9 * this.sliderK('defIQ', 0.7, 1.15) * (closing ? 1 : a._pc ? a._pc.antK : 1);
+      out.vx = closing ? 0 : (a._pc ? a._pc.vx : m.vx) * ant; out.vy = closing ? 0 : (a._pc ? a._pc.vy : m.vy) * ant;
+    } else if (h && String(this.doubler(h)) === String(a.id)) {
+      // the double team: up on the man with the ball from the baseline side, hands up (his own man is left open)
+      gs.on = false;
+      const dx = rim.x - h.x, dy = rim.y - h.y, dl = Math.hypot(dx, dy) || 1;
+      const side = Math.sign(a.y - h.y) || 1;
+      px = h.x + dx / dl * 2.2 + (-dy / dl) * side * 2.2; py = h.y + dy / dl * 2.2 + (dx / dl) * side * 2.2;
+      role = 'double';
+      a.setStance('defense');
+      out.vx = h.vx || 0; out.vy = h.vy || 0;
     } else {
       gs.on = false;
       const dp = this.defPlan();
@@ -260,7 +451,9 @@
       } else if (dRimM < 11 && dBallM < 22 && (mSide === hSide || dBallM < 18)) {
         // post (ball side): 3/4 front with the ball on his side below the top, else behind him, on the rim side; a
         // weak-side post man is guarded from the help line like any man two passes away
-        if (mSide === hSide && bu < 26) { px = m.x + ux * 1.9 + rx * 0.9; py = m.y + uy * 1.9 + ry * 0.9; } else { px = m.x + rx * 2.3; py = m.y + ry * 2.3; }
+        // (on his body, Tune.post.frontFt: the fight for position, Director.paintContact)
+        const FF = M.Tune.post.frontFt;
+        if (mSide === hSide && bu < 26) { px = m.x + ux * FF[0] + rx * FF[1]; py = m.y + uy * FF[0] + ry * FF[1]; } else { px = m.x + rx * (FF[0] + FF[1]); py = m.y + ry * (FF[0] + FF[1]); }
         role = 'post'; leash = 4;
       } else if (!twoAway) {
         // one pass away: a hand and a foot in the passing lane, a step off toward the rim; a pack line sags instead,
@@ -269,8 +462,24 @@
         let w = sc === 'packline' ? 0.15 : sc === 'pressure' || sc === 'nothree' ? 1 : 0.8;
         if (dRimM > 21) w *= U.lerp(0.35, 1, threat);
         if (this.coveredCatchers()[String(m.id)]) w = Math.max(w, 0.8);
-        px = U.lerp(px, m.x + ux * 3.2 + rx * 1.2, w); py = U.lerp(py, m.y + uy * 3.2 + ry * 1.2, w);
+        // (how hard he denies, the gameplay pass: as much as the scheme asks and his defense lets him, Tune.deny: nearer his
+        // man and further into the lane, the hand on the ball's side out in it)
+        // (a pass to his man coming, Tune.deny.giveS before the throw, or the half-court flow's swing to him winding up: his man
+        // has got open, and he is back off the lane with the hand down, the closeout coming from there; he stayed in the lane
+        // until the passer turned and the ball went past his hand to a man he was all over)
+        const bt = this.beat, TD = M.Tune.deny, sw = this.swing;
+        let give = 1;
+        if (bt && bt.type === 'pass' && !bt.fired && bt.ev && this.A(bt.ev.to) === m) give = U.smooth((bt.fireAt - T) / TD.giveS);
+        if (sw && sw.state === 'windup' && sw.chain && sw.chain[sw.i + 1] === m) give = 0;
+        const dk = this.denyK(a, m, threat) * w * give;
+        const dd = U.lerp(3.2, M.Tune.deny.nearFt, dk), dr = U.lerp(1.2, 0.5, dk);
+        px = U.lerp(px, m.x + ux * dd + rx * dr, w); py = U.lerp(py, m.y + uy * dd + ry * dr, w);
         role = 'deny'; leash = 8;
+        if (dk > M.Tune.deny.armFrom) {
+          const f = a.facing, side = (bx - a.x) * Math.sin(f) - (by - a.y) * Math.cos(f) > 0 ? 1 : 0;
+          const dn = a._deny || (a._deny = { x: 0, y: 0, w: 0, side: 1, t: 0 });
+          dn.x = bx; dn.y = by; dn.w = U.clamp((dk - M.Tune.deny.armFrom) / (1 - M.Tune.deny.armFrom), 0, 1); dn.side = side; dn.t = T;
+        }
       } else {
         // two passes away: the help line, a foot in the lane with the ball above the free-throw line, on the rim line
         // with it on the wing or in the corner, about as deep as his man; a real shooter (70+) is not left: his man
@@ -300,7 +509,8 @@
       const os = a._os || (a._os = { x: a.x - m.x, y: a.y - m.y, t: T, m: m.id, role: null });
       if (os.m !== m.id || os.role === 'onBall' || os.role === 'closeout' || os.role == null) { os.x = a.x - m.x; os.y = a.y - m.y; os.m = m.id; }
       const help01 = U.clamp((this.rating(a.id, 'helpD', 60) - 25) / 74, 0, 1);
-      const tau = role === 'lowman' || role === 'sink' ? 0.12 : 0.15 + (1 - help01) * 0.2;
+      // (and the offense's edge, Tune.edge.defLagS: the ball's part of his spot a beat later still)
+      const tau = (role === 'lowman' || role === 'sink' ? 0.12 : 0.15 + (1 - help01) * 0.2) + this.edgeLag();
       const dts = U.clamp(T - os.t, 0, 0.1); os.t = T;
       const kk = 1 - Math.exp(-dts / tau);
       os.x += (px - m.x - os.x) * kk; os.y += (py - m.y - os.y) * kk;
@@ -317,7 +527,7 @@
     }
     // defensive three seconds (the Director's rule): not guarding anyone within arm's length, he steps out of the
     // lane before his third second, then back in
-    if (!withBall && role !== 'lowman') {
+    if (!withBall && role !== 'lowman' && role !== 'double') {
       const inLane = this.inPaint({ x: px, y: py }, 0) && Math.hypot(m.x - px, m.y - py) > 4.5;
       const dt3 = U.clamp(T - (a._laneT0 != null ? a._laneT0 : T), 0, 0.1); a._laneT0 = T;
       a._laneT = inLane && this.inPaint(a, 0) ? (a._laneT || 0) + dt3 : 0;

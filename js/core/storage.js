@@ -102,9 +102,41 @@
     } catch (e) { /* ignore */ }
   }
 
-  function serialize(S) {
-    return JSON.stringify(S, (k, v) => (k === 'todayPost' || k === '_healthKey' ? undefined : v));
+  // ---------------------------------------------------------------------------
+  // The career on disk: every player's season stat rows and rating history written as rows of values under one list of
+  // keys (the same data in well under half the room, so whole careers fit); Store.migrate unpacks them as a save loads
+  // ---------------------------------------------------------------------------
+  const MISSING = '\u0000';
+  function packRows(rows) {
+    const keys = [], seen = {};
+    for (const r of rows) for (const k in r) if (!seen[k]) { seen[k] = 1; keys.push(k); }
+    return { $rows: 1, k: keys, v: rows.map(r => keys.map(k => (r[k] === undefined ? MISSING : r[k]))) };
   }
+  function unpackRows(o) {
+    if (!o || o.$rows !== 1 || !Array.isArray(o.k) || !Array.isArray(o.v)) return o;
+    return o.v.map(a => { const r = {}; for (let i = 0; i < o.k.length; i++) if (a[i] !== MISSING && a[i] !== undefined) r[o.k[i]] = a[i]; return r; });
+  }
+  Store.packRows = packRows; Store.unpackRows = unpackRows;
+  /** a save's players back to their rows (a packed save, or an older one as it was) */
+  function unpackPlayers(S) {
+    for (const id in S.players || {}) {
+      const p = S.players[id];
+      if (!p) continue;
+      if (p.stats && p.stats.$rows) p.stats = unpackRows(p.stats);
+      if (p.hist && p.hist.$rows) p.hist = unpackRows(p.hist);
+    }
+    return S;
+  }
+  Store.unpackPlayers = unpackPlayers;
+  function serialize(S) {
+    return JSON.stringify(S, function (k, v) {
+      if (k === 'todayPost' || k === '_healthKey') return undefined;
+      // (a player's stat rows and rating history: packed)
+      if ((k === 'stats' || k === 'hist') && Array.isArray(v) && v.length > 1 && this && this.r && Array.isArray(this.awards)) return packRows(v);
+      return v;
+    });
+  }
+  Store.serialize = serialize;
 
   /** Writes one data record + its index record. dels: record ids removed in the same transaction. */
   async function writeRecord(id, data, meta, opts) {
@@ -436,7 +468,8 @@
   // Migration, export, import
   // ---------------------------------------------------------------------------
   Store.migrate = function (S) {
-    S.settings = Object.assign({ gimEnabled: true, autoPractice: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast', autoTimeouts: true, autosave: 'always', backupCount: 3 }, S.settings || {});
+    unpackPlayers(S);
+    S.settings = Object.assign({ gimEnabled: true, autoPractice: false, staffAdjust: false, simSpeed: 4, showVisuals: true, retroCourt: true, pixelMode: false, camera: 'broadcast', autoTimeouts: true, autosave: 'always', backupCount: 3, keepLogs: 'recent' }, S.settings || {});
     if (!AUTOSAVE.includes(S.settings.autosave)) S.settings.autosave = 'always';
     const bc = Math.round(+S.settings.backupCount);
     S.settings.backupCount = isFinite(bc) ? Math.max(0, Math.min(Store.MAX_BACKUPS, bc)) : 3;
@@ -445,6 +478,8 @@
     S.history = S.history || [];
     // customized teams: the old `wood` field mirrors the court's wood tone
     for (const t of S.teams || []) if (t && t.court && t.court.wood) t.wood = t.court.wood;
+    // an older career: this season's game logs from its box scores, the honors added to the player record since
+    if (PBC.Stats && PBC.Stats.catchUp && S.players) PBC.Stats.catchUp(S);
     return S;
   };
 

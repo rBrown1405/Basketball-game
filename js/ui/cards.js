@@ -34,10 +34,20 @@
     const status = p.tid === -1 ? '<span class="tag info">Free agent</span>' : p.tid === -2 ? '<span class="tag accent">Draft prospect</span>' : p.tid === -3 ? '<span class="tag">Retired</span>' : '';
     const draft = p.draft && p.draft.round ? `${p.draft.year} draft · Rd ${p.draft.round}, Pick ${p.draft.pick}${S.teams[p.draft.tid] ? ' (' + S.teams[p.draft.tid].abbr + ')' : ''}` : p.tid === -2 ? `${p.draft ? p.draft.year : S.season + 1} draft prospect` : 'Undrafted';
     const yrsLeft = p.contract ? Math.max(0, p.contract.exp - S.season + (S.phase === 'regular' || S.phase === 'preseason' || S.phase === 'playin' || S.phase === 'playoffs' ? 1 : 0)) : 0;
-    const contract = p.contract && p.tid >= 0 ? `${U.money(p.contract.amt)}/yr · ${yrsLeft} yr${yrsLeft === 1 ? '' : 's'} left${p.contract.rookie ? ' · rookie deal' : ''}` : p.tid === -1 ? `Asking ~${U.money(PBC.Player.marketValue(p, L))}` : '—';
-    const strengths = PBC.Player.strengths(p), weaks = PBC.Player.weaknesses(p);
+    const contract = p.contract && p.tid >= 0 ? `${U.money(p.contract.amt)}/yr · ${yrsLeft} yr${yrsLeft === 1 ? '' : 's'} left${p.contract.rookie ? ' · rookie deal' : ''}` : p.tid === -1 ? `Asking ~${U.money(PBC.Player.marketValue(p, L))}` : '-';
+    // a draft prospect is seen through the scouting fog: an OVR estimate, and strengths only once they are scouted
+    const fog = p.tid === -2 && PBC.Draft && PBC.Draft.view ? PBC.Draft.view(S, p) : null;
+    const strengths = fog ? (fog.strengths || []) : PBC.Player.strengths(p), weaks = fog ? (fog.weaknesses || []) : PBC.Player.weaknesses(p);
+    const ovrBlock = fog && fog.ovr.err ? `<span class="ovr ${UI.ovrTier(fog.ovr.est)} lg" title="Scouted estimate: ${fog.ovrLabel}">~${fog.ovr.est}</span><div class="tiny dim">${fog.ovrLabel}</div>` : UI.ovr(p.ovr, 'lg');
     const ptype = PBC.Persona ? PBC.Persona.TYPES[PBC.Persona.of(p)] : null;
     const req = p.tradeReq && p.tid >= 0 ? p.tradeReq : null;
+    // (his play style and his best badges: js/core/style.js, js/core/badges.js; a prospect's badges once he is scouted enough)
+    const sty = PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null;
+    const bdgSeen = PBC.Badges && (p.tid !== -2 || (p.scout && p.scout.known >= 50));
+    const bdgTop = bdgSeen ? PBC.Badges.list(p).slice(0, 6) : [];
+    // (his honors at a glance: js/ui/pcareer.js)
+    const pills = UI.PC && UI.PC.pills ? UI.PC.pills(p, 7) : '';
+    const hasGames = p.stats.some(s => s.gp > 0);
     const body = UI.h(`<div>
       <div class="pc-head">${UI.avatar(p, 92)}
         <div style="flex:1;min-width:0">
@@ -46,18 +56,21 @@
           <div class="pc-meta">#${p.num} · ${C.POS_NAME[p.pos]} · ${U.esc(p.arch || '')} ${t ? '· ' + UI.teamBadge(t, 18) + ' ' + UI.teamLink(t) : ''} ${status}</div>
           <div class="pc-meta">${p.age} yrs · ${U.height(p.hgt)} · ${p.wgt} lbs · wingspan ${U.height(p.wing)} · ${p.hand === 'L' ? 'Left' : 'Right'}-handed · ${U.esc(p.origin || '')}</div>
           ${ptype ? `<div class="pc-pers" title="Personality"><span class="pi">${ptype.icon}</span><b>${U.esc(ptype.label)}</b><span class="pd">${U.esc(ptype.desc)}</span></div>` : ''}
+          ${sty ? `<div class="pc-pers" title="Play style: how this player plays${p.styleCustom ? ' (picked in the editor)' : ' (from the ratings)'}"><span class="pi">${sty.icon}</span><b>${U.esc(sty.label)}</b><span class="pd">${U.esc(sty.desc)}</span></div>` : ''}
+          ${pills ? `<div class="row pc-pills">${pills}</div>` : ''}
+          ${bdgTop.length ? `<div class="row bdg-row" style="margin-top:6px">${bdgTop.map(b => UI.badgeChip(b)).join('')}${PBC.Badges.list(p).length > bdgTop.length ? `<span class="tiny dim">+${PBC.Badges.list(p).length - bdgTop.length} more</span>` : ''}</div>` : ''}
           <div class="row" style="margin-top:8px">${strengths.map(s => `<span class="tag good">${s}</span>`).join('')}${weaks.map(s => `<span class="tag bad">${s}</span>`).join('')}
             ${p.injury ? `<span class="tag bad">🚑 ${U.esc(PBC.Player.injuryLabel(p.injury))}</span>` : ''}
             ${req ? `<span class="tag warn" title="${U.esc(PBC.Player.name(p) + ' ' + (req.text || 'wants out'))}">📣 Trade request</span>` : ''}</div>
         </div>
-        <div class="center"><div class="tiny dim up">OVR</div>${UI.ovr(p.ovr, 'lg')}<div class="tiny dim up" style="margin-top:6px">POT</div><div class="bold">${UI.potLabel(p)}</div></div>
+        <div class="center"><div class="tiny dim up">OVR</div>${ovrBlock}<div class="tiny dim up" style="margin-top:6px">POT</div><div class="bold">${UI.potLabel(p)}</div></div>
       </div>
       <div class="kv" style="margin:14px 0 10px;grid-template-columns:auto 1fr auto 1fr">
         <span>Contract</span><span>${contract}</span><span>Draft</span><span>${draft}</span>
-        ${mine ? `<span>Morale</span><span>${p.morale != null ? p.morale : 70}/100</span><span>Promise</span><span>${p.promise ? U.esc(p.promise.type === 'starter' ? 'Starting role' : p.promise.min + '+ minutes') : '—'}</span>` : ''}
+        ${mine ? `<span>Morale</span><span>${p.morale != null ? p.morale : 70}/100</span><span>Promise</span><span>${p.promise ? U.esc(p.promise.type === 'starter' ? 'Starting role' : p.promise.min + '+ minutes') : '-'}</span>` : ''}
       </div>
-      <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button>${PBC.Tendency ? '<button class="tab" data-t="tend">Tendencies</button>' : ''}<button class="tab" data-t="stats">Stats</button>
-        ${mine ? '<button class="tab" data-t="log">Game Log</button>' : ''}<button class="tab" data-t="awards">Awards</button><button class="tab" data-t="prog">Progression</button></div>
+      <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button>${PBC.Badges ? '<button class="tab" data-t="badges">Badges</button>' : ''}${PBC.Tendency ? '<button class="tab" data-t="tend">Tendencies</button>' : ''}<button class="tab" data-t="stats">Stats</button>
+        ${hasGames ? '<button class="tab" data-t="log">Game Log</button>' : ''}<button class="tab" data-t="awards">Awards</button><button class="tab" data-t="prog">Progression</button></div>
       <div id="pc-tab"></div>
       ${mine ? `<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
         <button class="btn sm" data-a="goto1">⭐ Go-to #1</button><button class="btn sm" data-a="goto2">Go-to #2</button>
@@ -70,12 +83,15 @@
       body.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.t === key));
       if (key === 'ratings') tabEl.innerHTML = ratingsHtml(S, p);
       if (key === 'tend') tabEl.innerHTML = tendenciesHtml(S, p);
-      if (key === 'stats') statsTab(S, p, tabEl);
-      if (key === 'log') gameLog(S, p, tabEl);
-      if (key === 'awards') tabEl.innerHTML = awardsHtml(S, p);
-      if (key === 'prog') tabEl.innerHTML = progressionSvg(S, p);
+      if (key === 'badges') tabEl.innerHTML = badgesHtml(S, p, bdgSeen);
+      // (the career tabs: js/ui/pcareer.js)
+      if (key === 'stats') UI.PC.stats(S, p, tabEl, showTab);
+      if (key === 'log') UI.PC.log(S, p, tabEl, showTab);
+      if (key === 'awards') UI.PC.awards(S, p, tabEl);
+      if (key === 'prog') UI.PC.prog(S, p, tabEl);
     };
     UI.on(body, 'click', '.tab', (e, el) => showTab(el.dataset.t));
+    UI.on(body, 'click', '[data-pc-aw]', () => showTab('awards'));
     showTab('ratings');
     const m = UI.modal({ title: '', body, wide: true });
     UI.on(body, 'click', '[data-a]', async (e, el) => {
@@ -127,8 +143,44 @@
       if (!prospect || err <= 1) return UI.ratingBar(r.label, p.r[r.key]);
       const noise = ((U.hash(p.id + r.key) % 100) / 100 - 0.5) * err;
       const v = Math.round(U.clamp(p.r[r.key] + noise, 25, 99));
-      return `<div class="rbar"><span class="lab">${r.label}</span><span class="val">${Math.max(25, v - err)}–${Math.min(99, v + err)}</span><div class="meter"><div class="meter-fill" style="width:${v}%;opacity:.6"></div></div></div>`;
+      return `<div class="rbar range"><span class="lab">${r.label}</span><span class="val">${Math.max(25, v - err)}-${Math.min(99, v + err)}</span><div class="meter"><div class="meter-fill" style="width:${v}%;opacity:.6"></div></div></div>`;
     }).join('')}</div>`).join('')}</div>${prospect ? `<p class="small muted">Scouting knowledge: ${known}%. Scout this prospect to narrow the ranges.</p>` : ''}`;
+  }
+
+  /** his play style in a line (icon and label, the archetype he was generated as in the tooltip), and his best badges as icons */
+  UI.styleTag = function (p, nBadges) {
+    const st = PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null;
+    if (!st) return U.esc(p.arch || '');
+    const top = PBC.Badges && p.tid !== -2 ? PBC.Badges.list(p).slice(0, nBadges == null ? 3 : nBadges) : [];
+    return `<span class="sty-tag" title="${U.esc(st.desc + (p.arch ? ' (archetype: ' + p.arch + ')' : ''))}">${st.icon} ${U.esc(st.label)}</span>${top.length ? ' ' + top.map(b => UI.badgeChip(b, true)).join('') : ''}`;
+  };
+  /** a badge as a chip in its tier's color (UI.badgeChip({ icon, label, tierLabel, color, desc })) */
+  UI.badgeChip = function (b, small) {
+    return `<span class="bdg-chip${small ? ' sm' : ''}" style="--bc:${b.color}" title="${U.esc(b.tierLabel + ' ' + b.label + ': ' + b.desc)}"><span class="bi">${b.icon}</span>${small ? '' : U.esc(b.label)}</span>`;
+  };
+  /** the Badges tab: every badge he has by category, its tier and what it does, and how far he is from the next tier */
+  function badgesHtml(S, p, seen) {
+    const B = PBC.Badges;
+    if (!seen) return '<div class="empty">Scout this prospect to see the badges.</div>';
+    const have = B.of(p), cnt = B.counts(p);
+    const sty = PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null;
+    const head = `<div class="row" style="gap:10px;margin-bottom:10px">${B.TIERS.slice(1).map((t, i) => `<span class="bdg-count" style="--bc:${t.color}"><b>${cnt[i]}</b> ${t.label}</span>`).join('')}
+      ${sty ? `<span class="spacer"></span><span class="small muted">Play style: ${sty.icon} <b>${U.esc(sty.label)}</b></span>` : ''}</div>`;
+    const cats = B.CATS.map(cat => {
+      const rows = B.LIST.filter(b => b.cat === cat).map(b => {
+        const t = have[b.key] || 0, pr = B.progress(p, b.key), tier = t ? B.TIERS[t] : null;
+        const next = pr && pr.gated ? U.esc(b.gateText || 'not available') : pr && pr.next != null ? `${B.TIERS[t + 1].label} at ${pr.next}` : 'Maxed out';
+        const pct = pr ? Math.round(U.clamp((pr.v - (b.at[0] - 15)) / ((pr.next != null ? pr.next : b.at[3]) - (b.at[0] - 15)), 0, 1) * 100) : 0;
+        return `<div class="bdg-line${t ? '' : ' off'}" title="${U.esc(b.desc)}">
+          <span class="bdg-chip" style="--bc:${tier ? tier.color : '#5c6680'}"><span class="bi">${b.icon}</span>${U.esc(b.label)}</span>
+          <span class="bdg-tier" style="color:${tier ? tier.color : 'var(--muted)'}">${tier ? tier.label : '-'}</span>
+          <span class="bdg-desc small muted">${U.esc(b.desc)}</span>
+          <span class="bdg-next tiny dim">${pr ? pr.v : ''} · ${next}<span class="meter" style="width:70px;display:inline-block;margin-left:6px;vertical-align:middle"><span class="meter-fill" style="display:block;width:${pct}%;background:${tier ? tier.color : '#5c6680'}"></span></span></span>
+        </div>`;
+      }).join('');
+      return `<div class="bdg-cat"><h4>${cat}</h4>${rows}</div>`;
+    }).join('');
+    return head + `<div class="bdg-grid">${cats}</div><p class="tiny dim" style="margin-top:8px">Badges come from the ratings (a few from the personality) and change as the ratings do. How much they count is the Badge Impact slider in League Settings.</p>`;
   }
 
   function tendenciesHtml(S, p) {
@@ -142,57 +194,9 @@
       <p class="small muted" style="margin:12px 0 0">${sig.length ? `<b class="pc-sig">${U.esc(p.last)} ${sig.map(x => U.esc(x.text)).join(', ')}.</b> ` : ''}Tendencies decide what he looks for on the floor; ratings decide how well it works.${p.tendCustom ? ' <span class="tag warn">Custom</span>' : ''}</p>`;
   }
 
-  function statsTab(S, p, el) {
-    const rows = U.sortBy(p.stats.filter(s => !s.po), s => s.season);
-    const po = U.sortBy(p.stats.filter(s => s.po), s => s.season);
-    const car = PBC.Stats.career(p, false), carPo = PBC.Stats.career(p, true);
-    const cols = UI.statLineCols();
-    const line = (s, label) => `<tr ${label === 'Career' ? 'class="sep"' : ''}><td class="bold">${label}</td>${cols.map(c => `<td class="num">${c.fmt ? c.fmt(s) : s[c.key]}</td>`).join('')}</tr>`;
-    const lab = s => `${U.seasonLabel(s.season)} <span class="dim">${S.teams[s.tid] ? S.teams[s.tid].abbr : ''}</span>`;
-    el.innerHTML = rows.length ? `<div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>Season</th>${cols.map(c => `<th class="num">${c.label}</th>`).join('')}</tr></thead>
-      <tbody>${rows.map(s => line(s, lab(s))).join('')}${rows.length > 1 ? line(car, 'Career') : ''}</tbody></table></div>
-      ${po.length ? `<h4 class="up" style="margin:16px 0 6px;font-size:13px;color:var(--gold)">Playoffs</h4><div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>Season</th>${cols.map(c => `<th class="num">${c.label}</th>`).join('')}</tr></thead>
-      <tbody>${po.map(s => line(s, lab(s))).join('')}${po.length > 1 ? line(carPo, 'Career') : ''}</tbody></table></div>` : ''}`
-      : '<div class="empty">No games played yet.</div>';
-  }
-
-  function gameLog(S, p, el) {
-    const games = Object.values(S.boxes || {}).filter(b => b.teams.some(T => T.players.some(x => x.pid === p.id && !x.dnp))).sort((a, b) => b.gid - a.gid);
-    if (!games.length) { el.innerHTML = '<div class="empty">No games this season.</div>'; return; }
-    el.innerHTML = `<div class="tbl-wrap"><table class="tbl compact hover"><thead><tr><th>Date</th><th>Opp</th><th>Result</th><th class="num">MIN</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">STL</th><th class="num">BLK</th><th class="num">FG</th><th class="num">3P</th><th class="num">FT</th><th class="num">+/-</th></tr></thead><tbody>
-      ${games.map(b => {
-        const u = b.h === S.userTid ? 0 : 1;
-        const x = b.teams[u].players.find(q => q.pid === p.id);
-        const my = u === 0 ? b.hs : b.as, th = u === 0 ? b.as : b.hs;
-        return `<tr class="click" data-open-box="${b.gid}"><td>${b.playoff ? '🏆 ' : ''}${PBC.League.dateLabel(S, b.day)}</td><td>${u === 0 ? 'vs' : '@'} ${S.teams[u === 0 ? b.a : b.h].abbr}</td><td class="${my > th ? 'good-t' : 'bad-t'}">${my > th ? 'W' : 'L'} ${my}-${th}</td>
-          <td class="num">${x.min}</td><td class="num bold">${x.pts}</td><td class="num">${x.orb + x.drb}</td><td class="num">${x.ast}</td><td class="num">${x.stl}</td><td class="num">${x.blk}</td>
-          <td class="num">${x.fgm}-${x.fga}</td><td class="num">${x.tpm}-${x.tpa}</td><td class="num">${x.ftm}-${x.fta}</td><td class="num ${x.pm > 0 ? 'good-t' : x.pm < 0 ? 'bad-t' : ''}">${x.pm > 0 ? '+' : ''}${x.pm}</td></tr>`;
-      }).join('')}</tbody></table></div>`;
-  }
-
-  const AWARD_LABEL = { mvp: '🏆 MVP', dpoy: '🛡️ Defensive Player of the Year', roy: '🌱 Rookie of the Year', smoy: '🪑 Sixth Player of the Year', mip: '📈 Most Improved Player', fmvp: '🏅 Finals MVP', allLeague: 'All-League', allDefense: 'All-Defensive', allRookie: 'All-Rookie Team', allStar: '🌟 All-Star', champion: '💍 Champion', potw: 'Player of the Week' };
+  const AWARD_LABEL = { mvp: '🏆 MVP', dpoy: '🛡️ Defensive Player of the Year', roy: '🌱 Rookie of the Year', smoy: '🪑 Sixth Player of the Year', mip: '📈 Most Improved Player', fmvp: '🏅 Finals MVP', allLeague: 'All-League', allDefense: 'All-Defensive', allRookie: 'All-Rookie Team', allStar: '🌟 All-Star', champion: '💍 Champion', potw: 'Player of the Week',
+    asgMvp: '⭐ All-Star Game MVP', threeChamp: '🎯 Three-Point Contest champion', dunkChamp: '🚀 Dunk Contest champion', skillsChamp: '⚡ Skills Challenge champion' };
   UI.AWARD_LABEL = AWARD_LABEL;
-  function awardsHtml(S, p) {
-    if (!p.awards.length) return '<div class="empty">No awards yet.</div>';
-    const potw = p.awards.filter(a => a.type === 'potw').length;
-    const list = U.sortBy(p.awards.filter(a => a.type !== 'potw'), a => -a.season);
-    return `<div class="list">${list.map(a => `<div class="li"><span class="dim" style="min-width:64px">${U.seasonLabel(a.season)}</span><span class="bold">${AWARD_LABEL[a.type] || a.type}</span><span class="muted">${U.esc(a.detail || '')}</span></div>`).join('')}
-      ${potw ? `<div class="li"><span class="dim" style="min-width:64px">Career</span><span class="bold">Player of the Week ×${potw}</span></div>` : ''}</div>`;
-  }
-
-  function progressionSvg(S, p) {
-    const pts = p.hist.map(h => ({ season: h.season, ovr: h.ovr, pot: h.pot }));
-    pts.push({ season: S.phase === 'regular' || S.phase === 'preseason' ? S.season : S.season + 1, ovr: p.ovr, pot: p.pot, now: true });
-    if (pts.length < 2) return `<div class="empty">Progression history appears after the first season. Current: OVR ${p.ovr}, potential ${UI.potLabel(p)}.</div>`;
-    const W = 640, H = 220, pad = 34;
-    const minV = Math.min(...pts.map(x => x.ovr)) - 4, maxV = Math.max(...pts.map(x => Math.max(x.ovr, p.tid === S.userTid ? x.pot : x.ovr))) + 3;
-    const X = i => pad + (i / (pts.length - 1)) * (W - pad * 2), Y = v => H - pad - ((v - minV) / (maxV - minV)) * (H - pad * 2);
-    const line = pts.map((x, i) => `${i ? 'L' : 'M'}${X(i)},${Y(x.ovr)}`).join(' ');
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:260px"><g stroke="rgba(255,255,255,.07)">${[0, 0.25, 0.5, 0.75, 1].map(f => `<line x1="${pad}" x2="${W - pad}" y1="${pad + f * (H - pad * 2)}" y2="${pad + f * (H - pad * 2)}"/>`).join('')}</g>
-      <path d="${line}" fill="none" stroke="#ff6b1a" stroke-width="3"/>${pts.map((x, i) => `<circle cx="${X(i)}" cy="${Y(x.ovr)}" r="4.5" fill="#ff6b1a"/><text x="${X(i)}" y="${Y(x.ovr) - 10}" fill="#e9eef6" font-size="12" text-anchor="middle" font-weight="700">${x.ovr}</text>
-      <text x="${X(i)}" y="${H - 10}" fill="#8d99b0" font-size="11" text-anchor="middle">${x.now ? 'Now' : U.seasonLabel(x.season)}</text>`).join('')}</svg>`;
-  }
-
   // ---------------------------------------------------------------------------
   // Box score
   // ---------------------------------------------------------------------------
@@ -285,9 +289,9 @@
           { key: 'pos', label: 'Pos', fmt: r => UI.pos(r.p.pos), value: r => C.POS_NUM[r.p.pos] },
           { key: 'age', label: 'Age', num: true, value: r => r.p.age, fmt: r => r.p.age },
           { key: 'ovr', label: 'OVR', num: true, value: r => r.p.ovr, fmt: r => UI.ovr(r.p.ovr) },
-          { key: 'pts', label: 'PPG', num: true, value: r => perG(r.s, 'pts'), fmt: r => (r.s ? U.num(perG(r.s, 'pts')) : '—') },
-          { key: 'reb', label: 'RPG', num: true, value: r => (r.s ? (r.s.orb + r.s.drb) / r.s.gp : 0), fmt: r => (r.s ? U.num((r.s.orb + r.s.drb) / r.s.gp) : '—') },
-          { key: 'ast', label: 'APG', num: true, value: r => perG(r.s, 'ast'), fmt: r => (r.s ? U.num(perG(r.s, 'ast')) : '—') },
+          { key: 'pts', label: 'PPG', num: true, value: r => perG(r.s, 'pts'), fmt: r => (r.s ? U.num(perG(r.s, 'pts')) : '-') },
+          { key: 'reb', label: 'RPG', num: true, value: r => (r.s ? (r.s.orb + r.s.drb) / r.s.gp : 0), fmt: r => (r.s ? U.num((r.s.orb + r.s.drb) / r.s.gp) : '-') },
+          { key: 'ast', label: 'APG', num: true, value: r => perG(r.s, 'ast'), fmt: r => (r.s ? U.num(perG(r.s, 'ast')) : '-') },
           { key: 'sal', label: 'Salary', num: true, value: r => (r.p.contract ? r.p.contract.amt : 0), fmt: r => U.money(r.p.contract ? r.p.contract.amt : 0, true) },
         ],
       });

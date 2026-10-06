@@ -124,7 +124,7 @@
       // reaction sizes by what happened
       react: {
         homeScore: 0.65, homeBig: 1.1, awayScore: 0.5, awayBig: 0.8,
-        block: 0.9, missedThree: 0.6, steal: 0.7,
+        block: 0.9, missedThree: 0.6, steal: 0.7, ankle: 0.75,
         booChance: 0.55, booDelay: 0.25, boo: 0.6, booStakes: 0.3,
         ftHomeMade: 0.35, ftAwayMurmurChance: 0.5, ftAway: 0.35,
         timeout: 0.5, finalWin: 1.35, finalWin2: 1.1, finalWin2Delay: 0.9, finalLoss: 1,

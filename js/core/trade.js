@@ -191,7 +191,7 @@
       const corner = outP.filter(p => Trade.isCornerstone(S, p));
       if (corner.length) {
         need += U.sum(corner, p => Trade.playerValue(S, p, s.tid)) * 0.25;
-        reasons.push(`${S.teams[s.tid].abbr} consider ${corner.map(nm).join(' & ')} a cornerstone — it will take a haul.`);
+        reasons.push(`${S.teams[s.tid].abbr} consider ${corner.map(nm).join(' & ')} a cornerstone. It will take a haul.`);
       }
       const owner = S.teams[s.tid].owner || { spend: 50 };
       if (s.payAfter > L.tax && s.salIn > s.salOut && owner.spend < 65) {
@@ -202,7 +202,7 @@
       if (s.net < need) {
         s.accept = false;
         const gap = need - s.net;
-        reasons.unshift(gap > s.give * 0.5 + 6 ? `${S.teams[s.tid].abbr}: "Not even close. We want a lot more value."` : gap > 4 ? `${S.teams[s.tid].abbr} want more value.` : `${S.teams[s.tid].abbr} want a little more value — you're close.`);
+        reasons.unshift(gap > s.give * 0.5 + 6 ? `${S.teams[s.tid].abbr}: "Not even close. We want a lot more value."` : gap > 4 ? `${S.teams[s.tid].abbr} want more value.` : `${S.teams[s.tid].abbr} want a little more value. You're close.`);
       }
     }
     const aiOk = sides.every(s => s.isUser || s.accept);
@@ -216,7 +216,7 @@
     const ai = ev.sides.find(s => !s.isUser) || ev.sides[1];
     const scale = Math.max(4, ai.give + ai.get);
     const x = U.clamp((ai.need - ai.net) / scale * 2, -1, 1);
-    const label = ai.net >= ai.need ? (ai.net - ai.need > scale * 0.25 ? 'You’re overpaying' : 'Fair — they’d accept') : x > 0.5 ? 'Way short' : 'A bit short';
+    const label = ai.net >= ai.need ? (ai.net - ai.need > scale * 0.25 ? 'You’re overpaying' : 'Fair: they’d accept') : x > 0.5 ? 'Way short' : 'A bit short';
     return { x, label };
   };
 
@@ -266,6 +266,7 @@
       for (const pid of offer.give[i].pids) {
         const p = S.players[pid];
         if (PBC.Offseason) PBC.Offseason.removeFromTeam(S, p);
+        if (PBC.Rivals) PBC.Rivals.move(S, p, p.tid, to, 'trade');
         p.tid = to;
         p.num = 0;
         PBC.Player.assignNumber(S, p);
@@ -295,6 +296,7 @@
     if (S.trades.length > 150) S.trades.length = 150;
     if (S.offseason && OFFP[S.phase]) S.offseason.trades.push(rec);
     news(S, `🔄 TRADE: ${text}`, 'trade', rec.user ? u : offer.tids[0]);
+    if (PBC.Media) PBC.Media.trade(S, rec);
     return { ok: true, rec, ev };
   };
 

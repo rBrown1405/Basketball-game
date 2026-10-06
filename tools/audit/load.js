@@ -35,9 +35,9 @@ function stubs() {
 
 // the same order as match_test.html (the renderer's files load but are not used without render())
 // (the half-court defense, offense, called plays and rebounds extend the Director after flow.js, as they do in the page)
-const FILES = ['js/core/util', 'js/core/names', 'js/core/config', 'js/core/player', 'js/core/identity', 'js/core/persona', 'js/core/tendency', 'js/core/sliders', 'js/core/league', 'js/core/stats', 'js/core/ai', 'js/core/playbook', 'js/core/playcall', 'js/core/sim',
+const FILES = ['js/core/util', 'js/core/names', 'js/core/config', 'js/core/player', 'js/core/identity', 'js/core/persona', 'js/core/tendency', 'js/core/style', 'js/core/badges', 'js/core/sliders', 'js/core/league', 'js/core/stats', 'js/core/ai', 'js/core/playbook', 'js/core/playcall', 'js/core/adjust', 'js/core/locker', 'js/core/sim',
   'js/match/util', 'js/match/tune', 'js/match/camera', 'js/match/court', 'js/match/arena', 'js/match/hoop', 'js/match/rig', 'js/match/poses', 'js/match/figure', 'js/match/body3d', 'js/match/body3d_parts', 'js/match/human_data', 'js/match/human', 'js/match/human_build', 'js/match/gl3d',
-  'js/match/anims', 'js/match/clips', 'js/match/actor', 'js/match/ball', 'js/match/choreo', 'js/match/passlab', 'js/match/shotlab', 'js/match/glasslab', 'js/match/flow', 'js/match/defense', 'js/match/offense', 'js/match/plays', 'js/match/rebound', 'js/match/debugdraw', 'js/match/view', 'js/match/debug', 'js/match/mock', 'js/match/mocap'];
+  'js/match/anims', 'js/match/clips', 'js/match/actor', 'js/match/ball', 'js/match/aim', 'js/match/choreo', 'js/match/passlab', 'js/match/shotlab', 'js/match/glasslab', 'js/match/flow', 'js/match/defense', 'js/match/offense', 'js/match/plays', 'js/match/rebound', 'js/match/debugdraw', 'js/match/view', 'js/match/debug', 'js/match/mock', 'js/match/mocap'];
 
 function load(seed) {
   seedRandom(seed == null ? 1 : seed);
@@ -56,12 +56,14 @@ function engineGame(PBC, seed, women) {
   const g = PBC.Sim.createGame(S0, 0, 1, {});
   const uniformFor = (t, home) => { const p = t.colors.primary, s = t.colors.secondary; return home ? { jersey: '#f4f6fa', number: p, trim: p, shorts: '#f4f6fa' } : { jersey: p, number: s, trim: s, shorts: p }; };
   const teamLook = (t, home) => ({ id: t.id, abbr: t.abbr, city: t.city, name: t.name, colors: Object.assign({}, t.colors), uniform: uniformFor(t, home), court: { paint: t.colors.primary, logoText: t.abbr, wood: t.wood || 'light' } });
-  const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle,
+  const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, drawFoul: p.r.drawFoul,
     // (the court's defense and offense read these, js/match/defense.js and offense.js)
-    three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, expr: 'neutral' });
+    three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, expr: 'neutral',
+    // (his play style and badges, as live.js)
+    sty: PBC.Style ? PBC.Style.court(p) : null, bdg: PBC.Badges ? PBC.Badges.court(p) : null });
   const L = PBC.League.cfg(S0), players = {};
   g.t.forEach((T, i) => T.players.forEach((c) => { players[c.id] = playerLook(c.p, i); }));
-  const ctx = { league: L.key, periodLen: L.quarterLen, otLen: L.otLen, threePt: L.threePt, home: teamLook(S0.teams[g.tids[0]], true), away: teamLook(S0.teams[g.tids[1]], false), players, lineups: [g.t[0].on.map((x) => x.id), g.t[1].on.map((x) => x.id)], defScheme: [g.t[0].strat.def, g.t[1].strat.def] };
+  const ctx = { league: L.key, periodLen: L.quarterLen, otLen: L.otLen, threePt: L.threePt, home: teamLook(S0.teams[g.tids[0]], true), away: teamLook(S0.teams[g.tids[1]], false), players, lineups: [g.t[0].on.map((x) => x.id), g.t[1].on.map((x) => x.id)], defScheme: [g.t[0].strat.def, g.t[1].strat.def], badgeK: g.bk != null ? g.bk : 1 };
   return { ctx, game: g, S: S0 };
 }
 
@@ -71,8 +73,11 @@ function runner(PBC, view, game, opts) {
   // (the pause between possessions is counted in game time, so every playback speed starts the next possession on
   // the same simulation step)
   let idleFrom = view.time - 0.05, done = false, period = 1, poss = null, errors = 0, pending = null;
+  // (a watched game: the court reads the floor on each catch, PBC.Sim.liveRead; opts.liveReads false keeps the engine's shots)
+  game.liveReads = opts.liveReads !== false;
   const next = () => {
     if (game.final) { done = true; return; }
+    if (game.pending && game.pending.live) { try { PBC.Sim.resolveLive(game, game.pending.P); } catch (e) { errors++; } }
     try { poss = PBC.Sim.nextPossession(game); } catch (e) { errors++; done = true; return; }
     if (!poss) { done = true; return; }
     if (opts.periods && poss.period > opts.periods) { done = true; return; }
@@ -81,7 +86,7 @@ function runner(PBC, view, game, opts) {
     view.period = poss.period;
     const theP = poss;
     view.play(poss, {
-      onEvent: (ev) => { if (ev && ev.type === 'shot' && ev.pending) pending = theP; },
+      onEvent: (ev) => { if (ev && ev.type === 'shot' && ev.pending && ev.gim) pending = theP; },
       onDone: () => { idleFrom = view.time; },
     });
   };
@@ -90,10 +95,18 @@ function runner(PBC, view, game, opts) {
     get done() { return done; }, get period() { return period; },
     /** advance by dt of game presentation time (the view steps in fixed 1/60 s steps inside) */
     update(dt) {
-      if (done) return;
-      if (view.isIdle() && idleFrom != null && view.time - idleFrom >= 0.35 - 1e-9) { idleFrom = null; next(); }
-      if (pending) { try { PBC.Sim.resolvePending(game, pending, { quality: 'good' }); } catch (e) { errors++; } pending = null; view.resume(); }
-      view.update(dt);
+      // (fed a step at a time, so the next possession starts on the same simulation step whatever the host's frame
+      // pattern: two steps in one host frame used to start it a step late under a jittery frame rate)
+      const h = PBC.Match.Tune && PBC.Match.Tune.clock ? PBC.Match.Tune.clock.step : 1 / 60;
+      let left = dt;
+      do {
+        if (done) return;
+        const c = Math.min(left, h);
+        if (view.isIdle() && idleFrom != null && view.time - idleFrom >= 0.35 - 1e-9) { idleFrom = null; next(); }
+        if (pending) { try { PBC.Sim.resolvePending(game, pending, { quality: 'good' }); } catch (e) { errors++; } pending = null; view.resume(); }
+        view.update(c);
+        left -= c;
+      } while (left > 1e-12);
     },
   };
 }

@@ -81,6 +81,16 @@
         if (n) { delete used[r.spotName]; r.spotName = n; r.spot = this.spotPt(n); used[n] = a; }
       }
     }
+    // (a deep range shooter spaces further out above the break: the Limitless Range badge, by its tier, or a Deep Range Shooter's
+    // style; Tune.badges.deepFt)
+    for (const a of offs) {
+      const r = this.role[a.id];
+      if (a === handler || !r || !r.spot || !PERIM_NAMES[r.spotName] || r.spotName.indexOf('corner') === 0) continue;
+      const ex = M.Tune.badges.deepFt * Math.max(Math.min(1, this.bdgT(a.id, 'deepRange') / 4), this.styK(a.id, 'deep') >= 0.3 ? 0.6 : 0);
+      if (ex < 0.2) continue;
+      const su = this.U_(r.spot.x), sv = r.spot.y, du = su - 5.25, dv = sv - 25, dl = Math.hypot(du, dv) || 1;
+      r.spot = this.ptUV(su + du / dl * ex, sv + dv / dl * ex);
+    }
   };
 
   // ------------------------------------------------------------ jobs

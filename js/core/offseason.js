@@ -152,7 +152,13 @@
     } else if (opts.former) {
       s += add('Former team', (pe.loyal - 50) * 0.12 * loyal);
     }
-    if (tid === userTid(S)) s += DIFF_APPEAL[S.difficulty] || 0;
+    if (tid === userTid(S)) {
+      s += DIFF_APPEAL[S.difficulty] || 0;
+      if (PBC.Desk && PBC.Desk.pitchBonus) s += add('Your pitch', PBC.Desk.pitchBonus(S, p));
+      const recL = PBC.Coach && PBC.Coach.skill ? PBC.Coach.skill(S, 'rec') : 0;
+      if (recL) s += add('Recruiter skill', recL * 2.5 + (opts.own && recL >= 5 ? 6 : 0));
+    }
+    if (PBC.Office && PBC.Office.appeal) s += add('Facilities', PBC.Office.appeal(S, tid));
     else s += ((U.hash(p.id + ':' + tid) % 1000) / 1000 - 0.5) * 8;   // relationships the user can't see
     return { score: U.clamp(s, 0, 100), factors: f.sort((a, b) => Math.abs(b.v) - Math.abs(a.v)), role };
   };
@@ -261,6 +267,7 @@
     Off.truePeak(p, a - 1);
     if (p.seasonStart && p.seasonStart.ovr != null && p.ovr > p.seasonStart.ovr) p.dv += p.ovr - p.seasonStart.ovr;  // practice gains
     if (a <= 24) p.dv = U.clamp(p.dv + U.gauss(0, Off.DEV.peakWalk), 40, 99);
+    if (extra) p.dv = U.clamp(p.dv + extra, 40, 99);              // the bench's growth stays: it moves the curve itself
     const gap = p.pot - p.ovr;
     const slope = p.ovr >= 64 ? 1.0 : 0.75;                      // OVR per point of rating growth
     const dev = Off.devTarget(p, Off.devMods(S, p)) / slope - PROGRESS_BASE(a) - (a <= 26 ? gap * 0.16 : 0) + (extra || 0);
@@ -282,6 +289,7 @@
     if (p.ovr < 62 && a >= 29) c += 0.12;
     if (p.tid === -1) c += a >= 30 ? 0.2 : (a >= 27 && p.ovr < 60 ? 0.15 : 0);   // nobody wants him
     if (p.tid >= 0 && p.contract && p.contract.exp > S.season) c *= 0.4;          // money still on the table
+    if (p.deskOneMore === S.season) c *= 0.45;                                     // his coach asked him for one more year
     return U.clamp(c, 0, 1);
   };
 
@@ -327,7 +335,7 @@
     const ppg = c.gp ? (c.pts / c.gp).toFixed(1) : '0.0';
     const honors = [mvp ? `${mvp}× MVP` : '', rings ? `${rings}× champion` : '', as ? `${as}× All-Star` : ''].filter(Boolean).join(', ');
     const t = S.teams[p.retired.tid];
-    news(S, `🎖️ ${nm(p)}${t ? ' (' + t.abbr + ')' : ''} retires after ${U.plural(p.yearsPro || c.seasons, 'season')} — ${ppg} ppg over ${c.gp} games${honors ? '; ' + honors : ''}.`, 'retirement', p.retired.tid);
+    news(S, `🎖️ ${nm(p)}${t ? ' (' + t.abbr + ')' : ''} retires after ${U.plural(p.yearsPro || c.seasons, 'season')}: ${ppg} ppg over ${c.gp} games${honors ? '; ' + honors : ''}.`, 'retirement', p.retired.tid);
   }
 
   function evaluatePromises(S) {
@@ -336,11 +344,12 @@
       const p = S.players[id];
       if (!p.promise) continue;
       if (p.promise.season != null && p.promise.season > S.season) continue;
+      if (p.promise.desk) { p.promise = null; continue; }   // the Desk checks its own, ten games after it was made
       if (p.tid >= 0 && p.tid === p.promise.tid) {
         const s = PBC.Stats.season(p, S.season, false);
         if (s && s.gp >= 10) {
           const kept = p.promise.type === 'starter' ? s.gs / s.gp >= 0.6 : s.min / s.gp >= (p.promise.min || 20) - 2;
-          if (kept) { fo.kept++; p.morale = Math.min(100, (p.morale || 70) + 6); }
+          if (kept) { fo.kept++; p.morale = Math.min(100, (p.morale || 70) + 6); if (fo.kept >= 10 && PBC.Coach) PBC.Coach.unlock(S, 'word_10'); }
           else { fo.broken++; p.morale = Math.max(5, (p.morale || 70) - 12); news(S, `💔 ${nm(p)} says the team broke its ${p.promise.type === 'starter' ? 'starting-role' : 'minutes'} promise.`, 'career', p.tid); }
         }
       }
@@ -368,7 +377,7 @@
       if (p.tid === -2) continue;                 // prospects don't develop until they're drafted
       const played = p.tid >= 0 || p.stats.some(s => s.season === S.season);
       const before = p.ovr;
-      Off.develop(S, p, 0);
+      Off.develop(S, p, PBC.Staff && PBC.Staff.devBonus ? PBC.Staff.devBonus(S, p) : 0);
       if (played) p.yearsPro = (p.yearsPro || 0) + 1;
       if (p.tid >= 0) deltas.push({ pid: p.id, from: before, to: p.ovr, d: p.ovr - before });
       if (p.tid >= 0 && p.tid === u) sum.user.push({ pid: p.id, from: before, to: p.ovr, d: p.ovr - before });
@@ -388,6 +397,15 @@
         retireNews(S, p);
       }
     }
+    // the coaching carousel, the Hall of Fame class, retired numbers
+    if (PBC.Staff) PBC.Staff.carousel(S);
+    if (PBC.Office) PBC.Office.summer(S);
+    if (PBC.Rivals) PBC.Rivals.summer(S);
+    if (PBC.Legacy) { PBC.Legacy.summer(S, sum.retired); PBC.Legacy.compact(S); }
+    if (PBC.Media) {
+      const notable = U.sortBy(sum.retired.map(id => S.players[id]).map(p => ({ p, c: PBC.Stats.career(p, false) })).filter(x => x.c.pts >= 9000 || x.p.awards.some(a => a.type === 'mvp' || a.type === 'allLeague')), x => x.c.pts, true).slice(0, 6);
+      if (notable.length) PBC.Media.offseason(S, 'retire', { pid: notable[0].p.id, data: { list: notable.map(x => ({ pid: x.p.id, pts: x.c.pts, seasons: x.c.seasons })) } });
+    }
     // --- player options (decided a season ahead of the option year) ---
     for (const id in S.players) {
       const p = S.players[id];
@@ -404,7 +422,8 @@
     if (u >= 0 && PBC.Coach && S.coach) {
       for (const id in S.players) {
         const p = S.players[id];
-        if (p.tid >= 0 && p.draft && p.draft.byUser && p.draft.overall > 10 && p.ovr >= 80) { PBC.Coach.unlock(S, 'draft_steal'); break; }
+        if (p.tid >= 0 && p.draft && p.draft.byUser && p.draft.overall > 10 && p.ovr >= 80) PBC.Coach.unlock(S, 'draft_steal');
+        if (p.tid === u && p.draft && p.draft.byUser && p.draft.ovr0 != null && p.ovr - p.draft.ovr0 >= 15) PBC.Coach.unlock(S, 'dev_jump');
       }
     }
     sum.expiring = u >= 0 ? PBC.League.roster(S, u).filter(p => p.contract && p.contract.exp <= S.season).map(p => p.id) : [];
@@ -416,6 +435,7 @@
     bump(S);
     S.phase = 'draft_lottery';
     news(S, `🌅 The ${U.seasonLabel(S.season)} offseason begins: ${sum.retired.length} retirement${sum.retired.length === 1 ? '' : 's'}, the draft lottery is next.`, 'league');
+    if (PBC.Desk) PBC.Desk.phase(S, 'offseason');
     return true;
   };
 
@@ -428,6 +448,8 @@
     d.revealed = true;
     PBC.Draft.lotteryNews(S);
     S.phase = 'draft';
+    if (PBC.Desk) PBC.Desk.phase(S, 'draft');
+    if (PBC.Media) PBC.Media.offseason(S, 'lottery', { tids: d.order.filter(o => o.round === 1).slice(0, 3).map(o => o.owner), data: { order: d.order.filter(o => o.round === 1).slice(0, 5).map(o => o.owner) } });
     const aiT = LB(S).aiTrades;
     if (PBC.Trade && PBC.Trade.aiTradeTick && aiT > 0) for (let i = 0; i < Math.max(1, Math.round(2 * aiT)); i++) if (U.chance(Math.min(0.9, 0.45 * Math.min(1, aiT)))) PBC.Trade.aiTradeTick(S);
     return true;
@@ -492,6 +514,12 @@
   Off.startResign = function (S) {
     if (S.phase !== 'draft') return false;
     if (S.draftState && !S.draftState.done) PBC.Draft.simAll(S);
+    if (PBC.Media && S.draftState) {
+      const picks = S.draftState.order.filter(o => o.pid != null).slice(0, 10).map(o => ({ pid: o.pid, tid: o.owner }));
+      const u = userTid(S);
+      const mine = S.draftState.order.find(o => o.pid != null && o.owner === u);
+      PBC.Media.offseason(S, 'draft', { tids: picks.slice(0, 3).map(x => x.tid), pid: picks[0] ? picks[0].pid : null, data: { picks, mine: mine ? { pid: mine.pid, n: mine.overall } : null } });
+    }
     S.phase = 'resign';
     S.resign = { season: S.season, pl: {} };
     for (const p of Off.userExpiring(S)) S.resign.pl[p.id] = Off.resignInfo(S, p);
@@ -536,7 +564,7 @@
     R.ask = Off.fitAmt(S, p, R.ask * 1.03);
     if (R.tries >= 3 || sc < -30) {
       R.status = 'refused';
-      return { ok: false, refused: true, msg: `${nm(p)} is done talking — he'll test free agency.` };
+      return { ok: false, refused: true, msg: `${nm(p)} is done talking. He'll test free agency.` };
     }
     const py = Off.prefYears(p);
     return { ok: false, msg: `Rejected. He wants about ${U.money(R.ask)} per season${offer.years !== py ? ` and prefers ${U.plural(py, 'year')}` : ''}. (${3 - R.tries} tr${3 - R.tries === 1 ? 'y' : 'ies'} left)` };
@@ -577,7 +605,7 @@
     { key: 'tour', label: 'Facility Tour', icon: '🏟️', cost: 3, desc: 'Fly him in. Big boost; plays best in big markets and with players who care about the city.' },
     { key: 'dinner', label: 'Owner Dinner', icon: '🍽️', cost: 3, desc: 'Your owner makes the pitch. Great with money-driven players; better with a big-spending owner.' },
     { key: 'star', label: 'Star Player Recruits', icon: '⭐', cost: 3, desc: 'Your best player makes the call. Scales with his rating; big egos don’t love sharing the spotlight.' },
-    { key: 'contender', label: 'Contender Pitch', icon: '🏆', cost: 2, desc: 'Sell a title run. Huge with winners if your team is good — backfires if it isn’t.' },
+    { key: 'contender', label: 'Contender Pitch', icon: '🏆', cost: 2, desc: 'Sell a title run. Huge with winners if your team is good, and backfires if it isn’t.' },
     { key: 'starter', label: 'Promise Starting Role', icon: '🟢', cost: 2, once: true, desc: 'Guarantee a starting job. Big with playing-time players. Break it and morale and credibility suffer.' },
     { key: 'minutes', label: 'Promise Minutes', icon: '⏱️', cost: 1, once: true, desc: 'Guarantee a minutes floor (20, 25 or 30 mpg). Must be kept.' },
     { key: 'offer', label: 'Offer Contract', icon: '✍️', cost: 0, desc: 'Put money on the table: salary, years and an optional player option.' },
@@ -623,6 +651,7 @@
     S.phase = 'freeagency';
     aiOffers(S);
     news(S, `🖊️ Free agency is open! ${Object.keys(S.fa.pl).length} players are on the market.`, 'league');
+    if (PBC.Desk) PBC.Desk.phase(S, 'fa');
     return true;
   };
 
@@ -635,8 +664,10 @@
   Off.userAsk = function (S, pid) {
     const e = S.fa && S.fa.pl[pid];
     if (!e) return S.players[pid] ? Off.baseAsk(S, S.players[pid]) : 0;
-    return Off.fitAmt(S, S.players[pid], e.ask * (DIFF_ASK[S.difficulty] || 1));
+    return Off.fitAmt(S, S.players[pid], e.ask * (DIFF_ASK[S.difficulty] || 1) * closer(S));
   };
+  // (Recruiter, level 3: Closer, free agents ask you for 4% less)
+  const closer = S => (PBC.Coach && PBC.Coach.skill && PBC.Coach.skill(S, 'rec') >= 3 ? 0.96 : 1);
 
   /** Rough asking-price bracket shown before the agent call. */
   Off.askRange = function (S, pid) {
@@ -664,7 +695,7 @@
     const e = S.fa.pl[p.id];
     const u = userTid(S);
     const isUser = o.tid === u;
-    const ask = isUser ? e.ask * (DIFF_ASK[S.difficulty] || 1) : e.ask;
+    const ask = isUser ? e.ask * (DIFF_ASK[S.difficulty] || 1) * closer(S) : e.ask;
     const ap = Off.appeal(S, p, o.tid, { former: o.tid === e.lastTid }).score + (isUser ? e.boost : 0);
     return Off.moneyScore(p, o, ask) + (U.clamp(ap, 0, 100) - 50) * 0.45;
   };
@@ -684,7 +715,7 @@
     if (amt <= room) return { kind: 'cap', room };
     const mleBusy = S.fa && (S.fa.mle[tid] || Off.pendingOffers(S, tid).some(o => o.kind === 'mle' && o.pid !== ignorePid));
     if (amt <= L.mle + 1 && !mleBusy) return { kind: 'mle', room };
-    return { error: room > 0 ? `You have ${U.money(room)} in cap space${mleBusy ? '' : ` (or the ${U.money(L.mle)} mid-level exception)`}. Above that, only minimum deals are allowed.` : `You’re over the cap: you can offer the mid-level exception (up to ${U.money(L.mle)}, once${mleBusy ? ' — already in use' : ''}) or the minimum (${U.money(L.minSalary)}).`, room };
+    return { error: room > 0 ? `You have ${U.money(room)} in cap space${mleBusy ? '' : ` (or the ${U.money(L.mle)} mid-level exception)`}. Above that, only minimum deals are allowed.` : `You’re over the cap: you can offer the mid-level exception (up to ${U.money(L.mle)}, once${mleBusy ? ', already in use' : ''}) or the minimum (${U.money(L.minSalary)}).`, room };
   };
 
   Off.pendingOffers = function (S, tid) {
@@ -744,7 +775,7 @@
         msg = star ? `${nm(star)} called him personally.` : 'Nobody on your roster moves the needle.';
         break;
       }
-      case 'contender': d = (q - 0.5) * 32 * (0.4 + (pe.win || 50) / 80); msg = d >= 0 ? 'He likes your chances to win.' : 'He isn’t buying it — your team isn’t a contender.'; break;
+      case 'contender': d = (q - 0.5) * 32 * (0.4 + (pe.win || 50) / 80); msg = d >= 0 ? 'He likes your chances to win.' : 'He isn’t buying it: your team isn’t a contender.'; break;
       case 'starter': {
         const c = (role.rank <= 5 ? 1 : role.rank <= 7 ? 0.6 : 0.3) * cred;
         d = (4 + ((pe.pt || 50) / 100) * 12) * c;
@@ -859,6 +890,7 @@
     const fa = S.fa;
     const e = fa.pl[p.id];
     const u = userTid(S);
+    if (PBC.Rivals && e && e.lastTid >= 0) PBC.Rivals.move(S, p, e.lastTid, o.tid, 'fa');
     signContract(S, p, o.tid, o.amt, o.years, o.opt);
     if (o.kind === 'mle') fa.mle[o.tid] = true;
     if (o.promise && o.tid === u) p.promise = { type: o.promise.type, min: o.promise.min || 0, season: S.season + 1, tid: o.tid };
@@ -869,7 +901,7 @@
     e.signed = { tid: o.tid, amt: o.amt, years: o.years, week: fa.week };
     e.offers = [];
     const t = S.teams[o.tid];
-    const line = `${t.abbr} sign ${nm(p)} (${p.pos}, ${p.ovr}) — ${U.plural(o.years, 'yr')}, ${U.money(o.amt)}${o.kind === 'mle' ? ' (MLE)' : ''}`;
+    const line = `${t.abbr} sign ${nm(p)} (${p.pos}, ${p.ovr}): ${U.plural(o.years, 'yr')}, ${U.money(o.amt)}${o.kind === 'mle' ? ' (MLE)' : ''}`;
     fa.log.unshift({ week: fa.week, pid: p.id, tid: o.tid, amt: o.amt, years: o.years, kind: o.kind, text: line });
     if (S.offseason) S.offseason.signings.push({ pid: p.id, tid: o.tid, amt: o.amt, years: o.years, week: fa.week });
     if (o.tid === u || p.ovr >= 78) news(S, `✍️ ${t.city} ${t.name} sign ${nm(p)} (${p.pos}, ${p.ovr} OVR): ${U.plural(o.years, 'year')}, ${U.money(o.amt)}/yr.`, 'signing', o.tid);
@@ -971,6 +1003,11 @@
     const courted = new Set();
     for (const pid in fa.pl) if (fa.pl[pid].offers.some(o => o.tid === u)) courted.add(+pid);
     const signed = decide(S);
+    if (PBC.Media && signed.length) {
+      const list = U.sortBy(signed.map(pid => S.players[pid]).filter(p => p && p.tid >= 0), p => p.ovr, true).slice(0, 6)
+        .map(p => ({ pid: p.id, tid: p.tid, amt: p.contract ? p.contract.amt : 0, years: p.contract ? Math.max(1, p.contract.exp - S.season) : 1 }));
+      if (list.length && list[0] && S.players[list[0].pid].ovr >= 72) PBC.Media.offseason(S, 'fa', { tids: list.slice(0, 3).map(x => x.tid), pid: list[0].pid, data: { week: fa.week, signed: list } });
+    }
     const mineSigned = signed.filter(pid => S.players[pid].tid === u);
     const lost = signed.filter(pid => courted.has(pid) && S.players[pid].tid !== u);
     if (fa.week >= fa.weeks) {
@@ -986,6 +1023,7 @@
       }
       aiOffers(S);
       fa.ap = fa.apMax;
+      if (PBC.Desk) PBC.Desk.offWeek(S);
       const aiT = LB(S).aiTrades;
       if (PBC.Trade && PBC.Trade.aiTradeTick && aiT > 0 && U.chance(Math.min(0.9, 0.25 * aiT))) PBC.Trade.aiTradeTick(S);
     }
@@ -1008,14 +1046,14 @@
     if (!p || p.tid !== -1) return { ok: false, msg: 'He is not a free agent.' };
     if (u < 0) return { ok: false, msg: 'You need a job first.' };
     if (S.phase === 'freeagency') return { ok: false, msg: 'Use the free-agency market.' };
-    if (OFF[S.phase] || S.phase === 'awards' || S.phase === 'postseason_done') return { ok: false, msg: 'The season is over — free agency opens after the draft and re-signing period.' };
+    if (OFF[S.phase] || S.phase === 'awards' || S.phase === 'postseason_done') return { ok: false, msg: 'The season is over. Free agency opens after the draft and the re-signing period.' };
     if (PBC.League.roster(S, u).length >= L.rosterMax) return { ok: false, msg: `Your roster is full (${L.rosterMax}). Release someone first.` };
     const ask = p.contract ? p.contract.amt : Off.baseAsk(S, p);
     const room = L.cap - Off.payroll(S, u);
     let amt;
     if (ask <= room || ask <= L.minSalary) amt = Math.max(L.minSalary, ask);
     else if (ask <= L.minSalary * 1.35) amt = L.minSalary;
-    else return { ok: false, msg: `${nm(p)} wants ${U.money(ask)}. You have ${U.money(Math.max(0, room))} in cap space — over the cap you can only offer the minimum.` };
+    else return { ok: false, msg: `${nm(p)} wants ${U.money(ask)}. You have ${U.money(Math.max(0, room))} in cap space. Over the cap you can only offer the minimum.` };
     p.tid = u;
     p.contract = { amt, exp: S.season, rookie: false };
     p.num = 0;
@@ -1101,6 +1139,8 @@
     const faLog = S.fa ? S.fa.log.slice(0, 60) : [];
     for (const p of PBC.League.freeAgents(S)) p.contract = { amt: Off.fitAmt(S, p, (p.contract ? p.contract.amt : L.minSalary) * 0.6), exp: S.season, rookie: false };
     S.season++;
+    if (PBC.Media) PBC.Media.newSeason(S);
+    if (PBC.Office) PBC.Office.newSeason(S);
     S.phase = 'preseason';
     // AI rosters: fill to the minimum with 1-year deals, trim to the maximum, rotations & systems
     for (const t of S.teams) {
@@ -1152,6 +1192,7 @@
     S.resign = null;
     bump(S);
     news(S, `🏀 Training camps open for the ${U.seasonLabel(S.season)} season.`, 'league');
+    if (PBC.Desk) PBC.Desk.phase(S, 'preseason');
     return true;
   };
 

@@ -205,6 +205,33 @@ function metrics(games) {
       m.cCovHonored = c('covPoss') ? pct(c('covHonored'), c('covPoss')) : null;
       m.cDefReverted = c('defEnded') ? pct(c('defReverted'), c('defEnded')) : null;
     }
+    // dribble combos (the dribble work: a size-up read move by move, the counters, the men on the ball broken down)
+    const CB = PB.filter((g) => g.combo);
+    if (CB.length) {
+      const c = (k) => sum(CB, (g) => g.combo[k] || 0), n = CB.length;
+      m.cbChains = c('chains') / n;
+      m.cbMoves = c('chains') ? c('moves') / c('chains') : null;
+      m.cbBites = c('bites') / n;
+      m.cbCounters = c('counters') / n;
+      m.cbBreaks = c('breaks') / n;
+      m.cbFalls = c('falls') / n;
+      m.cbBreakdowns = c('breakdowns') / n;
+      m.cbRocks = c('rocks') / n;
+      m.cbSizeups = c('sizeups') / n;
+    }
+    // the fast break's rim cuts and the post fight
+    const FG = PB.filter((g) => g.fight);
+    if (FG.length) {
+      const c = (k) => sum(FG, (g) => g.fight[k] || 0), n = FG.length;
+      m.fgRimCuts = c('rimCuts') / n;
+      m.fgPostMoves = c('postMoves') / n;
+      m.fgPostShoves = c('postShoves') / n;
+      m.fgPostFights = c('postFights') / n;
+      m.fgContactDrives = c('contactDrives') / n;
+      m.fgContactHits = c('contactDrives') ? pct(c('contactHits'), c('contactDrives')) : null;
+      m.fgFalls = (c('floorFalls') + c('helpFalls')) / n;
+      m.fgReadShots = c('readShots') / n;
+    }
     if (U('n')) {
       m.cUserPerGame = U('n') / pn;
       m.cUserDone = pct(U('done'), U('n'));
@@ -428,6 +455,23 @@ const SECTIONS = [
     ['cMineSpotFar', '  more than 10 ft away', '%', 'down', ''],
     ['cInbUsed', 'Inbound calls run on the next throw-in under the basket', '%', 'up', ''],
     ['cDefHonored', 'Defensive possessions under the coach\'s call played in the called scheme', '%', 'up', '100'],
+    ['cbChains', 'Dribble combos per game (a size-up read move by move; the dribble work)', '', '', ''],
+    ['cbMoves', '  moves per combo', '', '', '1 to 5 by handle'],
+    ['cbBites', 'Dribble moves the man on the ball bought per game (every move at him, in a combo or not)', '', '', ''],
+    ['cbCounters', '  counters per game (a move straight back against the way his weight went)', '', '', ''],
+    ['cbBreaks', 'Men on the ball broken down per game (a stumble, the handler goes)', '', '', 'a few a game at most'],
+    ['cbFalls', '  of them put on the floor', '', '', 'rare'],
+    ['cbBreakdowns', 'Bursts out of a move the man on the ball bought (the breakdown) per game', '', '', ''],
+    ['cbRocks', 'Size-up steps per game (the body rocking with a chain\'s moves)', '', '', ''],
+    ['cbSizeups', 'Size-ups in place a handler probed with per game', '', '', ''],
+    ['fgRimCuts', 'Rim cuts on the break per game (a wing ahead of the defense going to the basket)', '', '', ''],
+    ['fgPostMoves', 'Post moves worked before a post-up\'s shot per game', '', '', ''],
+    ['fgPostShoves', 'Shoves in a back-down per game (the post fight)', '', '', ''],
+    ['fgPostFights', 'Bumps fighting for post position per game', '', '', ''],
+    ['fgContactDrives', 'Contact drives per game (into the help defender on purpose, to draw the foul)', '', '', ''],
+    ['fgContactHits', '  that got the shoulder into his chest', '%', 'up', ''],
+    ['fgFalls', 'Falls per game (a shooter knocked on a heavily contested shot, the help a contact drive ran through)', '', '', ''],
+    ['fgReadShots', 'Shots an open shooter brought forward per game (readOpen)', '', '', ''],
     ['cCovHonored', '  with the called pick-and-roll coverage', '%', 'up', '100'],
     ['cDefReverted', 'Defensive calls that went back to the team\'s own scheme when they ran out', '%', 'up', '100'],
   ]],
