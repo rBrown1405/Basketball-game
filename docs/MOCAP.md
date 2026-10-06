@@ -47,8 +47,9 @@ In the lab: the "Motion capture (CMU)" group, one scenario per clip.
   shanks within 0.2 deg (median), 0.7 deg (90th percentile), 4.8 deg at worst.
 - The CMU elbows and knees are exact hinges (0.0 deg spread over every bent frame); the elbow's hinge sits 30 deg off
   where a T-pose's is usually assumed, which is why the hinges are measured from the take instead of assumed.
-- Planted feet in the lab, every clip: 0 to 0.5 in of slide in 40 of 42; 1.5 in on a push-off in the turning
-  dribble; 1.0 in in the pivoting take (it pivots).
+- Planted feet in the lab, every clip (Animation Lab slide meter): under 1 in in 41 of 42; 1.5 in on one push-off in
+  the turning dribble. (Before pivots were held on the ball of the foot, the take's few degrees of toes-up on our
+  body pivoted that foot on its heel and it slid 6.5 in.)
 - One take (06_02) starts with its ankles at their rest angles for 0.7 s (the toes through the floor): frames with
   no ankle rotation at all are skipped by the importer.
 - An FBX round trip through Blender keeps every joint within 0.02 units (about a tenth of an inch); a skeleton whose
