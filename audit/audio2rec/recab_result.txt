@@ -1,0 +1,18 @@
+The recorded sounds against the synthesized ones, through the mixer (volume 0.7): recab.wav, 63.3 s
+
+   0.5 s  dribble, synthesized
+   4.8 s  dribble, recorded
+   9.1 s  swish, synthesized
+  13.0 s  swish, recorded
+  16.9 s  net, synthesized
+  20.8 s  net, recorded
+  24.7 s  board, synthesized
+  28.3 s  board, recorded
+  31.9 s  pass, synthesized
+  35.2 s  pass, recorded
+  38.5 s  the crowd bed at level 0.16, synthesized
+  44.7 s  the crowd bed at level 0.16, recorded
+  50.9 s  the crowd bed at level 0.6, synthesized
+  57.1 s  the crowd bed at level 0.6, recorded
+
+errors: 0

@@ -1,2 +1,9 @@
 tools/human/cache/
 tools/mocap/cache/
+audit/**/games.json
+tools/audio/node_modules/
+tools/audio/sources/
+# motion capture packs bought under a license (the files, and anything converted from them, stay out of this public
+# repository; docs/MOCAP.md)
+js/mocap/private/
+tools/mocap/private/

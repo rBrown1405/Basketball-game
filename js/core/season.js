@@ -30,6 +30,8 @@
     }
     for (const t of S.teams) if (t.id !== S.userTid) PBC.AI.fillRoster(S, t.id, { quiet: true });
     Season.news(S, `The ${U.seasonLabel(S.season)} season tips off!`, 'league');
+    // the Desk: the preseason's meetings if they never happened (a new career), then opening night's
+    if (PBC.Desk) { PBC.Desk.phase(S, 'preseason'); PBC.Desk.phase(S, 'tipoff'); }
   };
 
   Season.snapshot = function (S) {
@@ -70,6 +72,7 @@
     sg.hs = box.hs; sg.as = box.as; sg.ot = box.ot;
     const user = sg.h === S.userTid || sg.a === S.userTid;
     PBC.Stats.applyBox(S, box);
+    if (PBC.Rivals) PBC.Rivals.game(S, sg, box);
     if (user) {
       // keep full box scores for the user's games (play-by-play trimmed for storage)
       const keep = Object.assign({}, box);
@@ -78,9 +81,10 @@
       // only the most recent few games keep their full play-by-play (save size)
       S.pbpKeep = (S.pbpKeep || []).filter(id => S.boxes[id]);
       S.pbpKeep.push(sg.gid);
-      while (S.pbpKeep.length > 4) { const old = S.pbpKeep.shift(); if (S.boxes[old]) delete S.boxes[old].pbp; }
+      while (S.pbpKeep.length > 4) { const old = S.pbpKeep.shift(); if (S.boxes[old]) { delete S.boxes[old].pbp; delete S.boxes[old].plog; } }
       if (PBC.Coach) PBC.Coach.recordGame(S, sg, box);
       Season.userGameNews(S, sg, box);
+      if (PBC.Desk) PBC.Desk.afterGame(S, sg, box);
     }
     if (sg.playoff) {
       if (S.playoffs && S.playoffs.round === S.playoffs.rounds) sg.box = box; // Finals boxes for Finals MVP
@@ -90,15 +94,17 @@
     for (const T of box.teams) for (const pl of T.players) {
       if (pl.inj) {
         const p = S.players[pl.pid];
-        if (p && p.injury && (T.tid === S.userTid || p.ovr >= 82)) Season.news(S, `🚑 ${PBC.Player.name(p)} (${S.teams[T.tid].abbr}) — ${PBC.Player.injuryLabel(p.injury)}`, 'injury', T.tid);
+        if (p && p.injury && (T.tid === S.userTid || p.ovr >= 82)) Season.news(S, `🚑 ${PBC.Player.name(p)} (${S.teams[T.tid].abbr}): ${PBC.Player.injuryLabel(p.injury)}`, 'injury', T.tid);
       }
     }
+    // the media: form, streaks, big nights, stars hurt, milestones, records (every game in the league)
+    if (PBC.Media) PBC.Media.game(S, sg, box);
     // big performances
     for (const T of box.teams) for (const pl of T.players) {
       if (pl.pts >= 50 || (pl.pts >= 10 && pl.orb + pl.drb >= 10 && pl.ast >= 10 && T.tid === S.userTid)) {
         const p = S.players[pl.pid];
         const td = pl.pts >= 10 && pl.orb + pl.drb >= 10 && pl.ast >= 10;
-        Season.news(S, `${td ? '🔺 Triple-double' : '🔥 Explosion'}: ${PBC.Player.name(p)} — ${pl.pts} pts, ${pl.orb + pl.drb} reb, ${pl.ast} ast vs ${S.teams[box.teams[T === box.teams[0] ? 1 : 0].tid].abbr}`, 'performance', T.tid);
+        Season.news(S, `${td ? '🔺 Triple-double' : '🔥 Explosion'}: ${PBC.Player.name(p)}, ${pl.pts} pts, ${pl.orb + pl.drb} reb, ${pl.ast} ast vs ${S.teams[box.teams[T === box.teams[0] ? 1 : 0].tid].abbr}`, 'performance', T.tid);
       }
     }
   };
@@ -160,8 +166,12 @@
       if (!S.flags.tradeDeadlinePassed && S.day + 1 >= S.tradeDeadlineDay) {
         S.flags.tradeDeadlinePassed = true;
         Season.news(S, '⏰ The trade deadline has passed. Rosters are locked except for free-agent signings.', 'league');
+        if (PBC.Desk) PBC.Desk.phase(S, 'deadline');
+        if (PBC.Media) PBC.Media.deadline(S);
       }
       if (!S.flags.allStarDone && S.allStarDay >= 0 && S.day + 1 >= S.allStarDay) Season.allStar(S);
+      // All-Star weekend: the first day of the break
+      if (PBC.AllStar && PBC.AllStar.due(S)) PBC.AllStar.run(S);
       S.day++;
       if (Season.isRegularDone(S)) Season.endRegularSeason(S);
     } else if (S.phase === 'playin' || S.phase === 'playoffs' || S.phase === 'postseason_done') {
@@ -171,6 +181,9 @@
     } else {
       S.day++;
     }
+    // the Desk: follow-ups, deadlines, and maybe something new on your desk; the media's daily stories
+    if (PBC.Desk) PBC.Desk.daily(S);
+    if (PBC.Media) { PBC.Media.daily(S); PBC.Media.prune(S); }
     S.updated = Date.now();
   };
 
@@ -198,7 +211,7 @@
     best.forEach((b, i) => {
       if (!b) return;
       const label = L.playoffFormat === 'conference' ? `${L.confs[i]} ` : '';
-      Season.news(S, `⭐ ${label}Player of the Week: ${PBC.Player.name(b.p)} (${S.teams[b.p.tid].abbr}) — ${b.line}`, 'award', b.p.tid);
+      Season.news(S, `⭐ ${label}Player of the Week: ${PBC.Player.name(b.p)} (${S.teams[b.p.tid].abbr}): ${b.line}`, 'award', b.p.tid);
       b.p.awards.push({ season: S.season, type: 'potw', detail: '' });
     });
     S.weekSnap = Season.snapshot(S);
@@ -206,10 +219,24 @@
     Season.updateMorale(S);
     Season.checkTradeRequests(S);
     if (PBC.Coach) PBC.Coach.weekly(S);
+    if (PBC.Desk) PBC.Desk.weekly(S);
+    if (PBC.Media) PBC.Media.weekly(S);
+    if (PBC.Rivals) PBC.Rivals.weekly(S);
   };
 
   /** League behaviour settings (League Settings screen), or defaults when js/core/sliders.js is missing. */
   const LB = S => (PBC.Sliders && PBC.Sliders.league ? PBC.Sliders.league(S) : { morale: 1, tradeRequests: true, tradeRequestFreq: 1 });
+
+  /** is the promise to p being broken so far? (s: his season line; a promise made mid-season, the Desk's, counts from the
+   *  day it was made: gp0, min0, gs0) */
+  Season.promiseBroken = function (p, s) {
+    const pr = p.promise;
+    if (!pr || !s) return false;
+    const gp = s.gp - (pr.gp0 || 0);
+    if (gp < 5) return false;
+    if (pr.type === 'starter') return (s.gs - (pr.gs0 || 0)) / gp < 0.6;
+    return (s.min - (pr.min0 || 0)) / gp < (pr.min || 20) - 2;
+  };
 
   /** Weekly morale drift from minutes and winning (scaled by the Morale Sensitivity setting). tid: one team, default all. */
   Season.updateMorale = function (S, tid) {
@@ -226,11 +253,12 @@
         const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
         const hurt = PBC.Player.isInjured(p);                   // injured players don't sulk about minutes
         let d = (hurt ? 0 : (mpg - expected) * 0.25 * ((p.pers ? p.pers.pt : 50) / 50)) + (winning - 0.5) * 6 * ((p.pers ? p.pers.win : 50) / 50);
-        if (p.promise && p.promise.type === 'starter' && s && s.gp >= 5 && s.gs / s.gp < 0.6) d -= 3;
-        if (p.promise && p.promise.type === 'minutes' && s && s.gp >= 5 && mpg < p.promise.min - 2) d -= 3;
+        const motL = t.id === S.userTid && PBC.Coach && PBC.Coach.skillFor ? PBC.Coach.skillFor(S, t.id, 'mot') : 0;
+        if (Season.promiseBroken(p, s)) d -= motL >= 3 ? 1.5 : 3;
         // good players stuck on bad teams get restless (the classic trade-request story)
         if (p.ovr >= 76 && winning < 0.42) d -= (0.42 - winning) * 8 * ((p.pers ? p.pers.win : 50) / 60) * (rec.w + rec.l >= 10 ? 1 : 0);
         if (p.tradeReq) d -= 1;                                   // still waiting to be moved
+        if (d < 0 && motL) d *= 1 - 0.06 * motL;
         p.morale = Math.round(U.clamp((p.morale == null ? 70 : p.morale) + d * 0.5 * sens + (70 - (p.morale || 70)) * 0.05, 5, 100));
       });
     }
@@ -249,9 +277,7 @@
     const expected = rank < 5 ? 28 : rank < 8 ? 18 : rank < 10 ? 10 : 0;
     const rec = PBC.League.standings(S)[p.tid];
     const pct = rec.w + rec.l ? rec.w / (rec.w + rec.l) : 0.5;
-    const pr = p.promise;
-    const broken = pr && s && s.gp >= 5 && (pr.type === 'starter' ? s.gs / s.gp < 0.6 : mpg < (pr.min || 20) - 2);
-    if (broken) return { reason: 'promise', text: 'says the team broke its promise to him' };
+    if (Season.promiseBroken(p, s)) return { reason: 'promise', text: 'says the team broke its promise to him' };
     if (mpg < expected - 5) return { reason: 'minutes', text: `wants a bigger role (${mpg.toFixed(1)} minutes a night)` };
     if (pct < 0.42) return { reason: 'losing', text: 'is tired of losing and wants to play for a contender' };
     return { reason: 'unhappy', text: 'is unhappy with his situation' };
@@ -296,6 +322,7 @@
     const he = p.gender === 'f' ? 'She' : 'He';
     const txt = r.text.replace(/\bhis\b/g, p.gender === 'f' ? 'her' : 'his').replace(/\bhim\b/g, p.gender === 'f' ? 'her' : 'him');
     Season.news(S, `📣 ${PBC.Player.name(p)} (${t.abbr}) has requested a trade. ${he} ${txt}.`, 'trade', p.tid);
+    if (PBC.Media) PBC.Media.request(S, p);
     return p.tradeReq;
   };
 
@@ -328,6 +355,10 @@
     const mine = picked.filter(p => p.tid === S.userTid);
     Season.news(S, `🌟 All-Star rosters announced! ${mine.length ? 'Your All-Stars: ' + mine.map(p => PBC.Player.name(p)).join(', ') + '.' : 'None of your players made the team.'}`, 'award', S.userTid);
     S.allStars = picked.map(p => p.id);
+    // the weekend's invitations: the contests (js/core/allstar.js)
+    if (PBC.AllStar) PBC.AllStar.announce(S);
+    if (PBC.Desk) PBC.Desk.phase(S, 'allstar');
+    if (PBC.Media) PBC.Media.allStar(S);
   };
 
   // ---------------------------------------------------------------------------
@@ -350,14 +381,17 @@
     const trains = (d && d.trains) || DRILL_TRAINS[drillKey] || DRILL_TRAINS.auto;
     const roster = PBC.League.roster(S, S.userTid).filter(p => !PBC.Player.isInjured(p));
     const gains = [];
-    const base = 0.11 * (score / 100) * (auto ? 0.6 : 1);
+    // (your Player Development skill and the training center, js/core/office.js)
+    const devL = PBC.Coach && PBC.Coach.skill ? PBC.Coach.skill(S, 'dev') : 0;
+    const fac = PBC.Office && PBC.Office.practiceMult ? PBC.Office.practiceMult(S, S.userTid) : 1;
+    const base = 0.11 * (score / 100) * (auto ? 0.6 : 1) * (1 + 0.1 * devL) * fac;
     for (const p of roster) {
       const isFocus = focus && focus.includes(p.id);
       const ageF = p.age <= 22 ? 1.4 : p.age <= 25 ? 1.2 : p.age <= 29 ? 1 : p.age <= 32 ? 0.7 : 0.45;
       const workF = 0.7 + (p.pers ? p.pers.work : 60) / 200;
       const potF = p.pot > p.ovr ? 1.15 : 1;
       for (const k of trains) {
-        const amt = base * (isFocus ? 3 : 1) * ageF * workF * potF * U.range(0.7, 1.3);
+        const amt = base * (isFocus ? (devL >= 5 ? 4.5 : 3) : 1) * ageF * workF * potF * U.range(0.7, 1.3);
         const before = p.r[k];
         if (PBC.Player.addTraining(p, k, amt)) gains.push({ pid: p.id, key: k, from: before, to: p.r[k] });
       }
@@ -370,7 +404,7 @@
     if (!auto && PBC.Coach && score >= 95) PBC.Coach.unlock(S, 'perfect_practice');
     if (gains.length) {
       const txt = gains.slice(0, 4).map(g => `${PBC.Player.shortName(S.players[g.pid])} ${C.RATINGS.find(r => r.key === g.key).short} ${g.to}`).join(', ');
-      Season.news(S, `🏋️ Practice (${auto ? 'assistant-run' : drillKey}): ${gains.length} rating bump${gains.length > 1 ? 's' : ''} — ${txt}${gains.length > 4 ? '…' : ''}`, 'practice', S.userTid);
+      Season.news(S, `🏋️ Practice (${auto ? 'assistant-run' : drillKey}): ${gains.length} rating bump${gains.length > 1 ? 's' : ''}. ${txt}${gains.length > 4 ? '…' : ''}`, 'practice', S.userTid);
     }
     return gains;
   };
@@ -389,6 +423,8 @@
     const r = st[S.userTid];
     Season.news(S, `The regular season is over. You finished ${r.w}-${r.l}${my ? `, the ${U.ordinal(my.seed)} seed${L.playoffFormat === 'conference' ? ' in the ' + L.confs[my.conf] : ''}` : ''}. ${inPlayoffs ? 'On to the playoffs!' : inPlayIn ? 'Next up: the Play-In Tournament.' : 'Your season is over.'}`, 'league', S.userTid);
     S.regularAwards = PBC.Stats.computeAwards(S);
+    if (PBC.Desk) PBC.Desk.phase(S, 'postseason');
+    if (PBC.Media) PBC.Media.endRegular(S);
   };
 
   Season.finishPostseason = function (S) {
@@ -405,6 +441,7 @@
       const p = S.players[pid];
       p.awards.push({ season: S.season, type: 'champion', detail: champ.abbr });
     }
+    if (PBC.Media) PBC.Media.champion(S);
     Season.endSeason(S);
   };
 
@@ -420,6 +457,9 @@
       awards: aw, standings: st.map(r => ({ tid: r.tid, w: r.w, l: r.l })), userTid: S.userTid,
       finals: finals ? { winner: finals.winner, loser: finals.loser, wins: finals.winner === finals.hi ? finals.w.slice() : [finals.w[1], finals.w[0]], len: finals.len } : null,
       preseasonProj: S.preseasonProj ? Object.assign({}, S.preseasonProj) : null,
+      // the bracket: every series (round, conference, the two teams, the wins, the winner), and the play-in
+      bracket: P && P.series.length ? P.series.map(s => ({ r: s.round, c: s.conf, hi: s.hi, lo: s.lo, w: s.w.slice(), win: s.winner, sh: P.seeds && P.seeds[s.hi] ? P.seeds[s.hi].seed : null, sl: P.seeds && P.seeds[s.lo] ? P.seeds[s.lo].seed : null })) : null,
+      playIn: P && P.playIn ? P.playIn.filter(x => x.winner != null).map(x => ({ c: x.conf, st: x.stage, hi: x.hi, lo: x.lo, win: x.winner })) : null,
     };
     S.history.push(hist);
     for (const t of S.teams) {
@@ -427,29 +467,39 @@
       const res = PBC.League.playoffResult(S, t.id);
       t.history.push({ season: S.season, w: r.w, l: r.l, result: res.label, round: res.round, champ: !!res.champ, seed: P && P.seeds[t.id] ? P.seeds[t.id].seed : null });
     }
+    // each team's play numbers for the season, into its history (js/core/playstats.js)
+    if (PBC.PlayStats) PBC.PlayStats.archive(S);
     // player rating history snapshot
     for (const p of Object.values(S.players)) {
-      if (p.tid >= 0 || p.tid === -1) p.hist.push({ season: S.season, ovr: p.ovr, pot: p.pot, tid: p.tid, age: p.age });
+      if (p.tid >= 0 || p.tid === -1) p.hist.push({ season: S.season, ovr: p.ovr, pot: p.pot, tid: p.tid, age: p.age, rt: PBC.Player.snapRatings(p.r) });
     }
     const coyTid = aw.coyTid;
     if (coyTid === S.userTid && PBC.Coach) PBC.Coach.unlock(S, 'coy');
-    Season.news(S, `🏅 Awards — MVP: ${aw.mvp != null ? PBC.Player.name(S.players[aw.mvp]) : '—'} · DPOY: ${aw.dpoy != null ? PBC.Player.name(S.players[aw.dpoy]) : '—'} · ROY: ${aw.roy != null ? PBC.Player.name(S.players[aw.roy]) : '—'} · Coach of the Year: ${coyTid === S.userTid ? 'YOU!' : S.teams[coyTid].city + ' ' + S.teams[coyTid].name}`, 'award');
+    Season.news(S, `🏅 The awards. MVP: ${aw.mvp != null ? PBC.Player.name(S.players[aw.mvp]) : '-'} · DPOY: ${aw.dpoy != null ? PBC.Player.name(S.players[aw.dpoy]) : '-'} · ROY: ${aw.roy != null ? PBC.Player.name(S.players[aw.roy]) : '-'} · Coach of the Year: ${coyTid === S.userTid ? 'YOU!' : S.teams[coyTid].city + ' ' + S.teams[coyTid].name}`, 'award');
+    // every coach's season on the record, the numbers players wore (the league's history)
+    if (PBC.Staff) PBC.Staff.endSeason(S);
+    if (PBC.Legacy) PBC.Legacy.endSeason(S);
+    if (PBC.Desk && PBC.Desk.review) PBC.Desk.review(S);
     if (PBC.Coach) PBC.Coach.endSeason(S);
     S.phase = 'awards';
+    if (PBC.Desk) PBC.Desk.phase(S, 'season_end');
   };
 
   // ---------------------------------------------------------------------------
   // Convenience: advance until a condition
   // ---------------------------------------------------------------------------
   /** Sim full days until the user has a game today (not played). Returns the user's game or null if the phase ended. */
-  Season.advanceToUserGame = function (S, maxDays) {
+  Season.advanceToUserGame = function (S, maxDays, opts) {
     let n = 0;
     while (n++ < (maxDays || 400)) {
       if (!(S.phase === 'regular' || S.phase === 'playin' || S.phase === 'playoffs')) return null;
       Season.prepareToday(S);
       const ug = Season.userGameToday(S);
       if (ug) return ug;
-      // user not playing today: stop at practice if needed is handled by the UI
+      // something on the Desk needs you first (opts.desk: the sim buttons stop for it)
+      if (opts && opts.desk && PBC.Desk && PBC.Desk.shouldStop(S)) return null;
+      // no game for you today: sim the day (the sim never stops for practice; a practice you skip is run by your
+      // assistants at the end of the week)
       const today = S.phase === 'regular' ? S.schedule.some(g => g.day === S.day && !g.played) : (S.todayPost || []).some(g => !g.played);
       if (!today && S.phase !== 'regular' && S.playoffs && S.playoffs.done) { Season.finishPostseason(S); return null; }
       if (S.phase !== 'regular') {

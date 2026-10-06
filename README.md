@@ -16,7 +16,18 @@ play it in slow motion, **pause and step frame by frame** (forward and back), or
 debug overlays: planted-foot locks with a slide meter, the gait phase and duty factor, cadence and stride, and
 joints held at their limits. **Copy report** gives the exact scenario, frame and settings so a problem can be
 replayed exactly. Keys: Space pause, arrows step, `P` next gait key pose, `[` `]` speed, `R` restart, `1`-`7` camera
-angles.
+angles. "Two sizes side by side" with the two Height sliders compares body sizes (a 6'1" guard and a 7'1" center are
+built and move differently).
+
+## Animation debug tools
+
+In the live game or `match_test.html` press **Shift+D**. You get per-player overlays: foot contacts with a slide
+meter, centre of mass and balance, velocity and acceleration, facing, look target, state label, joint limits and a
+hand-to-ball meter. Playback runs at 0.1x to 4x with pause, frame stepping and a 12-second rewind. You can isolate one
+player (dim or hide the rest), orbit a free camera around him, and copy a report. The same meters run headless:
+`node tools/audit/quarter.js --seed 7` plays a full quarter and prints the scorecard, and `node tools/audit/check.js`
+runs the tests. The gauntlet reports are in `docs/gauntlet/`, and every animation tuning value is in
+`js/match/tune.js`.
 
 ## Saving
 
@@ -32,6 +43,11 @@ angles.
 - **Men's (30 teams, 82 games) or Women's (12 teams, 44 games) pro league**, fictional teams in real cities.
 - **27 player ratings**, 5 positions, archetypes, potential, contracts, injuries, aging and **personalities**
   (Easygoing, Floor General, Fierce Competitor, Showman, Cocky, Hothead, Cold-Blooded and more).
+- **Play styles and badges**: every player has one of 18 play styles (Floor General, Point Forward, Deep Range Shooter,
+  Explosive Slasher, Shot Creator, 3-and-D Wing, Post Scorer, Rim Runner and more) that shapes how they play, in the
+  simulation and on the live court, and badges in Bronze, Silver, Gold and Hall of Fame tiers (29 of them: Deadeye,
+  Limitless Range, Posterizer, Ankle Breaker, Clamps, Rim Protector and more) earned from their ratings. The player card
+  has a Badges tab; the Badge Impact slider sets how much they count.
 - **Detailed pixel-art portraits** everywhere, with facial expressions that match each player's personality
   (a warm smile, a smirk, a cocky grin, a mean mug) and moods for big moments.
 - **Manage your team**: starting five, rotation minutes, go-to players, 12 offensive systems, 12 defensive
@@ -48,15 +64,33 @@ angles.
 - **Playoffs feel bigger**: towels, giveaway shirts and floor decals, a louder building, a series strip on the
   score bug, and teams that tighten rotations, play harder defense and ride their stars, more so each round
   up to a Finals Game 7. A huge favorite still wins almost every game, but a hot underdog can steal one.
+- **Playbook and play calling**: every team runs a playbook of real sets (pick and roll, horns, floppy, Spain,
+  Chicago, flex, post and inbound plays) with roles, steps and reads, called by the coaches during games.
+- **Timeout huddle**: call a play for the next possessions, the next inbound play, and a defensive scheme and
+  pick-and-roll coverage for the next 3, 5 or 10 possessions, and make substitutions.
+- **Play designer**: draw your own plays on a whiteboard in X's and O's (cuts, screens, passes, hand-offs,
+  dribbles and drives, step by step), give each spot a role, pick the reads, run it on the board, and add it to
+  your playbook; or start from any library play and make it yours.
+- **Play paths on the court**: the called play drawn on the floor as it runs (the O key).
+- **Play tracking and analytics**: every possession is logged: the play, how far into it the offense got, where
+  and why it broke down (a denied pass, a blown screen, a switch, the help, the shot clock, a turnover) and the
+  outcome. The box score's Plays tab shows each team's plays, its defense by scheme and every possession; Playbook,
+  📊 Play stats (and any team's page) shows the season: each play's usage, points per possession against the
+  league, completion rate, shot quality and most common breakdown, and points allowed per possession by defensive
+  scheme and coverage. Past seasons are kept in each team's history.
 - **Game Impact Moments**: in clutch moments you draw up the play and hit the shot yourself with a shot meter.
 - **Gameplay sliders** (League Settings): pace, fast breaks, three-point rate and accuracy, shooting by zone,
-  dunks, fouls, turnovers, steals, blocks, defense, rebounding, fatigue, injuries, star usage, clutch, home
-  court, upsets and playoff intensity, with presets, plus difficulty handles for your own team.
+  dunks, fouls, turnovers, steals, blocks, defense, rebounding, fatigue, injuries, star usage, clutch, badges,
+  home court, upsets and playoff intensity, with presets, plus difficulty handles for your own team.
 - **League behaviour settings**: player progression, rookie development, aging, morale sensitivity and trade
   requests (unhappy players can ask out), contract demands, loyalty, AI trade frequency and trade difficulty.
-- **Player editor**: ratings and looks, **tendencies** (threes, mid-range, attacking the rim, dunking, pull-ups,
-  step-backs, drawing fouls, isolation, pick and roll, post-ups, passing, pushing the pace, crashing, gambling,
-  blocking, fouling), personality type, facial expression and characteristics.
+- **Player editor** with the **in-game 3D model**: drag to turn him, zoom, frame the body or the face, home or away
+  uniform, and watch him stand, dribble, run dribble moves, shoot, defend, jog and celebrate as you change his looks
+  and body. Every rating has a slider and a number with what it was and a one-click reset; the live OVR, the badges
+  the ratings earn (new and lost ones marked), the list of changes, undo and reset all. Also **tendencies** (threes,
+  mid-range, attacking the rim, dunking, pull-ups, step-backs, drawing fouls, isolation, pick and roll, post-ups,
+  passing, pushing the pace, crashing, gambling, blocking, fouling), personality type, play style, facial expression,
+  contract and health.
 - **Team editor**: city, name, abbreviation, colors, badge shape, home and away uniforms, court wood, paint and
   logo, arena name, market size, owner and default systems.
 - **Weekly practice mini-games** develop your players (focus players improve 3× faster).
@@ -66,6 +100,10 @@ angles.
 - **COURTSIDE preview magazine** every season.
 - **Stats & records**: season and career stats, game logs, box scores, league and franchise records, champions,
   awards history, all-time greats, and your career record against every team.
+- **Whole careers on the record**: every player's stats every season (per game, totals, per 36, advanced, team
+  splits), game logs for every player (the last two seasons for everyone, every season of your own players for good,
+  or everything with Keep all), career highs and best games, a trophy case with every award, stat title, milestone,
+  record, Hall of Fame induction and retired number, and every rating season by season with what went up and down.
 - **Coaching career**: owner expectations, job security, contract extensions, getting fired and hired,
   achievements and a Hall of Fame meter.
 
@@ -89,6 +127,7 @@ js/lib/procanim.js    standalone procedural animation module (dribble, crossover
 js/ui/                screens, portraits, TV graphics, arena audio and the commentary booth
 docs/                 engine ⇄ view contract, data model, UI guide
 test/                 Node test scripts (node test/calibrate.js men, node test/procanim.js …)
+tools/audit/          headless animation audit: full-quarter scorecard, meter and determinism tests
 ```
 
 ## Credits

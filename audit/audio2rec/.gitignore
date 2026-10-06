@@ -1,0 +1,4 @@
+# recordings stay out of git (the compressed clips are kept as .webm)
+*.wav
+# (the console screenshots are the same as audit/audio2/s)
+console_*.png

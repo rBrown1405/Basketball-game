@@ -150,7 +150,9 @@
     const sk = bind.sk, SP = sk.P;
     const rj = j => [SP[j * 3], SP[j * 3 + 1], SP[j * 3 + 2]];
     const rhm = [(SP[RG.J.L_HIP * 3] + SP[RG.J.R_HIP * 3]) / 2, (SP[RG.J.L_HIP * 3 + 1] + SP[RG.J.R_HIP * 3 + 1]) / 2];
-    const al = p => [(p[0] - hm[0]) * s0 + rhm[0], (p[1] - hm[1]) * s0 + rhm[1], (p[2] - zlo) * s0];
+    // (and moved up or down to the player's own proportions: a tall player's longer legs lift his trunk, which is a
+    // little shorter, so the mesh's hips, chest, shoulders and neck land on the rig's joints; see RG.makeDims)
+    const al = p => { const z = (p[2] - zlo) * s0; return [(p[0] - hm[0]) * s0 + rhm[0], (p[1] - hm[1]) * s0 + rhm[1], z + RG.shiftAt(dims, z)]; };
     const AJ = k => al(jraw(k));
     const O = bind.O, RF = bind.RF;
     const ob = b => [O[b * 3], O[b * 3 + 1], O[b * 3 + 2]];

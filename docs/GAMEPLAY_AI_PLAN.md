@@ -1,0 +1,871 @@
+# Gameplay AI: how it works now, and the plan
+
+Ground rule for every phase: nothing that works is rewritten or replaced. New behaviour is added on top of the
+existing systems (new modules that extend them, the way `flow.js` already extends the Director, plus small hooks in
+the existing files), and the procedural animation (gait, slides, turn-and-run, dribble moves, contact reactions)
+stays exactly as it is: the AI only decides where players go, which way they face, their stance and what they do.
+Each phase ends with the audit (`tools/audit`) rerun against the phase before, the animation regression checks and a
+stop for testing.
+
+## How it works now
+
+This is the game as Phase 1 found it. What Phase 2 changed is listed under "Phase 2: what was built" below; the
+Phase 2 modules extend these systems, and the code described here is still the fallback (zones, presses,
+transition, and every planner for screens, drives, passes and shots).
+
+### Two layers
+
+1. **The engine** (`js/core/sim.js`) decides what happens in a possession: which play, who handles, who shoots, from
+   where, how contested, made or missed, rebounds, turnovers, fouls. It produces the possession as a list of timed
+   events (`set`, `screen`, `pass`, `move`, `shot`, `rebound`, `turnover`, `foul`, `ft`, ...). Games you do not
+   watch are simulated the same way without the events (lite mode).
+2. **The live court** (`js/match/`) shows those events: the Director (`choreo.js`) turns each event into a beat and
+   places the ten players around it; `flow.js` fills the time between events with half-court movement; `actor.js`
+   moves the bodies (the procedural animation) and `ball.js` moves the ball. Nothing on the court changes the
+   engine's outcome: where a defender stands does not decide whether the shot goes in.
+
+### The engine (`js/core/sim.js`)
+
+- A possession runs in segments (normally one; offensive rebounds and resets add more, up to 14). Each segment:
+  `choosePlay` picks a play type (pnr, iso, post, spot, offscreen, handoff, cut, or transition) by the weights of the
+  team's offensive system (`C.OFFENSES[team.strat.off].plays`), bent by the five on the floor; the roles (handler,
+  screener, shooter, cutter, poster) are drawn at random weighted by ratings and tendencies, fresh each segment.
+- `actionTime` draws when the play ends in a shot (a bell curve around the league's average shot time); the shot
+  clock only matters in end-of-clock and end-of-period modes (`lateMode`: milk, last shot, hurry up, 2-for-1).
+- Then a turnover, a non-shooting foul or a defensive three may happen; otherwise `takeShot`: one "read" per play
+  (`BRANCHES`, for example pick and roll: handler 40 / roller 24 / kick-out 36) picks who shoots, `chooseZone` picks
+  rim / paint / mid / corner 3 / above-break 3 from his tendencies, the system and the defense, `chooseKind` the
+  shot type, and `contestLevel` draws open / contested / tight from team averages (the defense's scheme and ratings
+  shift the odds; no defender's position is modelled). `makeProb` then decides make or miss.
+- The play's screens, passes and moves (`playEvents`) are written after the shot is decided, to lead up to it.
+- Threes by poor shooters are already rare: the three-point weight falls off steeply below a 3PT tendency of ~40.
+  The ways around it are the pick-and-pop (screeners rated 70+), hurry-up threes late in games, heaves and the shot
+  meter (GIM) plays.
+- Hook points for the plan: `choosePlay`, `BRANCHES` / `branchWeights`, `planShot`, `chooseZone`, `pickShooter`,
+  `contestLevel`, `playEvents`, `segment`, `resolveShot`, `rebound`, `turnover`, `timeouts`.
+
+### Teams, players and coaches
+
+- Players (`js/core/player.js`, `config.js`): 27 ratings from 25 to 99 (close, layup, dunk, post, mid, three, ft,
+  draw foul, shot IQ, handle, pass, vision, interior / perimeter / help defense, steal, block, offensive and
+  defensive rebounding, speed, agility, strength, vertical, stamina, hustle, clutch, durability), a position (PG to
+  C), an archetype (for bigs: Stretch Four, Athletic Four, Post Scorer, Glue Defender, Rim Protector, Stretch Big,
+  Rim Runner, Playmaking Big) and 16 tendencies (`tendency.js`: three, mid, rim, dunk, pull-up, step-back, draw
+  foul, iso, pnr, post, pass, push, crash, gamble, block, foul) that bend shot selection, passing and pace.
+- Teams: `team.strat` = offensive system (12: balanced, pace and space, pnr heavy, motion, iso, post up, Princeton,
+  triangle, run and gun, grit and grind, dribble drive, heliocentric), defensive scheme (12: man, switch, drop,
+  blitz, zone 2-3, zone 3-2, 1-3-1, box and one, press, pack line, no threes, pressure), tempo, focus, crash,
+  pressure and two go-to players. AI teams pick them from their roster (`ai.js`, `chooseStrategy`).
+- There is no playbook: the set names in the play-by-play (HORNS, FLOPPY, ...) are labels on the play types above.
+- The coach (`coach.js`) has a reputation but no skill ratings; there are no assistant coaches; scouting exists only
+  for the draft.
+- In a live game the Coach tab can sub, change the strategy for this game and ask for a timeout, which is taken at
+  the next dead ball but does not pause the game or call a play. The shot meter (GIM) is the only play call.
+
+### The live court (`js/match/choreo.js`, `flow.js`)
+
+- **Formations**: each play type has a list of spots (`assignSpots`); the handler gets the first, the rest go by
+  height so the biggest player gets the last spot (the dunker spot when bringing the ball up, the elbow in a pick
+  and roll). Only the `spot` play is five out. The spots never mirror to the ball side.
+- **Between events** (`ambient`, `flow.js`): off-ball players screen away, cut, relocate, exchange and flash, more or
+  less by offensive system; the handler probes; the ball is swung around the perimeter in long waits. Idle players
+  shuffle a little so nobody is frozen.
+- **Matchups**: defender *i* guards offensive player *i* in lineup order (no cross-matching by size).
+- **On-ball defense** (`guardPos`): on the line from the handler to the rim, with a cushion from NBA tracking by the
+  handler's distance from the rim (2.5 ft inside 10 ft up to 18 ft near half court). The cushion is the same for a
+  great shooter and a non-shooter and grows quickly past the arc; near half court the defender stands up out of his
+  stance.
+- **Off-ball defense**: a point between his man and the rim (16 to 36 % of the way), pulled a little toward the ball
+  when far, a deny point when his man is within 21 ft of the ball, and a leash to his man. Nothing models "two
+  passes away" help-side position, and the deny point can land on top of the ball handler.
+- **Zones**: fixed spots by lineup order that shift with the ball.
+- **Drives**: one defender helps; there are no rotations behind him and no closeouts.
+- **Shots and rebounds**: on every shot every defender boxes out his man 2.4 ft on the rim side, even 25 ft from
+  the basket. The miss is a scripted arc from the rim to a spot next to the engine's rebounder, and in the last part
+  of the flight the ball is pulled toward his hands wherever he is. Rebounds never touch the floor.
+
+## Phase 1: simulate and audit (done)
+
+Files: `tools/audit/run.js`, `tools/audit/sampler.js`, `tools/audit/report.js`, `tools/audit/README.md`; results in
+`audit/phase1/` (`report.md`, `report.html`, `metrics.json`). The findings are summarised below.
+
+### What the Phase 1 audit found (52 games, 10,442 possessions, 21.8 hours of half-court play)
+
+Full tables, the players involved and court diagrams of flagged moments: `audit/phase1/report.md` and
+`audit/phase1/report.html`. Nothing is broken: all 52 games reached the final buzzer, no script errors, no stuck
+possessions, and the court score matched the engine in every game.
+
+**Ball defender walking backward / turning away**
+- Backing away from a handler who is not attacking: 4.2 % of on-ball time, 5,350 episodes (103 a game).
+  84 % of it comes from the defender's own positioning rule (`guardPos`), 37 % right after a catch: the defender
+  walks back from his deny spot to the on-ball cushion instead of closing out.
+- Back turned while walking away from the ball handler: 2,036 episodes (39 a game). 63 % happens while the shot
+  is being set up: the contest planner walks him toward the spot the shot will go up from, facing that spot instead
+  of the shooter.
+- The cushion ignores shooting: non-shooters (3PT under 50) get 4.8 ft at the arc, elite shooters 5.5 ft (backwards).
+- Good: between the handler and the basket 90.4 % (NBA tracking 94 to 98 %), low stance 94.7 %, running with
+  crossed feet while guarding only 0.2 %.
+
+**Off-ball defenders crowding the ball**
+- An extra defender on a ball that is already guarded, 12+ ft from the rim, no drive: 1,942 episodes (37 a game,
+  33 s a game). Help at the rim on drives and finishes (the right play) is counted apart: 74 s a game.
+- Root cause: the engine picks the shot's defender by position number, the court pairs defenders by lineup order,
+  and on 50 to 54 % of jump shots they are different players. That defender leaves his own man to contest while the
+  shooter's own defender is pushed out of the shooter's space.
+- Off-ball positions are otherwise reasonable: one pass away in the passing lane 70 %, two passes away in help
+  position 59 %, far from his man without helping only 0.1 %.
+
+**Offensive players standing still with no purpose**
+- Long stand-stills are not the main problem (443 of 3 s or longer, 80 of 5 s or longer in 52 games; players
+  shuffle a little all the time).
+- The real problem is no job: 30 % of off-ball time a player holds or drifts around a spot that is not spacing, half
+  of it in the mid-range. Wings are the worst (SG 36 %, SF 39 %); stretch bigs 41 to 42 %.
+
+**Wide-open players not shooting**
+- A decent shooter (70+ for a shot from where he is) catching it with nobody within 10 ft shoots only 48 % of the
+  time (196 such catches, 97 passed on, mostly the engine's scripted next pass).
+- Wide-open decent shooters off the ball: 2,325 stretches of 1 s or more (45 a game, 88 s a game), and the ball
+  found them 71 times (3 %).
+
+**Low 3PT players shooting threes**
+- Rare already: 16 of 3,829 threes (0.4 %) by players rated under 50, 2 by players under 45, none under 40; the
+  rest of the big men's threes come from bigs rated 50 to 69. The rule to add is a firm gate, not a big change.
+- Shots in the last 4 s of the shot clock: 14.6 % (the NBA is about 7 to 8 %): the shot clock plays no part in shot
+  selection.
+- The engine's "open" label does not match the court at the rim: 71 % of "open" shots at the rim or in the paint
+  have a defender within 3 ft (for threes it matches: 3 %).
+
+**Spacing by position (are bigs ever in the paint?)**
+- Not five out at all: 1.3 players beyond the arc on average, two or fewer 89 % of the time, five out 0.4 %.
+- Most players stand 18 to 24 ft from the rim, on or just inside the line; guards and wings spend about 40 % of
+  their time in the mid-range, corners are nearly empty (2 to 6 %).
+- Non-stretch PFs and Cs are at the rim, in the paint or the short corner 48 % of the time; 30 % of the time nobody
+  on offense is within 12 ft of the rim.
+
+**Rebounds and the ball (your earlier report)**
+- Caught at the top of a jump above the rim: median grab height 11.2 ft, 98 % above 10 ft.
+- The "teleport": 20 % of rebounds (834) bend more than 3 ft through the air into the rebounder's hands, up to
+  32 ft; 7 % jump more than 3 ft into the hands at the grab; 4 % hang still in the air first.
+- No rebound ever hits the floor.
+- Box-outs: 2.1 defenders per miss, 0.7 of them boxing out a man 20+ ft from the rim.
+- Ball and rim are life-size in the code (ball 9.4 in, rim 18 in, the real ratio); how they are drawn on screen is
+  checked in Phase 2.
+
+## Testing after every phase
+
+- Rerun the audit against the previous phase and commit its report:
+  `node tools/audit/run.js --out audit/phaseN --baseline audit/phase(N-1)/metrics.json`. Every metric shows before,
+  now and the change, marked better or worse.
+- Nothing broken: the audit's health section (every game reaches the final buzzer, no script errors, no stuck
+  possessions, court score equals the engine score), the engine's league numbers (points, shooting, threes,
+  turnovers, pace) in `test/harness.js`, the animation checks used for the procedural animation work (body contact and
+  feet stuck behind: `tools/audit/anim.js`, moved into the repo in Phase 2) and a game watched in the browser.
+- Debug overlays (the Live view's coach's debug view, Phase 2): defensive positioning, offensive jobs, the play's
+  steps and read decisions; later phases add their own layers to it.
+
+## Phase 2: core basketball AI
+
+First, the root causes the audit found:
+- One set of matchups: the engine sets who guards whom once per possession (by position and size, kept stable),
+  passes it with the possession, and the court uses it (`sim.js` `matchupDefender` / `shotDefender`, `choreo.js`
+  `setupMatchups`). The shot's defender is the shooter's own defender, or a real help defender on a drive.
+- The contest (`choreo.js` `planContest`): the defender faces the shooter all the way, closes out from where he is
+  with chop steps and a high hand, and the "stay out of the shooter's space" rule no longer pushes away the
+  shooter's own defender.
+- A catch is a closeout: the defender of the catcher comes out to him from his deny or help spot, never walks back.
+
+Defense, new `js/match/defense.js` (extends the Director like `flow.js`; `choreo.js` gets hooks, its code stays as the
+fallback for zones and presses):
+- On-ball: stays between the handler and the basket, faces him, low stance in the front court, slides (the existing
+  slide gait, feet never crossing) and backpedals only as fast as the handler attacks; the cushion comes from the
+  handler's shooting and quickness (crowd shooters, sag off non-shooters) instead of growing with distance; turns and
+  sprints only when beaten, then squares up again.
+- Off-ball: one pass away denies the passing lane (a step off, never on top of the ball); two passes away sits on the
+  help line in a flat triangle (sees man and ball); on a drive the low man helps, the next defender rotates behind
+  him, and when the ball is kicked out the nearest defender closes out and the rest recover to their men. No
+  defender steps into the handler's path or doubles a guarded ball unless the scheme calls a trap or he is helping.
+- Box-outs: defenders whose man is near the rim or crashing box out and then go get the ball; perimeter defenders do
+  not box out a man 25 ft away.
+- Rebounds and the ball (`ball.js`, `choreo.js`: `planRebound`, `scheduleRebounder`, `secureRebound`, `chaseCarom`):
+  misses come off the rim or board with real angles and speed; the rebounder goes to where the ball will be and
+  grabs it within his reach (the ball is no longer pulled to his hands through the air); long rebounds can bounce on
+  the floor; grabs happen at the height where he meets the ball. The ball and rim sizes are checked against the real
+  ratio on screen (ball 9.4 in, rim 18 in).
+
+Offense, engine (`js/core/sim.js`):
+- Shot decisions weigh shot quality: the player's rating for that shot, how open the look is, the shot clock and his
+  role. A decent shooter who gets a wide-open look shoots it; early in the clock only good looks are taken, late in
+  the clock the best available one.
+- Threes: players under ~45 3PT take them only at the buzzer; 45 to 55 only when wide open; the pick-and-pop and
+  hurry-up paths respect the same rule.
+- Bigs: centers and power forwards (not stretch bigs) screen, roll, post up and crash the glass.
+
+Offense, court (`js/match/flow.js`, `choreo.js` `assignSpots`):
+- Spots come from the play and the system, with roles: non-stretch bigs at the dunker spot, short corner, low post
+  or elbow (to screen); shooters beyond the arc (a step behind the line, not on it) with the corners filled; spots
+  mirror to the ball side. No more drifting in the mid-range with no job.
+- No standing around: every off-ball player has a job (space, relocate when the ball moves, cut when his man turns
+  his head, screen away, crash on a shot); a player stays on a spot only while it is the right spot.
+- Open teammates: when an off-ball shooter is wide open in range, the ball goes to him if the engine's timeline
+  allows it (Phase 3 makes this a real read).
+
+Debug overlays (new `js/match/debugdraw.js`, drawn from `view.js` over the court, toggled in the Live view): each
+defender's man, target spot and job (on ball, deny, help, box out); each offensive player's job; the play's steps;
+read decisions.
+
+### Phase 2: what was built
+
+All of it sits on top of the existing systems: three new modules extend the Director the way `flow.js` does, the
+engine gets a few functions, and nothing in the procedural animation changed (the AI only decides where players go,
+which way they face, their stance and what they do).
+
+- **One set of matchups** (`js/core/sim.js`: `pairLineups`, `matchupsOf`, `matchupDefender`, `shotDefender`): the
+  engine pairs the five defenders with the five offensive players once per lineup (by position and size, kept
+  stable) and hands the pairing to the court with each possession. The defender the engine credits with a contest,
+  a block or a foul is the one standing on that player; a switch on a pick and roll swaps the two.
+- **On-ball defense** (`js/match/defense.js`): between the handler and the rim, squared up, with a cushion from the
+  handler's shooting and quickness (an elite shooter at the arc gets about 0.7 times the room, a non-shooter about
+  1.45 times: crowd shooters, dare non-shooters), tighter inside the arc; he gives ground only as fast as about
+  1.5 ft a second unless the handler comes at him, so he never walks away from him. The man with the ball keeps his
+  defender until the pass is out of his hands.
+- **Closeouts**: the receiver's defender reads the passer (from about 0.45 s before the throw) and closes out to the
+  spot the receiver is running to: a sprint, then chop steps to the cushion. Passes are now aimed at that spot (the
+  catch spot the planner sent the receiver to, or where his run takes him), so the ball bends less in the air and
+  the closeout goes to the right place.
+- **Off the ball**: one pass away in the passing lane (a hand and a foot in the lane), two passes away on the help
+  line (a foot in the lane with the ball above the free-throw line, on the rim line with the ball on the wing); a
+  real shooter is not left (his man stays home, a step off him); attached to a strong-side corner man when the ball
+  is on that wing; 3/4 fronting a post man on the ball side. Help defenders are either in the lane or within 12 ft
+  of their man, never stranded in between. Each defender reacts to the ball a moment late (0.15 to 0.35 s by his
+  help-defense rating), each on his own clock. Nobody but the man on the ball goes near a handler who is not
+  attacking.
+- **Drives**: the low man (never the strong-side corner's defender) steps in front of the rim, the nearest defender
+  sinks to the low man's man, the rest sag; everyone recovers when the ball is kicked out.
+- **Shots and the glass**: the contest is the shooter's own defender (a help defender only at the rim), facing the
+  shooter all the way; on a miss only defenders whose man can get to the glass box out, the rest take a step toward
+  the long rebound.
+- **Offense on the court** (`js/match/offense.js`): perimeter spots 1.5 ft behind the line (corner, wing, slot, top);
+  non-stretch bigs (C and PF under 66 3PT) live at the dunker spot, the short corner, the block and the elbow;
+  stretch bigs space like wings; every off-ball player has a job (spacing a spot behind the line, running an action,
+  moving for the engine's next event), and one left holding a spot with no job for a second moves to the nearest
+  open spot; the small moves between actions keep shooters behind the line.
+- **Shot decisions** (`js/core/sim.js`): a player under 45 3PT almost never takes a three (45 to 60 fades in); a look
+  worth less than the time on the shot clock asks for (about 0.86 points a shot early, 0.78 from 14 s) can be passed
+  up for a reset (more often by high shot-IQ players, at most twice, never late in the clock); actions run faster
+  when the shot clock is short. League numbers are unchanged (see the results).
+- **Rebounds and the ball** (`js/match/rebound.js`): the carom comes down where the rebounder can get to it in
+  time; he goes up and takes it with two hands (contested), with a hop (uncontested), or runs to a long carom and
+  catches it on the way down; the ball is his the moment his hands meet it. If his hands are not there, it goes on
+  down and bounces (off his fingertips it is a tip that drops near him), and he runs it down at full speed to where
+  he meets it and picks it up off the bounce. It is never pulled through the air to him, and a ball never stops in
+  the air. On screen the rim is 1.96 ball widths across (a real rim is 1.92).
+- **Coach's debug view** (`js/match/debugdraw.js`; the D key or the 🧠 button in the Live view, or Broadcast
+  settings; layers: all, defense, offense): each defender's man (a line), the spot his rule wants (a ring) and his
+  job (ON BALL with the cushion he has and wants, CLOSEOUT, DENY, HELP, HOME, LOW MAN, SINK, POST, BOX OUT); each
+  offensive player's job with an arrow to where he is going (NO JOB in red); the possession's script from the
+  engine with the step under way; the reads (the shooter's expected points against what the shot clock asks for, a
+  look passed up, the help on a drive, swing passes and drive reactions); where the rebound comes down and who goes
+  for it.
+
+### What the Phase 2 audit shows (52 games, the same 52 as Phase 1)
+
+Full tables: `audit/phase2/report.md` and `report.html`. The Phase 1 code was measured again with this audit
+(`audit/phase2/phase1-code/`) so both sides are counted the same way; the numbers below compare the two.
+
+Nothing broken: all 52 games reached the final buzzer, no script errors, no stuck possessions, the court score
+matched the engine in every game, 230 points and 201 possessions a game (231 and 201 before). The engine's own
+league numbers over a season are unchanged (men 115.1 points a team game, 99.9 possessions, 36.4 % from three;
+before 115.2, 100.9, 35.7; women 84.6 points, 81.3 possessions; before 85.4, 82.4).
+
+| | Phase 1 | Phase 2 |
+|---|---:|---:|
+| Ball defender backing away from a handler who is not attacking | 4.2 % (103 a game) | 3.1 % (60 a game) |
+| Ball defender turning his back and walking away | 0.9 % (16.7 a game) | 0.3 % (5.1 a game) |
+| Extra cushion for a non-shooter over an elite shooter at the arc | -0.7 ft (backwards) | +1.0 ft |
+| Extra defender crowding a guarded ball, no drive | 32.5 s a game | 13.6 s a game |
+| Extra defender standing in the handler's path | 38.9 s a game | 10.6 s a game |
+| Two passes away: sees man and ball | 48 % | 58 % |
+| One pass away in the passing lane | 70 % | 73 % |
+| Off-ball players with no job | 19 % | 5 % |
+| Off-ball players spacing a spot (behind the arc, or a big by the rim) | 22 % | 37 % |
+| Non-stretch bigs in the paint, at the rim or short corner | 48 % | 75 % |
+| Nobody on offense within 12 ft of the rim | 30 % | 18 % |
+| Threes by players under 50 3PT (a game) | 0.3 | 0.1 |
+| "Open" shots with a defender within 3 ft at the release | 34 % | 24 % |
+| Shots with under 4 s on the shot clock | 15 % | 10 % |
+| Wide-open catch by a decent shooter within 26 ft: shot it | 47 % | 53 % |
+| Rebounds grabbed above 10 ft | 98 % | 34 % |
+| Carom bending 3+ ft through the air into his hands | 20 % | 0 % |
+| Ball jumping 3+ ft into his hands at the grab | 6.8 % | 0.6 % |
+| Ball hanging still in the air before the grab | 3.9 % | 0 % |
+| Rebounds that hit the floor first | 0 % | 9 % |
+| Passes bending 2+ ft in the air | 60 % | 50 % |
+| Box-outs of a man 20+ ft from the rim (per miss) | 0.7 | 0.4 |
+
+The animation work is untouched (`tools/audit/anim.js`, 4 games x 20 possessions, `audit/phase2/anim.json`): body
+contact 202 per 10,000 player-frames (208 before), feet stuck behind 31 per 10,000 running frames (29; within the
+noise of different movement), no script errors.
+
+Worse or not better yet (for the next phases):
+- Wide-open catches by decent shooters: 4.5 a game (3.3 before), 2.1 of them passed up (1.7 before). Most are
+  the court's own bookkeeping passes right after the ball comes up (the play's handler gets the ball while his
+  defender is still getting back) and passes on the engine's script; the engine does not know how open the catch
+  is on the court. Phase 3's playbook makes the court's plays and the engine's the same, and the catch a real read.
+- Help defenders more than 12 ft from their man outside a help spot: 11 short episodes a game (4.6 before); two
+  passes away but glued to the man: 1.7 % (0.9 %); more than 10 ft off the handler inside 28 ft: 1.8 % (1.0 %).
+  Mostly defenders lagging a hard cut or the ball's move, not their target spots.
+- Off-ball players standing still: 20 % either way (holding a spacing spot counts), average speed 5.8 ft/s either
+  way; stand-stills of 3 s or more 11.5 a game (8.5).
+- Between the ball handler and the basket: 89.9 % (90.4 %); NBA tracking has 94 to 98 %.
+
+### Research behind Phase 2
+
+Coaching material, NBA tracking studies and how NBA 2K describes its AI (numbers to confirm while building; a few
+came from search excerpts):
+- On-ball gap: about an arm's length (2.5 to 3 ft) on an average handler, about 4 ft on a quick one, tighter on
+  shooters, sagging (and going under screens) on non-shooters; a hand's length once the dribble is picked up.
+  Beaten means hip to hip: then turn and sprint. A sidestep starts about 0.3 s after the cue, so defenders react late
+  by a varying amount and never move in lockstep. ([coach Lynch](https://www.coachlynchbasketball.com/post/three-methods-guarding-the-ball),
+  [reaction study](https://www.sciencedirect.com/science/article/abs/pii/S1050641113001855))
+- Off-ball: tracking puts the average defender at 0.62 of his man, 0.11 of the ball and 0.27 of the hoop; one pass
+  away a hand and a foot in the lane; two passes away "ball-you-man", one foot in the lane with the ball above the
+  free-throw line, on the rim line with the ball on the wing. Help comes from the weak side, never from the
+  strong-side corner; the low man protects the rim; the rotation chain is low man, sink, fill, then X-out on the
+  swing. Closeout: sprint two thirds to three quarters of the way, chop the rest with a high hand, stop at arm's
+  length; a short closeout on drivers and non-shooters. Never double a contained ball and leave a shooter one pass
+  away. ([Franks et al.](https://arxiv.org/abs/2007.10550), [Cleaning the Glass](https://cleaningtheglass.com/how-do-nba-defensive-rotations-work/),
+  [Breakthrough Basketball](https://www.breakthroughbasketball.com/defense/help-positioning))
+- NBA 2K builds its offense and help decisions on 20+ dynamic spacing spots, lets help awareness ratings set how
+  fast help commits, and in 2K27 moved to a rotation engine that scores matchups and help targets instead of fixed
+  spots; RoboCup teams interpolate hand-placed ideal positions between sample ball locations.
+  ([2K25](https://nba.2k.com/2k25/courtside-report/gameplay/), [2K27](https://nba.2k.com/2k27/features/gameplay/),
+  [HELIOS](https://wrighteagle2d.github.io/robocup/2010/2D_TDP_HELIOS.pdf))
+- Spacing spots (feet from the baseline, from the sideline): corner (3, 2), wing (23, 7), slot (28.5, 15), top
+  (30.5, 25), elbow (19, 17), nail (19, 25), block (7 to 8, 16), dunker (2 to 4, 13 to 15), short corner (4, 9 to
+  11); perimeter spots 1 to 1.5 ft behind the line. Phase 1 found ours 1.5 to 2.5 ft closer in (wing 21, slot 26,
+  top 29); Phase 2 puts them 1.5 ft behind the line. Drive rules: baseline drive, the weak-side wing drifts to the corner;
+  middle drive, the corner lifts; someone fills behind; the "0.5 second" rule on the catch. Off-ball movers average
+  about 5 mph, ball-dominant players about 4. ([NBA rule 1](https://official.nba.com/rule-no-1-court-dimensions-equipment/),
+  [drive spacing rules](https://coachingtoolbox.net/offense/coaching-basketball-penetration-bailout-spacing-rules.html),
+  [NBA speed](https://www.thespax.com/nba/speed-and-distance-traveled-in-the-nba/))
+- Shots: about 39 % of NBA threes are wide open (6+ ft) and 42 % open (4 to 6 ft); shots in the last 4 s of the shot
+  clock are about 7 to 9 %; efficiency falls as the clock runs down; non-shooting centers almost never shoot threes.
+  ([NBA.com closest defender](https://www.nba.com/stats/players/shots-closest-defender), [shot clock](https://www.nba.com/stats/teams/shots-shotclock))
+- Rebounds: misses at the rim come off within 4 ft about half the time; long rebounds (7 to 21 ft) follow about
+  20 % of missed twos and 41 % of missed threes, mostly to the side away from the shooter (corner threes to the
+  opposite side); average rebound distance tops out near 8 ft. The floor bounce restitution is about 0.75, the rim
+  absorbs 35 to 50 % of the impact (deader than the board). Even heavy-crashing teams send three or more to the glass
+  on under a fifth of shots; each defender hits his own man, then goes to the ball.
+  ([Nylon Calculus](https://fansided.com/2020/01/28/nylon-calculus-nba-rebound-tracking/), [Grantland](https://grantland.com/features/how-rebounds-work/),
+  [Okubo and Hubbard](https://link.springer.com/article/10.1007/s12283-014-0165-z))
+
+## Phase 3: playbook
+
+- New `js/core/playbook.js`: plays as data. A play has roles (ball handler, screener, shooter, cutter, post,
+  spacer), steps (where each role goes and what it does: screen, cut, pass, dribble handoff, post up, pop, roll) and
+  reads on each step (a trigger such as "his man goes under the screen" or "the help commits" and the action it
+  opens: shoot, drive, pass to a role). Library: pick and roll (high, side, Spain), horns (flare, twist, elbow),
+  floppy, pin-downs, flex, UCLA, post entry, isolation, dribble handoffs, hammer, stagger, BLOB and SLOB inbound
+  plays, after-timeout and end-of-game plays. Defensive schemes: the 12 existing ones plus pick-and-roll coverages
+  (drop, hedge, blitz, switch, ice).
+- Every team gets a playbook that fits its roster and coach style (saved with the team; older saves get one when
+  loaded). Roles are filled by matching the five on the floor to each role's ratings.
+- New `js/core/playcall.js`: the AI coach calls plays by score, time, lineup, opponent and what has worked this game.
+- `sim.js`: a possession runs the called play step by step; a read that opens up before the end is taken, and
+  taking a good early read counts as the play succeeding. The existing plays remain as generic plays so the league's
+  scoring stays calibrated.
+- New `js/match/plays.js` (extends the Director): players follow the play's spots and paths on the court, and the
+  defense plays its coverage on the screens.
+- Team page: a Playbook tab to see the plays.
+
+### Phase 3: what was built
+
+On top of the existing systems again: the engine keeps its calibrated shot model (a play's reads end in the same
+kinds of shots it always produced), the court keeps its formations, flow and Phase 2 defense between plays, and the
+procedural animation is untouched.
+
+- **The play library** (`js/core/playbook.js`): 36 plays as data. Pick and roll (high, side, Spain, pick and pop,
+  drag), horns (base, flare, twist, elbow hand-off), floppy, pin-down, stagger, hammer, Chicago, dribble hand-off,
+  Iverson cut, post (low-post isolation, high-low, duck-in, elbow isolation), isolation (top, wing), flex, UCLA,
+  Chin backdoor, motion swing, drive and kick, zone offense (overload, high post), three inbound plays under the
+  basket (box stagger, stack, back-screen lob), two from the sideline (zipper, stack), and end-of-game and
+  after-timeout sets (last-shot pick and roll, elevator doors). Each play has roles (ball handler, screener, popper,
+  shooter, spacer, cutter, post, hub, scorer, dunker spot, inbounder) with a rating profile each, an alignment,
+  steps (screens on and off the ball, passes, hand-offs, drives, where the other roles go) and reads: each read opens
+  at a step, ends in one of the engine's shot branches, and lists the defensive reactions that open it (the
+  pick-and-roll coverage, how the shooter's man plays an off-ball screen, help on the drive, denial, a double on the
+  post, a zone).
+- **Every team's playbook**: built from its offensive system and its players (12 to 14 half-court plays its system
+  likes and its starters fit, two zone plays, two or three inbound plays each kind, the end-of-game sets), plus its
+  pick-and-roll coverage (drop for a rim-protecting big who is slow, switch for versatile defenders, hedge or show
+  for mobile bigs, blitz for quick hands). Saved with the team, rebuilt each season and when the system changes
+  (unless the user picked the plays himself); older saves get one when first needed.
+- **The AI coach's call** (`js/core/playcall.js`): the engine first draws the kind of action from the system as it
+  always has, then the coach calls a play for it, scored on the situation (the last shot, a need for a three, a
+  two-for-one, early offense, right after a timeout), the fit of the five on the floor to the roles, the opponent's
+  scheme and coverage (the plays whose reads that coverage opens up; zone offense only against zones), what has
+  worked this game (points per possession shrunk toward the team's average, a play that scored twice is not a sure
+  thing), and variety (rarely the same play twice in a row). Families that score are leaned on a little more. About
+  a quarter of half-court possessions are played in flow with no call (more after a defensive rebound or a steal,
+  and in motion and read-and-react systems): coaches call sets at dead balls and after timeouts and let the offense
+  flow otherwise.
+- **The engine runs the call** (`js/core/sim.js`): the primary role goes to the player the engine's usage weights
+  pick (so the league's usage stays as it was), the other roles to the best fit of ratings to roles; the defense's
+  reactions are drawn (its coverage, the off-ball coverage by the shooter's man, help by the driver's threat, denial
+  by the scheme, a double by the post threat); the reads are weighed against them and the players' own habits, and
+  the read taken decides who shoots, who passes and the shot model. A read before the last step is an early read:
+  the play worked, and it is recorded that way. The steps become court events timed to end at the engine's shot time.
+  A look passed up is swung out to a perimeter role and the next call comes; a turnover or a foul stops the play
+  where it was. Inbound plays run on side-outs and blocked shots out of bounds in the front court: a quick hitter
+  off the throw-in, or the ball in to the safety and then the half-court call. Every call is recorded (the play, the
+  roles, the read, how far it got, why it ended, the points while it was on) for Phase 5.
+- **Defense**: a hedge scheme was added to the schemes (the big jumps out on every ball screen); within man-to-man
+  the team's pick-and-roll coverage decides how ball screens are played (guards' screens are switched more, and late
+  in the clock).
+- **On the court** (`js/match/plays.js`, `choreo.js`): the half-court flow runs up to the call (the wait before a
+  called set is often 5 to 10 s after the ball comes up: swings, screens away, cuts, relocations), and the five get
+  into the play's alignment in its last seconds, at a jog, in the time the farthest of them needs. From then on they
+  stay out of the flow's own actions (no swings, probes, cuts or drive reactions of their own) until the play ends;
+  each step moves the players it names at a run. A player waiting for his part stays alive around his spot instead
+  of standing on it: a shooter slides a step or two along the arc, lifts from the corner (the "shake") or v-cuts in
+  and back out, a big seals a step toward the lane or slides along the baseline, a man about to come off a screen
+  walks his defender down a step first, with short pauses between the moves. A player coming off an off-ball screen
+  sets up his man and runs off it, the screen set on his path near the screener; the screener then goes back to his
+  spot in the play. The screener's man plays the
+  called coverage from the moment the screen comes: drop (waits back at the free-throw line, then protects the
+  rim), at the level, hedge (above the screen in the handler's path, then recovers), blitz (traps), switch (the two
+  swap men), ice (the handler's man jumps the screen side, the big waits below it); off the ball the shooter's man
+  trails, goes under, top-locks or switches. Inbound plays are acted out while the ball is dead: the alignment, the
+  screens and cuts, then the throw-in to the man the read found. The shot goes up on the shooter's side of the play.
+- **Playbook page** (Team: Playbook): every play drawn as X's and O's (numbered roles, the ball, cuts, passes,
+  dribbles and screens coloured by step), who fills each role among your starters and how well they fit, the steps
+  and the reads (early reads marked), a switch to put plays in or take them out of the book (a library of the rest),
+  the inbound plays, and the defense: the scheme and the pick-and-roll coverage with how well the roster suits each.
+- **Debug view**: the called play, its steps (done, under way, ahead), the reads open at this step and the read
+  taken with the reactions behind it, why the coach called it, each player's role in it, and the coverage.
+
+### What the Phase 3 audit shows (52 games, the same 52 seeds as Phases 1 and 2)
+
+Full tables: `audit/phase3/report.md` and `report.html`. The Phase 2 code was measured again with this audit
+(`audit/phase3/phase2-code/`) so both sides are counted the same way; the numbers below compare the two. The audit
+gained the play metrics and three rules that apply to both sides: the two defenders of a ball screen or a hand-off
+are counted apart for 2.5 s after it (their coverage and the recovery), crowding is split into a defender whose own
+spot is on the ball and one passing by on his way to a spot away from it, and a drive's rotation (the low man, the
+man sinking to the low man's man) is help. They take the Phase 2 code's crowding from 13.6 to 12.1 s a game and its
+lost-man episodes from 10.9 to 9.7. The play calls change the random draws, so the two sides play different games
+from the same seeds.
+
+Nothing broken: all 52 games reached the final buzzer, no script errors, no stuck possessions, the court score
+matched the engine in every game, 228 points and 202 possessions a game (230 and 201 before). The engine's league
+numbers over a season are unchanged: men 115.3 points a team game, 99.6 possessions, 48.9 % from the field, 36.3 %
+from three (before 115.1, 99.9, 48.6, 36.4); women 84.9 points, 81.6 possessions (84.6, 81.3). Better teams win a
+little more often (team strength to win % correlation 0.76, 0.69 before): a roster that suits its plays gets more
+out of them. The quick sim takes about twice as long with the play calls (11 ms a game, 5 before).
+
+The playbook on the court:
+
+| | Phase 3 |
+|---|---:|
+| Half-court possessions with a called play (the rest in flow) | 77 % |
+| Plays called a game (inbound plays and resets included) | 154 |
+| Plays that reached a read / an early read, before the last step (of all calls) | 81 % / 6 % |
+| Steps run, of all the plays' steps | 94 % |
+| Players within 5 ft of their play spot 1.2 s into a step (on it, or making a small move around it) | 88 % |
+| more than 10 ft away | 4 % |
+| Ball screens where the screener's man plays the called coverage | 95 % |
+| Inbound plays a game (ball in to the safety, then the half-court call: 73 %) | 12.8 |
+| Points per half-court possession: with a call / in flow | 1.13 / 1.14 |
+
+What changed:
+
+| | Phase 2 | Phase 3 |
+|---|---:|---:|
+| Off-ball players with no job | 5.2 % | 1.9 % |
+| Off-ball players standing still (under 1 ft/s) | 20.1 % | 22.1 % |
+| Stand-stills of 3 s or more (a game) | 11.5 | 3.9 |
+| Off-ball players within 6 ft of a teammate | 18.3 % | 14.0 % |
+| Ball defender backing away from a handler who is not attacking | 3.1 % (60 a game) | 2.2 % (42 a game) |
+| Ball defender more than 10 ft off the handler inside 28 ft | 1.8 % | 1.3 % |
+| Extra cushion for a non-shooter over an elite shooter at the arc | 1.0 ft | 1.6 ft |
+| Two passes away: sees man and ball | 58 % | 66 % |
+| Extra defender crowding a guarded ball, no drive | 12.1 s a game | 15.0 s a game |
+| of it, his own spot on the ball (the rest passing by) | 4.2 s | 4.0 s |
+| Wide-open shooters off the ball found by a pass | 4.4 % | 7.6 % |
+| Time a catcher holds the ball before passing (median) | 2.1 s | 1.5 s |
+| Carom bending 1+ ft through the air into his hands | 9.0 % | 7.6 % |
+| Ball jumping 3+ ft into his hands at the grab | 0.6 % | 0.3 % |
+
+The animation work is untouched (`tools/audit/anim.js`, 4 games x 20 possessions, `audit/phase3/anim.json`): body
+contact 213 per 10,000 player-frames (202 before; 207 with the small moves around the play spots switched off, so
+most of the rise is the feet of those short steps brushing), feet stuck behind 27 per 10,000 running frames (31), no
+script errors.
+
+Found and fixed while checking:
+- Standing around in sets: the first full run had off-ball players standing still 49 % of the time (20 % before) and
+  316 stand-stills of 3 s or more a game. The five were sent to the alignment when the lead-up to the call began
+  (often 5 to 10 s of half court) and held it with no movement. Now the flow runs until the last seconds before the
+  call and a player waiting for his part keeps making small moves around his spot.
+- Rebounds: a rebounder who missed the grab left the ball going on at the planned carom's speed (20 to 34 ft/s), so
+  it flew over the sideline and bounced 30 to 50 ft out of bounds until the rebound was handed over (5 to 8 times in
+  52 games, in Phase 2 as well). It now goes on at a hard carom's speed at most and he runs it down.
+- An open finish at the rim now clears the late help out of the finisher's space, as open jump shots already did.
+
+Worse or not better yet:
+- Standing still 22.1 % (20.1 %), average speed 5.5 ft/s (5.8), jogging or faster 35 % of the time (42 %): a player
+  holding his spot in a set makes small moves around it instead of running the flow's actions. Long stand-stills are
+  down by two thirds.
+- Off-ball defense: one pass away in the passing lane 70 % (73 %), two passes away in help position 57 % (63 %),
+  lost-man episodes (more than 12 ft from his man outside a help spot for 0.5 s or more, none as long as 2 s) 13.8 a
+  game (9.7), crowding by defenders passing by the ball and standing in the handler's path 11.9 s a game (9.2).
+  Mostly defenders chasing the plays' cuts and runs to new spots and recovering after ball screens and hand-offs, and
+  the plays fill both corners with shooters, whose men stay home instead of helping.
+- Non-stretch bigs in the paint or short corner 65 % (75 %), nobody within 12 ft of the rim 25 % (18 %): horns,
+  Spain and the elbow sets put bigs at the elbows and the high post.
+- "Open" shots with a defender within 3 ft at the release 25.6 % (24.2 %); at the rim 53 % (49 %).
+- A ball rolling on the ring can still come off it too fast to land where the rebounder gets it on time and bounce
+  out of bounds (once in 52 games): the rim carom's timing, for later.
+
+### Research behind Phase 3
+
+Coaching glossaries and breakdowns (search summaries; the play spots and timings are our translation into court
+feet and seconds):
+- Pick-and-roll reads by coverage: against drop, pull up at the free-throw line or float, pop the screener, or snake
+  back; against a hedge or show, retreat a dribble or two and hit the roller behind it or skip to the weak corner when
+  the low man tags; against a blitz, release early to the short roll (four on three) or the popper; against a
+  switch, attack the big or feed the screener sealing the small; against ice, flip the screen, reject it or go
+  baseline. The tag on the roller comes from the weak-side low man, so the weak corner is the open pass; both
+  corners filled is now the default spacing. ([FiveThirtyEight](https://fivethirtyeight.com/features/more-nba-teams-are-using-a-pick-and-role-hack-sticking-two-guys-in-the-corners/),
+  [Basketball Action Dictionary](https://medium.com/thebasketballactiondictionary/how-to-identify-pick-and-roll-coverages-a1e8dffe54e9),
+  [Hooper University](https://www.hooperuniversity.com/breakdowns/ball-screen-offense-attacking-drop-coverage))
+- Off-ball screens: the defender trails tight, curl; trails with space, straight cut and catch; cheats under, fade
+  to the corner; top-locks, reject and backdoor; switch or help, the screener slips. Flare: under, shoot; chased
+  over, drive the space. Hand-offs: trail, turn the corner; under, shoot; jumped, keep or backdoor.
+  ([Stephen Curry MasterClass](https://www.masterclass.com/classes/stephen-curry-teaches-shooting-ball-handling-and-scoring/chapters/off-screens-curl-pop-and-fade),
+  [flare](https://www.basketballforcoaches.com/flare-screen/), [DHO](https://www.basketballforcoaches.com/dho-basketball/))
+- The plays: Spain (a back screen on the roller's defender, the screener pops; Scariolo), horns and its flare,
+  twist and elbow series, floppy (single on one side, double or stagger on the other), hammer (baseline drive, a
+  flare for the weak-side corner shooter; Karl's Bucks, the Spurs), Chicago (pin-down into a hand-off), Iverson cut
+  (over the top of both elbows), flex, UCLA (the high-post back screen), Princeton chin and backdoor, zone overload
+  and the high-post flash, box, stack and elevator inbounds, the sideline zipper.
+  ([Coach's Clipboard](https://www.coachesclipboard.net/spain-pick-and-roll.html), [Breakthrough: hammer](https://www.breakthroughbasketball.com/plays/spurshammer),
+  [Chicago](https://medium.com/thebasketballactiondictionary/chicago-72a00bdf2338), [floppy](https://www.coachesclipboard.net/floppy-basketball-plays.html),
+  [BLOB box](https://www.breakthroughbasketball.com/plays/baseline-box-plays), [SLOB zipper](https://www.thehoopsgeek.com/basketball-plays/zipper-slob/))
+- Coverages in the league: ball screens about 69 per 100 possessions (2023-24); two on the ball (hedge, show, trap,
+  blitz) fell from 26.6 to 15.7 per 100 in a decade while offense against them rose from 0.88 to 0.97 points per
+  possession; drop is the most common coverage; switching is 32 to 42 % on guards' screens and under 15 % on bigs'.
+  ([theScore](https://www.thescore.com/nba/news/2614859), [FiveThirtyEight](https://fivethirtyeight.com/features/want-to-confuse-an-nba-defense-have-a-guard-set-a-ball-screen))
+- Efficiency priors: cuts about 1.28 points per possession, transition 1.11, spot-ups 1.01, isolation 0.91 to 0.99,
+  post-ups 0.86 to 1.04, pick and roll and hand-offs about 0.98 per chance; after-timeout plays score slightly
+  less than other half-court plays (0.84 against 0.89), so a set after a timeout is a matter of getting a good
+  look against a set defense, not a boost. ([ESPN](https://www.espn.com/nba/story/_/id/47243702/nba-2025-2026-season-postups-trends-kristaps-porzingis-victor-wembanyama),
+  [Vice](https://www.vice.com/en/article/the-myth-of-brilliant-nba-timeout-play-calling/))
+- Off the ball in a set: a corner shooter lifts along the arc toward the wing behind a driving handler (the
+  "shake") so the passing lane opens, wings lift and drift with the drive, shooters v-cut to get open; the rule is to
+  stay active off the ball, not to stand on a spot. ([Hoop Student](https://hoopstudent.com/basketball-shake-action/),
+  [The Basketball Dictionary](https://medium.com/the-basketball-dictionary/shake-edc95f8acf13))
+- How coaches call plays: most possessions flow into spacing and ball screens (Kerr); called sets cluster at dead
+  balls, after timeouts and at the ends of quarters; late in games familiarity beats surprise and every team
+  isolates more; when the defense takes the first option away, go to that set's counter; mismatch hunting has the
+  weakest defender's man set the screen. Late-game: hold for the last shot and start the action with about 8 s
+  left; down three, a stagger, floppy, pin-down into a hand-off, or the elevator.
+  ([Cleaning the Glass](https://cleaningtheglass.com/flipping-the-switch/), [end of game](https://darrylblackport.com/posts/2020-09-16-nba-final-possession-shots/),
+  [two-for-one](https://cleaningtheglass.com/two-for-one-or-two-for-none/))
+
+## Phase 4: play drawing and timeout calls
+
+- New `js/ui/playdesigner.js`: a whiteboard half court; draw each step's moves, cuts, screens, passes and dribbles,
+  assign roles, add reads, name and save the play to the team playbook.
+- `js/ui/live.js`: a timeout pauses the game at the next dead ball and opens a panel to call a play for the next
+  possessions or change the defensive scheme. `sim.js` gets the calls (`Sim.callPlay`, scheme for N possessions).
+- `view.js` / `plays.js`: an optional overlay of the play's intended paths on the court.
+
+### Phase 4: what was built
+
+Built on the Phase 3 playbook: a play the coach calls or draws runs through the same engine path (roles filled by
+ratings, the defense's reactions, the reads ending in the calibrated shot branches) and the same court code
+(alignment, steps, coverages) as the library's plays. With no call from the coach, the engine plays exactly the
+games it played before (the same league simulated with the Phase 3 code and this code gives the same score in every
+game).
+
+- **The coach's calls in the engine** (`js/core/sim.js`, `playcall.js`):
+  - `Sim.callPlay(g, team, play, n)`: a play from the playbook for the next 1 to 5 half-court possessions. The engine
+    runs it on the team's next half-court possession (a transition or putback possession waits), fills the roles from
+    the five on the floor, and records it as the coach's call ("called by the coach"); a look passed up resets into
+    the staff's next call, as with any play. The staff calls everything else, and can call the coach's drawn plays
+    too once they are in the book.
+  - `Sim.callInbound(g, team, 'blob' | 'slob', play)`: the play for the team's next throw-in under its basket or from
+    the sideline in the front court.
+  - `Sim.callDefense(g, team, scheme, coverage, n)`: a defensive scheme and, within man-to-man, the pick-and-roll
+    coverage (drop, at the level, hedge, blitz, switch, ice) for the next 3, 5 or 10 defensive possessions or the
+    rest of the game; then the team goes back to what it played before (unless the coach changed it again). Schemes
+    that decide ball screens themselves (switch everything, drop, hedge, blitz, the zones) take no coverage.
+  - `Sim.timeoutComing` tells the live game when the coach's timeout is about to be granted (a dead ball, not after a
+    defensive rebound or a steal), and `Sim.calls` what is in force.
+- **The timeout huddle** (`js/ui/huddle.js`, `live.js`): when the coach's timeout is granted, the huddle opens before
+  the next possession: the score, the clock, the timeouts left; Offense: every half-court play in the book drawn as
+  X's and O's with who it is run for, how well the five on the floor fit it and what it has scored tonight, filters by
+  family (and My plays, late game, vs zone), the staff's choice, how many possessions to run it for, and the next
+  inbound play under the basket and from the sideline; Defense: the scheme, the coverage and for how long; Lineup:
+  substitutions that check in at this dead ball. Nothing reaches the engine until "Back to the game". The Coach tab
+  shows the calls in force (each with a ✕) and a "Call a play" button to make calls from the bench without a timeout;
+  the broadcast tags a called play "📋 NAME, your call".
+- **The play designer** (`js/ui/playdesigner.js`; Team: Playbook, "✏️ Design a play"): a whiteboard half court.
+  The five start in a set (five out, four out one in, horns, 1-4 high, box; box, stack or line for inbounds) or from
+  any library play ("✏️ Make it mine"), then each step is drawn by dragging players, in the order things happen:
+  - to open floor: a cut (a dribble for the player with the ball); onto a teammate: a screen, or a pass from the
+    player with the ball; tools for cut, dribble, screen, pass, hand-off, drive and post-up, and an eraser; drag the
+    end of a line to change it; up to five steps; undo and redo; the X's (a defender for each player) on or off;
+  - the drawing uses the standard notation: solid arrows for cuts, zig-zags for dribbles and drives, a T for a
+    screen (the screener's line ends at the screen, the man coming off it curls past the screener), dashed arrows for
+    passes, two hash marks for a hand-off, a color per step; players are numbered 1 to 5;
+  - each spot gets a role (ball handler, pick-and-roll handler, screener who rolls or pops, shooter, spacer, cutter,
+    post, hub, scorer, dunker spot), with what the role looks for in a player and who among the starters fills it
+    and how well; the ★ marks who the play is run for;
+  - the reads come from what the play does: a ball screen gives the handler, the roll or pop and the kick-out; an
+    off-ball screen the catch, the curl and the slip; a pass into the post the post-up and the kick-out; a pass to a
+    shooter the catch-and-shoot and the closeout attack; a hand-off the turn of the corner, the big's roll and the
+    kick; a cut to the rim the layup; a drive the drive and the kick; at the end the ball handler's own shot and the
+    swing. Each read is one of the engine's calibrated branches with the defensive reactions that open it, and can be
+    turned off or made a low priority or the first look; inbound plays read the cutters at the rim, the shooters
+    behind the line and a safety;
+  - "▶ Run it" plays the drawing in motion (the players, the screens, the ball); the checks say what is missing
+    (a name, a role, an action that gets someone a shot). Saved plays go to the league save and, with "In my
+    playbook", into the team's book, the huddle and the staff's calls. The Playbook page has a My plays tab (Edit and
+    Delete; Duplicate in the designer) and a "Make it mine" button on every library play; a rebuilt book keeps the
+    coach's plays.
+- **The play on the court with its paths** (`js/match/playdraw.js`): while a play runs, its drawing is laid on the
+  floor like a telestrator, under the players, mirrored to the side the play is run on: the step under way bright,
+  the next one dimmer, the steps done fading; dashed rings where the players of the step are heading and, while
+  the five set up, the spots of the alignment; the play's numbers over the players; a card with the play, whose call
+  it is and the step. Modes: My calls (the default), All our plays, Both teams, Off; the 📋 button, the O key, or
+  Broadcast settings.
+- **The audit** gained the coach's calls (`--calls 1`): the coach calls a play for the next half-court possession
+  every few possessions (four drawn plays, a library play made the coach's own and the book's plays), an inbound
+  play under the basket and two defensive calls a game (man-to-man with a blitz, then a 2-3 zone), and the report
+  measures how they run (section 9).
+
+### What the Phase 4 audit shows (52 games, the same 52 seeds as Phases 1 to 3)
+
+Full tables: `audit/phase4/report.md` (Phase 4 against the Phase 3 code, no calls from the coach) and
+`audit/phase4/calls/report.md` (the same seeds with the coach calling plays, drawn plays, an inbound play and
+defensive schemes, section 9). The Phase 3 code was measured again with this audit (`audit/phase4/phase3-code/`):
+it reproduces the committed Phase 3 numbers exactly (211 of 212 metrics identical; only the wall time differs).
+
+Nothing broken, with no calls from the coach: all 52 games reached the final buzzer, no script errors, no stuck
+possessions, the court score matched the engine in every game. The engine plays exactly the games it played in
+Phase 3: 228.5 points and 201.7 possessions a game, the same shots, threes, shot clock, rebounds and play calls
+(77.1 % of half-court possessions with a call, 153.9 calls a game, 81.0 % reaching a read, 12.7 % stopped by a
+turnover, 1.13 points per half-court possession). The same league simulated with the Phase 3 code and this code
+gives the same score in all 18 test games (men and women, full and quick sim). The animation checks are identical
+to Phase 3 over 380,398 player-frames: body contact 213.3 per 10,000, feet stuck behind 26.9 per 10,000 running
+frames, no errors.
+
+One change on the court is on purpose: a ball screen outside a called play is now defended with the team's
+pick-and-roll coverage (or the coach's called coverage) instead of the generic "at the level", so a coverage called
+in the huddle applies to every ball screen. It moves a few court numbers a little: two on the ball for a coverage
+7.1 to 7.6 s a game (more hedges and blitzes), crowding 15.0 to 15.2 s, help at the rim 67.1 to 66.3 s, "open"
+threes with a defender within 4 ft 2.9 to 3.2 %, open catches shot 57.4 to 56.1 %; every other on-ball, off-ball,
+movement and spacing number within 0.1. One rebound in 52 games bent 3.3 ft toward the rebounder (the rim-carom
+timing case left from Phase 3, which had one at 2.9 ft).
+
+With the coach calling (the same seeds; the calls change the games), everything still healthy: 52 of 52 games to
+the buzzer, no errors, no stuck possessions, court and engine scores equal, 227.4 points and 198.8 possessions a
+game.
+- The coach called a play about 49 times a game (every fourth possession: four drawn plays, a library play made the
+  coach's own, the book's); the engine ran 97.4 % of them on that possession (the rest on the next half-court one,
+  after a transition or putback possession or the end of a period).
+- Coach-called plays: 80.3 % reached a read (81.4 % for all calls in these games), 22.0 % early, 13.0 % stopped by
+  a turnover (12.6 % for all), 0.98 points per call (the staff's calls 0.97): a call picks the look, it does not
+  change the shot model.
+- Drawn plays (called by the coach or by the staff once in the book): 45.5 a game, 80.3 % reached a read, 13.2 %
+  turnovers, 1.00 points per call; players within 2 ft of the drawn spot 1.2 s into a step 49.5 % (54.2 % for the
+  library's plays), within 5 ft 85.5 % (88.2 %), more than 10 ft away 6.5 % (4.3 %): drawn cuts are often longer
+  than the library's (a give and go from the top to the rim is 24 ft) and still on the way 1.2 s in. Per play:
+  Elbow Roll 0.97 points per call, Floppy 1.05, Give and Go 1.00, Horns Twist made the coach's own 1.00, Box Lob
+  (inbound) 0.61, like the library's inbound plays.
+- Reads of a drawn play before its last step start at half weight (a first look keeps its full weight): in a first
+  run at full weight the drawn plays with early reads ended on one 36 % (Floppy), 45 % (Give and Go) and 60 % (Horns
+  Twist) of the time, so the coach's play rarely ran to its last step; at half weight 26 %, 34 % and 44 %, and the
+  steps run over all calls went from 89.6 to 90.8 %.
+- Defensive calls: every defensive possession under a call was played in the called scheme (100 %) and with the
+  called pick-and-roll coverage (100 %), and every call went back to the team's own scheme when it ran out (100 %).
+- Inbound calls under the basket ran on the next such throw-in 54.9 % of the time; the rest were still waiting for
+  one when the game ended (a throw-in under the basket comes up a few times a game).
+
+### Research behind Phase 4
+
+- Play diagramming tools: coaches sketch an action on the court frame by frame, the tool moves the players to the
+  end of the frame for the next one, straightens the lines into clean diagrams, lets any line be edited without
+  starting over, and animates the play; plays are saved into a playbook. The designer follows the same flow (steps,
+  end positions carried into the next step, editable line ends, "Run it").
+  ([FastModel FastDraw](http://www.fastmodelsports.com/coaching-software/fastdraw-playbooks/),
+  [FastModel](https://fastmodelsports.com/))
+- The notation coaches read: a solid arrow for a cut, a dotted or dashed arrow for a pass, a wavy or zig-zag arrow
+  for a dribble, a T at the end of a line for a screen, two short parallel lines across the line for a hand-off,
+  numbers for the order of the actions. ([Silver Screen and Roll](https://www.silverscreenandroll.com/2018/8/6/17636232/laker-film-room-how-to-read-basketball-plays-diagrams),
+  [HoopSong](https://hoopsong.com/a-quick-note-on-how-to-read-basketball-play-diagrams/),
+  [The Hoops Geek](https://www.thehoopsgeek.com/draw-basketball-plays/), [Hoop Student: down screen](https://hoopstudent.com/basketball-down-screen/))
+- After-timeout plays score about the same as other half-court sets (Phase 3's research): a call is a way to get
+  the look the coach wants against a set defense, not a bonus, so the engine runs the coach's call with the same
+  shot model as the staff's.
+
+## Phase 5: play tracking and analytics
+
+- `sim.js`: every possession records the play, how far into it the offense got, where it broke down and why
+  (denied pass, blown screen, switch, shot clock, turnover) and the outcome (points, shot quality, turnover, foul).
+- `stats.js`, `season.js`: per game and per season (archived when a season ends), plus points allowed per
+  possession by defensive scheme.
+- UI: a Plays tab in the box score and in the team page (usage, points per possession, completion rate, most common
+  breakdown).
+
+### Phase 5: what was built
+
+Built on the Phase 3 and 4 play records: the engine already kept a record of each call (the play, the step it got
+to, the read taken, how it ended, its points). Phase 5 closes each record with the outcome and, when the play broke
+down, the step and the reason, and keeps the tallies. It only counts: it draws no random numbers, so every game
+plays exactly as before (the same league simulated with the Phase 4 code and this code gives the same score in all
+18 test games, men and women, full and quick sim).
+
+- **Every possession is logged** (`js/core/sim.js`, at the end of each possession; tallies in the new
+  `js/core/playstats.js`):
+  - how it was played: a called play (the staff's or the head coach's; an inbound play and the half-court call
+    after it are two calls), flow with no call (by the engine's action: pick and roll, isolation, post-up, spot-up,
+    off screens, hand-offs, cutting), transition, or other (no action run: a turnover or a foul before the offense
+    set up, the period's end);
+  - for each call, how far the offense got (the step) and whether the play was **completed**: it got to its read in
+    time (a shot, or the ball in on an inbound), with an early read (before the last step, the play working)
+    counted apart, and whether the read was the play's main option or a counter;
+  - where it **broke down and why**, from what happened in the engine, never guessed:
+    - a turnover: a bad pass on a step that passes the ball (or on the entry pass) is a **denied pass**; an
+      offensive foul by the play's screener a **blown screen** (an illegal screen); a shot-clock violation the
+      **shot clock**; any other lost ball, travel or offensive foul a **turnover**;
+    - a look passed up (the play reset into a new call) or a shot the clock forced (a normal possession, not an
+      early read, under 4 s on the shot clock at the shot): what the defense took away, read from the reactions
+      the engine drew for that call when one of them cut the odds of the play's main option: a **switch**, a
+      **blown screen** (the screen defended: over, under, top-locked, iced, dropped, hedged or blitzed), a
+      **denied pass**, the **help** (a help rotation, a double team, the zone); with none, **well defended** for a
+      reset and the **shot clock** for a late shot;
+    - the period ending on it: the shot clock;
+  - the **outcome**: the points (while the call was on; an inbound play that only got the ball in is credited with
+    the whole possession, the way out-of-bounds possessions are counted), the shot (open, contested or tight; made
+    or missed; fouled on it: a missed shot on a shooting foul is a look but not a field goal attempt, as in the box
+    score) and its **shot quality** (the engine's make chance for that shooter and that look, times the shot's
+    points: expected points), a turnover and its kind, a foul;
+  - the defense: its scheme and, in man-to-man, its pick-and-roll coverage; and clutch calls (the last 5 minutes of
+    the fourth quarter or overtime, within 5 points).
+- **Tallies**: per game in the box score (both teams; a live game also keeps the list of every possession), per team
+  per season (`S.playStats`, the regular season and the playoffs apart), and each season archived in the team's
+  history when it ends (the coach's team every play with its three most common breakdowns, regular season and
+  playoffs; the other teams the regular season's 10 most-called plays with the most common one). Games played before
+  this version have no play numbers; the screens say so.
+- **The box score's Plays tab** (`js/ui/playstats.js`, `cards.js`): for each team its possessions by how they were
+  played with points per possession, the completion rate, each play it ran (calls, points, points per possession,
+  completed, how the calls ended, the most common breakdown with its step, shot quality), its defense by scheme and in
+  transition; and for the coach's last four games (the ones that keep their full play-by-play), every possession in
+  order (the clock, the team, the calls with how far each got and its outcome, where and why it broke down, the shot,
+  the points, the defense and its coverage).
+- **The season** (Playbook: 📊 Play stats for any team and season, regular season or playoffs; a "Plays this season"
+  card on every team's page with "Full play stats"): points per possession against the league's and by how the
+  possessions were played; the calls completed, the shot quality and why plays broke down; points per call against
+  each ball-screen coverage the defense played; a sortable table of every play (calls and per game, usage, points per
+  possession, **vs league** for that kind of play, completed, early, counters, turnovers, shot quality, the most
+  common breakdown with the step and the reason, the head coach's calls, clutch calls); and the defense: points
+  allowed per possession by scheme (against the league's for that scheme) and by pick-and-roll coverage, and in
+  transition. Past seasons come from the team's history.
+- **In the live game**: the Coach tab's "Tonight" shows the plays run so far (calls, points per possession,
+  completed) and the defense's points allowed by scheme, as of the last possession shown (no spoilers); the box
+  score's Plays tab stays open as the game goes on. The coach's debug view says, once a play is over, whether it was
+  completed (on an early read, a counter) or where and why it broke down, and its outcome once the court has shown
+  it.
+- **The audit** (`tools/audit`) gained section 10: the tallies checked against the game (possessions, points, calls,
+  one log entry per possession) and the numbers the screens show over all the games.
+
+### What the Phase 5 audit shows (52 games, the same 52 seeds as Phases 1 to 4)
+
+Full tables: `audit/phase5/report.md` (Phase 5 against Phase 4, no calls from the coach, section 10 for the play
+tracking) and `audit/phase5/calls/report.md` (the same seeds with the coach calling plays, against Phase 4's run with
+the calls).
+
+Nothing broken: all 52 games reached the final buzzer, no script errors, no stuck possessions, the court score
+matched the engine in every game. The games are the ones Phase 4 played: 211 of the 212 gameplay metrics are
+identical (228.5 points and 201.7 possessions a game, the same shots, defense, movement, rebounds, play calls and
+coverages); only the wall time differs. The machine was slower than when the Phase 4 audit ran: the Phase 4 code
+measured again on 8 of the games at the same time as this code took 62.6 s a game, this code 62.1 s (the Phase 4
+audit had 56.1 s on those 8). The engine alone plays 90 games in the same time with both (1.99 and 1.98 s).
+
+The play tracking, over the 52 games (section 10):
+- The tallies add up in all 52 games: each team's possessions and points equal the game's, the calls equal the
+  audit's own count (153.9 a game), and each game's possession log has one entry per possession.
+- Possessions: 65.1 % with a called play (1.13 points per possession), 19.4 % in flow (1.14), 13.6 % in transition
+  (1.26), 1.9 % other (0.31); 1.13 points per possession in all (the NBA is about 1.14). Synergy has NBA teams
+  in transition on about 13.8 % of their possessions at about 1.10 points, the best around 1.2
+  ([CBS Sports](https://www.cbssports.com/nba/news/push-it-real-good-the-nbas-best-transition-offenses)): the
+  share matches, the points per transition possession (1.26) are high. That is the engine's fast-break model
+  from before this phase, which Phase 5 only measures; it is a candidate for a later tuning pass.
+- Calls: 75.5 % completed (6.0 % on an early read), 19.2 % broke down, 5.3 % cut short by a foul before the read.
+  Section 8's "reached a read" (81.0 %) is the completed calls plus the 5.5 % whose read the shot clock forced,
+  which the tracking counts as shot-clock breakdowns.
+- Why calls broke down: a turnover 49.0 %, the shot clock 24.0 %, a denied pass 14.2 %, the help 4.3 %, well
+  defended 4.8 %, a blown screen 3.4 %, a switch 0.3 %; 22.8 % at the entry, before the first step. A switch
+  rarely stops a play in the engine: the reads it hurts leave others open, so the offense goes to a counter (34.7 %
+  of calls end on another read than the play's main option).
+- The calls' looks: shot quality 1.15 expected points a shot, 34.6 % open, 20.0 % tightly contested, 46.0 % from the
+  field.
+- The defense (table 10b): points allowed per half-court possession from 1.10 (switch everything, blitz) and 1.11
+  (drop, the zones) to 1.13 (man-to-man), 1.16 (ball pressure), 1.19 (pack the paint), 1.20 (run shooters off the
+  line) and 1.31 (hedge the pick and roll, 4.9 possessions a game); 1.26 in transition.
+- Size: 3.0 KB of play tallies with each box score (both teams), 26 KB for a game's possession log (kept for the
+  coach's last four games, like the play-by-play).
+
+With the coach calling plays (the same seeds; the calls change the games), against Phase 4's run with the calls:
+everything healthy (52 of 52 games to the buzzer, no errors, no stuck possessions, court and engine scores equal),
+230 of the 231 metrics identical (227.4 points and 198.8 possessions a game, the coach's 49.4 calls a game, 80.3 %
+of them reaching a read; only the wall time differs), and the tallies add up in all 52 games (76.2 % of the calls
+completed, 18.7 % broke down, 1.13 points per possession with a call).
+
+The animation checks are identical to Phase 4 over 380,398 player-frames: body contact 213.3 per 10,000, feet stuck
+behind 26.9 per 10,000 running frames, no errors.
+
+### Research behind Phase 5
+
+- The standard for play analytics is Synergy's play types (the NBA's own play type pages use them): each possession
+  is tagged with the action it ended in, and a play type is judged by its points per possession, its frequency
+  (the share of possessions it was used on) and a percentile against the league. Phase 5 reports the same three for
+  each play: points per possession, usage, and "vs league" (the league's points per call for that kind of play this
+  season), with the defense measured the same way (points allowed per possession by scheme).
+  ([Synergy glossary](https://support.synergysports.com/support/solutions/articles/77000572558-glossary),
+  [NBA.com team play types](https://www.nba.com/stats/teams/isolation),
+  [Nylon Calculus on Synergy's categories](https://fansided.com/2017/09/08/nylon-calculus-understanding-synergy-play-type-data/),
+  [Raptors HQ on Synergy play types](https://www.raptorshq.com/2015/2/26/8068475/toronto-raptors-synergy-play-type-statistics),
+  [Databall: Synergy statistics](https://nbastatsgeeks.wordpress.com/advanced-statistics-summary/team-statistics/synergy-statistics/))
+- A Synergy play type is the action that ended the possession, so a set that becomes a pick and roll counts as a
+  pick and roll. The game tracks the call itself (the set the coach or the staff called) and says how far into it the
+  offense got and how it ended, which is what a coach grading his own sets wants; the flow possessions are still
+  grouped by the action the engine ran (pick and roll, isolation, post-up, spot-up, off screens, hand-offs, cuts).
+  Out-of-bounds plays are judged by the whole possession they start, so an inbound play that only gets the ball in
+  is credited with the possession.
+- Why sets break down, in coaching terms: the defense denies the pass the set needs (an entry or a reversal), blows
+  up the screen (jumps it, goes under or over it, switches it), or rotates and helps; otherwise the clock runs out on
+  it. The breakdown reasons are the engine's own defensive reactions (Phase 3: coverage, off-ball screens, denial,
+  help, double teams, the zone) and its turnover kinds, so each reason is something that happened in the engine, not
+  a label guessed afterwards.
+  ([Coach's Clipboard: switching defense](https://www.coachesclipboard.net/basketball-switching-defense.html),
+  [Coach's Clipboard: defending screens](https://www.coachesclipboard.net/basketball-defending-screens.html))
+- Shot quality: tracking data rates each shot by its expected value from its type, its spot and the nearest
+  defenders (Second Spectrum's quantified shot quality, the effective field goal percentage an average shooter would
+  get on it). The game has the engine's own make chance for each shot, so a play's shot quality is the expected points
+  of the shots it got, with that shooter and that look.
+  ([NBAstuffer: quantified shot quality](https://www.nbastuffer.com/analytics101/quantified-shot-quality-qsq/))
+
+## Phase 6: assistant coaches and scouting reports
+
+- New `js/core/staff.js`: assistants with ratings (scouting, offense, defense, player development, ...), a market,
+  hire and fire, salaries.
+- New `js/core/scouting.js`: before each game the assistants scout the opponent; the report (favourite plays, clutch
+  plays, defensive tendencies, each player's hand, spots and shot habits) is as complete and accurate as their
+  scouting rating and the time spent allow.
+- Fog of war on the court: poor scouting shows only players moving, average shows the play type once it develops,
+  excellent recognises the play early and shows its paths.
+- Knowing the play helps the defense a little (anticipation, quicker rotations, a scheme that takes away the go-to
+  play) through the read and contest odds, never a guaranteed stop; talent still decides, and it matters most
+  between even teams. When their go-to plays stop working the AI coach switches plays or schemes.

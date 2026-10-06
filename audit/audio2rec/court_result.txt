@@ -1,0 +1,103 @@
+Trial 2 court listen test: seed 21, 1x, 120 s (3423 frames drawn, median 33.8 ms apart: headless Chromium draws the court in software, slower than a browser; the timing below is against the frames it drew)
+
+Court sounds (heard → played; not played and why):
+  body boxout                4 →     4
+  body bump                  8 →     8
+  bounce                     4 →     4
+  catch                     28 →    28
+  dribble                  106 →   106
+  dunk                       1 →     1
+  land                      11 →    11
+  pass                      24 →    24
+  rim front                  1 →     1
+  squeak cut                 8 →     8
+  squeak jumpstop            1 →     1
+  squeak pivot               4 →     4
+  squeak slide              21 →    21
+  squeak stop               39 →    39
+  step                     366 →   366
+  swish                      1 →     1
+  whistle foul               1 →     1
+  whistle out                1 →     1
+  held back before the mixer (court audio's own rules): {"body: soft bump under 2 ft/s":35,"squeak: odds":175,"step: quiet":22,"body: soft bump 2-4 ft/s":36,"step: floor budget":414,"squeak: same player":32,"body: soft screen 2-4 ft/s":3,"body: same player":2,"body: soft screen under 2 ft/s":1,"body: soft post 2-4 ft/s":2,"squeak: floor window":18,"body: soft boxout under 2 ft/s":1}
+
+Dribbles: 106 sounds, one for each time the ball met the floor in a dribble (they come from the dribble's own contact; the mixer played 106)
+  sound start against the contact's moment on screen (between two drawn frames): median 16.3 ms, 95% within 28.5 ms, worst 186.8 ms; within one frame 106/106, within two 106/106
+  against the first frame that shows the ball down: median 0.0 ms, 95% within 31.9 ms, worst 61.0 ms; within one frame 106/106
+  the sound's onset in the recording against its scheduled start (94 dribbles clear of other sharp court sounds; the master's two compressors look 6 ms ahead each): median 20.0 ms, 95% within 21.1 ms, worst 30.0 ms
+  heard (the onset in the recording) against the moment on screen: median 36.3 ms, 95% within 48.5 ms, worst 209.8 ms; within two frames 94/94
+
+Squeaks: 73 played (36.1 a minute), from 3810 foot plants and landings by players: 1.9% of them squeaked
+  kinds: {"stop":39,"slide":21,"cut":8,"pivot":4,"jumpstop":1}
+  most in any second as heard: 3 on the floor (the cap is 3), 2 by one player (one every 0.6 s at most)
+  every squeak came from a plant, a landing or a jab with its numbers: 73/73
+  every cut and stop was a hard push (18 ft/s² or more) at jogging speed (10 ft/s) or faster: yes
+  the squeaks, one per line (audio time, player, kind, what the plant was):
+    3.43  #2  stop     v 0.33  gait speed 2.4 (was 10.0) brake 30.0 turn 2.1 ready
+    7.64  #4  slide    v 0.66  step speed 15.6 (was 19.6) brake 7.7 turn 22.5 defense
+    8.76  #286  stop     v 0.23  gait speed 6.6 (was 15.6) brake 25.6 turn 0.2 dribble
+    9.05  #4  cut      v 0.23  gait speed 16.0 (was 17.3) brake 3.4 turn 25.2 defense
+    13.03  #1  slide    v 0.27  gait speed 7.3 (was 10.9) brake 12.4 turn 7.8 defense
+    16.73  #291  stop     v 0.15  gait speed 4.8 (was 10.4) brake 18.0 turn 14.0 stand
+    17.01  #3  slide    v 0.63  gait speed 6.1 (was 11.1) brake 18.7 turn 12.4 defense
+    19.46  #3  stop     v 0.15  gait speed 5.0 (was 10.1) brake 22.4 turn 1.6 stand
+    19.50  #291  slide    v 0.49  gait speed 8.7 brake 0.0 turn 17.2 defense
+    21.14  #288  stop     v 0.16  gait speed 10.3 (was 17.3) brake 20.5 turn 11.8 defense
+    21.71  #9  stop     v 0.15  gait speed 16.2 (was 20.9) brake 18.2 turn 0.1 stand
+    21.95  #3  stop     v 0.15  gait speed 16.4 (was 20.9) brake 20.2 turn 1.6 stand
+    22.28  #286  stop     v 0.24  gait speed 4.9 (was 13.4) brake 25.3 turn 5.5 ready
+    24.34  #291  pivot    v 0.15  gait speed 1.4 (was 4.9) brake 9.7 turn 11.1 yaw 5.2 ready
+    28.87  #291  slide    v 0.5  gait speed 9.0 (was 12.6) brake 8.4 turn 15.1 defense
+    29.84  #293  stop     v 0.15  gait speed 9.1 (was 13.2) brake 18.7 turn 3.7 stand
+    29.91  #4  stop     v 0.2  gait speed 6.6 (was 13.2) brake 24.5 turn 1.3 stand
+    34.58  #4  cut      v 0.16  gait speed 21.6 (was 24.3) brake 13.4 turn 19.0 ready
+    35.26  #4  stop     v 0.15  gait speed 6.6 (was 14.1) brake 13.8 turn 12.8 ready
+    40.73  #1  stop     v 0.15  gait speed 3.4 (was 10.1) brake 20.4 turn 10.0 defense
+    42.52  #1  cut      v 0.15  gait speed 14.3 brake 0.0 turn 18.3 defense
+    43.77  #2  stop     v 0.35  gait speed 3.3 (was 11.5) brake 27.5 turn 13.4 ready
+    50.08  #288  stop     v 0.27  gait speed 4.9 (was 12.5) brake 19.7 turn 19.3 defense
+    50.12  #3  stop     v 0.15  gait speed 16.2 (was 20.9) brake 19.1 turn 2.0 stand
+    50.12  #291  stop     v 0.26  gait speed 17.6 (was 27.0) brake 26.9 turn 2.0 ready
+    51.29  #287  slide    v 0.59  gait speed 10.1 (was 14.6) brake 18.3 turn 8.4 defense
+    51.59  #293  stop     v 0.2  gait speed 9.3 (was 17.5) brake 23.3 turn 5.2 ready
+    53.12  #4  stop     v 0.17  gait speed 8.5 (was 15.4) brake 23.1 turn 4.7 ready
+    56.10  #287  stop     v 0.15  gait speed 7.5 (was 12.0) brake 19.9 turn 1.2 ready
+    59.83  #287  slide    v 0.48  gait speed 12.0 (was 17.2) brake 15.2 turn 7.7 defense
+    60.74  #291  slide    v 0.64  gait speed 5.0 (was 11.9) brake 18.4 turn 16.0 defense
+    62.10  #4  stop     v 0.15  gait speed 10.3 (was 13.7) brake 18.4 turn 0.2 stand
+    62.57  #293  stop     v 0.23  gait speed 3.2 (was 11.8) brake 24.4 turn 1.7 ready
+    62.96  #291  slide    v 0.61  gait speed 5.9 (was 13.0) brake 21.2 turn 6.8 defense
+    63.87  #2  stop     v 0.17  gait speed 8.6 (was 16.5) brake 24.0 turn 0.0 dribble
+    64.04  #288  slide    v 0.26  gait speed 4.9 (was 11.3) brake 8.8 turn 12.0 defense
+    69.03  #9  stop     v 0.15  gait speed 7.5 (was 15.4) brake 21.1 turn 3.0 ready
+    70.65  #293  slide    v 0.67  gait speed 4.7 (was 9.9) brake 20.4 turn 1.3 defense
+    72.14  #4  stop     v 0.19  step speed 0.3 (was 11.4) brake 24.0 turn 2.3 ready
+    72.36  #287  slide    v 0.57  gait speed 5.4 (was 9.2) brake 9.0 turn 15.6 defense
+    74.43  #3  stop     v 0.36  gait speed 6.7 (was 16.4) brake 30.2 turn 0.2 stand
+    75.48  #293  pivot    v 0.81  step speed 0.0 brake 0.0 turn 0.0 yaw 8.6 stand
+    77.31  #2  cut      v 0.36  gait speed 27.0 (was 29.9) brake 13.4 turn 28.1 ready
+    77.98  #3  stop     v 0.2  gait speed 26.0 (was 29.6) brake 19.1 turn 15.7 defense
+    78.13  #2  cut      v 0.37  gait speed 18.2 (was 21.3) brake 0.9 turn 31.5 ready
+    78.50  #288  stop     v 0.19  gait speed 10.3 (was 19.5) brake 23.8 turn 6.9 stand
+    79.53  #9  stop     v 0.15  gait speed 20.5 (was 25.6) brake 17.9 turn 5.3 defense
+    79.93  #4  stop     v 0.15  gait speed 8.6 (was 14.5) brake 19.4 turn 0.0 ready
+    81.66  #3  stop     v 0.18  gait speed 16.1 (was 21.4) brake 22.0 turn 9.9 defense
+    82.89  #3  slide    v 0.6  gait speed 11.1 brake 0.0 turn 20.1 defense
+    84.14  #2  stop     v 0.15  gait speed 10.4 (was 14.9) brake 21.2 turn 3.6 ready
+    86.06  #2  slide    v 0.45  gait speed 9.3 (was 12.7) brake 15.2 turn 7.8 defense
+    88.44  #3  slide    v 0.57  gait speed 2.4 (was 9.7) brake 27.5 turn 0.7 defense
+    90.97  #1  slide    v 0.15  gait speed 7.4 (was 10.0) brake 12.5 turn 1.3 defense
+    91.97  #291  stop     v 0.15  gait speed 7.5 (was 11.0) brake 15.7 turn 10.5 dribble
+    93.61  #291  jumpstop v 0.72  jump stop at 14.3
+    93.66  #2  slide    v 0.63  gait speed 7.6 (was 14.7) brake 26.9 turn 1.0 defense
+    94.84  #3  cut      v 0.15  gait speed 10.1 brake 0.0 turn 21.4 defense
+    95.18  #4  stop     v 0.15  gait speed 7.4 (was 14.2) brake 20.0 turn 7.5 defense
+    96.51  #2  stop     v 0.15  gait speed 6.0 (was 10.3) brake 21.9 turn 0.0 ready
+
+Footsteps 366 (3.0 a second), landings 11, catches 28, passes 24, bodies 12, falls 0, floor bounces 4, rolls 0, rim 1, glass 0, swish 1, net 0, dunks 1, blocks 0, whistles 2, buzzers 0, horns 0
+mixer: {"played":633,"stolen":0,"suppressed":{},"peakTotal":9,"peakBus":{"court":8,"players":0,"crowd":1,"arena":1,"commentary":0},"peakSound":{"step":5,"squeak":3,"pass":2,"land":2,"catch":1,"dribble":1,"body":2,"swish":1,"crowd.murmur":1,"bounce":1,"whistle":1,"crowd.ooh":1,"rim":1,"dunk":1,"crowd.groan":1}}
+page errors: 0
+
+dribbles on the contact (every one within two frames of its moment on screen, onsets where scheduled): PASS
+squeaks only on real plants and never spam: PASS
+RESULT: PASS

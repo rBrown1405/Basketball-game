@@ -110,9 +110,11 @@
     diva: ['wants the ball in his hands', 'looking for his shots tonight', 'he likes the spotlight on himself'],
     cold: ['ice water in the veins', 'nothing rattles this one', 'stone cold in big moments'],
   };
-  function blurb(p) {
+  /** rnd: the random source (the booth passes the audio's own, PBC.AudioRandom.random, so a line said on air
+   *  never takes a number from the game's Math.random and changes what happens next) */
+  function blurb(p, rnd) {
     const list = BLURB[of(p)] || BLURB.quiet;
-    const s = list[Math.floor(Math.random() * list.length)];
+    const s = list[Math.floor((rnd || Math.random)() * list.length)];
     return p && p.gender === 'f' ? s.replace(/\bguy\b/g, 'player').replace(/\bhis\b/g, 'her').replace(/\bhe\b/g, 'she').replace(/\bhim\b/g, 'her') : s;
   }
 

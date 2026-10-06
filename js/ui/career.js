@@ -33,6 +33,7 @@
         </div>
         <div class="grid g-main">
           <div class="stack">
+            ${UI.skillsCard ? UI.skillsCard(S) : ''}
             <div class="card"><div class="card-h"><h3>Season by season</h3></div><div class="card-b flush">${c.seasons.length ? `<table class="tbl compact"><thead><tr><th>Season</th><th>Team</th><th class="num">W-L</th><th>Result</th><th>Owner's goal</th><th class="num">Security</th></tr></thead><tbody>
               ${c.seasons.slice().reverse().map(s => `<tr><td>${U.seasonLabel(s.season)}</td><td>${UI.teamBadge(S.teams[s.tid], 20)} ${S.teams[s.tid].abbr}</td><td class="num">${s.w}-${s.l}</td><td>${s.champ ? '🏆 ' : ''}${U.esc(s.result)}</td><td>${s.met ? '✅' : '❌'} <span class="small muted">${U.esc(s.goal)}</span></td><td class="num">${s.security}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Your first season is in progress.</div>'}</div></div>
             <div class="card"><div class="card-h"><h3>Achievements</h3><div class="actions"><span class="small muted">${Object.keys(c.achievements).length}/${C.ACHIEVEMENTS.length}</span></div></div><div class="card-b"><div class="ach-grid">
@@ -40,7 +41,7 @@
           </div>
           <div class="stack">
             <div class="card accent"><div class="card-h"><h3>Job status</h3></div><div class="card-b">
-              <div class="kv"><span>Owner mood</span><span>${U.esc(c.mood || '—')}</span><span>This season's goal</span><span>${c.expectation ? U.esc(c.expectation.label) : '—'}</span><span>Projected wins</span><span>${c.expectation ? c.expectation.wins : '—'}</span></div>
+              <div class="kv"><span>Owner mood</span><span>${U.esc(c.mood || '-')}</span><span>This season's goal</span><span>${c.expectation ? U.esc(c.expectation.label) : '-'}</span><span>Projected wins</span><span>${c.expectation ? c.expectation.wins : '-'}</span></div>
               <div class="row" style="margin-top:12px"><span class="small muted">Job security</span><div class="spacer"></div><b>${sec}</b></div>
               <div class="meter lg"><div class="meter-fill ${sec >= 60 ? 'good' : sec >= 35 ? 'warn' : 'bad'}" style="width:${sec}%"></div></div>
               ${c.lastReview ? `<p class="small muted">Last review (${U.seasonLabel(c.lastReview.season)}): ${U.esc(c.lastReview.result)} · ${c.lastReview.goalMet ? 'goal met' : 'goal missed'} · security ${c.lastReview.delta >= 0 ? '+' : ''}${c.lastReview.delta}.</p>` : ''}
@@ -52,6 +53,7 @@
             <div class="card"><div class="card-h"><h3>Record vs. every team</h3></div><div class="card-b flush" id="vs-tbl"></div></div>
           </div>
         </div></div>`;
+      if (UI.bindSkills) UI.bindSkills(root);
       const rows = S.teams.filter(x => x.id !== c.tid || c.vs[x.id]).map(x => ({ t: x, v: c.vs[x.id] || [0, 0] }));
       UI.table(root.querySelector('#vs-tbl'), {
         rows, compact: true, sort: 'w',
@@ -59,7 +61,7 @@
           { key: 'team', label: 'Opponent', value: r => r.t.name, fmt: r => `${UI.teamBadge(r.t, 20)} ${UI.teamLink(r.t, r.t.name)}` },
           { key: 'w', label: 'W', num: true, value: r => r.v[0], fmt: r => r.v[0] },
           { key: 'l', label: 'L', num: true, value: r => r.v[1], fmt: r => r.v[1] },
-          { key: 'pct', label: 'PCT', num: true, value: r => (r.v[0] + r.v[1] ? r.v[0] / (r.v[0] + r.v[1]) : -1), fmt: r => (r.v[0] + r.v[1] ? (r.v[0] / (r.v[0] + r.v[1])).toFixed(3).replace(/^0/, '') : '—') },
+          { key: 'pct', label: 'PCT', num: true, value: r => (r.v[0] + r.v[1] ? r.v[0] / (r.v[0] + r.v[1]) : -1), fmt: r => (r.v[0] + r.v[1] ? (r.v[0] / (r.v[0] + r.v[1])).toFixed(3).replace(/^0/, '') : '-') },
         ],
       });
     },
@@ -68,6 +70,15 @@
   // ---------------------------------------------------------------------------
   // Season recap (phase 'awards')
   // ---------------------------------------------------------------------------
+  /** your season told as a story (PBC.Story) */
+  function docCard(S) {
+    const d = PBC.Story ? PBC.Story.season(S) : null;
+    if (!d || !d.chapters.length) return '';
+    return `<div class="card"><div class="card-h"><h3>Your season, as a story</h3></div><div class="card-b"><div class="doc">
+      ${d.chapters.map(c => `<div class="doc-ch"><div class="doc-kick">${U.esc(c.kick)}</div><h4 class="doc-h">${U.esc(c.h)}</h4>${c.p.map(x => `<p class="doc-p">${U.esc(x)}</p>`).join('')}</div>`).join('')}
+      ${d.heads.length ? `<div class="doc-ch"><div class="doc-kick">In the papers</div><div class="doc-heads">${d.heads.map(h => `<a class="md-tl" data-art="${h.id}">${U.esc(h.h)}</a>`).join('')}</div></div>` : ''}
+    </div></div></div>`;
+  }
   UI.register('recap', {
     title: 'Season Recap',
     render(root) {
@@ -93,8 +104,9 @@
           <div class="actions">${cont ? `<button class="btn primary lg" id="recap-cont">${U.esc(cont.label)} ▸</button>` : ''}</div></div>
         <div class="grid g-main">
           <div class="stack">
-            ${champ ? `<div class="hero" style="--team:${champ.colors.primary};--team2:${champ.colors.secondary}"><div class="hero-in row nowrap">${UI.teamBadge(champ, 84)}<div><div class="tiny up dim" style="letter-spacing:2px">Champions</div>
-              <div class="up" style="font-size:34px;line-height:1">🏆 ${U.esc(champ.city)} ${U.esc(champ.name)}</div><div class="muted">${h.runnerUp != null ? 'Defeated the ' + U.esc(S.teams[h.runnerUp].name) + ' in the Finals' : ''}${h.fmvp != null ? ' · Finals MVP: ' + UI.playerLink(S.players[h.fmvp]) : ''}</div></div></div></div>` : ''}
+            ${champ ? `<div class="hero" style="--team:${champ.colors.primary};--team2:${champ.colors.secondary}"><div class="hero-in row nowrap">${UI.teamBadge(champ, 84)}<div style="min-width:0;white-space:normal"><div class="tiny up dim" style="letter-spacing:2px">Champions</div>
+              <div class="up" style="font-size:clamp(22px, 6vw, 34px);line-height:1.05;overflow-wrap:anywhere">🏆 ${U.esc(champ.city)} ${U.esc(champ.name)}</div><div class="muted">${h.runnerUp != null ? 'Defeated the ' + U.esc(S.teams[h.runnerUp].name) + ' in the Finals' : ''}${h.fmvp != null ? ' · Finals MVP: ' + UI.playerLink(S.players[h.fmvp]) : ''}</div></div></div></div>` : ''}
+            ${docCard(S)}
             <div class="card"><div class="card-h"><h3>Season awards</h3></div><div class="card-b"><div class="grid g2">
               ${award('mvp', 'Most Valuable Player')}${award('dpoy', 'Defensive Player of the Year')}${award('roy', 'Rookie of the Year')}${award('smoy', 'Sixth Player of the Year')}${award('mip', 'Most Improved Player')}
               <div class="recap-award">${UI.teamBadge(S.teams[aw.coyTid], 54)}<div><div class="al">Coach of the Year</div><div class="bold">${aw.coyTid === S.userTid ? U.esc(c.name) + ' (you!)' : U.esc(S.teams[aw.coyTid].city + ' ' + S.teams[aw.coyTid].name)}</div></div></div>
@@ -102,7 +114,7 @@
             <div class="card"><div class="card-h"><h3>All-League teams</h3></div><div class="card-b flush"><table class="tbl compact"><tbody>
               ${aw.allLeague.map((five, i) => `<tr><td class="bold nowrap">${U.ordinal(i + 1)} Team</td><td>${five.map(pid => UI.playerLink(S.players[pid])).join(' · ')}</td></tr>`).join('')}
               ${aw.allDefense.map((five, i) => `<tr><td class="bold nowrap">All-Defense ${i + 1}</td><td>${five.map(pid => UI.playerLink(S.players[pid])).join(' · ')}</td></tr>`).join('')}
-              <tr><td class="bold nowrap">All-Rookie</td><td>${aw.allRookie.map(pid => UI.playerLink(S.players[pid])).join(' · ') || '—'}</td></tr></tbody></table></div></div>
+              <tr><td class="bold nowrap">All-Rookie</td><td>${aw.allRookie.map(pid => UI.playerLink(S.players[pid])).join(' · ') || '-'}</td></tr></tbody></table></div></div>
           </div>
           <div class="stack">
             ${rev ? `<div class="card accent"><div class="card-h"><h3>Owner's review</h3></div><div class="card-b">
@@ -114,6 +126,7 @@
         </div></div>`;
       const b = root.querySelector('#recap-cont');
       if (b) b.onclick = () => { const c2 = UI.continueInfo(); if (c2) c2.run(); };
+      UI.on(root, 'click', '[data-art]', (e, el) => { if (UI.openArticle) UI.openArticle(+el.dataset.art); });
     },
   });
 
@@ -128,7 +141,7 @@
       if (c.status !== 'unemployed') { UI.go('home'); return; }
       if (!c.jobOffers || !c.jobOffers.length) c.jobOffers = PBC.Coach.jobOffers(S);
       const st = PBC.League.standings(S);
-      root.innerHTML = `<div class="page"><div class="page-h"><div><h1>Job Offers</h1><div class="sub">You're a free agent coach. Pick your next challenge — or walk away from the game.</div></div>
+      root.innerHTML = `<div class="page"><div class="page-h"><div><h1>Job Offers</h1><div class="sub">You're a free agent coach. Pick your next challenge, or walk away from the game.</div></div>
         <div class="actions"><button class="btn danger" data-act="retire">Retire from coaching</button></div></div>
         <div class="grid g2">${c.jobOffers.map((o, i) => {
           const t = S.teams[o.tid];
@@ -187,9 +200,15 @@
           <div class="card"><div class="card-h"><h3>Gameplay</h3></div><div class="card-b flush"><div class="list">
             ${tog('gimEnabled', 'Game Impact Moments', 'Take the big shot yourself in clutch moments of live games.')}
             ${tog('autoTimeouts', 'Assistant timeouts', 'Let your assistants call timeouts to stop opponent runs.')}
+            ${tog('lockerRoom', 'Halftime locker room', 'At halftime of a live game: your assistant\'s report, a few changes to take, and your talk to the team.')}
+            ${tog('staffAdjust', 'Assistant adjustments', 'In live games, let your staff change the defense when something is hurting you. Off: your assistant only suggests, and you decide.')}
             ${tog('showVisuals', 'Show the court in live games', 'Turn off for a fast text-only play-by-play view.')}
             ${tog('retroCourt', 'Retro pixel court', 'Watch live games on a Hoop Land-style 2D pixel court with chibi sprites.')}
             ${tog('pixelMode', 'Retro pixel filter', 'Chunky pixel-art filter for the broadcast 3D court (when loaded).')}
+            ${tog('tips', 'Tips', 'A short tip the first time you open a screen, and the getting-started list on Home.')}
+            <label class="li chk" style="cursor:pointer"><input type="checkbox" data-set="autoPractice" ${st.autoPractice ? 'checked' : ''}><div><div class="bold">Assistants run practice</div><div class="tiny muted">No weekly reminder: your assistants run a lighter session every week unless you run one yourself.</div></div></label>
+            ${UI.DESK_STOP ? `<div class="li"><div style="flex:1;min-width:0"><div class="bold">The Desk stops the sim for</div><div class="tiny muted">${U.esc((UI.DESK_STOP.find(m => m.key === (st.deskStop || 'important')) || UI.DESK_STOP[0]).desc)} How often things land on your desk: League Settings.</div></div>
+              <div class="seg">${UI.DESK_STOP.map(m => `<button class="${(st.deskStop || 'important') === m.key ? 'on' : ''}" data-deskstop="${m.key}">${U.esc(m.label)}</button>`).join('')}</div></div>` : ''}
           </div></div></div>
           <div class="card set-save"><div class="card-h"><h3>Save data</h3><div class="actions" id="set-save-tag">${saveStatusTag()}</div></div><div class="card-b col">
             <div class="set-lbl">Autosave</div>
@@ -197,6 +216,9 @@
             <div class="small muted">${U.esc(polDef.desc)}</div>
             <div class="row set-bk"><div><div class="set-lbl">Automatic backups</div><div class="tiny muted">Taken every in-season week, every playoff day, at each new phase and right before the offseason.</div></div>
               <div class="spacer"></div><select class="inp" data-backups>${Array.from({ length: 11 }, (_, n) => `<option value="${n}" ${n === nb ? 'selected' : ''}>${n ? 'Keep last ' + n : 'Off'}</option>`).join('')}</select></div>
+            <div class="row set-bk"><div style="flex:1;min-width:200px"><div class="set-lbl">Game logs</div><div class="tiny muted">${st.keepLogs === 'all' ? 'Every game of every player is kept for good (about 1 MB more save a season).' : 'Every player\'s games for this season and last, and every season a player spent on your team, for good. Career stats, highs and awards are always kept.'}</div></div>
+              <div class="seg">${[['recent', 'Recent'], ['all', 'Keep all']].map(([k, l]) => `<button class="${(st.keepLogs || 'recent') === k ? 'on' : ''}" data-keeplogs="${k}">${l}</button>`).join('')}</div></div>
+            ${typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist ? `<div class="row set-bk"><div style="flex:1;min-width:200px"><div class="set-lbl">Protect saves</div><div class="tiny muted" data-persist-txt>Ask the browser not to clear this game's saves when the disk runs low.</div></div><button class="btn sm" data-persist>🛡️ Protect</button></div>` : ''}
             <div class="row"><button class="btn primary" data-act="save">💾 Save now <span class="k">${UI.saveKeyLabel()}</span></button><button class="btn" data-save-as>📑 Save as new slot</button><button class="btn" data-nav="saves">🗂️ Manage saves</button></div>
             <div class="row"><button class="btn" data-act="export">⬇️ Export save file</button><button class="btn" data-act="import">⬆️ Import save file</button></div>
             <p class="tiny muted" style="margin:0">Saves live in this browser. Export a file to back up your career or move it to another computer; importing a file adds it as a new career.</p>
@@ -218,8 +240,9 @@
             <li><b>Build a dynasty</b> through the draft, free agency and trades in the offseason. Chase titles, records, achievements and the Hall of Fame.</li>
           </ol></div></div>
         <div class="card" style="margin-top:16px"><div class="card-h"><h3>About</h3></div><div class="card-b small muted">
-          Pro BBALL Coach — an NBA-style head coach simulation. All teams and players are fictional. Stats engine calibrated to modern pro averages (about 115 points, 100 possessions and 37 three-point attempts per team per game).</div></div></div>`;
+          Pro BBALL Coach: an NBA-style head coach simulation. All teams and players are fictional. Stats engine calibrated to modern pro averages (about 115 points, 100 possessions and 37 three-point attempts per team per game).</div></div></div>`;
       UI.on(root, 'change', '[data-set]', (e, el) => { st[el.dataset.set] = el.checked; UI.save(); });
+      UI.on(root, 'click', '[data-deskstop]', (e, el) => { st.deskStop = el.dataset.deskstop; UI.save(); UI.refresh(); });
       // save settings are written right away so the choice itself is never "unsaved"
       UI.on(root, 'click', '[data-autosave]', async (e, el) => {
         st.autosave = el.dataset.autosave;
@@ -236,6 +259,24 @@
         await UI.saveNow({ silent: true });
         UI.toast(n ? `Keeping the last ${n} backup${n === 1 ? '' : 's'}` : 'Automatic backups are off', 'good', 1800);
       });
+      UI.on(root, 'click', '[data-keeplogs]', (e, el) => {
+        st.keepLogs = el.dataset.keeplogs;
+        UI.save();
+        UI.toast(st.keepLogs === 'all' ? 'Every game log is kept from now on' : 'Older game logs go at the start of next season', 'good', 2200);
+        UI.refresh();
+      });
+      // (persistent storage: the browser keeps the saves when it clears space)
+      const pBtn = root.querySelector('[data-persist]');
+      if (pBtn) {
+        const shown = on => { const t = root.querySelector('[data-persist-txt]'); if (on) { pBtn.disabled = true; pBtn.textContent = '🛡️ Protected'; if (t) t.textContent = 'The browser keeps this game\'s saves when it clears space (clearing site data by hand still deletes them: export a file to be safe).'; } };
+        if (navigator.storage.persisted) navigator.storage.persisted().then(shown).catch(() => {});
+        pBtn.onclick = async () => {
+          let ok = false;
+          try { ok = await navigator.storage.persist(); } catch (err) { ok = false; }
+          shown(ok);
+          if (!ok) UI.toast('The browser said no for now (it decides by how much you use the site). Exporting a save file always works.', 'info', 3600);
+        };
+      }
       root.querySelector('#set-import').onchange = e => { if (PBC.Saves) PBC.Saves.importFile(e.target.files[0]); };
       UI.on(root, 'click', '[data-act]', async (e, el) => {
         const a = el.dataset.act;

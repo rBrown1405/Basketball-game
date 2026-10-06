@@ -54,7 +54,7 @@
       const flashes = [0, 0, 0, 0], jtxt = { text: '', tone: 'text', at: -9 };
       api.foot(api.touch ? 'Tap the lane as the arrow lands on the target' : '<kbd>←</kbd> <kbd>↓</kbd> <kbd>↑</kbd> <kbd>→</kbd> / <kbd>WASD</kbd> on the beat · <kbd>ESC</kbd> quits');
       const hud = bump => {
-        api.hud('a', 'ACCURACY', judged ? Math.round(sum / judged * 100) + '%' : '—', null, bump);
+        api.hud('a', 'ACCURACY', judged ? Math.round(sum / judged * 100) + '%' : '-', null, bump);
         api.hud('b', 'COMBO', '×' + combo, combo >= 10 ? 'gold' : null, bump);
         api.hud('c', 'MOVES', `${movesDone}/${moves.length}`);
       };
@@ -244,7 +244,7 @@
       const hud = bump => {
         api.hud('a', 'SCORE', Math.round(total / (10 * N) * 100), null, bump);
         api.hud('b', 'REP', `${U.clamp(rep + 1, 1, N)}/${N}`);
-        api.hud('c', 'REACTION', rts.length ? (rts.reduce((a, b) => a + b, 0) / rts.length).toFixed(2) + 's' : '—');
+        api.hud('c', 'REACTION', rts.length ? (rts.reduce((a, b) => a + b, 0) / rts.length).toFixed(2) + 's' : '-');
       };
       hud();
 
@@ -273,7 +273,7 @@
         R.resp = dir; R.done = true; R.rt = t;
         slide(dir);
         const want = R.move === 'stop' ? 'up' : R.move;
-        if (dir !== want) return result(0, 'WRONG WAY', 'bad', R.move === 'stop' ? 'He pulled up — contest with ↑' : `He went ${R.move}`, true);
+        if (dir !== want) return result(0, 'WRONG WAY', 'bad', R.move === 'stop' ? 'He pulled up: contest with ↑' : `He went ${R.move}`, true);
         const rt = t, pts = rt <= 0.3 ? 10 : rt <= 0.8 ? 10 - 7 * (rt - 0.3) / 0.5 : Math.max(0, 3 - 3 * (rt - 0.8) / 0.2);
         rts.push(rt);
         const stop = R.move === 'stop';
@@ -296,7 +296,7 @@
         phase = 'done';
         const avg = rts.length ? rts.reduce((a, b) => a + b, 0) / rts.length : null;
         api.finish(total / (10 * N) * 100, { reps: N, lockdowns: locks, avgReactionMs: avg == null ? null : Math.round(avg * 1000), bitOnFakes: log.filter(l => l.fake && l.points === 0 && l.rt == null).length, log },
-          [['LOCKDOWNS', `${locks}/${N}`], ['AVG REACTION', avg == null ? '—' : avg.toFixed(2) + ' s'], ['BEATEN', String(log.filter(l => l.points < 3).length)], ['FAKES', String(log.filter(l => l.fake).length)]]);
+          [['LOCKDOWNS', `${locks}/${N}`], ['AVG REACTION', avg == null ? '-' : avg.toFixed(2) + ' s'], ['BEATEN', String(log.filter(l => l.points < 3).length)], ['FAKES', String(log.filter(l => l.fake).length)]]);
       }
 
       sc.key((e, k) => {
@@ -398,7 +398,7 @@
       const zoneC = tt => { const i = U.clamp(Math.floor(tt / 2.5), 0, CENT.length - 1); return i === 0 ? CENT[0] : U.lerp(CENT[i - 1], CENT[i], U.smooth((tt - i * 2.5) / 0.7)); };
       const hud = () => {
         const run = Math.max(0, clock);
-        api.hud('a', 'IN ZONE', run > 0.2 ? Math.round(inZone / run * 100) + '%' : '—');
+        api.hud('a', 'IN ZONE', run > 0.2 ? Math.round(inZone / run * 100) + '%' : '-');
         api.hud('b', 'TIME', clock < 0 ? '20.0' : Math.max(0, DUR - clock).toFixed(1));
         api.hud('c', 'LEGS', `${Math.min(8, posAt(dist).leg)}/8`);
       };
@@ -436,7 +436,7 @@
           if (gassedT > 0) { gassedT -= dt; if (gassedT <= 0) { api.toast('BACK IN IT', 'good', 'Find the rhythm again'); } }
           else {
             overT = E > hi + 0.1 ? overT + dt : 0;
-            if (overT > 0.5 || E >= 0.98) { gassedT = 1.4; gassed++; overT = 0; api.toast('GASSED!', 'bad', 'Too fast — legs are gone'); api.sfx('gassed'); api.flash('bad'); api.shake(); }
+            if (overT > 0.5 || E >= 0.98) { gassedT = 1.4; gassed++; overT = 0; api.toast('GASSED!', 'bad', 'Too fast, the legs are gone'); api.sfx('gassed'); api.flash('bad'); api.shake(); }
             else if (E >= lo && E <= hi) inZone += dt;
           }
           dist += PACE * U.clamp(E / c, 0, 1.35) * (gassedT > 0 ? 0.35 : 1) * dt;

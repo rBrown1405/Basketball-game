@@ -1,0 +1,17 @@
+console opened with the A key: true
+meter readings: 1919 (every 100 ms)
+
+SOLO court      285 readings | court loudest -10.4 dB | others loudest: players -inf, crowd -inf, arena -inf, commentary -inf | master has signal in 285/285 | WAV 30.0 s (worklet) | PASS
+SOLO players    293 readings | players loudest -9.5 dB | others loudest: court -inf, crowd -inf, arena -inf, commentary -inf | master has signal in 293/293 | WAV 30.0 s (worklet) | PASS
+SOLO crowd      278 readings | crowd loudest -10.4 dB | others loudest: court -inf, players -inf, arena -inf, commentary -inf | master has signal in 278/278 | WAV 30.0 s (worklet) | PASS
+SOLO arena      294 readings | arena loudest -10.4 dB | others loudest: court -inf, players -inf, crowd -inf, commentary -inf | master has signal in 294/294 | WAV 30.0 s (worklet) | PASS
+SOLO commentary 287 readings | commentary loudest -9.5 dB | others loudest: court -inf, players -inf, crowd -inf, arena -inf | master has signal in 260/287 | WAV 30.0 s (worklet) | PASS
+MUTE court      58 readings | court loudest -inf dB | others loudest: players -9.6, crowd -10.4, arena -10.8, commentary -9.5 | PASS
+MUTE players    57 readings | players loudest -inf dB | others loudest: court -10.3, crowd -10.9, arena -10.7, commentary -9.6 | PASS
+MUTE crowd      63 readings | crowd loudest -inf dB | others loudest: court -10.5, players -10.1, arena -10.5, commentary -9.5 | PASS
+MUTE arena      56 readings | arena loudest -inf dB | others loudest: court -10.6, players -9.5, crowd -10.5, commentary -10.0 | PASS
+MUTE commentary 55 readings | commentary loudest -inf dB | others loudest: court -10.5, players -9.5, crowd -10.9, arena -10.7 | PASS
+
+mixer: played 1290, took the place of 68 (test tones replacing finished or older test tones), refused {"muted":2320}, peak voices 12/48, per bus {"court":8,"players":2,"crowd":3,"arena":3,"commentary":2}
+page errors: 0
+RESULT: PASS (every bus soloed and muted during a live game)

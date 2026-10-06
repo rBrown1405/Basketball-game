@@ -142,15 +142,27 @@
     nav.innerHTML = `
       <div class="brand" data-nav="home">${UI.logo(34)}<div class="brand-t">Pro BBALL<small>COACH</small></div></div>
       ${gkeys.map(g => `<div class="nav-group"><div class="nav-group-t">${g}</div>${groups[g].map(n => `
-        <a class="nav-a ${current.key === n.key ? 'active' : ''}" data-nav="${n.key}"><span class="nav-ico">${n.icon || '•'}</span><span>${n.label}</span>${n.dot && S && n.dot(S) ? '<i class="badge-dot"></i>' : ''}</a>`).join('')}</div>`).join('')}
+        <a class="nav-a ${current.key === n.key || (screens[current.key] && screens[current.key].navKey === n.key) ? 'active' : ''}" data-nav="${n.key}"><span class="nav-ico">${n.icon || '•'}</span><span>${n.label}</span>${navBadge(n)}</a>`).join('')}</div>`).join('')}
       <div class="nav-foot">${S ? `<div id="save-status">${saveFootHtml()}</div>` : ''}<div>${S ? U.esc(PBC.Config.LEAGUES[S.leagueKey].label) : ''}</div></div>`;
   };
+
+  function navBadge(n) {
+    if (!S) return '';
+    const c = n.count ? n.count(S) : 0;
+    if (c) return `<i class="badge-n">${c > 99 ? '99+' : c}</i>`;
+    return n.dot && n.dot(S) ? '<i class="badge-dot"></i>' : '';
+  }
 
   UI.continueInfo = function () {
     if (!S) return null;
     const c = S.coach;
     if (c && c.status === 'unemployed') return { label: 'Job Offers', run: () => UI.go('jobs') };
     if (c && c.pendingFire) return { label: 'Owner Meeting', run: () => UI.go('fired') };
+    if (PBC.Desk && PBC.Desk.shouldStop(S)) {
+      if (current.key !== 'desk') return { label: 'Your Desk', run: () => UI.go('desk') };
+      return { label: 'Answer to Continue', run: () => UI.toast('The decisions marked Important or Urgent come first (Settings → The Desk).', 'warn', 3000) };
+    }
+    if (current.key === 'desk' && PBC.App && PBC.App.resume) return { label: 'Continue', run: () => PBC.App.resumeSim() };
     const ph = phases[S.phase];
     if (ph) return { label: typeof ph.label === 'function' ? ph.label(S) : ph.label, run: () => (ph.run ? ph.run(S) : UI.go(ph.screen)) };
     return null;
@@ -170,7 +182,7 @@
       seedTxt = `${U.ordinal(me.seed)} in ${L.playoffFormat === 'conference' ? L.confs[t.conf] : 'league'}`;
     }
     const ng = (S.phase === 'regular') ? PBC.League.nextGame(S, S.userTid) : PBC.Season.userGameToday(S);
-    let nextTxt = '—';
+    let nextTxt = '-';
     if (ng) {
       const home = ng.h === S.userTid;
       const opp = S.teams[home ? ng.a : ng.h];

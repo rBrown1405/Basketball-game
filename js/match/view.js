@@ -5,7 +5,6 @@
 (function () {
   'use strict';
   const M = window.PBC.Match, U = M.U;
-  const STEP = 1 / 60;
 
   const REF_LOOKS = [
     { id: 'ref1', num: 14, height: 74, weight: 200, gender: 'm', look: { skin: 1, hair: 'bald', hairColor: '#2a1d14', beard: 'none', build: 0.4 } },
@@ -38,6 +37,8 @@
       this.arriving = [];
       this.refs = REF_LOOKS.map((l) => { const a = new M.Actor(this, l, -1, 'ref'); a.setStance('refStand'); return a; });
       this.time = 0;
+      this._acc = 0; // game time not yet stepped (fixed steps, see update)
+      this.debug = null; // the debug tools (js/match/debug.js), when open
       this.period = 1;
       this.score = [0, 0];
       this.focus = { x: 47, vx: 0 };
@@ -89,15 +90,23 @@
       if (this.replay) {
         U.safe(() => this.updateReplay(dt), this, 'replay');
       } else {
-        let left = dt;
-        let guard = 0;
-        while (left > 1e-7 && guard++ < 200) {
-          const h = Math.min(STEP, left);
-          left -= h;
-          U.safe(() => this.step(h), this, 'step');
-          if (h > 0 && this.opts.record !== false) U.safe(() => this.recordFrame(), this, 'record');
+        // fixed steps: the simulation always advances in whole steps of Tune.clock.step (1/60 s), whatever the
+        // playback speed or the screen's refresh rate, so 0.25x shows exactly the frames 1x shows; the leftover time
+        // carries to the next call and the renderer blends the last two steps by it (see _render)
+        const TC = M.Tune.clock, h = TC.step, dbg = this.debug;
+        let n, camDt;
+        const req = dbg ? dbg.takeSteps() : 0;
+        if (req > 0) { n = req; camDt = n * h; this._acc = 0; }
+        else {
+          const sdt = dbg ? dbg.simDt(dt) : dt;
+          this._acc = (this._acc || 0) + sdt;
+          n = Math.floor(this._acc / h + 1e-6);
+          this._acc = Math.max(0, this._acc - n * h);
+          camDt = sdt;
         }
-        U.safe(() => this.updateCamera(dt), this, 'camera');
+        if (n > TC.maxStepsPerUpdate) { n = TC.maxStepsPerUpdate; this._acc = 0; }
+        for (let i = 0; i < n; i++) this.tick(h);
+        U.safe(() => this.updateCamera(camDt), this, 'camera');
       }
       // crowd, LED and jumbotron run on wall-clock time: they keep moving during a GIM freeze
       // (the host calls update(0) while the shot meter is up) and stay calm at 16x
@@ -127,10 +136,19 @@
       U.safe(() => { this.court = new M.Court(this.ctx, this.opts); }, this, 'court atmosphere');
       if (this.arena.setAtmosphere) this.arena.setAtmosphere(this.atm);
     }
-    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk' */
-    sound(name, v) {
+    /** sound hook for the host (arena audio): name in 'dribble','bounce','rim','board','swish','net','whistle','horn','dunk',
+     *  'block'; at: where it happens (the ball or an actor: x, y, z), who: the actor making it */
+    sound(name, v, at, who) {
       if (!this.onSound || this.replay) return;
-      try { this.onSound(name, v == null ? 1 : v); } catch (e) { /* audio must never break the view */ }
+      try { this.onSound(name, v == null ? 1 : v, at || null, who || null); } catch (e) { /* audio must never break the view */ }
+    }
+    /** what else the audio listens to (the host hands it to the audio event bus): 'plant' (a foot lands in a stride or
+     *  a step: a = the actor, d = the foot), 'land' (a foot back down from a jump), 'catch' and 'pass' (the ball:
+     *  d = {from}), 'shotResult' (the ball reached the rim, the glass, the net or the blocker's hand: d = {ev, contact,
+     *  x, y, z}). Callers check onCue first, so nothing is built when nobody listens; nothing goes out in a replay */
+    cue(type, a, d) {
+      if (!this.onCue || this.replay) return;
+      try { this.onCue(type, a, d); } catch (e) { /* audio must never break the view */ }
     }
     setDefScheme(team, scheme) {
       if (team !== 0 && team !== 1) return;
@@ -150,6 +168,7 @@
       this.arena.cheer(team, 1, 6);
     }
     destroy() {
+      if (this.debug && this.debug.destroy) this.debug.destroy();
       this.destroyed = true;
       this.actors = {}; this.refs = []; this.items = [];
       this.director.active = false;
@@ -280,6 +299,46 @@
       this.refs[2].place(64, 52.5, -Math.PI / 2);
       this.ball.give(this.refs[0], 'chest');
     }
+    /** one fixed simulation step: move everyone, then solve every body once (the pose smoothing inside solve()
+     *  integrates over exactly one step, so the motion does not depend on how often the screen is drawn), then
+     *  measure (debug tools) and record (replays) */
+    tick(h) {
+      for (const a of this.bodies()) this.keepPrev(a);
+      const b = this.ball;
+      this._bPrev = this._bPrev || new Float64Array(3);
+      this._bPrev[0] = b.x; this._bPrev[1] = b.y; this._bPrev[2] = b.z;
+      U.safe(() => this.step(h), this, 'step');
+      if (this.director.frozen) return;
+      for (const a of this.bodies()) U.safe(() => a.solve(), a, 'solve');
+      if (this.debug) U.safe(() => this.debug.afterStep(), this, 'debug');
+      if (this.opts.record !== false) U.safe(() => this.recordFrame(), this, 'record');
+    }
+    /** everyone who is drawn: players on the floor or walking on/off it, and the officials */
+    bodies() {
+      const out = this._bodies || (this._bodies = []);
+      out.length = 0;
+      for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) out.push(a); }
+      for (const r of this.refs) out.push(r);
+      return out;
+    }
+    /** keep a body's last solved skeleton (the renderer blends from it to the new one between steps) */
+    keepPrev(a) {
+      if (a._inT == null) return;
+      if (!a._P0) { a._P0 = new Float64Array(a.sk.P.length); a._R0 = new Float64Array(a.sk.R.length); }
+      a._P0.set(a.sk.P); a._R0.set(a.sk.R); a._hasPrev = true;
+    }
+    /** the skeleton to draw: between the last two steps by k (0..1), or the solved one */
+    displaySk(a, k) {
+      if (!(k > 0.001 && k < 0.999) || !a._hasPrev) return a.sk;
+      const ds = a._dsk || (a._dsk = { P: new Float64Array(a.sk.P.length), R: new Float64Array(a.sk.R.length), dims: a.sk.dims, pose: a.sk.pose });
+      const P = a.sk.P, R = a.sk.R, P0 = a._P0, R0 = a._R0;
+      // (a body that jumped a long way in one step, a placement, is drawn where it is)
+      if (Math.abs(P[0] - P0[0]) + Math.abs(P[1] - P0[1]) > 3) return a.sk;
+      for (let i = 0; i < P.length; i++) ds.P[i] = P0[i] + (P[i] - P0[i]) * k;
+      for (let i = 0; i < R.length; i++) ds.R[i] = R0[i] + (R[i] - R0[i]) * k;
+      ds.dims = a.sk.dims; ds.pose = a.sk.pose;
+      return ds;
+    }
     step(h) {
       const d = this.director;
       if (d.frozen) {
@@ -328,28 +387,76 @@
         for (let j = i + 1; j < n; j++) {
           const b = list[j];
           let dx = b.x - a.x, dy = b.y - a.y;
-          let minD = ra + b.H * 0.15;
+          // (two bodies meant to touch, a box-out's, Trial 11: the torsos' own depth apart, not the room kept between players)
+          const tch = a.touching && a.touching(b);
+          let minD = tch ? (a.H + b.H) * M.Tune.glass.touchH : ra + b.H * 0.15;
           let d2 = dx * dx + dy * dy;
           if (d2 > 36) continue;
-          const cdx = dx + b._chx - a._chx, cdy = dy + b._chy - a._chy, minC = (a.H + b.H) * 0.125;
+          const cdx = dx + b._chx - a._chx, cdy = dy + b._chy - a._chy, minC = tch ? minD : (a.H + b.H) * 0.125;
           const c2 = cdx * cdx + cdy * cdy;
           if (c2 < minC * minC && minC - Math.sqrt(c2) > minD - Math.sqrt(d2)) { dx = cdx; dy = cdy; d2 = c2; minD = minC; }
-          if (d2 >= minD * minD) continue;
+          const TW = M.Tune.weight, zone = minD + TW.avoidFt + (a.clip || b.clip ? TW.yieldFt : 0);
+          if (d2 >= zone * zone) continue;
           const d = Math.sqrt(d2) || 0.01;
           const push = (minD - d);
           const nx = d > 0.011 ? dx / d : Math.cos(i + j), ny = d > 0.011 ? dy / d : Math.sin(i + j);
-          // clips with root motion (shots, jumps) and ball handlers win; the other gives way
-          const la = a.isBusy() ? 0 : a.hasBall ? 0.3 : 1, lb = b.isBusy() ? 0 : b.hasBall ? 0.3 : 1;
+          // clips with root motion (shots, jumps) and ball handlers win; the other gives way, a heavier body less
+          // (Trial 4: each by the other's share of the mass)
+          const la = (a.isBusy() ? 0 : a.hasBall ? 0.3 : 1) * TW.refLb / (a.mass || TW.refLb), lb = (b.isBusy() ? 0 : b.hasBall ? 0.3 : 1) * TW.refLb / (b.mass || TW.refLb);
           const tot = la + lb;
-          if (tot <= 0) continue;
-          // soft push-out, and a hard floor: torsos never pass into each other (bodies ~1 ft deep)
-          let k = Math.min(1, 30 * h) * push;
-          const hard = push - minD * 0.2;
-          // (a deep overlap is worked out over a few frames, at most ~0.4 ft a frame: all at once it read as a
-          // teleport when two players ran into each other at full speed)
-          if (hard > k) k = Math.min(hard, Math.max(k, 0.4));
-          a.x -= nx * k * la / tot; a.y -= ny * k * la / tot;
-          b.x += nx * k * lb / tot; b.y += ny * k * lb / tot;
+          if (tot <= 0) {
+            // two bodies in moves (a dunker into a defender going straight up): the moves' paths give way to each other,
+            // a little each step (Trial 4: they went through each other for the length of the moves and the first to
+            // finish was shoved out in one step)
+            if (push > 0 && a.clip && b.clip) {
+              const k = Math.min(push, 0.02 + push * 0.15) * 0.5;
+              a.clip.ox -= nx * k; a.clip.oy -= ny * k; b.clip.ox += nx * k; b.clip.oy += ny * k;
+            }
+            continue;
+          }
+          const vn0 = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          const committed = la === 0 || lb === 0 || a.hasBall || b.hasBall;
+          // (one of the two in a move with its own path, a layup or a dunk, the other not)
+          const busy = la === 0 ? a : lb === 0 ? b : null, free = busy === a ? b : a, sgB = busy === a ? -1 : 1;
+          if (push <= 0) {
+            // not touching yet: two players about to run into each other by accident (no ball handler driving into a
+            // man) ease off their approach so they meet softly, the one not in a move doing all of it (Trial 4:
+            // arriving at speed, the contact below could not stop them in its depth and the hard floor shoved them
+            // apart in a step)
+            if (vn0 < 0 && !a.hasBall && !b.hasBall) {
+              const acc = Math.min(TW.contactMaxFtps2, vn0 * vn0 / (2 * (-push + TW.softFt)));
+              if (acc > 1) {
+                a.extAx = (a.extAx || 0) - nx * acc * la / tot; a.extAy = (a.extAy || 0) - ny * acc * la / tot;
+                b.extAx = (b.extAx || 0) + nx * acc * lb / tot; b.extAy = (b.extAy || 0) + ny * acc * lb / tot;
+              }
+            } else if (vn0 < 0 && busy && busy.clip) {
+              // a move running at a man in its way (a finish into a help defender): he brakes and gives ground, first
+              // call on his push, and the move gives way too, its path bent back off him at a body's push through its
+              // origin (Actor._updateClip), so they meet softly (Trial 4: a finish into a man closing at ~20 ft/s drove
+              // ~1 ft into him and shoved him ~1.5 in a step for four steps)
+              const need = vn0 * vn0 / (2 * (-push + TW.softFt));
+              if (need > 1) {
+                const af = Math.min(TW.contactMaxFtps2, need), ab = Math.min(TW.clipAccelMax, need - af), sf = -sgB;
+                free.extHx = (free.extHx || 0) + sf * nx * af; free.extHy = (free.extHy || 0) + sf * ny * af;
+                if (ab > 0) { busy.clip.yax = (busy.clip.yax || 0) + sgB * nx * ab; busy.clip.yay = (busy.clip.yay || 0) + sgB * ny * ab; }
+              }
+            }
+            continue;
+          }
+          // a hard floor: torsos never pass into each other (bodies ~1 ft deep). A free body is pushed out through its
+          // speed, the first call on its push (Tune.weight.hardK, hardC; Actor._steer); a body in a move gives way at
+          // the move's origin, which its root follows at a body's push (Actor._updateClip) (Trial 4: the positions were
+          // pushed apart by up to ~0.4 ft a step, 100-460 ft/s^2 in one step when two bodies met deep, a layup into a
+          // man in its way; moved straight out only past a last-resort depth, torsos overlapped no less often)
+          const hard = push - minD * TW.hardShare;
+          if (hard > 0) {
+            const ha = TW.hardK * hard + TW.hardC * Math.max(0, -vn0);
+            a.extHx = (a.extHx || 0) - nx * ha * la / tot; a.extHy = (a.extHy || 0) - ny * ha * la / tot;
+            b.extHx = (b.extHx || 0) + nx * ha * lb / tot; b.extHy = (b.extHy || 0) + ny * ha * lb / tot;
+            const k = Math.min(0.4, hard * U.smooth(hard / 0.25));
+            if (la === 0 && a.clip) { a.clip.ox -= nx * k; a.clip.oy -= ny * k; }
+            if (lb === 0 && b.clip) { b.clip.ox += nx * k; b.clip.oy += ny * k; }
+          }
           // contact: stop pressing into each other (inelastic along the contact normal) so steering slides
           // them around one another instead of re-penetrating every frame; bodies are soft, so a light touch takes
           // the closing speed off over ~0.1 s (all at once, a runner lost half his speed in one frame and his stride
@@ -357,17 +464,20 @@
           // an impact: bodies meeting with speed (a driver into a help defender at the rim, hips on a drive, a
           // screen) knock each other off balance, each by the other's share of the momentum
           // (off-ball players brushing past each other only stagger when they really run into each other)
-          const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-          const committed = la === 0 || lb === 0 || a.hasBall || b.hasBall;
+          const vn = vn0;
           if (vn < (committed ? -3 : -8.5) && a.kind === 'player' && b.kind === 'player' && a.impact) {
             const ma = a.H * a.H * a.H * (a.dims.bulk || 1), mb = b.H * b.H * b.H * (b.dims.bulk || 1);
             a.impact(-nx, -ny, -vn * mb / (ma + mb));
             b.impact(nx, ny, -vn * ma / (ma + mb));
           }
-          const rv = ((b.vx - a.vx) * nx + (b.vy - a.vy) * ny) * Math.max(1 - Math.exp(-h / 0.05), U.clamp(push / (0.3 * minD), 0, 1));
-          if (rv < 0) {
-            a.vx += nx * rv * la / tot; a.vy += ny * rv * la / tot;
-            b.vx -= nx * rv * lb / tot; b.vy -= ny * rv * lb / tot;
+          // soft contact (Trial 4): the overlap pushes the two apart through their velocities, a spring and a damper
+          // on the closing speed (Tune.weight.contact*), no harder than a body pushes: a bump is felt over a few steps
+          // (the positions used to be pushed apart by half the overlap every step, a jump in speed at every touch)
+          const acc = Math.min(TW.contactMaxFtps2, TW.contactK * Math.min(push, minD * TW.hardShare) + TW.contactC * Math.max(0, -vn));
+          // (as a push on each body, taken with its own push next step inside a body's limit: Actor._steer)
+          if (acc > 0) {
+            a.extAx = (a.extAx || 0) - nx * acc * la / tot; a.extAy = (a.extAy || 0) - ny * acc * la / tot;
+            b.extAx = (b.extAx || 0) + nx * acc * lb / tot; b.extAy = (b.extAy || 0) + ny * acc * lb / tot;
           }
         }
       }
@@ -376,7 +486,7 @@
       if (this.director.active) return;
       // between possessions: ball holder keeps dribbling slowly; nothing else is required
       const b = this.ball;
-      if (b.holder && b.holder.kind === 'player' && b.state === 'held' && b.holder.speed > 2) b.dribble(b.holder);
+      if (b.holder && b.holder.kind === 'player' && b.state === 'held' && b.holder.speed > 2 && !(b.holder.throwing && b.holder.throwing())) b.dribble(b.holder);
       this.focus = { x: b.x, vx: b.vx * 0.5 };
     }
     refAmbient(h) {
@@ -551,7 +661,7 @@
     // ============================================================ instant replay
     makeRec(cap, maxP) {
       const frames = [];
-      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), ball: new Float32Array(16), net: new Float32Array(M.Hoop.SNAP * 2), pan: 47 });
+      for (let i = 0; i < cap; i++) frames.push({ t: -1e9, n: 0, who: new Array(maxP), P: new Float32Array(maxP * 81), R: new Float32Array(maxP * 153), pose: new Float32Array(maxP * M.Rig.NCH), ball: new Float32Array(16), net: new Float32Array(M.Hoop.SNAP * 2), pan: 47 });
       return { cap, maxP, frames, head: 0, count: 0, lastT: -1e9, tmp: [] };
     }
     /** snapshot everything a frame needs (30 Hz of presentation time, ring buffer of the last ~7 s) */
@@ -568,10 +678,10 @@
       f.t = this.time; f.n = n;
       for (let i = 0; i < n; i++) {
         const a = people[i];
-        a.solve();
         f.who[i] = a;
         f.P.set(a.sk.P, i * 81);
         f.R.set(a.sk.R, i * 153);
+        f.pose.set(a.sk.pose, i * M.Rig.NCH);
       }
       const b = this.ball;
       f.ball[0] = b.x; f.ball[1] = b.y; f.ball[2] = b.z; f.ball[3] = b.squash; f.ball[4] = b.hidden ? 1 : 0;
@@ -643,8 +753,11 @@
         const who = a.who[i];
         let j = -1;
         for (let k = 0; k < b.n; k++) if (b.who[k] === who) { j = k; break; }
-        const gh = ghosts[gi] || (ghosts[gi] = { P: new Float64Array(81), R: new Float64Array(153), dims: null, style: null, who: null });
+        const gh = ghosts[gi] || (ghosts[gi] = { P: new Float64Array(81), R: new Float64Array(153), pose: new Float32Array(M.Rig.NCH), dims: null, style: null, who: null });
         gh.dims = who.sk.dims; gh.style = who.style; gh.who = who;
+        // (the pose carries the forearm twist and the finger curl the 3D body needs; without it replays corkscrewed)
+        const pf = u < 0.5 || j < 0 ? a : b, pi = u < 0.5 || j < 0 ? i : j;
+        for (let k = 0; k < M.Rig.NCH; k++) gh.pose[k] = pf.pose[pi * M.Rig.NCH + k];
         for (let k = 0; k < 81; k++) { const va = a.P[i * 81 + k]; gh.P[k] = j >= 0 ? va + (b.P[j * 81 + k] - va) * u : va; }
         for (let k = 0; k < 153; k++) { const va = a.R[i * 153 + k]; gh.R[k] = j >= 0 ? va + (b.R[j * 153 + k] - va) * u : va; }
         gi++;
@@ -660,6 +773,8 @@
 
     // ============================================================ frame
     _render() {
+      const dbg = this.debug;
+      if (dbg && dbg.orbit) { const sf = dbg.scrubbing() ? dbg.scrubFrame() : null; U.safe(() => dbg.orbitRender(this.g, this.cssW, this.cssH, this.dpr, sf), this, 'orbit'); return; }
       let g = this.g, cam = this.cam;
       const pix = !!this.opts.pixelMode;
       let W = this.cssW, H = this.cssH, dpr = this.dpr;
@@ -685,15 +800,39 @@
       arena.drawJumbotron(g, cam);
       for (const ho of this.hoops) ho.drawStanchion(g, cam);
       const b = this.ball;
-      const rp = this.replay ? this.replayFrame() : null;
-      // people to draw: live actors (solved now) or interpolated replay ghosts
+      // a replay, or a rewound frame of the debug recorder (drawn the same way), or the live frame
+      const rp = this.replay ? this.replayFrame() : (dbg && dbg.scrubbing() ? dbg.scrubFrame() : null);
+      // between two fixed steps the live frame is drawn blended between them by the time left over (the debug tools
+      // show the exact steps instead)
+      const kI = !rp && !dbg ? U.clamp((this._acc || 0) / M.Tune.clock.step, 0, 1) : 0;
+      // the moment drawn, on the game's clock (the hair that moves steps to it, hair.js): between the last two steps
+      // as displaySk blends them, a replay's own moment
+      const hairT = this.replay ? this.replay.rt : rp ? (rp.t != null ? rp.t : this.time) : kI > 0.001 && kI < 0.999 ? this.time - (1 - kI) * M.Tune.clock.step : this.time;
+      // people to draw: live bodies (solved in the last step) or ghosts
       const people = this._people || (this._people = []);
       people.length = 0;
+      const skOf = this._skOf || (this._skOf = new Map());
+      skOf.clear();
       if (rp) {
-        for (const gh of rp.ghosts) people.push({ sk: gh, style: gh.style, y: gh.P[1], a: gh.who });
+        for (const gh of rp.ghosts) { const al = dbg ? dbg.alphaFor(gh.who) : 1; if (al > 0) people.push({ sk: gh, style: gh.style, y: gh.P[1], a: gh.who, alpha: al }); }
       } else {
-        for (const id in this.actors) { const a = this.actors[id]; if (!a.hidden) { a.solve(); people.push({ sk: a.sk, style: a.style, y: a.y, a }); } }
-        for (const r of this.refs) { r.solve(); people.push({ sk: r.sk, style: r.style, y: r.y, a: r }); }
+        for (const a of this.bodies()) {
+          if (a._inT == null) a.solve();
+          const al = dbg ? dbg.alphaFor(a) : 1;
+          if (al <= 0) continue;
+          const sk = this.displaySk(a, kI);
+          skOf.set(a, sk);
+          people.push({ sk, style: a.style, y: sk === a.sk ? a.y : a.y, a, alpha: al });
+        }
+      }
+      // the ball between the last two steps too
+      let bSave = null;
+      if (kI > 0 && this._bPrev && !b.hidden) {
+        const p0 = this._bPrev;
+        if (Math.abs(b.x - p0[0]) + Math.abs(b.y - p0[1]) + Math.abs(b.z - p0[2]) < 4) {
+          bSave = [b.x, b.y, b.z];
+          b.x = p0[0] + (b.x - p0[0]) * kI; b.y = p0[1] + (b.y - p0[1]) * kI; b.z = p0[2] + (b.z - p0[2]) * kI;
+        }
       }
       // replay: apply the recorded ball and net state for this frame (restored after drawing)
       let saved = null;
@@ -711,17 +850,20 @@
         if (R3) {
           // the ball in someone's hands (held, or dribbled) is rendered inside that person's 3D cell
           const hb = rp || b.hidden ? null : (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : b.state === 'dribble' && b.dr && b.dr.actor ? b.dr.actor : null;
-          const ball = hb ? { sk: hb.sk, x: b.x, y: b.y, z: b.z, R: M.Ball.R, rot: b.rot, squash: b.squash } : null;
-          const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr, ball }), this, '3d players');
+          const ball = hb ? { sk: skOf.get(hb) || hb.sk, x: b.x, y: b.y, z: b.z, R: M.Ball.R, rot: b.rot, squash: b.squash } : null;
+          const n3 = U.safe(() => R3.render(cam, people, { dpr: pix ? 1 : dpr, ball, time: hairT }), this, '3d players');
           if (!n3) R3 = R3 && R3.cells.size ? R3 : null;
         }
       }
       this._r3 = R3;
       try {
-        if (q !== 'low') for (const pp of people) { if (!(R3 && R3.reflect(g, cam, pp.sk, pix ? 0.07 : 0.1))) this.fr.drawReflection(g, cam, pp.sk, pp.style, pix ? 0.08 : 0.11); }
+        if (q !== 'low') for (const pp of people) { if (pp.alpha < 1) continue; if (!(R3 && R3.reflect(g, cam, pp.sk, pix ? 0.07 : 0.1))) this.fr.drawReflection(g, cam, pp.sk, pp.style, pix ? 0.08 : 0.11); }
         if (pix) for (const pp of people) this.drawPixelShadow(g, cam, pp.sk);
-        else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, 1);
+        else for (const pp of people) this.fr.drawShadow(g, cam, pp.sk, pp.alpha < 1 ? pp.alpha : 1);
         b.drawShadow(g, cam);
+        // the called play's paths on the floor, under the players (playdraw.js)
+        const pp0 = this.opts.playPaths;
+        if (pp0 && pp0 !== 'off' && !rp && M.PlayDraw) U.safe(() => M.PlayDraw.floor(g, cam, this, pp0), this, 'play paths');
         // depth-sorted drawables
         const items = this.items; items.length = 0;
         const heldBy = !rp && (b.state === 'held' || b.state === 'dead') && b.holder ? b.holder : null;
@@ -739,10 +881,14 @@
         for (const it of items) {
           if (it.k === 0) {
             const pp = it.o;
-            const o = { dpr };
+            const o = { dpr, who: pp.a, time: hairT };
             if (heldBy && heldBy === pp.a) o.extra = { d: cam.depth(b.y, b.z) + 0.05, fn: ballFn };
+            // (isolating a player in the debug tools dims everyone else)
+            const dim = pp.alpha != null && pp.alpha < 1;
+            if (dim) { g.save(); g.globalAlpha = pp.alpha; o.alpha = pp.alpha; }
             if (pix) this.drawPixelPerson(g, cam, pp.sk, pp.style, o);
             else if (!(R3 && this.blit3d(g, cam, R3, pp, o))) this.fr.draw(g, cam, pp.sk, pp.style, o);
+            if (dim) g.restore();
           } else if (it.k === 1) {
             const ho = it.o;
             ho.drawBoard(g, cam);
@@ -759,9 +905,10 @@
           b.x = saved.x; b.y = saved.y; b.z = saved.z; b.squash = saved.sq; b.hidden = saved.hidden; b.rot.set(saved.rot); b.state = saved.state; b.holder = saved.holder;
           this.hoops.forEach((ho, i) => ho.restore(saved.nets, i * M.Hoop.SNAP));
         }
+        if (bSave) { b.x = bSave[0]; b.y = bSave[1]; b.z = bSave[2]; }
       }
       arena.drawOverlay(g, cam);
-      if (rp) this.drawReplayFrame(g, cam);
+      if (this.replay && rp) this.drawReplayFrame(g, cam);
       if (pix) {
         cam.setSize(this.cssW, this.cssH); this.camRig.apply();
         const mg = this.g, k = this._pixK || 3;
@@ -770,6 +917,24 @@
         // whole-pixel upscale (uniform square pixels); the buffer is sized to cover the canvas
         mg.drawImage(this._pix, 0, 0, this._pix.width * k, this._pix.height * k);
         mg.imageSmoothingEnabled = true;
+      }
+      // the play overlay's numbers and card (playdraw.js), at full resolution
+      if (this.opts.playPaths && this.opts.playPaths !== 'off' && !rp && M.PlayDraw) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => M.PlayDraw.top(mg, this.cam, this, this.opts.playPaths), this, 'play paths');
+      }
+      // the coach's debug overlay (debugdraw.js), at full resolution
+      if (this.opts.debug && !rp && M.DebugDraw) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => M.DebugDraw.draw(mg, this.cam, this, this.opts.debug), this, 'coach debug overlay');
+      }
+      // the animation debug tools (Shift+D) on the final picture, on top of everything (full resolution, also in pixel mode)
+      if (dbg) {
+        const mg = this.g;
+        mg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        U.safe(() => dbg.drawOverlay(mg, this.cam, rp && !this.replay ? rp : null), this, 'debug overlay');
       }
       void W; void H;
     }

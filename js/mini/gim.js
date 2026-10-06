@@ -37,7 +37,7 @@
           <span class="pm-opt__player">${o.num != null && o.num !== '' ? `<b>#${esc(o.num)}</b> ` : ''}${esc(o.player || '')}</span>
           <span class="pm-opt__label">${esc(o.label || 'Shot')}</span>
           <span class="pm-opt__detail">${esc(o.detail || '')}</span>
-          <span class="pm-opt__pct">${pct == null ? '<b>—</b>' : `<b>${Math.round(pct * 100)}</b><i>%</i>`}<small>EST. MAKE</small></span>
+          <span class="pm-opt__pct">${pct == null ? '<b>-</b>' : `<b>${Math.round(pct * 100)}</b><i>%</i>`}<small>EST. MAKE</small></span>
           <span class="pm-opt__bar"><span style="width:${pct == null ? 0 : Math.round(pct * 100)}%"></span></span>
           ${pct != null && pts ? `<span class="pm-opt__ev">EXP ${(pct * pts).toFixed(2)} PTS</span>` : ''}
         </button>`;

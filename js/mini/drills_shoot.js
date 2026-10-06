@@ -35,7 +35,7 @@
   }
   const sidePad = w => (w < 560 ? 66 : 124);
   const meanAbs = a => (a.length ? a.reduce((s, v) => s + Math.abs(v), 0) / a.length : null);
-  const msTxt = v => (v == null ? '—' : '±' + Math.round(v * 1000) + ' ms');
+  const msTxt = v => (v == null ? '-' : '±' + Math.round(v * 1000) + ' ms');
 
   function ballSound(api, ev) {
     if (ev === 'net') api.sfx('swish');
@@ -66,7 +66,7 @@
       const hud = bump => {
         api.hud('a', 'SCORE', Math.round(raw / MAXRAW * 100), null, bump);
         api.hud('b', 'SHOT', `${U.clamp(i + 1, 1, N)}/${N}`);
-        api.hud('c', 'STREAK', streak ? '×' + streak : '—', streak >= 3 ? 'gold' : null, bump);
+        api.hud('c', 'STREAK', streak ? '×' + streak : '-', streak >= 3 ? 'gold' : null, bump);
       };
       hud();
 

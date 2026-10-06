@@ -1,0 +1,126 @@
+{
+ "seeds": [
+  5,
+  9,
+  13,
+  17
+ ],
+ "poss": 20,
+ "sum": {
+  "frames": 331070,
+  "runFrames": 193357,
+  "stuck": 564,
+  "stuckEpisodes": 399,
+  "contact": {
+   "foot-foot": 2441,
+   "knee-knee": 932,
+   "shin-shin": 2761,
+   "hand-torso": 126,
+   "ball-thigh": 352,
+   "ball-torso": 102,
+   "ball-head": 23,
+   "arm-head": 60,
+   "forearm-torso": 79
+  },
+  "errors": 0
+ },
+ "rates": {
+  "contactPer10k": {
+   "foot-foot": 73.7,
+   "knee-knee": 28.2,
+   "shin-shin": 83.4,
+   "hand-torso": 3.8,
+   "ball-thigh": 10.6,
+   "ball-torso": 3.1,
+   "ball-head": 0.7,
+   "arm-head": 1.8,
+   "forearm-torso": 2.4
+  },
+  "stuckPer10k": 29.2,
+  "stuckEpisodes": 399,
+  "errors": 0,
+  "contactAllPer10k": 207.7
+ },
+ "runs": [
+  {
+   "frames": 79670,
+   "runFrames": 47609,
+   "contact": {
+    "foot-foot": 615,
+    "knee-knee": 235,
+    "shin-shin": 707,
+    "hand-torso": 45,
+    "ball-thigh": 70,
+    "ball-torso": 29,
+    "ball-head": 9,
+    "arm-head": 18,
+    "forearm-torso": 25
+   },
+   "stuck": 140,
+   "stuckEpisodes": 104,
+   "longestStuck": 3,
+   "seed": 5,
+   "errors": []
+  },
+  {
+   "frames": 91597,
+   "runFrames": 51386,
+   "contact": {
+    "foot-foot": 657,
+    "shin-shin": 735,
+    "knee-knee": 261,
+    "ball-thigh": 80,
+    "hand-torso": 30,
+    "ball-torso": 25,
+    "forearm-torso": 15,
+    "arm-head": 14,
+    "ball-head": 7
+   },
+   "stuck": 132,
+   "stuckEpisodes": 98,
+   "longestStuck": 4,
+   "seed": 9,
+   "errors": []
+  },
+  {
+   "frames": 88783,
+   "runFrames": 50404,
+   "contact": {
+    "foot-foot": 622,
+    "knee-knee": 214,
+    "shin-shin": 651,
+    "ball-thigh": 112,
+    "forearm-torso": 21,
+    "hand-torso": 23,
+    "arm-head": 15,
+    "ball-torso": 20,
+    "ball-head": 5
+   },
+   "stuck": 142,
+   "stuckEpisodes": 100,
+   "longestStuck": 4,
+   "seed": 13,
+   "errors": []
+  },
+  {
+   "frames": 71020,
+   "runFrames": 43958,
+   "contact": {
+    "foot-foot": 547,
+    "shin-shin": 668,
+    "knee-knee": 222,
+    "ball-torso": 28,
+    "ball-thigh": 90,
+    "hand-torso": 28,
+    "arm-head": 13,
+    "forearm-torso": 18,
+    "ball-head": 2
+   },
+   "stuck": 150,
+   "stuckEpisodes": 97,
+   "longestStuck": 4,
+   "seed": 17,
+   "errors": []
+  }
+ ]
+}

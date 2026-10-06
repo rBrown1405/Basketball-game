@@ -1,0 +1,938 @@
+{
+ "label": "Phase 5, the coach calling plays",
+ "date": "2026-09-28",
+ "metrics": {
+  "games": 52,
+  "failed": 0,
+  "finished": 52,
+  "possPerGame": 198.75,
+  "stuck": 0,
+  "errors": 0,
+  "warnings": 0,
+  "msPerGame": 63564.36538461538,
+  "ptsPerGame": 227.40384615384616,
+  "scoreMismatch": 0,
+  "hcSecPerGame": 1713.4192307692308,
+  "obBetween": 90.37754018617744,
+  "obLow": 95.26194810646278,
+  "obRetreat": 2.16649569349636,
+  "obBackpedal": 2.0580755080372355,
+  "obTurnAway": 0.3644309960515299,
+  "obBackTurned": 1.4998125655178915,
+  "obRunClose": 0.11930709849176972,
+  "obFar": 1.6913997876490778,
+  "obBeaten": 4.347020914096644,
+  "obRetreatEps": 44.57692307692308,
+  "obRetreatSec": 17.515384615384104,
+  "obTurnAwayEps": 8.826923076923077,
+  "obTurnAwaySec": 3.642307692307706,
+  "cushionNon": 5.783432360580613,
+  "cushionMid": 5.495494166951124,
+  "cushionGood": 4.650773691703915,
+  "cushionElite": 4.090896404781494,
+  "cushionGap": 1.6925359557991184,
+  "denyOne": 70.14711956530451,
+  "helpTwo": 56.86068971231287,
+  "sagTwo": 90.78290048461992,
+  "seesTwo": 69.39422879889568,
+  "tightTwo": 1.7451791377449453,
+  "crowdSec": 15.28076923076923,
+  "crowdPct": 0.891828978942241,
+  "crowdEps": 20.807692307692307,
+  "pathSec": 13.053846153846155,
+  "rimHelpSec": 58.7423076923077,
+  "covTwoSec": 8.384615384615385,
+  "crowdStaySec": 4.332692307692308,
+  "screenedOffPct": 0.004529586889265872,
+  "abandoned": 0.43099329497042116,
+  "abandonedEps": 13.461538461538462,
+  "zoneShare": 9.558597406445502,
+  "still": 21.96488016536358,
+  "offSpeed": 5.535985817716121,
+  "offJog": 35.10709579804666,
+  "loiter": 5.4561392088188105,
+  "clumped": 15.02929926438947,
+  "still3Eps": 3.769230769230769,
+  "still5Eps": 0.5576923076923077,
+  "jobEngine": 20.11087815861066,
+  "jobFlow": 19.21273589247224,
+  "jobClip": 0.16111508926150492,
+  "jobSpacing": 15.160363106614236,
+  "jobNone": 1.6275373802724094,
+  "jobPlay": 43.72737037276896,
+  "noJob_rim": 3.017033308047706,
+  "noJob_paint": 12.242259154540989,
+  "noJob_short": 31.509895869250432,
+  "noJob_mid": 40.87821529549698,
+  "noJob_corner3": 0.6516791945383045,
+  "noJob_arc3": 3.0670298600096384,
+  "noJob_deep": 8.633887318115942,
+  "noJob_pos_PG": 1.4643714359528102,
+  "noJob_pos_SG": 1.5768156677301908,
+  "noJob_pos_SF": 1.8843468811807185,
+  "noJob_pos_PF": 2.286514499104464,
+  "noJob_pos_PF (stretch)": 2.0024031041933257,
+  "noJob_pos_C": 0.9121846428284578,
+  "noJob_pos_C (stretch)": 2.1371167774581026,
+  "still_PG": 25.36381966264657,
+  "loiter_PG": 5.297052638568093,
+  "still_SG": 24.230516366796877,
+  "loiter_SG": 6.033125644629564,
+  "still_SF": 22.581205000118228,
+  "loiter_SF": 5.801730809822254,
+  "still_PF": 20.245779827001464,
+  "loiter_PF": 5.853370422588947,
+  "still_PF (stretch)": 20.549296706201687,
+  "loiter_PF (stretch)": 5.473676088010466,
+  "still_C": 18.51886761927659,
+  "loiter_C": 4.792908481882886,
+  "still_C (stretch)": 17.711413169294236,
+  "loiter_C (stretch)": 3.9104408506131736,
+  "sp_PG_rim": 0.9887787600083341,
+  "sp_PG_paint": 6.201404036925066,
+  "sp_PG_short": 8.860910200315505,
+  "sp_PG_mid": 24.120861131308494,
+  "sp_PG_corner3": 12.501881545546158,
+  "sp_PG_arc3": 35.148291301519265,
+  "sp_PG_deep": 12.177873024377176,
+  "sp_PG_inside": 16.051092997248904,
+  "sp_SG_rim": 1.5027482236355676,
+  "sp_SG_paint": 8.737505744312076,
+  "sp_SG_short": 12.863519969701393,
+  "sp_SG_mid": 25.343965185548818,
+  "sp_SG_corner3": 17.035609307172642,
+  "sp_SG_arc3": 29.715914367836195,
+  "sp_SG_deep": 4.800737201793311,
+  "sp_SG_inside": 23.103773937649034,
+  "sp_SF_rim": 2.3422937800792285,
+  "sp_SF_paint": 11.165623052814022,
+  "sp_SF_short": 16.727620120110103,
+  "sp_SF_mid": 25.306646350331363,
+  "sp_SF_corner3": 17.542719675934883,
+  "sp_SF_arc3": 23.027196225644747,
+  "sp_SF_deep": 3.887900795085653,
+  "sp_SF_inside": 30.235536953003354,
+  "sp_PF_rim": 4.353483846868838,
+  "sp_PF_paint": 23.61267232467837,
+  "sp_PF_short": 31.27565867769313,
+  "sp_PF_mid": 24.7103381776801,
+  "sp_PF_corner3": 4.3392374714420985,
+  "sp_PF_arc3": 10.210481510115795,
+  "sp_PF_deep": 1.4981279915216692,
+  "sp_PF_inside": 59.241814849240335,
+  "sp_PF (stretch)_rim": 3.0274942773598528,
+  "sp_PF (stretch)_paint": 14.377013165913036,
+  "sp_PF (stretch)_short": 21.764980002765302,
+  "sp_PF (stretch)_mid": 25.95390138111503,
+  "sp_PF (stretch)_corner3": 14.557782022460403,
+  "sp_PF (stretch)_arc3": 16.237959411502636,
+  "sp_PF (stretch)_deep": 4.08086973888374,
+  "sp_PF (stretch)_inside": 39.16948744603819,
+  "sp_C_rim": 4.841445211417248,
+  "sp_C_paint": 28.676352685817086,
+  "sp_C_short": 33.034018394310934,
+  "sp_C_mid": 24.217003330791243,
+  "sp_C_corner3": 1.6661778029814167,
+  "sp_C_arc3": 6.251849534275863,
+  "sp_C_deep": 1.313153040406213,
+  "sp_C_inside": 66.55181629154526,
+  "sp_C (stretch)_rim": 2.6303480872433656,
+  "sp_C (stretch)_paint": 15.306976515188813,
+  "sp_C (stretch)_short": 21.138791787701244,
+  "sp_C (stretch)_mid": 29.004603416867706,
+  "sp_C (stretch)_corner3": 4.992368667224657,
+  "sp_C (stretch)_arc3": 16.57907045443356,
+  "sp_C (stretch)_deep": 10.347841071340653,
+  "sp_C (stretch)_inside": 39.07611639013343,
+  "bigsInside": 63.41811465214833,
+  "fiveOut": 1.1809494734999069,
+  "fourPlusOut": 8.029603424551448,
+  "twoOrLessOut": 70.04303136553315,
+  "noInside": 28.139752047749777,
+  "avgOut": 1.96107872472721,
+  "fgaPerGame": 188.8846153846154,
+  "tpaPerGame": 72.84615384615384,
+  "tpaLow50": 0.09615384615384616,
+  "tpaLow40": 0,
+  "tpaCenters": 2.0384615384615383,
+  "tpaBigsNonStretch": 3,
+  "tpaShareLow50": 0.13199577613516367,
+  "openShotDefClose": 24.528301886792452,
+  "openShotMedian": 6.2,
+  "open3DefClose": 3.11284046692607,
+  "openRimDefClose": 51.15979381443299,
+  "openMidDefClose": 7.6923076923076925,
+  "contShotMedian": 4.1,
+  "tightShotMedian": 2.6,
+  "tightShotWide": 1.354872329338197,
+  "shotClockLate": 10.299351057148838,
+  "shotClockEarly": 10.613355662549717,
+  "shotClockMedian": 9.5,
+  "catchesPerGame": 371.03846153846155,
+  "wideOpenCatches": 5.903846153846154,
+  "wideOpenShot": 53.09446254071661,
+  "wideOpenPass": 45.928338762214985,
+  "wideOpenDrive": 10.423452768729641,
+  "wideOpenPassedPerGame": 2.7115384615384617,
+  "wideOpenPassSwing": 2.127659574468085,
+  "openCatches": 31.78846153846154,
+  "openShot": 56.261343012704174,
+  "openPass": 43.13369630973987,
+  "catchHeldMedian": 1.6,
+  "openOffPerGame": 53.61538461538461,
+  "openOffFound": 7.317073170731708,
+  "openOffSecPerGame": 102.07500000000002,
+  "rebPerGame": 78.88461538461539,
+  "rebGrabZ": 5.6,
+  "rebAbove10": 35.056070209653825,
+  "rebBend1": 8.678693320331545,
+  "rebBend3": 0.02437835202340322,
+  "rebBendMax": 3.8,
+  "rebJump3": 0.3656752803510483,
+  "rebHang": 0,
+  "rebFloor": 7.898586055582642,
+  "passBend2": 44.615656580536815,
+  "boxingPerMiss": 1.46924720968891,
+  "perimBoxPerMiss": 0.3676086440275469,
+  "defNearRimPerMiss": 1.7269057231061506,
+  "offNearRimPerMiss": 1.1301353597720256,
+  "pbHalfPoss": 170.80769230769232,
+  "pbCallShare": 84.50799369511371,
+  "pbCallsPerGame": 168,
+  "pbDone": 81.36446886446886,
+  "pbEarly": 11.698717948717949,
+  "pbSteps": 90.77712184264008,
+  "pbEndReset": 0.9386446886446886,
+  "pbEndTo": 12.56868131868132,
+  "pbEndFoul": 5.128205128205129,
+  "pbPppHalf": 1.1366809277189822,
+  "pbPppCalled": 1.1341593391953104,
+  "pbPppFlow": 1.150436046511628,
+  "pbSpot2": 52.71933836420459,
+  "pbSpot5": 87.32182330970349,
+  "pbSpotFar": 4.884137510480982,
+  "pbInbPerGame": 12.788461538461538,
+  "pbInbSafety": 74.88721804511279,
+  "pbCovMatch": 93.86551317341723,
+  "_pbCovSeen": {
+   "show": {
+    "on the ball": 332,
+    "at the screen": 60,
+    "back in the lane": 2
+   },
+   "blitz": {
+    "on the ball": 89,
+    "at the screen": 38,
+    "back in the lane": 1
+   },
+   "drop": {
+    "back in the lane": 1220,
+    "at the screen": 78,
+    "on the ball": 9
+   },
+   "zone": {
+    "back in the lane": 257,
+    "on the ball": 37,
+    "at the screen": 18
+   },
+   "switch": {
+    "switched": 373,
+    "at the screen": 2,
+    "on the ball": 1
+   },
+   "ice": {
+    "back in the lane": 145,
+    "on the ball": 25,
+    "at the screen": 33
+   },
+   "hedge": {
+    "on the ball": 89,
+    "at the screen": 46
+   }
+  },
+  "_pbFam": {
+   "post": {
+    "n": 686,
+    "pts": 659,
+    "early": 32,
+    "done": 549
+   },
+   "iso": {
+    "n": 772,
+    "pts": 733,
+    "early": 0,
+    "done": 599
+   },
+   "pnr": {
+    "n": 1785,
+    "pts": 1771,
+    "early": 189,
+    "done": 1433
+   },
+   "cut": {
+    "n": 1186,
+    "pts": 1209,
+    "early": 266,
+    "done": 937
+   },
+   "offscreen": {
+    "n": 1170,
+    "pts": 1241,
+    "early": 231,
+    "done": 959
+   },
+   "slob": {
+    "n": 513,
+    "pts": 266,
+    "early": 0,
+    "done": 499
+   },
+   "horns": {
+    "n": 1315,
+    "pts": 1396,
+    "early": 266,
+    "done": 1060
+   },
+   "spot": {
+    "n": 715,
+    "pts": 730,
+    "early": 0,
+    "done": 596
+   },
+   "handoff": {
+    "n": 273,
+    "pts": 271,
+    "early": 9,
+    "done": 207
+   },
+   "zone": {
+    "n": 169,
+    "pts": 152,
+    "early": 29,
+    "done": 130
+   },
+   "blob": {
+    "n": 152,
+    "pts": 82,
+    "early": 0,
+    "done": 139
+   }
+  },
+  "_pbPlay": {
+   "highLow": {
+    "n": 246,
+    "pts": 255,
+    "early": 32,
+    "done": 199,
+    "name": "High-Low",
+    "fam": "post"
+   },
+   "elbowIso": {
+    "n": 276,
+    "pts": 267,
+    "early": 0,
+    "done": 211,
+    "name": "Elbow Isolation",
+    "fam": "iso"
+   },
+   "my_1": {
+    "n": 544,
+    "pts": 528,
+    "early": 0,
+    "done": 436,
+    "name": "Audit Elbow Roll",
+    "fam": "pnr"
+   },
+   "isoWing": {
+    "n": 210,
+    "pts": 204,
+    "early": 0,
+    "done": 161,
+    "name": "Wing Isolation",
+    "fam": "iso"
+   },
+   "backdoor": {
+    "n": 345,
+    "pts": 377,
+    "early": 0,
+    "done": 269,
+    "name": "Chin Backdoor",
+    "fam": "cut"
+   },
+   "my_2": {
+    "n": 599,
+    "pts": 628,
+    "early": 156,
+    "done": 496,
+    "name": "Audit Floppy",
+    "fam": "offscreen"
+   },
+   "slobStack": {
+    "n": 254,
+    "pts": 126,
+    "early": 0,
+    "done": 245,
+    "name": "Stack (SLOB)",
+    "fam": "slob"
+   },
+   "hornsElbow": {
+    "n": 173,
+    "pts": 197,
+    "early": 0,
+    "done": 145,
+    "name": "Horns Elbow Hand-off",
+    "fam": "horns"
+   },
+   "swing": {
+    "n": 346,
+    "pts": 341,
+    "early": 0,
+    "done": 287,
+    "name": "Motion Swing",
+    "fam": "spot"
+   },
+   "my_3": {
+    "n": 589,
+    "pts": 590,
+    "early": 199,
+    "done": 460,
+    "name": "Audit Give and Go",
+    "fam": "cut"
+   },
+   "drag": {
+    "n": 209,
+    "pts": 195,
+    "early": 0,
+    "done": 160,
+    "name": "Drag Screen",
+    "fam": "pnr"
+   },
+   "my_5": {
+    "n": 568,
+    "pts": 569,
+    "early": 252,
+    "done": 449,
+    "name": "Audit Horns Twist",
+    "fam": "horns"
+   },
+   "pindown": {
+    "n": 128,
+    "pts": 133,
+    "early": 8,
+    "done": 106,
+    "name": "Pin-Down",
+    "fam": "offscreen"
+   },
+   "flex": {
+    "n": 113,
+    "pts": 129,
+    "early": 27,
+    "done": 95,
+    "name": "Flex",
+    "fam": "cut"
+   },
+   "pickPop": {
+    "n": 221,
+    "pts": 172,
+    "early": 0,
+    "done": 181,
+    "name": "Pick and Pop",
+    "fam": "pnr"
+   },
+   "hammer": {
+    "n": 147,
+    "pts": 163,
+    "early": 26,
+    "done": 117,
+    "name": "Hammer",
+    "fam": "offscreen"
+   },
+   "slobZipper": {
+    "n": 259,
+    "pts": 140,
+    "early": 0,
+    "done": 254,
+    "name": "Zipper (SLOB)",
+    "fam": "slob"
+   },
+   "spainPnr": {
+    "n": 232,
+    "pts": 249,
+    "early": 98,
+    "done": 193,
+    "name": "Spain Pick and Roll",
+    "fam": "pnr"
+   },
+   "sidePnr": {
+    "n": 256,
+    "pts": 290,
+    "early": 39,
+    "done": 201,
+    "name": "Side Pick and Roll",
+    "fam": "pnr"
+   },
+   "horns": {
+    "n": 203,
+    "pts": 245,
+    "early": 0,
+    "done": 167,
+    "name": "Horns",
+    "fam": "horns"
+   },
+   "chicago": {
+    "n": 173,
+    "pts": 161,
+    "early": 9,
+    "done": 132,
+    "name": "Chicago",
+    "fam": "handoff"
+   },
+   "hornsTwist": {
+    "n": 238,
+    "pts": 259,
+    "early": 0,
+    "done": 199,
+    "name": "Horns Twist",
+    "fam": "horns"
+   },
+   "postIso": {
+    "n": 268,
+    "pts": 252,
+    "early": 0,
+    "done": 212,
+    "name": "Low Post Isolation",
+    "fam": "post"
+   },
+   "zoneOverload": {
+    "n": 124,
+    "pts": 117,
+    "early": 29,
+    "done": 99,
+    "name": "Zone Overload",
+    "fam": "zone"
+   },
+   "iverson": {
+    "n": 135,
+    "pts": 132,
+    "early": 38,
+    "done": 110,
+    "name": "Iverson Cut",
+    "fam": "offscreen"
+   },
+   "isoTop": {
+    "n": 286,
+    "pts": 262,
+    "early": 0,
+    "done": 227,
+    "name": "Clear-Out at the Top",
+    "fam": "iso"
+   },
+   "dho": {
+    "n": 100,
+    "pts": 110,
+    "early": 0,
+    "done": 75,
+    "name": "Dribble Hand-off",
+    "fam": "handoff"
+   },
+   "floppy": {
+    "n": 41,
+    "pts": 54,
+    "early": 3,
+    "done": 31,
+    "name": "Floppy",
+    "fam": "offscreen"
+   },
+   "hornsFlare": {
+    "n": 133,
+    "pts": 126,
+    "early": 14,
+    "done": 100,
+    "name": "Horns Flare",
+    "fam": "horns"
+   },
+   "lastShotPnr": {
+    "n": 81,
+    "pts": 84,
+    "early": 0,
+    "done": 70,
+    "name": "Last Shot: High Pick and Roll",
+    "fam": "pnr"
+   },
+   "my_4": {
+    "n": 67,
+    "pts": 41,
+    "early": 0,
+    "done": 59,
+    "name": "Audit Box Lob",
+    "fam": "blob"
+   },
+   "blobBox": {
+    "n": 30,
+    "pts": 13,
+    "early": 0,
+    "done": 29,
+    "name": "Box Stagger (BLOB)",
+    "fam": "blob"
+   },
+   "ucla": {
+    "n": 139,
+    "pts": 113,
+    "early": 40,
+    "done": 113,
+    "name": "UCLA Cut",
+    "fam": "cut"
+   },
+   "stagger": {
+    "n": 80,
+    "pts": 84,
+    "early": 0,
+    "done": 68,
+    "name": "Stagger Screens",
+    "fam": "offscreen"
+   },
+   "elevator": {
+    "n": 40,
+    "pts": 47,
+    "early": 0,
+    "done": 31,
+    "name": "Elevator Doors",
+    "fam": "offscreen"
+   },
+   "duckIn": {
+    "n": 172,
+    "pts": 152,
+    "early": 0,
+    "done": 138,
+    "name": "Duck-In",
+    "fam": "post"
+   },
+   "highPnr": {
+    "n": 242,
+    "pts": 253,
+    "early": 52,
+    "done": 192,
+    "name": "High Pick and Roll",
+    "fam": "pnr"
+   },
+   "driveKick": {
+    "n": 369,
+    "pts": 389,
+    "early": 0,
+    "done": 309,
+    "name": "Drive and Kick",
+    "fam": "spot"
+   },
+   "blobStack": {
+    "n": 31,
+    "pts": 13,
+    "early": 0,
+    "done": 28,
+    "name": "Stack (BLOB)",
+    "fam": "blob"
+   },
+   "zoneHigh": {
+    "n": 45,
+    "pts": 35,
+    "early": 0,
+    "done": 31,
+    "name": "High Post Attack",
+    "fam": "zone"
+   },
+   "blobLob": {
+    "n": 24,
+    "pts": 15,
+    "early": 0,
+    "done": 23,
+    "name": "Back Screen Lob (BLOB)",
+    "fam": "blob"
+   }
+  },
+  "_pbBase": {
+   "post": {
+    "n": 932,
+    "pts": 923
+   },
+   "iso": {
+    "n": 1182,
+    "pts": 1194
+   },
+   "pnr": {
+    "n": 2741,
+    "pts": 2761
+   },
+   "cut": {
+    "n": 422,
+    "pts": 509
+   },
+   "spot": {
+    "n": 2034,
+    "pts": 1766
+   },
+   "handoff": {
+    "n": 515,
+    "pts": 545
+   },
+   "offscreen": {
+    "n": 910,
+    "pts": 812
+   }
+  },
+  "_pbReads": {
+   "early: High post jumper": 61,
+   "Face-up jumper or drive": 149,
+   "#4 rolls to the rim": 67,
+   "Kick to the weak side": 48,
+   "Backdoor layup": 121,
+   "Safety, run offense": 212,
+   "Turn the corner off the hand-off": 91,
+   "Open three off the swing": 233,
+   "#1 faces up": 81,
+   "Trailer rolls": 40,
+   "Screener slips": 11,
+   "Jumper off the down screen": 39,
+   "Handler attacks the space": 56,
+   "Kick to the open shooter": 462,
+   "Catch and run offense": 210,
+   "early: Handler keeps it": 54,
+   "Skip to the weak side": 102,
+   "Swing it to the open man": 291,
+   "#1 creates a shot": 163,
+   "Handler reads the screen": 63,
+   "Big rolls": 48,
+   "Handler off the twist": 86,
+   "Kick to the corner": 71,
+   "Hit the roller": 52,
+   "Attack the closeout": 54,
+   "Wing off the hand-off": 76,
+   "#1 comes off the ball screen": 149,
+   "Screener slips to the rim": 40,
+   "#2 catches and shoots": 147,
+   "Seal and score": 105,
+   "Catch and drive": 34,
+   "early: #3 rolls to the rim": 30,
+   "One on one": 157,
+   "Kick to a corner": 139,
+   "early: #2 curls to the rim": 43,
+   "early: Flex cut layup": 27,
+   "#2 creates a shot": 52,
+   "Drive the middle": 38,
+   "Curl to the rim": 10,
+   "Flare three": 39,
+   "Attack the drag": 61,
+   "Kick when they help": 21,
+   "early: Kick to the open shooter": 73,
+   "early: #4 slips the screen": 22,
+   "early: #2 catches and shoots": 94,
+   "#2 shoots off the inbound": 19,
+   "Post move": 123,
+   "Safety to the top, run offense": 38,
+   "early: Pull-up at the elbow": 39,
+   "Quick three": 28,
+   "Dump-off to the dunker spot": 24,
+   "High post jumper": 71,
+   "Kick to the pin-down screener": 32,
+   "early: #1 cuts to the rim": 68,
+   "Kick out": 320,
+   "Catch and shoot at the top": 32,
+   "One on one on the wing": 119,
+   "Corner three": 46,
+   "early: #2 catches off the screen": 91,
+   "early: Lob to the roller": 44,
+   "Kick out of the double": 91,
+   "#1 drives": 66,
+   "Pop three for the big": 64,
+   "Three at the top": 25,
+   "early: Catch and shoot on the wing": 38,
+   "Duck-in finish": 84,
+   "early: UCLA cut layup": 40,
+   "Drive and kick": 66,
+   "Fade": 9,
+   "Corner cuts or kick": 29,
+   "early: Elbow big faces up": 14,
+   "early: #1 comes off the ball screen": 98,
+   "Hand-off back to the guard": 78,
+   "Pop big at the top": 22,
+   "Turn the corner to the rim": 35,
+   "#2 attacks the closeout": 68,
+   "#4 cuts to the rim": 10,
+   "Catch and shoot": 52,
+   "Swing it": 30,
+   "Kick out of the help": 77,
+   "Wing off the ball screen": 38,
+   "Star takes the last shot": 42,
+   "Pop three on the wing": 34,
+   "Hammer corner three": 59,
+   "Cut to the rim": 28,
+   "Roller when they trap": 7,
+   "Pop three for the back-screener": 63,
+   "early: #2 spots up behind the line": 23,
+   "Pocket pass to the roller": 31,
+   "Attack off the hand-off": 50,
+   "Safety: #1 gets it and runs offense": 38,
+   "early: #2 attacks the closeout": 37,
+   "Finish at the rim": 93,
+   "Roller off the twist": 49,
+   "early: Pull-up over the screen": 52,
+   "early: Backdoor off the hand-off": 9,
+   "early: #2 rolls to the rim": 28,
+   "early: Finish the baseline drive": 26,
+   "Big seals for the layup": 5,
+   "Dump-off": 13,
+   "Corner three off the inbound": 6,
+   "Turn and shoot": 11,
+   "High-low to the baseline": 11,
+   "Second screener slips": 6,
+   "Curl": 22,
+   "Shooter drives and dishes": 18,
+   "Big rolls after the hand-off": 15,
+   "Shooter moves it on": 15,
+   "Attack the gap": 13,
+   "Fade to the corner": 5,
+   "Kick to the top": 19,
+   "early: Backdoor on the top lock": 8,
+   "early: Handler goes alone": 3,
+   "Curl off the second screen": 16,
+   "Short corner": 6,
+   "Lob to the big": 5
+  },
+  "_pbCov": {
+   "drop": 3228,
+   "show": 1141,
+   "blitz": 371,
+   "zone": 703,
+   "switch": 971,
+   "ice": 475,
+   "hedge": 327
+  },
+  "_pbGames": 52,
+  "cCallsPerGame": 48.84615384615385,
+  "cUsed": 97.4015748031496,
+  "cInbUsed": 54.86725663716814,
+  "cDefHonored": 100,
+  "cCovHonored": 100,
+  "cDefReverted": 100,
+  "cUserPerGame": 49.42307692307692,
+  "cUserDone": 80.3112840466926,
+  "cUserEarly": 22.023346303501945,
+  "cUserTo": 12.996108949416342,
+  "cUserPts": 0.9817120622568093,
+  "cStaffPts": 0.970969834576711,
+  "cMinePerGame": 45.51923076923077,
+  "cMineDone": 80.27038445289396,
+  "cMineTo": 13.223489649345163,
+  "cMinePts": 0.9953527672158851,
+  "cMineSpot2": 49.49219083383119,
+  "cMineSpot5": 85.4655628573867,
+  "cMineSpotFar": 6.503371170094734,
+  "trkMatch": 52,
+  "trkPossPerGame": 198.75,
+  "trkPpp": 1.1441702951136914,
+  "trkShare_call": 72.62699564586357,
+  "trkPpp_call": 1.1341593391953104,
+  "trkShare_flow": 13.313981615868409,
+  "trkPpp_flow": 1.150436046511628,
+  "trkShare_trans": 12.404450895016932,
+  "trkPpp_trans": 1.325273010920437,
+  "trkShare_other": 1.6545718432510885,
+  "trkPpp_other": 0.17543859649122806,
+  "trkCallsPerGame": 168,
+  "trkDone": 76.20192307692308,
+  "trkEarly": 11.584249084249084,
+  "trkLate": 5.162545787545787,
+  "trkBroke": 18.669871794871796,
+  "trkCut": 5.128205128205129,
+  "trkFoul": 9.809981684981684,
+  "trkCounter": 43.24633699633699,
+  "trkXps": 1.1388547655068078,
+  "trkOpen": 33.01059001512859,
+  "trkTight": 19.77307110438729,
+  "trkFg": 46.331236897274636,
+  "trkWhy_to": 49.96934396076027,
+  "trkWhy_clock": 23.605150214592275,
+  "trkWhy_deny": 14.163090128755364,
+  "trkWhy_screen": 3.4334763948497855,
+  "trkWhy_switch": 0.30656039239730226,
+  "trkWhy_help": 4.414469650521153,
+  "trkWhy_contest": 4.1079092581238505,
+  "trkEntry": 24.156958920907417,
+  "trkClutch": 3.6538461538461537,
+  "trkDefHalf": 1.1366809277189822,
+  "trkDefTrans": 1.325273010920437,
+  "trkKbBox": 3.196796123798077,
+  "trkKbLog": 26.49939903846154,
+  "_trkDef": {
+   "man": [
+    2918,
+    3238
+   ],
+   "nothree": [
+    483,
+    617
+   ],
+   "zone23": [
+    508,
+    563
+   ],
+   "switch": [
+    1062,
+    1237
+   ],
+   "drop": [
+    2618,
+    2990
+   ],
+   "zone32": [
+    383,
+    458
+   ],
+   "pressure": [
+    413,
+    413
+   ],
+   "hedge": [
+    244,
+    277
+   ],
+   "packline": [
+    161,
+    187
+   ],
+   "blitz": [
+    92,
+    116
+   ]
+  },
+  "_trkCov": {
+   "drop": [
+    2987,
+    3661
+   ],
+   "blitz": [
+    345,
+    456
+   ],
+   "zone": [
+    658,
+    801
+   ],
+   "show": [
+    1073,
+    1272
+   ],
+   "switch": [
+    906,
+    1079
+   ],
+   "ice": [
+    442,
+    530
+   ],
+   "hedge": [
+    307,
+    388
+   ]
+  },
+  "_trkGames": 52
+ }
+}

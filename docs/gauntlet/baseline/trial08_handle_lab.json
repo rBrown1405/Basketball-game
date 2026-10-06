@@ -1,0 +1,1519 @@
+[
+ {
+  "name": "dribble in place, open",
+  "contacts": 9,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0.01,
+   "p99": 0.01,
+   "max": 0.01
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 9,
+  "rhythm": {
+   "withInsideStepPct": null,
+   "offS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "periodPerStep": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": 1.46,
+   "open": 1.46,
+   "pressed": null,
+   "moving": null
+  },
+  "topIn": {
+   "open": {
+    "n": 8,
+    "p50": 33.5,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 160,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 160,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 9,
+   "meanE": 0.832,
+   "worstOff": 0.034
+  }
+ },
+ {
+  "name": "dribble in place, a defender up on him",
+  "contacts": 14,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 14,
+   "p50": 0,
+   "p90": 0.01,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 15,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 14,
+  "rhythm": {
+   "withInsideStepPct": null,
+   "offS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "periodPerStep": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": 2.4,
+   "open": null,
+   "pressed": 2.4,
+   "moving": null
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 13,
+    "p50": 31.2,
+    "p90": 31.2,
+    "p99": 31.2,
+    "max": 31.2
+   },
+   "moving": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 98.9,
+  "pressedFrames": 361,
+  "air": {
+   "frames": 156,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {
+   "R_TOE": 5,
+   "L_TOE": 2,
+   "L_KN": 2,
+   "R_KN": 2
+  },
+  "armPops": 0,
+  "allPops": 11,
+  "gravity": {
+   "frames": 156,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 14,
+   "meanE": 0.782,
+   "worstOff": 0.028
+  }
+ },
+ {
+  "name": "dribble walking",
+  "contacts": 13,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 13,
+   "p50": 0.01,
+   "p90": 0.01,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 13,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 12,
+  "rhythm": {
+   "withInsideStepPct": 90,
+   "offS": {
+    "n": 10,
+    "p50": 0,
+    "p90": 0.167,
+    "p99": 0.167,
+    "max": 0.167
+   },
+   "periodPerStep": {
+    "n": 11,
+    "p50": 1,
+    "p90": 1.04,
+    "p99": 1.32,
+    "max": 1.32
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.93
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 11,
+    "p50": 33.5,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 186,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 186,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 12,
+   "meanE": 0.803,
+   "worstOff": 0.031
+  }
+ },
+ {
+  "name": "dribble jogging",
+  "contacts": 10,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 10,
+   "p50": 0.01,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 10,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 10,
+  "rhythm": {
+   "withInsideStepPct": 100,
+   "offS": {
+    "n": 8,
+    "p50": 0,
+    "p90": 0.067,
+    "p99": 0.067,
+    "max": 0.067
+   },
+   "periodPerStep": {
+    "n": 9,
+    "p50": 2,
+    "p90": 2.18,
+    "p99": 2.18,
+    "max": 2.18
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.36
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 9,
+    "p50": 33.3,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 188,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 188,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 10,
+   "meanE": 0.832,
+   "worstOff": 0.035
+  }
+ },
+ {
+  "name": "dribble running",
+  "contacts": 9,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 9,
+   "p50": 0.01,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 9,
+  "rhythm": {
+   "withInsideStepPct": 100,
+   "offS": {
+    "n": 7,
+    "p50": 0,
+    "p90": 0.05,
+    "p99": 0.05,
+    "max": 0.05
+   },
+   "periodPerStep": {
+    "n": 8,
+    "p50": 2,
+    "p90": 2.15,
+    "p99": 2.15,
+    "max": 2.15
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.5
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 8,
+    "p50": 36.2,
+    "p90": 36.3,
+    "p99": 36.3,
+    "max": 36.3
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 185,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 185,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 9,
+   "meanE": 0.821,
+   "worstOff": 0.019
+  }
+ },
+ {
+  "name": "speed dribble",
+  "contacts": 10,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 10,
+   "p50": 0.01,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 10,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 10,
+  "rhythm": {
+   "withInsideStepPct": 100,
+   "offS": {
+    "n": 8,
+    "p50": 0,
+    "p90": 0.067,
+    "p99": 0.067,
+    "max": 0.067
+   },
+   "periodPerStep": {
+    "n": 9,
+    "p50": 2,
+    "p90": 2.08,
+    "p99": 2.08,
+    "max": 2.08
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.67
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 9,
+    "p50": 36.7,
+    "p90": 36.7,
+    "p99": 36.7,
+    "max": 36.7
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 190,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 190,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 10,
+   "meanE": 0.789,
+   "worstOff": 0.031
+  }
+ },
+ {
+  "name": "crossover (three)",
+  "contacts": 9,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 9,
+  "rhythm": {
+   "withInsideStepPct": 20,
+   "offS": {
+    "n": 5,
+    "p50": 0.2,
+    "p90": 0.217,
+    "p99": 0.217,
+    "max": 0.217
+   },
+   "periodPerStep": {
+    "n": 5,
+    "p50": 1.16,
+    "p90": 1.16,
+    "p99": 1.16,
+    "max": 1.16
+   },
+   "movesWithStepPct": 100,
+   "moveOffS": {
+    "n": 3,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.15
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 2,
+    "p50": 33.5,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 146,
+   "jolts": 6,
+   "worstFtps2": 3092,
+   "by": [
+    [
+     "cross down",
+     4
+    ],
+    [
+     "cross up",
+     2
+    ]
+   ]
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 146,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 3092,
+   "over150": 6
+  },
+  "restitution": {
+   "n": 9,
+   "meanE": 0.81,
+   "worstOff": 0.037
+  }
+ },
+ {
+  "name": "between the legs (three)",
+  "contacts": 9,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 9,
+   "p50": 0.01,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 9,
+  "rhythm": {
+   "withInsideStepPct": 25,
+   "offS": {
+    "n": 4,
+    "p50": 0.167,
+    "p90": 0.2,
+    "p99": 0.2,
+    "max": 0.2
+   },
+   "periodPerStep": {
+    "n": 5,
+    "p50": 1.02,
+    "p90": 1.16,
+    "p99": 1.16,
+    "max": 1.16
+   },
+   "movesWithStepPct": 100,
+   "moveOffS": {
+    "n": 3,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.18
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 3,
+    "p50": 33.5,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 142,
+   "jolts": 21,
+   "worstFtps2": 3008.2,
+   "by": [
+    [
+     "btl up",
+     15
+    ],
+    [
+     "btl down",
+     6
+    ]
+   ]
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 142,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 3008.2,
+   "over150": 21
+  },
+  "restitution": {
+   "n": 9,
+   "meanE": 0.813,
+   "worstOff": 0.033
+  }
+ },
+ {
+  "name": "behind the back (three)",
+  "contacts": 9,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 9,
+   "p50": 0.01,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 9,
+  "rhythm": {
+   "withInsideStepPct": 40,
+   "offS": {
+    "n": 5,
+    "p50": 0.15,
+    "p90": 0.2,
+    "p99": 0.2,
+    "max": 0.2
+   },
+   "periodPerStep": {
+    "n": 5,
+    "p50": 1.03,
+    "p90": 1.16,
+    "p99": 1.16,
+    "max": 1.16
+   },
+   "movesWithStepPct": 100,
+   "moveOffS": {
+    "n": 3,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.58
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 3,
+    "p50": 33.5,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 142,
+   "jolts": 4,
+   "worstFtps2": 885.4,
+   "by": [
+    [
+     "btb down",
+     4
+    ]
+   ]
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 142,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 885.4,
+   "over150": 4
+  },
+  "restitution": {
+   "n": 9,
+   "meanE": 0.815,
+   "worstOff": 0.032
+  }
+ },
+ {
+  "name": "in and out (three)",
+  "contacts": 9,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 9,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 9,
+  "rhythm": {
+   "withInsideStepPct": 0,
+   "offS": {
+    "n": 4,
+    "p50": 0.183,
+    "p90": 0.217,
+    "p99": 0.217,
+    "max": 0.217
+   },
+   "periodPerStep": {
+    "n": 5,
+    "p50": 1.15,
+    "p90": 1.16,
+    "p99": 1.16,
+    "max": 1.16
+   },
+   "movesWithStepPct": 100,
+   "moveOffS": {
+    "n": 3,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.15
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 2,
+    "p50": 33.5,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 144,
+   "jolts": 1,
+   "worstFtps2": 193.6,
+   "by": [
+    [
+     "inout up",
+     1
+    ]
+   ]
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 144,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 193.6,
+   "over150": 1
+  },
+  "restitution": {
+   "n": 9,
+   "meanE": 0.821,
+   "worstOff": 0.03
+  }
+ },
+ {
+  "name": "spin move",
+  "contacts": 7,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 7,
+   "p50": 0.01,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 7,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 6,
+  "rhythm": {
+   "withInsideStepPct": 50,
+   "offS": {
+    "n": 2,
+    "p50": 0.1,
+    "p90": 0.1,
+    "p99": 0.1,
+    "max": 0.1
+   },
+   "periodPerStep": {
+    "n": 3,
+    "p50": 0.97,
+    "p90": 1.08,
+    "p99": 1.08,
+    "max": 1.08
+   },
+   "movesWithStepPct": 100,
+   "moveOffS": {
+    "n": 1,
+    "p50": 0.017,
+    "p90": 0.017,
+    "p99": 0.017,
+    "max": 0.017
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 2.5
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 1,
+    "p50": 32.9,
+    "p90": 32.9,
+    "p99": 32.9,
+    "max": 32.9
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 84,
+   "jolts": 29,
+   "worstFtps2": 1784.3,
+   "by": [
+    [
+     "dribble up",
+     16
+    ],
+    [
+     "dribble down",
+     8
+    ],
+    [
+     "cross up",
+     3
+    ],
+    [
+     "cross down",
+     2
+    ]
+   ]
+  },
+  "pops": {
+   "R_TOE": 8,
+   "R_KN": 5,
+   "L_TOE": 5,
+   "L_KN": 4,
+   "L_EL": 2
+  },
+  "armPops": 2,
+  "allPops": 24,
+  "gravity": {
+   "frames": 84,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 1784.3,
+   "over150": 29
+  },
+  "restitution": {
+   "n": 6,
+   "meanE": 0.788,
+   "worstOff": 0.029
+  }
+ },
+ {
+  "name": "hesitation",
+  "contacts": 5,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 5,
+   "p50": 0.01,
+   "p90": 0.01,
+   "p99": 0.01,
+   "max": 0.01
+  },
+  "catchIn": {
+   "n": 6,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 5,
+  "rhythm": {
+   "withInsideStepPct": 33.3,
+   "offS": {
+    "n": 3,
+    "p50": 0.083,
+    "p90": 0.283,
+    "p99": 0.283,
+    "max": 0.283
+   },
+   "periodPerStep": {
+    "n": 3,
+    "p50": 1.67,
+    "p90": 2.15,
+    "p99": 2.15,
+    "max": 2.15
+   },
+   "movesWithStepPct": 100,
+   "moveOffS": {
+    "n": 1,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.46
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 2,
+    "p50": 33.5,
+    "p90": 33.5,
+    "p99": 33.5,
+    "max": 33.5
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 94,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 94,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 5,
+   "meanE": 0.823,
+   "worstOff": 0.021
+  }
+ },
+ {
+  "name": "retreat dribble (a defender up on him)",
+  "contacts": 6,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 6,
+   "p50": 0,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 7,
+   "p50": 0,
+   "p90": 0.01,
+   "p99": 0.01,
+   "max": 0.01
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 6,
+  "rhythm": {
+   "withInsideStepPct": 50,
+   "offS": {
+    "n": 2,
+    "p50": 0.117,
+    "p90": 0.117,
+    "p99": 0.117,
+    "max": 0.117
+   },
+   "periodPerStep": {
+    "n": 2,
+    "p50": 2.06,
+    "p90": 2.06,
+    "p99": 2.06,
+    "max": 2.06
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": 2.22,
+   "open": 1.43,
+   "pressed": 2.22,
+   "moving": 2.31
+  },
+  "topIn": {
+   "open": {
+    "n": 2,
+    "p50": 31.8,
+    "p90": 31.8,
+    "p99": 31.8,
+    "max": 31.8
+   },
+   "pressed": {
+    "n": 1,
+    "p50": 31.2,
+    "p90": 31.2,
+    "p99": 31.2,
+    "max": 31.2
+   },
+   "moving": {
+    "n": 2,
+    "p50": 31.2,
+    "p90": 31.2,
+    "p99": 31.2,
+    "max": 31.2
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 92.9,
+  "pressedFrames": 70,
+  "air": {
+   "frames": 85,
+   "jolts": 0,
+   "worstFtps2": 140,
+   "by": []
+  },
+  "pops": {
+   "R_TOE": 5,
+   "L_TOE": 2,
+   "L_KN": 2,
+   "R_KN": 2
+  },
+  "armPops": 0,
+  "allPops": 11,
+  "gravity": {
+   "frames": 85,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 140,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 6,
+   "meanE": 0.8,
+   "worstOff": 0.035
+  }
+ },
+ {
+  "name": "catch and go (a dribble out of the hands)",
+  "contacts": 3,
+  "contactsOff": 0,
+  "contactMaxIn": {
+   "n": 3,
+   "p50": 0.02,
+   "p90": 0.02,
+   "p99": 0.02,
+   "max": 0.02
+  },
+  "catchIn": {
+   "n": 4,
+   "p50": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  },
+  "offBy": [],
+  "ballThroughFrames": 0,
+  "ballThroughBy": [],
+  "ballThroughWorstIn": 0,
+  "bounces": 3,
+  "rhythm": {
+   "withInsideStepPct": 0,
+   "offS": {
+    "n": 3,
+    "p50": 0.267,
+    "p90": 0.3,
+    "p99": 0.3,
+    "max": 0.3
+   },
+   "periodPerStep": {
+    "n": 3,
+    "p50": 2.31,
+    "p90": 2.55,
+    "p99": 2.55,
+    "max": 2.55
+   },
+   "movesWithStepPct": null,
+   "moveOffS": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   }
+  },
+  "bouncesPerS": {
+   "still": null,
+   "open": null,
+   "pressed": null,
+   "moving": 1.11
+  },
+  "topIn": {
+   "open": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "pressed": {
+    "n": 0,
+    "p50": 0,
+    "p90": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "moving": {
+    "n": 2,
+    "p50": 33.9,
+    "p90": 33.9,
+    "p99": 33.9,
+    "max": 33.9
+   }
+  },
+  "eyesOnBallPct": 0,
+  "offArmUpPct": 0,
+  "pressedFrames": 0,
+  "air": {
+   "frames": 63,
+   "jolts": 0,
+   "worstFtps2": 0,
+   "by": []
+  },
+  "pops": {},
+  "armPops": 0,
+  "allPops": 0,
+  "gravity": {
+   "frames": 63,
+   "worstOffFtps2": 0,
+   "meanFtps2": -32.17
+  },
+  "airAccel": {
+   "worstFtps2": 0,
+   "over150": 0
+  },
+  "restitution": {
+   "n": 3,
+   "meanE": 0.85,
+   "worstOff": 0.025
+  }
+ }
+]

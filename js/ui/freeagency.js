@@ -52,9 +52,9 @@
             title: 'Re-sign ' + PBC.Player.name(p), p, ask: R.ask, years: R.years, amt: R.ask, allowOpt: true,
             note: `${U.esc(O.moodLabel(R.mood))} (${R.mood}/100). ${R.willing ? 'He’s open to staying.' : 'He wants to test free agency.'} ${3 - R.tries} offer${3 - R.tries === 1 ? '' : 's'} before he stops listening.`,
             preview: o => {
-              if (!R.willing && o.amt < R.ask * 1.2) return { tone: 'bad', text: `He wants out — only ${U.money(R.ask * 1.2)}+ could change his mind.` };
+              if (!R.willing && o.amt < R.ask * 1.2) return { tone: 'bad', text: `He wants out. Only ${U.money(R.ask * 1.2)}+ could change his mind.` };
               const sc = O.moneyScore(p, o, R.ask);
-              return sc >= -1.5 ? { tone: 'good', text: '✓ He’ll sign this deal.' } : sc >= -8 ? { tone: 'warn', text: 'Close — a little more money or his preferred length would do it.' } : { tone: 'bad', text: 'Not close — expect a rejection.' };
+              return sc >= -1.5 ? { tone: 'good', text: '✓ He’ll sign this deal.' } : sc >= -8 ? { tone: 'warn', text: 'Close. A little more money or his preferred length would do it.' } : { tone: 'bad', text: 'Not close: expect a rejection.' };
             },
             submitLabel: 'Offer Deal',
             submit: o => {
@@ -87,7 +87,7 @@
         ${R.status === 'pending' ? `<button class="btn primary sm" data-rs="offer" data-pid="${p.id}">✍️ Offer Contract</button><button class="btn ghost sm" data-rs="walk" data-pid="${p.id}">Let him walk</button>` : ''}
         ${R.status === 'walked' ? `<button class="btn ghost sm" data-rs="undo" data-pid="${p.id}">↩ Reconsider</button>` : ''}
         ${deal ? `<span class="good-t bold small">✓ ${deal}</span>` : ''}
-        ${R.status === 'refused' ? '<span class="small muted">He’ll be on the market — you can still recruit him there.</span>' : ''}
+        ${R.status === 'refused' ? '<span class="small muted">He’ll be on the market. You can still recruit him there.</span>' : ''}
       </div></div></div>`;
   }
 
@@ -134,9 +134,9 @@
     const signedN = Object.values(fa.pl).filter(e => e.signed).length;
     root.innerHTML = `<div class="page os">
       ${OU.steps(S)}
-      <div class="page-h"><div><h1>Free Agency</h1><div class="sub">${fa.done ? 'The market is closed — hit CONTINUE to start the new season' : `Week ${fa.week} of ${fa.weeks}`} · ${all.length} available · ${signedN} signed</div></div>
+      <div class="page-h"><div><h1>Free Agency</h1><div class="sub">${fa.done ? 'The market is closed. Hit CONTINUE to start the new season' : `Week ${fa.week} of ${fa.weeks}`} · ${all.length} available · ${signedN} signed</div></div>
         <div class="actions"><div class="fa-ap"><div class="fa-pips">${Array.from({ length: fa.apMax }, (x, i) => `<i class="${i < fa.ap ? 'on' : ''}"></i>`).join('')}</div><div class="l"><b>${fa.ap}</b>/${fa.apMax} action points this week</div></div></div></div>
-      <div class="fa-ticker"><span class="fa-ticker-l">SIGNINGS</span><div class="fa-ticker-m"><div class="fa-ticker-in">${fa.log.slice(0, 14).map(x => `<span class="fa-tick ${x.tid === u ? 'me' : ''}">${UI.teamBadge(S.teams[x.tid], 18)} ${U.esc(x.text)} <i class="dim">wk ${x.week}</i></span>`).join('') || '<span class="fa-tick dim">No signings yet — top free agents take their time.</span>'}</div></div></div>
+      <div class="fa-ticker"><span class="fa-ticker-l">SIGNINGS</span><div class="fa-ticker-m"><div class="fa-ticker-in">${fa.log.slice(0, 14).map(x => `<span class="fa-tick ${x.tid === u ? 'me' : ''}">${UI.teamBadge(S.teams[x.tid], 18)} ${U.esc(x.text)} <i class="dim">wk ${x.week}</i></span>`).join('') || '<span class="fa-tick dim">No signings yet. Top free agents take their time.</span>'}</div></div></div>
       <div class="grid g-main" style="margin-top:14px">
         <div class="card"><div class="card-h"><div class="tabs">${[['all', `Market (${all.length})`], ['star', `★ Shortlist (${shortlist.length})`], ['mine', `My offers (${mineOffers.length})`], ['roster', 'My roster']].map(([k, l]) => `<button class="tab ${fs.tab === k ? 'active' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
           ${fs.tab !== 'roster' ? `<div class="actions"><div class="seg">${['all'].concat(C.POSITIONS).map(pz => `<button class="${fs.pos === pz ? 'on' : ''}" data-pos="${pz}">${pz === 'all' ? 'All' : pz}</button>`).join('')}</div></div>` : ''}</div>
@@ -193,11 +193,11 @@
         <span>Asking</span><span>${askText(S, p.id)}${e.known ? ` × ${U.plural(e.years, 'yr')}` : ''}</span>
         <span>Driven by</span><span>${e.motive ? U.esc(O.topMotive(p)) : '<span class="dim">Text him to find out</span>'}</span>
         <span>Other offers</span><span>${e.known ? (others.length ? others.map(o => `${UI.teamBadge(S.teams[o.tid], 18)}`).join(' ') : 'none yet') : `<span class="dim">${others.length ? 'Teams are calling…' : 'Quiet so far'}</span>`}</span>
-        <span>Promise</span><span>${e.promise ? (e.promise.type === 'starter' ? '🟢 Starting role' : `⏱️ ${e.promise.min} min`) : '—'}</span>
-        <span>Your offer</span><span>${mine ? `${U.money(mine.amt)} × ${mine.years}${mine.opt ? ' (PO)' : ''} ${statusTag(S, p.id)}` : '—'}</span>
+        <span>Promise</span><span>${e.promise ? (e.promise.type === 'starter' ? '🟢 Starting role' : `⏱️ ${e.promise.min} min`) : '-'}</span>
+        <span>Your offer</span><span>${mine ? `${U.money(mine.amt)} × ${mine.years}${mine.opt ? ' (PO)' : ''} ${statusTag(S, p.id)}` : '-'}</span>
       </div>
       <div class="fa-acts">${acts}</div>
-      ${mine ? `<div class="row" style="margin-top:8px"><span class="small muted">${st.status === 'leading' ? 'You’re in front — he decides at week’s end.' : st.status === 'behind' ? 'Someone is offering more. Sweeten it or recruit harder.' : 'He wants a bit more before committing.'}</span><div class="spacer"></div><button class="btn ghost sm" data-fa="withdraw">Withdraw</button></div>` : ''}
+      ${mine ? `<div class="row" style="margin-top:8px"><span class="small muted">${st.status === 'leading' ? 'You’re in front. He decides at week’s end.' : st.status === 'behind' ? 'Someone is offering more. Sweeten it or recruit harder.' : 'He wants a bit more before committing.'}</span><div class="spacer"></div><button class="btn ghost sm" data-fa="withdraw">Withdraw</button></div>` : ''}
     </div></div>`;
   }
 
@@ -218,7 +218,7 @@
       empty: 'No players under contract.',
     });
     const n = r.length;
-    el.insertAdjacentHTML('beforeend', `<div class="hint" style="padding:10px 16px">${n > L.rosterMax ? `<span class="bad-t bold">${n} players — you must get down to ${L.rosterMax} before the season.</span>` : `${n}/${L.rosterMax} roster spots used (you may carry up to ${L.rosterMax + O.OFFSEASON_EXTRA} during the offseason).`} Released guaranteed money stays on your cap as dead money.</div>`);
+    el.insertAdjacentHTML('beforeend', `<div class="hint" style="padding:10px 16px">${n > L.rosterMax ? `<span class="bad-t bold">${n} players: you must get down to ${L.rosterMax} before the season.</span>` : `${n}/${L.rosterMax} roster spots used (you may carry up to ${L.rosterMax + O.OFFSEASON_EXTRA} during the offseason).`} Released guaranteed money stays on your cap as dead money.</div>`);
   }
 
   function releaseFlow(S, pid) {
@@ -227,7 +227,7 @@
     const yr = O.capYear(S);
     const nonG = p.contract.rookie && p.draft && p.draft.round >= 2 && p.rookieSeason === S.season + 1 && O.isOffseason(S);
     const dead = !nonG && p.contract.exp >= yr ? p.contract.amt : 0;
-    UI.confirm(`Release <b>${U.esc(PBC.Player.name(p))}</b>?${dead ? `<br><span class="bad-t">${U.money(dead)}/yr stays on your cap as dead money through ${U.seasonLabel(p.contract.exp)}.</span>` : '<br>His deal isn’t guaranteed — no dead money.'}`, { ok: 'Release', danger: true }).then(ok => {
+    UI.confirm(`Release <b>${U.esc(PBC.Player.name(p))}</b>?${dead ? `<br><span class="bad-t">${U.money(dead)}/yr stays on your cap as dead money through ${U.seasonLabel(p.contract.exp)}.</span>` : '<br>His deal isn’t guaranteed: no dead money.'}`, { ok: 'Release', danger: true }).then(ok => {
       if (!ok) return;
       const r = O.release(S, pid);
       UI.toast(r.msg, r.ok ? 'good' : 'bad');
@@ -286,9 +286,9 @@
         const best = e.known && others.length ? Math.max(...others.map(x => O.offerValue(S, p, x))) : null;
         const kind = k.kind === 'mle' ? ' (mid-level exception)' : k.kind === 'min' ? ' (minimum deal)' : '';
         if (val < -30) return { tone: 'bad', text: 'He’d find this insulting.' + kind };
-        if (val >= thr + 4 && (best == null || val >= best + 3)) return { tone: 'good', text: '✓ Strong offer — he may sign on the spot.' + kind };
+        if (val >= thr + 4 && (best == null || val >= best + 3)) return { tone: 'good', text: '✓ Strong offer. He may sign on the spot.' + kind };
         if (best != null && val < best) return { tone: 'warn', text: 'Another team is offering more.' + kind };
-        if (val >= thr) return { tone: 'good', text: 'Competitive — he’d likely sign at week’s end if nobody beats it.' + kind };
+        if (val >= thr) return { tone: 'good', text: 'Competitive. He’d likely sign at week’s end if nobody beats it.' + kind };
         return { tone: 'warn', text: 'He’ll listen, but wants more money, a better fit, or more recruiting.' + kind };
       },
       submitLabel: mine ? 'Update Offer' : 'Make Offer',

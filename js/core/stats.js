@@ -81,10 +81,166 @@
         if (cats >= 3) r.td++;
         r.hiPts = Math.max(r.hiPts || 0, pl.pts); r.hiReb = Math.max(r.hiReb || 0, reb); r.hiAst = Math.max(r.hiAst || 0, pl.ast);
         Stats.checkGameRecords(S, p, pl, T.tid, O.tid, box);
+        // (his game log and his career highs: every game of every player)
+        Stats.logGame(p, pl, T, O, box, side === 0);
       }
       Stats.checkTeamGameRecord(S, T, O, box);
     }
+    // the plays each team ran and its defense, into the season's play numbers (js/core/playstats.js)
+    if (PBC.PlayStats) PBC.PlayStats.addBox(S, box);
   };
+
+  // ---------------------------------------------------------------------------
+  // Game logs and career highs (every player, every game)
+  // ---------------------------------------------------------------------------
+  // A game is one 27-character line (fixed-width base 64, GL_FIELDS) added to p.glog[season], so a whole season of a
+  // player's games is about 2 KB; the player card reads them back (Stats.gameLog). They are kept for this season and the last
+  // for everyone, every season for the players of the user's team that season, and every season for everyone with the
+  // Keep every game log setting (Stats.pruneLogs, at the start of a season). Career highs (p.hi) are kept for good.
+  const B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_';
+  const B64I = {};
+  for (let i = 0; i < 64; i++) B64I[B64[i]] = i;
+  // [field, width]: the day, the other team, his team, flags (1 home, 2 playoffs, 4 started, 8 won, 16 overtime), the two
+  // scores, then his line; +/- is stored with 2048 added
+  const GL_FIELDS = [['day', 2], ['opp', 1], ['tm', 1], ['f', 1], ['ts', 2], ['os', 2], ['min', 1], ['pts', 2], ['fgm', 1], ['fga', 1], ['tpm', 1], ['tpa', 1], ['ftm', 1], ['fta', 1],
+    ['orb', 1], ['drb', 1], ['ast', 1], ['stl', 1], ['blk', 1], ['tov', 1], ['pf', 1], ['pm', 2]];
+  const GL_LEN = GL_FIELDS.reduce((a, f) => a + f[1], 0);
+  Stats.GL_LEN = GL_LEN;
+  const enc = (v, w) => { v = Math.max(0, Math.min(w === 1 ? 63 : 4095, Math.round(+v || 0))); return w === 1 ? B64[v] : B64[v >> 6] + B64[v & 63]; };
+  const dec = (s, i, w) => (w === 1 ? B64I[s[i]] : B64I[s[i]] * 64 + B64I[s[i + 1]]);
+  /** one game of his as a log line */
+  Stats.logLine = function (pl, T, O, box, home) {
+    const f = (home ? 1 : 0) | (box.playoff ? 2 : 0) | (pl.gs ? 4 : 0) | (T.pts > O.pts ? 8 : 0) | (box.ot ? 16 : 0);
+    const v = { day: box.day || 0, opp: O.tid, tm: T.tid, f, ts: T.pts, os: O.pts, pm: (pl.pm || 0) + 2048 };
+    let out = '';
+    for (const [k, w] of GL_FIELDS) out += enc(v[k] != null ? v[k] : pl[k], w);
+    return out;
+  };
+  /** a log line back into a game: { day, opp, tm, home, po, gs, win, ot, ts, os, min, pts, fgm, ..., reb, pm, gmsc } */
+  Stats.readLine = function (s, at) {
+    const g = {};
+    let i = at || 0;
+    for (const [k, w] of GL_FIELDS) { g[k] = dec(s, i, w); i += w; }
+    g.home = !!(g.f & 1); g.po = !!(g.f & 2); g.gs = !!(g.f & 4); g.win = !!(g.f & 8); g.ot = !!(g.f & 16);
+    g.pm -= 2048; g.reb = g.orb + g.drb;
+    g.gmsc = Stats.gmsc(g);
+    return g;
+  };
+  // (career highs: [value, season, day, the other team]; the latest when he matches one)
+  const HI_CATS = ['pts', 'reb', 'ast', 'stl', 'blk', 'tpm', 'fgm', 'ftm', 'min'];
+  Stats.HI_CATS = HI_CATS;
+  /** a finished game into his log and his career highs (Stats.applyBox) */
+  Stats.logGame = function (p, pl, T, O, box, home) {
+    const lg = p.glog || (p.glog = {});
+    lg[box.season] = (lg[box.season] || '') + Stats.logLine(pl, T, O, box, home);
+    const hi = p.hi || (p.hi = {});
+    const h = hi[box.playoff ? 'po' : 'rs'] || (hi[box.playoff ? 'po' : 'rs'] = {});
+    const reb = (pl.orb || 0) + (pl.drb || 0);
+    for (const k of HI_CATS) {
+      const v = k === 'reb' ? reb : pl[k] || 0;
+      if (v <= 0) continue;
+      if (!h[k] || v >= h[k][0]) h[k] = [v, box.season, box.day || 0, O.tid];
+    }
+    // (his best games by game score, kept for good: [season, log line, game score], the best first)
+    const gs = Math.round(Stats.gmsc(pl) * 10) / 10;
+    if (gs >= BEST_MIN) {
+      const b = p.best || (p.best = []);
+      if (b.length < BEST_N || gs > b[b.length - 1][2]) {
+        b.push([box.season, Stats.logLine(pl, T, O, box, home), gs]);
+        b.sort((x, y) => y[2] - x[2]);
+        if (b.length > BEST_N) b.length = BEST_N;
+      }
+    }
+  };
+  const BEST_N = 3, BEST_MIN = 20;
+  /** his best games (game score 20 and up, the best three of his career): [{ ...game, season }], the best first */
+  Stats.bestGames = p => (p.best || []).map(x => Object.assign(Stats.readLine(x[1]), { season: x[0] }));
+  /** his games in a season, oldest first (empty when that season's log was not kept); po: true playoffs only, false
+   *  regular season only, undefined both */
+  Stats.gameLog = function (p, season, po) {
+    const s = p.glog && p.glog[season];
+    if (!s) return [];
+    const out = [];
+    for (let i = 0; i + GL_LEN <= s.length; i += GL_LEN) {
+      const g = Stats.readLine(s, i);
+      if (po != null && g.po !== !!po) continue;
+      g.season = +season;
+      out.push(g);
+    }
+    return out;
+  };
+  /** the seasons with a game log of his, newest first */
+  Stats.logSeasons = p => (p.glog ? Object.keys(p.glog).filter(k => p.glog[k] && p.glog[k].length).map(Number).sort((a, b) => b - a) : []);
+  /** his career highs: { cat: { v, season, day, opp } } for the regular season (po false) or the playoffs (po true); for a
+   *  player from before the game logs, the points, rebounds and assists from his season highs */
+  Stats.careerHighs = function (p, po) {
+    const h = p.hi && p.hi[po ? 'po' : 'rs'];
+    const out = {};
+    if (h) for (const k in h) out[k] = { v: h[k][0], season: h[k][1], day: h[k][2], opp: h[k][3] };
+    for (const [k, f] of [['pts', 'hiPts'], ['reb', 'hiReb'], ['ast', 'hiAst']]) {
+      if (out[k]) continue;
+      let best = null;
+      for (const r of p.stats) if (!!r.po === !!po && (r[f] || 0) > 0 && (!best || r[f] >= best.v)) best = { v: r[f], season: r.season };
+      if (best) out[k] = best;
+    }
+    return out;
+  };
+  /** the start of a season: game logs older than last season go, except a season he played for the user's team (and
+   *  everything with the Keep every game log setting) */
+  Stats.pruneLogs = function (S) {
+    if (S.settings && S.settings.keepLogs === 'all') return 0;
+    const userOf = {};
+    for (const h of S.history || []) userOf[h.season] = h.userTid;
+    let n = 0;
+    for (const id in S.players) {
+      const p = S.players[id];
+      if (!p.glog) continue;
+      for (const k in p.glog) {
+        const season = +k;
+        if (season >= S.season - 1) continue;
+        const ut = userOf[season];
+        if (ut != null && p.stats.some(r => r.season === season && r.tid === ut)) continue;
+        delete p.glog[k]; n++;
+      }
+      if (!Object.keys(p.glog).length) delete p.glog;
+    }
+    return n;
+  };
+
+  /** an older save as it loads (Store.migrate): this season's game logs and career highs from the box scores it kept (the
+   *  user's games), and the honors the player record gained since (the stat titles, the MVP vote, the Hall of Fame and
+   *  retired numbers). Safe to run on every load */
+  Stats.catchUp = function (S) {
+    const players = S.players || {};
+    let logged = false;
+    for (const id in players) if (players[id] && players[id].glog) { logged = true; break; }
+    if (!logged && S.boxes) {
+      const boxes = Object.values(S.boxes).filter(b => b && Array.isArray(b.teams) && b.teams.length === 2 && b.season === S.season && b.final !== false)
+        .sort((a, b) => ((a.day || 0) - (b.day || 0)) || (a.gid - b.gid));
+      for (const box of boxes) for (let side = 0; side < 2; side++) {
+        const T = box.teams[side], O = box.teams[1 - side];
+        for (const pl of T.players || []) { const p = !pl.dnp && players[pl.pid]; if (p) Stats.logGame(p, pl, T, O, box, side === 0); }
+      }
+    }
+    const give = (pid, season, type, detail) => {
+      const p = players[pid];
+      if (!p || !Array.isArray(p.awards) || p.awards.some(a => a.type === type && a.season === season && (type !== 'numRetired' || a.detail === detail))) return;
+      p.awards.push({ season, type, detail: detail || '' });
+    };
+    for (const h of S.history || []) {
+      const aw = h && h.awards;
+      if (!aw) continue;
+      for (const k in aw.leaders || {}) { const x = aw.leaders[k]; if (x && x.pid != null && TITLE[k]) give(x.pid, h.season, TITLE[k][0], `${(+x.val).toFixed(1)} ${TITLE[k][1]}`); }
+      (aw.mvpVoting || []).forEach((pid, i) => { if (i > 0) give(pid, h.season, 'mvpVote', U.ordinal(i + 1) + ' in the voting'); });
+    }
+    const g = S.legacy;
+    if (g && typeof g === 'object') {
+      for (const e of g.hof || []) if (e && e.kind === 'player' && e.pid != null) give(e.pid, e.season, 'hof', e.first ? 'First ballot' : '');
+      for (const tid in g.numbers || {}) for (const x of g.numbers[tid] || []) give(x.pid, x.season, 'numRetired', `No. ${x.num}, ${S.teams[tid] ? S.teams[tid].abbr : ''}`);
+    }
+  };
+  // (the stat titles: awards' leader key → [award type, unit])
+  const TITLE = { ppg: ['ptsTitle', 'ppg'], rpg: ['rebTitle', 'rpg'], apg: ['astTitle', 'apg'], spg: ['stlTitle', 'spg'], bpg: ['blkTitle', 'bpg'] };
 
   // ---------------------------------------------------------------------------
   // Records (top-10 lists)
@@ -309,6 +465,9 @@
     aw.allLeague.forEach((five, i) => five.forEach(pid => give(pid, 'allLeague', U.ordinal(i + 1) + ' Team')));
     aw.allDefense.forEach((five, i) => five.forEach(pid => give(pid, 'allDefense', U.ordinal(i + 1) + ' Team')));
     aw.allRookie.forEach(pid => give(pid, 'allRookie', ''));
+    // the stat titles, and where the MVP vote put the rest of its top five
+    for (const k in aw.leaders || {}) { const x = aw.leaders[k]; if (x && x.pid != null && TITLE[k]) give(x.pid, TITLE[k][0], `${(+x.val).toFixed(1)} ${TITLE[k][1]}`); }
+    (aw.mvpVoting || []).forEach((pid, i) => { if (i > 0) give(pid, 'mvpVote', U.ordinal(i + 1) + ' in the voting'); });
   };
 
   Stats.finalsMvp = function (S, series) {

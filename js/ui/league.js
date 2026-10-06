@@ -884,6 +884,8 @@
   function coachName(S, season, tid) {
     const c = S.coach;
     if (c && c.seasons && c.seasons.some(x => x.season === season && x.tid === tid)) return c.name;
+    const known = PBC.Staff && PBC.Staff.coachIn ? PBC.Staff.coachIn(S, season, tid) : null;
+    if (known) return known;
     const t = S.teams[tid];
     return PBC.Magazine && PBC.Magazine.aiCoachName ? PBC.Magazine.aiCoachName(S, t) : (t.coachName || 'Head coach');
   }
@@ -894,6 +896,25 @@
     <div class="card-b flush"><div class="list">${rows.length ? rows.join('') : '<div class="empty small">No record yet.</div>'}</div></div></div>`;
   const pLink = (S, pid, name) => (S.players[pid] ? UI.playerLink(S.players[pid], name) : U.esc(name || ''));
   const boxLink = (S, gid) => (S.boxes && S.boxes[gid] ? ` · <a class="link" data-open-box="${gid}">Box score</a>` : '');
+
+  /** a past season's playoff bracket (S.history[].bracket), round by round */
+  function openBracket(S, season) {
+    const h = S.history.find(x => x.season === season);
+    if (!h || !h.bracket) return;
+    const rounds = U.uniq(h.bracket.map(x => x.r)).sort((a, b) => a - b);
+    const teamTxt = (tid, seed) => { const t = S.teams[tid]; return t ? `${UI.teamBadge(t, 18)} ${seed ? `<span class="tiny dim">${seed}</span> ` : ''}${U.esc(t.abbr)}` : '?'; };
+    const series = x => {
+      const hiWon = x.win === x.hi;
+      return `<div class="li small"><div style="flex:1;min-width:0"><span class="${hiWon ? 'bold' : 'muted'}">${teamTxt(x.hi, x.sh)}</span> <span class="dim">vs</span> <span class="${hiWon ? 'muted' : 'bold'}">${teamTxt(x.lo, x.sl)}</span></div>
+        <b>${Math.max(x.w[0], x.w[1])}-${Math.min(x.w[0], x.w[1])}</b>${x.w[0] + x.w[1] === 7 ? ' <span class="tag">G7</span>' : ''}</div>`;
+    };
+    const body = rounds.map(r => {
+      const list = h.bracket.filter(x => x.r === r);
+      const name = PBC.League.roundName(S, r);
+      return `<div style="margin-bottom:10px"><div class="tiny up dim">${U.esc(name)}</div><div class="list">${list.map(series).join('')}</div></div>`;
+    }).join('') + (h.playIn && h.playIn.length ? `<div class="tiny up dim">Play-in</div><div class="list">${h.playIn.map(x => `<div class="li small">${teamTxt(x.win)} <span class="muted">beat</span> ${teamTxt(x.win === x.hi ? x.lo : x.hi)}</div>`).join('')}</div>` : '');
+    UI.modal({ title: `${U.seasonLabel(season)} playoffs`, body: `<div>${body}</div>`, actions: [{ label: 'Close', cls: 'primary' }] });
+  }
 
   function championsHtml(S) {
     const H = S.history.slice().reverse();
@@ -911,7 +932,7 @@
     const rows = H.map(h => {
       const c = S.teams[h.champion], ru = S.teams[h.runnerUp], fm = h.fmvp != null ? S.players[h.fmvp] : null;
       const ut = S.teams[h.userTid], uh = ut ? ut.history.find(x => x.season === h.season) : null;
-      return `<tr class="${h.champion === h.userTid ? 'me' : ''}"><td class="bold nowrap">${U.seasonLabel(h.season)}</td>
+      return `<tr class="${h.champion === h.userTid ? 'me' : ''}"><td class="bold nowrap">${U.seasonLabel(h.season)}${h.bracket ? ` <a class="link tiny" data-bracket="${h.season}" title="The playoff bracket">bracket</a>` : ''}</td>
         <td>${c ? `${teamCell(c, 22)} <span class="tiny dim">${recOf(h, c.id)}</span>` : '-'}</td>
         <td class="nowrap">${h.finals ? `<b>${h.finals.wins.join('-')}</b> ` : ''}${ru ? `<span class="muted">over</span> ${UI.teamBadge(ru, 18)} ${UI.teamLink(ru, ru.abbr)}` : '-'}</td>
         <td class="nowrap">${fm ? `<span class="ls-tm">${UI.avatar(fm, 24)}${shortLink(fm)}</span>` : '-'}</td>
@@ -1051,6 +1072,7 @@
         ${scoped ? `<div class="ls-bar">${field('Scope', `<select class="inp" data-f="scope">${teamOptions(S, tid == null ? 'league' : tid, 'Whole league', 'league')}</select>`)}
           ${field('Show', seg([['5', 'Top 5'], ['10', 'Top 10']], String(n), 'n'))}</div>` : ''}
         ${body}</div>`;
+      UI.on(root, 'click', '[data-bracket]', (e, el) => openBracket(S, +el.dataset.bracket));
       UI.on(root, 'click', '[data-tab]', (e, el) => { rcs.tab = el.dataset.tab; UI.refresh(); });
       UI.on(root, 'click', '[data-n]', (e, el) => { rcs.n = +el.dataset.n; UI.refresh(); });
       UI.on(root, 'change', '[data-f="scope"]', (e, el) => { rcs.scope = el.value; UI.refresh(); });

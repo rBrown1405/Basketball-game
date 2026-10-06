@@ -79,7 +79,7 @@
 
     // ---------- formatting ----------
     money(n, short) {
-      if (n == null || isNaN(n)) return '—';
+      if (n == null || isNaN(n)) return '-';
       const neg = n < 0; n = Math.abs(n);
       let s;
       if (n >= 1e6) s = '$' + (n / 1e6).toFixed(n >= 1e8 || short ? 1 : 2).replace(/\.0+$/, '') + 'M';
@@ -91,9 +91,9 @@
       const ft = Math.floor(inches / 12), inch = Math.round(inches - ft * 12);
       return inch === 12 ? `${ft + 1}'0"` : `${ft}'${inch}"`;
     },
-    pct(x, d = 1) { return x == null || isNaN(x) ? '—' : (x * 100).toFixed(d) + '%'; },
-    pct3(made, att) { return att > 0 ? (made / att).toFixed(3).replace(/^0/, '') : '—'; },
-    num(x, d = 1) { return x == null || isNaN(x) ? '—' : Number(x).toFixed(d); },
+    pct(x, d = 1) { return x == null || isNaN(x) ? '-' : (x * 100).toFixed(d) + '%'; },
+    pct3(made, att) { return att > 0 ? (made / att).toFixed(3).replace(/^0/, '') : '-'; },
+    num(x, d = 1) { return x == null || isNaN(x) ? '-' : Number(x).toFixed(d); },
     ordinal(n) {
       const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);

@@ -1,0 +1,31 @@
+A/B: the arena audio of 8baee19 (old) against the working copy (new), the same random variations on both sides
+
+One-shots: mean energy of the hits in their window (dBFS), crowd bed off in both
+dribble                      old  -34.7  new  -38.1  diff -3.34 dB   peak old -14.7 new -11.8 dBFS  (new court sound, Trial 2)
+bounce                       old  -34.4  new  -36.1  diff -1.73 dB   peak old -14.7 new -8.6 dBFS  (new court sound, Trial 2)
+squeak                       old  -44.5  new  -35.2  diff +9.30 dB   peak old -30.2 new -18.4 dBFS  (new court sound, Trial 2)
+rim                          old  -35.7  new  -34.6  diff +1.16 dB   peak old -13.9 new -13.4 dBFS  (new court sound, Trial 2)
+board                        old  -32.6  new  -34.1  diff -1.57 dB   peak old -15.1 new -15.3 dBFS  (new court sound, Trial 2)
+swish                        old  -45.9  new  -38.1  diff +7.88 dB   peak old -23.7 new -13.8 dBFS  (new court sound, Trial 2)
+net                          old  -41.5  new  -43.2  diff -1.70 dB   peak old -20.5 new -19.1 dBFS  (new court sound, Trial 2)
+dunk                         old  -25.4  new  -28.5  diff -3.08 dB   peak old -3.1 new -9.7 dBFS  (new court sound, Trial 2)
+block                        old  -34.4  new  -38.9  diff -4.54 dB   peak old -13.2 new -13.5 dBFS  (new court sound, Trial 2)
+whistle                      old  -27.0  new  -28.3  diff -1.26 dB   peak old -13.7 new -14.8 dBFS  (new court sound, Trial 2)
+horn                         old  -32.1  new  -32.3  diff -0.18 dB   peak old -20.0 new -19.2 dBFS  (new court sound, Trial 2)
+roar 0.65 (home basket)      old  -35.2  new  -35.1  diff +0.07 dB   peak old -15.2 new -15.1 dBFS  OK
+roar 1.1 (home three)        old  -28.5  new  -28.5  diff +0.06 dB   peak old -10.2 new -10.1 dBFS  OK
+murmur 0.5 (away basket)     old  -52.9  new  -52.8  diff +0.07 dB   peak old -31.6 new -31.4 dBFS  OK
+groan 0.8 (away three)       old  -52.0  new  -51.9  diff +0.09 dB   peak old -28.8 new -28.7 dBFS  OK
+ooh 0.6 (home missed three)  old  -51.1  new  -51.0  diff +0.09 dB   peak old -28.8 new -28.6 dBFS  OK
+roar 0.9 (home block)        old  -29.7  new  -29.6  diff +0.06 dB   peak old -11.5 new -11.4 dBFS  OK
+largest difference among the crowd's sounds: 0.09 dB over 6 (the court's 11 are Trial 2's new sounds: information only)
+
+Crowd bed and the duck while the booth talks (dBFS)
+old: bed -40.6 (K-weighted -43.4), while the booth talks -44.6 (-4.0 dB), 3.5 s after it stops -38.6
+new: bed -43.2 (K-weighted -43.4), while the booth talks -48.6 (-5.4 dB), 3.5 s after it stops -42.4
+bed loudness (K-weighted), new minus old: -0.08 dB (plain energy: -2.66 dB)
+level every 0.1 s from 0.5 s before the booth starts to 4 s after it stops (it talks from the 6th value for 3 s):
+old -43 -43 -40 -41 -41 -41 -42 -41 -39 -39 -43 -44 -43 -44 -44 -46 -45 -44 -44 -46 -43 -46 -43 -46 -46 -46 -44 -46 -47 -45 -45 -42 -47 -42 -46 -46 -48 -44 -44 -44 -45 -45 -42 -42 -42 -42 -42 -42 -39 -38 -41 -41 -41 -40 -41 -42 -40 -40 -39 -41 -38 -40 -38 -40 -40 -40 -38 -40 -41 -39 -39 -36 -41 -36 -40 -40
+new -43 -44 -43 -43 -44 -43 -46 -49 -48 -48 -49 -49 -49 -49 -49 -49 -50 -49 -49 -50 -49 -49 -47 -48 -49 -49 -49 -49 -49 -49 -49 -48 -48 -48 -49 -49 -49 -49 -48 -49 -50 -50 -49 -49 -50 -50 -50 -48 -46 -45 -46 -46 -44 -44 -43 -43 -43 -44 -42 -43 -42 -43 -42 -43 -43 -43 -42 -43 -43 -43 -43 -42 -43 -41 -43
+errors: old 0, new 0
+RESULT: PASS (every crowd sound and the bed's loudness within 1 dB of the old code; the duck, the court (Trial 2) and the bed's spectrum (a recording) differ by design)

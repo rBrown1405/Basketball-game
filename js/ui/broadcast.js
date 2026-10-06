@@ -111,11 +111,12 @@
       if (s.ast >= 3) parts.push(`<b>${s.ast}</b> AST`);
       if (s.stl + s.blk >= 3) parts.push(`${s.stl} STL ${s.blk} BLK`);
       const per = p && PBC.Persona ? PBC.Persona.info(p) : null;
+      const sty = p && PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null; // (his play style, js/core/style.js)
       const el = $('bc-l3');
       el.setAttribute('style', tcss(teamIdx));
       el.innerHTML = `<div class="l3-por">${UI.avatar(p, 64)}</div>
         <div class="l3-body"><div class="l3-top"><span class="l3-num">#${p ? p.num : ''}</span><span class="l3-name">${esc(p ? (p.first + ' ' + p.last) : c.name).toUpperCase()}</span>${headline ? `<span class="l3-hl">${esc(headline)}</span>` : ''}</div>
-        <div class="l3-stats">${parts.join('<i>·</i>')}</div>${per ? `<div class="l3-pers">${per.icon} ${esc(per.label)}</div>` : ''}</div>`;
+        <div class="l3-stats">${parts.join('<i>·</i>')}</div>${per || sty ? `<div class="l3-pers">${sty ? sty.icon + ' ' + esc(sty.label) : ''}${per && sty ? ' <i>·</i> ' : ''}${per ? per.icon + ' ' + esc(per.label) : ''}</div>` : ''}</div>`;
       el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
       B.l3T = secs || 5;
       B.lastL3 = B.possN;
@@ -139,6 +140,14 @@
       return true;
     }
     const pcOf = id => { for (const Tm of g.t) { const c = Tm.players.find(x => x.id === id); if (c) return { c, i: Tm.idx }; } return null; };
+    // a bench's adjustment (js/core/adjust.js): the scheme it went to, the hack, everyone back
+    const ADJ_TAG = { man: 'MAN-TO-MAN', switch: 'SWITCHING EVERYTHING', drop: 'DROP COVERAGE', hedge: 'HEDGING', blitz: 'BLITZING', zone23: '2-3 ZONE', zone32: '3-2 ZONE', zone131: '1-3-1 ZONE', boxone: 'BOX-AND-ONE', press: 'FULL-COURT PRESS', packline: 'PACKING THE PAINT', nothree: 'RUN OFF THE LINE', pressure: 'BALL PRESSURE' };
+    const adjTag = ev => {
+      if (ev.k === 'hack') { const x = pcOf(ev.on); return x ? 'HACK-A-' + x.c.last.toUpperCase() : null; }
+      if (ev.k === 'trans') return 'GETTING BACK';
+      if (ev.k === 'fouls') return null;
+      return ev.def ? ADJ_TAG[ev.def] || null : null;
+    };
 
     // ---------------------------------------------------------- cards
     function card(html, cls) {
@@ -169,7 +178,9 @@
       flash(i) { const el = $('bb-sc' + i); if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } },
       onPossession(P) {
         B.possN++;
-        if (P.setName && P.play !== 'transition' && Math.random() < 0.55) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">${esc(P.setName)}</span>`, P.off, 2.8);
+        const called = P.userCall && PBC.Playbook && PBC.Playbook.get(P.userCall);
+        if (called) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">📋 ${esc(called.name.toUpperCase())}</span>`, P.off, 3.2);
+        else if (P.setName && P.play !== 'transition' && Math.random() < 0.55) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">${esc(P.setName)}</span>`, P.off, 2.8);
         else if (P.play === 'transition' && Math.random() < 0.25) tag(`<span class="tg-ab">${esc(T[P.off].abbr)}</span><span class="tg-t">FAST BREAK</span>`, P.off, 2);
       },
       onEvent(ev, P, sc) {
@@ -190,6 +201,8 @@
             else if (c.st.tpm >= 4 && sh.pts === 3) hl = c.st.tpm + ' THREES';
             else if (sh.kind === 'dunk' || sh.kind === 'alley') hl = sh.kind === 'alley' ? 'ALLEY-OOP' : 'SLAM';
             else if (sh.andOne) hl = 'AND ONE';
+            // (a Gold or Hall of Fame badge showing: js/core/badges.js)
+            if (!hl && sh.badge && sh.badge.tier >= 3 && PBC.Badges && PBC.Badges.BY_KEY[sh.badge.key]) { const bd = PBC.Badges.BY_KEY[sh.badge.key]; hl = bd.icon + ' ' + bd.label.toUpperCase(); }
             if ((hl && B.possN - B.lastL3 >= 2) || (milestone && B.possN - B.lastL3 >= 1)) lowerThird(c, x.i, hl, 5.5);
             else if (B.possN - B.lastL3 >= 9 && pts >= 8 && Math.random() < 0.35) lowerThird(c, x.i, '', 4.5);
           }
@@ -197,6 +210,12 @@
           if (run.pts >= 8 && run.team === ev.team && (run.pts === 8 || run.pts % 4 === 0)) showRun(ev.team, run.pts);
         } else if (ev.type === 'timeout') {
           if (!teamPanel(ev.team)) tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">TIMEOUT</span>`, ev.team, 3.5);
+        } else if (ev.type === 'ankle') {
+          const x = pcOf(ev.player);
+          if (x) lowerThird(x.c, x.i, ev.fall || ev.k >= 0.5 ? 'ANKLE BREAKER' : 'CROSSED UP', 4.5);
+        } else if (ev.type === 'adjust') {
+          const lab = adjTag(ev);
+          if (lab) tag(`<span class="tg-ab">${esc(T[ev.team].abbr)}</span><span class="tg-t">${esc(lab)}</span>`, ev.team, 4);
         } else if (ev.type === 'shot' && ev.blocked) {
           const x = pcOf(ev.blocker);
           if (x && x.c.st.blk >= 3 && B.possN - B.lastL3 >= 2) lowerThird(x.c, x.i, x.c.st.blk + ' BLOCKS', 4.5);

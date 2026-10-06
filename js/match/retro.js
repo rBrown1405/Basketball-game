@@ -40,7 +40,7 @@
   const DUR = {
     jump_ball: 1.6, sub: 0.7, timeout: 1.0, inbound: 1.2, advance: 1.5, set: 1.0,
     pass: 0.6, screen: 0.7, handoff: 0.7, move: 0.8, shot: 1.9, rebound: 1.0,
-    turnover: 1.1, foul: 1.4, ft: 1.5, period_end: 1.4,
+    turnover: 1.1, foul: 1.4, ft: 1.5, period_end: 1.4, step: 0.5,
   };
 
   class RetroView {
@@ -250,6 +250,11 @@
       else if (ev.type === 'ft' && ev.made) { const t = this.teamOf(ev.shooter, ev.team); if (t === 0 || t === 1) this.score[t] += 1; }
       if (ev && ev.text) this.cheer = ev.type === 'shot' ? this.cheer : this.cheer;
     }
+    /** what the audio listens to besides the sounds (see View.cue in view.js): here a shot's result */
+    cue(type, a, d) {
+      if (!this.onCue) return;
+      try { this.onCue(type, a, d); } catch (e) { /* audio must never break the view */ }
+    }
     fireScore(shotEv) {
       this.swishT = 0; this.swishSide = (shotEv.x > 47 ? 1 : -1);
       this.cheer = 2.5; this.flashT = 0;
@@ -307,7 +312,15 @@
         }
         case 'set': {
           this.sendToSpots(off, this.playSpots(P.play, off, ev), null, 1);
+          // a called play: its alignment (feet from the attacked baseline, from the sideline)
+          if (ev.pb && ev.pb.align) { const toX = (u) => (bx > 47 ? 94 - u : u); for (const id in ev.pb.align) { const p = ev.pb.align[id]; put(id, toX(p[0]), p[1]); } }
           this.sendDefense(def, ocD, ocO, this.playSpots(P.play, off, ev), scheme, ball.x, ball.y, this.basketX(def));
+          break;
+        }
+        case 'step': {
+          // a step of a called play: the players it names go to their spots
+          const toX = (u) => (bx > 47 ? 94 - u : u);
+          for (const id in ev.pos || {}) { const p = ev.pos[id]; put(id, toX(p[0]), p[1]); }
           break;
         }
         case 'pass': {
@@ -512,7 +525,9 @@
       }
       if (ev.type === 'shot' && this.released && !this.scored && this.ball.state === 'done') {
         this.scored = true;
-        if (this.ball.made) this.fireScore(ev);
+        // (a make is out when the ball drops through: its result goes to the audio just before the score; a miss
+        // was reported when it came off the rim, in stepBall)
+        if (this.ball.made) { this.cue('shotResult', null, { ev, contact: 'net', x: this.ball.x1, y: this.ball.y1, z: 10 }); this.fireScore(ev); }
       }
       if (ev.type === 'ft' && this.released && this.ball.state === 'done' && !this.scored) {
         this.scored = true;
@@ -563,7 +578,8 @@
           if (b.state === 'shot') {
             if (b.made) { b.state = 'done'; }
             else {
-              // clank off the rim toward a loose spot (rebound event secures it)
+              // clank off the rim toward a loose spot (rebound event secures it); the miss is out now
+              if (b.ev) this.cue('shotResult', null, { ev: b.ev, contact: b.ev.blocked ? 'hand' : 'rim', x: b.x1, y: b.y1, z: 10 });
               b.state = 'loose';
               b.x0 = b.x1; b.y0 = b.y1;
               const r = this.ballLanding();

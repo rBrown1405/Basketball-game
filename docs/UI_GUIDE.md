@@ -49,6 +49,8 @@ UI.portrait(player, size, opts)        // larger studio portrait for cards and t
 UI.ovr(value), UI.potLabel(p)          // chips; potLabel respects scouting knowledge
 UI.playerLink(p) / UI.teamLink(t)      // clickable names (open the player card / team page)
 UI.openPlayer(pid), UI.openTeam(tid), UI.openBox(gid)
+UI.styleTag(p, nBadges=3)              // a player's play style (icon and label) and best badges as small chips (PBC.Style, PBC.Badges)
+UI.badgeChip(badge, small)             // one badge from PBC.Badges.list(p) as a chip in its tier's color
 UI.table(container, { columns: [{ key, label, num, fmt(row), sort(row), title }], rows, sort: 'key', desc: true,
                       rowClass(row), onRow(row, ev), compact })
 UI.save()                              // after changing S: writes when the autosave policy allows it, otherwise marks the career unsaved
@@ -57,8 +59,43 @@ UI.backupNow(reason), UI.saveAs()      // rotating backup / named save slot
 UI.guardUnsaved(doing) -> Promise<bool>  // asks before leaving a career with unsaved changes
 UI.teamUniform(t, home), UI.teamCourt(t), UI.teamArena(t)   // Team Editor look with defaults
 UI.openTeamEditor(tid)
-UI.openPlayerEditor(pid, { tab: 'main' | 'tend' | 'pers' | 'char' })   // ratings & looks, tendencies, personality, characteristics
+UI.openPlayerEditor(pid, { tab: 'ratings' | 'looks' | 'tend' | 'pers' | 'char' })   // the editor ('main' still opens the ratings)
+UI.ModelView: new UI.ModelView(canvas, { look, team, move, view })   // a player's in-game 3D model on its own (js/ui/model3d.js):
+                                       //   setLook(look, team), setMove(key), setView('full'|'upper'|'face'), spin(on), destroy();
+                                       //   ModelView.MOVES, ModelView.VIEWS, ModelView.available(), ModelView.plainTeam()
+UI.playerLook(p, teamIdx), UI.teamLookOf(t, home)   // a player / team dressed the way the live game dresses them (js/ui/live.js)
+UI.PC.stats / log / awards / prog(S, p, el, go)     // the player card's career tabs (js/ui/pcareer.js); UI.PC.pills(p, n) the honors pills
+UI.AWARD_KIND[type] -> { i (icon), l (label), g (group), o (order) }, UI.AWARD_LABEL[type]   // every award type
 UI.money = PBC.U.money
 ```
 
 Screens should read state from `UI.S`, mutate it through the core modules, then call `UI.save()` and `UI.refresh()`.
+
+## The player card's career tabs (js/ui/pcareer.js, css/pcard.css)
+
+- **Header**: the honors as pills (`UI.PC.pills`: "💍 2× Champion", the seasons in the tooltip; a click opens Awards).
+- **Stats**: regular season or playoffs; per game, totals, per 36 or advanced (TS%, eFG%, 3PAr, FTr, AST/TO, game score,
+  +/-, double- and triple-doubles). A row a season with his age and team; a trade season shows TOT and then each team;
+  the career row and, for a player of several teams, his career with each. A stat title season has that cell in gold;
+  ★ All-Star, 🏆 MVP, 💍 title by the season. "log" opens that season's games. This season and the career at a glance on top.
+- **Game Log**: any player, any season kept (the season picker), all / regular season / playoffs; the summary and the
+  season's highs, a bar a game (PTS, REB, AST, game score or +/-; wins and losses in their colors, the playoffs outlined,
+  the average as a line), then every game (newest first, a line where he was traded, a gold box on a career high, a box score
+  when the user's team kept one). It says so when a season's log was not kept (Settings → Save data → Game logs).
+- **Awards**: the trophy case (a tile a kind: count and seasons; All-League by team), milestones and records, career highs
+  (regular season and playoffs, with the date and the opponent), double- and triple-doubles, his three best games, and
+  every season's honors.
+- **Progression**: OVR (and potential where it is known: his own team, 28 and older, retired) over the seasons from where
+  he started to now or to the ratings he retired with, the peak in gold; the story (peak, the last change, the career's,
+  the biggest rating moves); every rating by season (the change from the year before or since the start, in green and red).
+
+## The player editor (js/ui/editor.js, js/ui/model3d.js, css/editor.css)
+
+The left column is the player as the game shows him: the in-game 3D model (the live game's own actor, ball, moves and
+renderer in a world of one: drag or arrow keys to turn him, the wheel to zoom, a double click to reset; framed full body,
+upper body or face; home or away uniform; stand, triple threat, dribble, dribble moves, jump shot, defense, jog, celebrate),
+the portrait and the pixel sprite, the live OVR against what he was (and his OVR at his best positions, his play style),
+the badges his ratings give him (new ones and tier changes marked, lost ones struck through), and the changes so far (the
+list in the tooltip, Undo with Ctrl/Cmd+Z, Reset all). The tabs: Ratings (a slider and a number each, the change and ↺ back
+to what it was, a group's or every rating ±1, Shift + arrows by 5, find a rating), Looks & Body (identity, body with
+feet and inches, appearance, a random look), Tendencies, Personality, Contract & Health. Nothing is saved until Save.
