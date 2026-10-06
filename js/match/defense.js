@@ -227,7 +227,8 @@
     if (!pc || pc.man !== m || !(dt > 0) || T - pc.t > 0.25) pc = a._pc = { man: m, x: m.x, y: m.y, vx: m.vx, vy: m.vy, t: T, antK: 1, bite: null };
     pc.t = T;
     const k = this.shiftyK(m, a);
-    let lag = U.lerp(TS.lagS[0], TS.lagS[1], k) / this.sliderK('defIQ', 0.8, 1.2);
+    // (the offense's edge, Tune.edge.defLagS: a beat later in reading him)
+    let lag = U.lerp(TS.lagS[0], TS.lagS[1], k) / this.sliderK('defIQ', 0.8, 1.2) + M.Tune.edge.defLagS;
     // (broken down by a move, Director.ankleBreak: gathering himself, he reads the handler that much later)
     const bk = a._broken && T < a._broken.until ? a._broken : null;
     if (bk) lag *= M.Tune.combo.brokenLagK;
@@ -496,7 +497,8 @@
       const os = a._os || (a._os = { x: a.x - m.x, y: a.y - m.y, t: T, m: m.id, role: null });
       if (os.m !== m.id || os.role === 'onBall' || os.role === 'closeout' || os.role == null) { os.x = a.x - m.x; os.y = a.y - m.y; os.m = m.id; }
       const help01 = U.clamp((this.rating(a.id, 'helpD', 60) - 25) / 74, 0, 1);
-      const tau = role === 'lowman' || role === 'sink' ? 0.12 : 0.15 + (1 - help01) * 0.2;
+      // (and the offense's edge, Tune.edge.defLagS: the ball's part of his spot a beat later still)
+      const tau = (role === 'lowman' || role === 'sink' ? 0.12 : 0.15 + (1 - help01) * 0.2) + M.Tune.edge.defLagS;
       const dts = U.clamp(T - os.t, 0, 0.1); os.t = T;
       const kk = 1 - Math.exp(-dts / tau);
       os.x += (px - m.x - os.x) * kk; os.y += (py - m.y - os.y) * kk;

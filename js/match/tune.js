@@ -887,6 +887,15 @@
       flowSpeedK: 1.1,              // ...and its actions' legs this much quicker than written (on top of goalK)
     },
 
+    // ---------------------------------------------------------------- the offense's edge (the user: "make the offense player
+    // movements faster than the defense, just enough that there is a delay for the defense so there is more space"). The side
+    // with the ball runs offSpeedK x and pushes off offAccelK x what it could (every one of them, the man with the ball and the
+    // cutters alike; Actor._steer, set by the Director as the ball changes hands); the side without it reads the man it guards
+    // defLagS later (on the ball, defense.js _perceive; off it, the spot's lag on the ball, guardPos; the call to re-match on a
+    // break, transitionMatch): a step of space on a cut, a drive or a closeout. On top of the Player Speed and Defensive IQ
+    // sliders. The engine's outcomes are its own; this is the room the court shows
+    edge: { offSpeedK: 1.06, offAccelK: 1.08, defLagS: 0.06 },
+
     // ---------------------------------------------------------------- shifty handlers (the gameplay pass: the man on the ball
     // mirrored the handler with no delay and no move made space). How good the handler is against him (Director.shiftyK: his
     // handle and quickness against the defender's perimeter defense, quickness and head) sets each of these between its ends
@@ -964,31 +973,37 @@
     // his feet or leaning; tight, his man stayed with it and he went up through him). Weights, each x (0.5 + the player's
     // strength) for the drop step and x (0.5 + his post craft and quickness) for the fakes and the spin (0-1 from 40 to 90)
     post: {
-      rim: { open: { upUnder: 3, spin: 2, dropStep: 2, fake: 1 }, contested: { dropStep: 3, upUnder: 1.5, spin: 1.5, fake: 1 }, tight: { dropStep: 4, fake: 1, spin: 0.5 } },
-      hook: { open: { fake: 3, dropStep: 1.5 }, contested: { fake: 2, dropStep: 2 }, tight: { dropStep: 3, fake: 1 } },
-      fade: { open: { fake: 3, none: 1 }, contested: { fake: 2, none: 1.5 }, tight: { fake: 1, none: 2 } },
+      // (the user, after: "make the post moves more visible": more of the fakes, fewer straight up, and the moves bigger and
+      // a beat slower below: the drop step and the spin 2 ft and more, the fake's bite a yard, a second fake back for the
+      // crafty, doubleFakeP; and a line in the play-by-play for every move, Director.runPost's 'post' event)
+      rim: { open: { upUnder: 3, spin: 2.5, dropStep: 2, fake: 2 }, contested: { dropStep: 3, upUnder: 1.5, spin: 1.5, fake: 2 }, tight: { dropStep: 4, fake: 1.5, spin: 0.5 } },
+      hook: { open: { fake: 3, dropStep: 1.5 }, contested: { fake: 2.5, dropStep: 2 }, tight: { dropStep: 3, fake: 1.5 } },
+      fade: { open: { fake: 3, none: 0.5 }, contested: { fake: 2.5, none: 0.8 }, tight: { fake: 1.5, none: 1.2 } },
       // squared up to the rim in the paint (a big who caught it facing, his man in front): a pump fake first, into the up and
       // under at the rim or the hook
-      faceUp: { open: { upUnder: 3, none: 0.5 }, contested: { upUnder: 2, none: 1 }, tight: { upUnder: 1, none: 2 } },
+      faceUp: { open: { upUnder: 3, none: 0.3 }, contested: { upUnder: 2, none: 0.6 }, tight: { upUnder: 1.2, none: 1.2 } },
       rangeFt: 11,                  // a post-up this close to the rim finishes where its move leaves him (a power finish off two
                                     // feet); the running layup from further out keeps its run-up
       faceFt: 12, faceNearFt: 5,    // squared up inside faceFt of the rim with his man within faceNearFt: the face-up moves
-      bumpS: 0.56,                  // the shoulder into his man's chest first (the back-down's bump), the move this long after it
+      bumpS: 0.6,                   // the shoulder into his man's chest first (the back-down's bump), the move this long after it
                                     // (its second step down by then: the pivot after it needs both feet on the floor)
       bumpK: 7,                     // how hard (ft/s of closing speed, Actor.impact; x the strength edge, 0.75-1.35)
-      dropFt: 1.5,                  // the drop step: the hips this far on toward the rim with the big step back past his man...
-      sealK: 8,                     // ...and the seal: his man knocked off the line round the hip (x the edge too)...
-      sealFt: [0.5, 1.4],           // ...and kept this far off it until the finish (tight to open)
+      dropFt: 2.1,                  // the drop step: the hips this far on toward the rim with the big step back past his man (was 1.5)...
+      sealK: 9,                     // ...and the seal: his man knocked off the line round the hip (x the edge too)...
+      sealFt: [0.8, 1.8],           // ...and kept this far off it until the finish (tight to open; was 0.5-1.4)
       spinK: 7.5,                   // the spin: his man, leaning on him, falls into the space he left (a stumble from ~6.5)...
-      spinShiftFt: 1.6,             // ...as he goes round the hip, the hips this far on toward the rim
+      spinShiftFt: 2.3,             // ...as he goes round the hip, the hips this far on toward the rim (was 1.6)
       spinQuick: 0.8,               // (the spin's turn this much quicker than a pivot's)
-      fakeBiteFt: [0.4, 1.4],       // a shoulder fake: his man shifts this far to it (tight to open)...
-      fakeLeanK: 3.8,               // ...leaning (a small knock his way)
-      pumpStepFt: 0.7,              // a pump fake on a contested look: he steps up into it, hands up, off his heels (open: he jumps)
-      stepFt: 2.8, stepSideFt: 1.0, // the step through: the free foot this far on toward the rim and this far to the side, past
+      fakeBiteFt: [0.7, 1.9],       // a shoulder fake: his man shifts this far to it (tight to open; was 0.4-1.4)...
+      fakeLeanK: 6,                 // ...leaning (a knock his way; was 3.8, a lean you could not see)
+      fakeS: 0.42,                  // ...the fake given this long before the next part (s; its clip's length, it was cut at 0.34)
+      doubleFakeP: 0.45,            // a crafty post man (post craft over 0.5) fakes over one shoulder and back over the other this often
+                                    // (the dream shake), the move going the first way; the second fake goes when there is no time
+      pumpStepFt: 1.0,              // a pump fake on a contested look: he steps up into it, hands up, off his heels (open: he jumps)
+      stepFt: 3.2, stepSideFt: 1.1, // the step through: the free foot this far on toward the rim and this far to the side, past
                                     // his man's hip...
       stepK: 5,                     // ...the shoulder under him as he comes down
-      moveP: 0.92,                  // a post-up works a move first this often (the rest go straight up)
+      moveP: 0.97,                  // a post-up works a move first this often (the rest go straight up; was 0.92)
       // the back-down (the user: "in the post there isn't any post moves and the post defense, the contact is very minimal, it
       // should be a dog fight"; Director.p_move 'backdown'): a fight, not a bump or two with the man 2 ft off. The bodies touch
       // (Tune.glass.touchH apart plus backGapFt, as a box-out's), his man's forearm in his back; the bumps come bumpGapS apart,
@@ -1034,6 +1049,16 @@
       pushCutMaxS: 3.2,             // ...for this long at most (s), then he fills his corner...
       pushCutGapS: 4,               // ...and not again within this (s)
     },
+
+    // ---------------------------------------------------------------- the contact drive (the user: "add a contact drive, right
+    // now players don't drive in traffic, they should, to try and draw a foul"; Director.contactDrivePlan, driveContact, Actor
+    // ._avoid). A drive to a finish at the rim with a help defender in the lane (within helpFt of the rim) goes at his chest
+    // instead of round him: when the engine has the shot fouled, and contactP of the time otherwise by the driver's foul
+    // drawing (a 45 to a 90), with a look that was not open. He closes on the help at up to meetFtps instead of braking to a
+    // walk (Tune.weight.meetBallFtps), the shoulder in first (chestK, x the game's physicality), the help knocked back into a
+    // balance step and the driver absorbing absorbK of it, his own man's hip check hipK x harder; a fouled shot gets the
+    // whistle the engine gave it, the rest go up through the contact
+    traffic: { contactP: [0.15, 0.75], helpFt: 10, meetFtps: 12, chestK: [8.5, 11], absorbK: 0.35, hipK: 1.25, setFt: 4.5 }, // (setFt: the help sets himself this far in front of the rim on the driver's line)
 
     // ---------------------------------------------------------------- denying the ball (the gameplay pass: one pass away the
     // defenders sat a step off in the lane and none of them took the pass away; defense.js denyK, guardPos, Actor._armTargets)

@@ -965,3 +965,68 @@ notes (the corner rim run, converting numbers), FastModel Sports and Breakthroug
 video rulebook (legal post defense: the hand or forearm with a bent elbow on the back), Sikana and wikiHow (post defense
 technique: the forearm in contact, the fight for position), NBA 2K's dev blogs and forums (size-ups as rhythm: a slow rocking
 crossover or quick machine-gun crosses, the hesitation that freezes a man), and the dribble breakdown's own sources above.
+
+## Post moves that read, the offense's step, the contact drive
+
+Asked for by the user, after the pass above: "make the post moves more visible too"; "make the offense player movements
+faster than the defense, just enough that there is a delay for the defense so there is more space"; "add a contact drive as
+well, right now players don't drive in traffic, they should, to try and draw a foul".
+
+### Post moves that read
+
+* **Bigger and a beat slower** (`Tune.post`): the drop step's hips 2.1 ft on toward the rim (was 1.5) with the seal held
+  0.8 to 1.8 ft off the line, the spin 2.3 ft round the hip (was 1.6), a shoulder fake that shifts his man 0.7 to 1.9 ft
+  (was 0.4 to 1.4) with a lean you can see, the fake given its clip's whole length before the next part, the pump fake's
+  step up a foot. More of the fakes and fewer straight-up finishes in every table (`rim`, `hook`, `fade`, `faceUp`), and
+  97 % of post-ups work a move (was 92).
+* **The dream shake** (`doubleFakeP`, `postPlan`'s 'fake' branch): a crafty post man (post craft over 0.5) fakes over
+  the shoulder he will go, fakes back over the other, and goes the first way with his man leaning the wrong one, 45 % of
+  his fakes; the first fake is the part dropped when there is no time for both.
+* **A line for every move** (`runPost`'s 'post' event, `js/ui/live.js` `postMove`, `js/ui/commentary.js` 'post'): as the
+  move starts the play-by-play says "Stephens with the drop step on Hill", "pump fakes... and steps through", "spins off
+  Hill", "shakes Hill: a fake one way, back the other", and the booth calls it, before the shot's own line.
+
+### The offense's step
+
+* **`Tune.edge`** (`Actor._steer`, `Director.applyEdge`, set on every player as the ball changes hands): the side with the
+  ball runs 6 % quicker and pushes off 8 % harder than it could, every one of them, the man with the ball and the cutters
+  alike (a timed order still arrives on time); the side without it reads the man it guards 60 ms later, on the ball
+  (`_perceive`'s lag) and off it (the ball's part of a spot's lag, `guardPos`), and calls the re-match on a break that much
+  later. On top of the Player Speed and Defensive IQ sliders; the engine's outcomes are its own.
+
+### The contact drive
+
+* **Into traffic on purpose** (`Tune.traffic`, `Director.contactDrivePlan`, `contactFinish`, `driveContact`, `Actor._avoid`):
+  a finish at the rim with a help defender in the lane (within 10 ft of the rim, between him and the basket) goes at his
+  chest instead of round him: always when the engine has the shot fouled, and 15 to 75 % of the time otherwise by the
+  driver's foul drawing (a 45 to a 90), against a look that was not open. He closes on the help at up to 12 ft/s instead of
+  braking to the walk a body closing on another is held to (`Tune.weight.meetBallFtps`), the bodies allowed to touch, the
+  shoulder into the chest as they meet, in the air too (8.5 to 11 ft/s x the game's physicality), the help knocked back into
+  a balance step and the driver absorbing 35 % of it, his own man's hip check a quarter harder. A fouled shot gets the
+  whistle the engine gave it; the rest go up through the contact. The court knows the foul-drawing rating now (`drawFoul`
+  in the player look).
+
+### Measured (this pass)
+
+Headless games through the court, two periods on one seed, the offense's step on and off:
+
+| | edge off | edge on |
+|---|---|---|
+| nearest defender at a jumper's release (ft) | 5.15 | 5.50 |
+| nearest defender at a finish's release (ft) | 2.99 | 3.05 |
+| drives at an open lane per half (readOpen) | 74 | 86 |
+| rim cuts on the break per half | 4 | 9 |
+
+Two periods on two seeds with everything on: 7 contact drives a half, 5 to 6 of them with the shoulder into the help's
+chest (the rest found the lane cleared by the time he went up); a post move on three quarters of the back-downs, half of
+them fakes now (the dream shake among them), the rest drop steps, up and unders and spins; a jumper's nearest defender 5.4
+ft away on both seeds. In the real page a quarter at 4x gave six post lines in the play-by-play ("Harris shakes Kovac: a fake
+one way, back the other", "Kovac with the drop step on Nance") and no console errors. The post moves, the contact drives and
+their hits are in the audit's report (`fgPostMoves`, `fgContactDrives`, `fgContactHits`); the gauntlet passes.
+
+### Limitations (this pass)
+
+* The whistle is the engine's: a contact drive that the engine did not foul goes up through the contact and is a make or a
+  miss as the engine had it. The engine's foul odds already carry the shooter's foul drawing; the court shows the drive.
+* The edge is a flat step for the whole side; it does not grow with a player's quickness over his man (that is the dribble
+  breakdown's, `shiftyK`).

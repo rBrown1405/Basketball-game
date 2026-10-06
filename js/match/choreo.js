@@ -74,6 +74,7 @@
       this.phase = 'start';
       this.tempo = this.play === 'transition' ? 'push' : 'normal';
       this.role = {}; this.dtask = {};
+      this.applyEdge(this.off);
       this.setupMatchups();
       for (const id of v.onCourt[this.off]) this.role[id] = { mode: 'spot', spot: null, jx: 0, jy: 0, next: 0 };
       this.assignSpots(this.play === 'transition' ? 'transition' : 'advance');
@@ -1122,7 +1123,7 @@
       const key = changed.map((d) => d.id + ':' + next[d.id]).join(',');
       if (!this._tmCall || this._tmCall.key !== key) {
         const aw = Math.max(...changed.map((d) => this.aware(d, 'def')));
-        this._tmCall = { key, at: T + U.lerp(1.0, 0.1, aw) * (0.75 + Math.random() * 0.5) };
+        this._tmCall = { key, at: T + U.lerp(1.0, 0.1, aw) * (0.75 + Math.random() * 0.5) + M.Tune.edge.defLagS };
       }
       if (T < this._tmCall.at) return;
       this._tmCall = null;
@@ -1902,6 +1903,8 @@
           const dx = this.rim.x - a.x, dy = this.rim.y - a.y, dl = Math.hypot(dx, dy) || 1;
           const nx = this.findNextAfter(ev, (e) => e.shooter === a.id || e.from === a.id);
           const stopAt = nx && nx.type === 'shot' && (RIM_SHOTS[nx.kind] || nx.kind === 'floater') ? 12.5 : 7;
+          // (the contact drive, Tune.traffic: into the traffic on purpose, at the help's chest, to draw the foul)
+          const cd = this.contactDrivePlan(a, nx);
           const end = (fx, fy) => {
             const ex = this.rim.x - fx, ey = this.rim.y - fy, el = Math.hypot(ex, ey) || 1, go = Math.max(0, Math.min(el - stopAt, 14));
             return { x: fx + ex / el * go, y: fy + ey / el * go };
@@ -1971,7 +1974,13 @@
           // help rotation
           const help = this.nearestTo(this.def, this.rim.x + (a.x - this.rim.x) * 0.4, this.rim.y + (a.y - this.rim.y) * 0.4, d);
           if (help) { this.dtask[help.id] = { until: this.T + 1.2 }; help.moveTo(this.rim.x + dx / dl * -6, this.rim.y + dy / dl * -6, { speed: 14, stance: 'defense' }); }
-          this.driveContact(a, d, help, this.T + 1.8);
+          // (the contact drive: the help in the lane is the man he goes through; he closes on him at a run, Actor._avoid)
+          if (cd && help && Math.hypot(help.x - this.rim.x, help.y - this.rim.y) < M.Tune.traffic.helpFt) {
+            cd.help = help;
+            a._contactDrive = { d: help, until: this.T + 2.2, fouled: cd.fouled };
+            this.contactDrives = (this.contactDrives || 0) + 1;
+          }
+          this.driveContact(a, d, help, this.T + 1.8, cd && cd.help ? cd : null);
           v.arena.cheer(this.off, 0.3, 0.8);
         } else if (mv === 'stepback') {
           // handled by the following shot when it is a stepback; otherwise a quick retreat dribble
@@ -2225,8 +2234,14 @@
         // its own clip turns (over his left shoulder for postFadeL)
         const goDir = o.postTurn ? ((clipName === 'postFadeL') !== !!sh.lefty ? 1 : -1) : pm.dir;
         pm.fakeDir = -goDir;
-        if (o.postUp && facePost) P.push({ name: 'shoulder fake', dur: 0.34, st: 'postHold', fn: () => this.postShoulderFake(sh, pm) });
-        else return no('fake faced up');
+        if (!(o.postUp && facePost)) return no('fake faced up');
+        // (the dream shake, for the crafty: a fake over the shoulder he will go, a second back over the other, and the move the
+        // first way with his man leaning the wrong one; the first fake goes when there is no time for both, Tune.post.doubleFakeP)
+        if (craft > 0.5 && Math.random() < TP.doubleFakeP) {
+          P.push({ name: 'shoulder fake', dur: TP.fakeS, opt: true, st: 'postHold', fn: () => this.postShoulderFake(sh, pm, goDir) });
+          P.push({ name: 'fake back', dur: TP.fakeS, st: 'postHold', fn: () => this.postShoulderFake(sh, pm, -goDir) });
+          pm.shake = true;
+        } else P.push({ name: 'shoulder fake', dur: TP.fakeS, st: 'postHold', fn: () => this.postShoulderFake(sh, pm) });
         if (!o.postTurn) P.push(drop(goDir));
       }
       if (!P.length) return no('no parts');
@@ -2277,6 +2292,8 @@
       const pl = this.postLog || (this.postLog = { n: 0, moves: {} });
       pl.n++; pl.moves[pm.move] = (pl.moves[pm.move] || 0) + 1;
       sh._postMove = { T: this.T, move: pm.move, contest: pm.contest, t0, clipStart };
+      // (the live view's line and the booth's call, as the move starts: a court event of its own, nothing waits on it)
+      this.at(t0, () => { if (this.active !== false && b.holder === sh) this.emitExtra({ type: 'post', player: sh.id, defender: pd ? pd.id : null, team: this.off, move: pm.move, shake: !!pm.shake, parts: parts.map((p) => p.name), contest: pm.contest, x: sh.x, y: sh.y }); }, 'post line');
       if (this.dbgOn && this.dbgOn()) {
         const lk = this.v.look(sh.id), NAME = { dropStep: 'the drop step', upUnder: 'the up and under', spin: 'the spin off his man', fake: 'a shoulder fake, then the other way' };
         this.dbgRead('POST ' + (lk ? lk.last || lk.name : '') + ': ' + (NAME[pm.move] || pm.move) + ' (' + parts.map(p => p.name).join(', ') + '; ' + pm.contest + ')', '#e599f7');
@@ -2405,17 +2422,17 @@
     }
     /** the head and shoulder fake (pm.fakeDir: +1 over his left shoulder, -1 his right): his man shifts to it and leans (farther
      *  on an open look) */
-    postShoulderFake(sh, pm) {
-      const TP = M.Tune.post, pd = pm.pd;
+    postShoulderFake(sh, pm, dir) {
+      const TP = M.Tune.post, pd = pm.pd, fakeDir = dir || pm.fakeDir;
       // (the clip fakes over the right shoulder; mirrored, the left: the side is the move's, whichever hand he is)
-      const right = pm.fakeDir < 0;
+      const right = fakeDir < 0;
       sh.play('postFake', { facing: sh.facing, mirror: !right, fadeIn: 0.12, ballFromPrev: true });
       if (!pd) return;
       this.at(this.T + 0.1, () => {
         if (this.active === false || pd.isBusy()) return;
         const fx = Math.cos(sh.facing), fy = Math.sin(sh.facing);
         // (his left: (-fy, fx))
-        const lx = -fy * pm.fakeDir, ly = fx * pm.fakeDir;
+        const lx = -fy * fakeDir, ly = fx * fakeDir;
         const ft = U.lerp(TP.fakeBiteFt[0], TP.fakeBiteFt[1], pm.ck);
         pm.st.off = { dx: lx * ft, dy: ly * ft, t0: this.T, t1: this.T + 0.45 + 0.25 * pm.ck, inS: 0.14, outS: 0.35 };
         pd.impact(lx, ly, TP.fakeLeanK * (0.6 + 0.6 * pm.ck));
@@ -2771,6 +2788,12 @@
         // (the post move, played so it ends as the shot starts; his man held off his contest meanwhile)
         this.postHold = null;
         const pmOn = pm ? this.runPost(pm, ev, sh, clipStart) : false;
+        // the contact drive (Tune.traffic): a finish at the rim into the traffic on purpose, at the chest of the man in the lane,
+        // to draw the foul (or with the whistle the engine gave it): he goes through him, not round him (contactFinish)
+        if (rimShot && !standFinish && !pmOn && kind !== 'alley' && (b.holder === sh || (b.state === 'flight' && b.passTarget === sh))) {
+          const cdr = sh._contactDrive && this.T < sh._contactDrive.until ? { fouled: sh._contactDrive.fouled, counted: true } : this.contactDrivePlan(sh, ev);
+          if (cdr) this.at(Math.max(this.T, clipStart - Math.max(0.9, dReach / (sh.maxSpeed * 0.85)) - 0.2), () => this.contactFinish(sh, cdr, clipStart), 'contact finish');
+        }
         // (a catch-and-shoot keeps the ball in the shot pocket from the catch to the shot: caught on the move short of the spot,
         // the shooter was sent into a dribble for the last steps, the shot then picking the ball up off the floor with no dip, Trial 9)
         if (catchAndShoot) sh.holdBallUntil = Math.max(sh.holdBallUntil || 0, clipStart + 0.2);
@@ -3702,8 +3725,20 @@
       }
     }
     /** after a change of possession inside this possession's tail: players start to transition */
+    /** the offense's edge (Tune.edge): the side with the ball a little quicker, the other a beat later; set on every player as the
+     *  ball changes hands (the possession's start, a change inside it) */
+    applyEdge(offTeam) {
+      const TE = M.Tune.edge, v = this.v;
+      for (const id in v.actors) {
+        const a = v.actors[id];
+        if (!a || a.kind !== 'player') continue;
+        const on = a.team === offTeam;
+        a.edgeK = on ? TE.offSpeedK : 1; a.edgeAK = on ? TE.offAccelK : 1;
+      }
+    }
     flipAfterChange(newHolder) {
       const v = this.v;
+      if (newHolder && newHolder.team != null) this.applyEdge(newHolder.team);
       const newOffDir = -this.dir;
       const X2 = (u) => newOffDir > 0 ? 94 - u : u;
       for (const d of this.defActors()) {
@@ -4371,26 +4406,100 @@
      * turns the corner on him, and a help defender stepping into the lane meets him chest to chest. Harder in big
      * games (playoff effort).
      */
-    driveContact(a, d, help, tEnd) {
-      const b = this.v.ball;
+    driveContact(a, d, help, tEnd, cd) {
+      const b = this.v.ball, TT = M.Tune.traffic;
       const st = { hip: false, chest: false };
       const phys = 1 + this.intensity() * 0.25;
       const check = () => {
         if (!this.active || this.T > tEnd || b.holder !== a || a.isBusy()) return;
         if (!st.hip && d && !d.isBusy() && Math.hypot(d.x - a.x, d.y - a.y) < 2.9 && a.speed > 8) {
           st.hip = true;
-          // the driver leans into him to hold his line (a strong defender gives less ground)
-          const k = (5.5 + Math.random() * 2.5) * phys;
+          // the driver leans into him to hold his line (a strong defender gives less ground; a contact drive leans harder)
+          const k = (5.5 + Math.random() * 2.5) * phys * (cd ? TT.hipK : 1);
           if (Math.random() < 0.55) this.bump(a, d, k); else this.bump(d, a, k * 0.8);
         }
-        if (!st.chest && help && !help.isBusy() && Math.hypot(help.x - a.x, help.y - a.y) < 3.1 && a.speed > 6) {
+        if (!st.chest && help && !help.isBusy() && Math.hypot(help.x - a.x, help.y - a.y) < 3.1 && a.speed > (cd ? 5 : 6)) {
           st.chest = true;
-          const k = (6.5 + Math.random() * 2.5) * phys;
-          this.bump(help, a, k * 0.85); this.bump(a, help, k * 0.6);
+          if (cd) {
+            // the contact drive (Tune.traffic): the shoulder into the help's chest at a run, the help knocked back into a balance
+            // step, the driver braced for it and absorbing a share, on up through it (the whistle is the engine's, ev.fouled)
+            const k = U.lerp(TT.chestK[0], TT.chestK[1], Math.random()) * phys;
+            let nx = help.x - a.x, ny = help.y - a.y; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+            help.impact(nx, ny, k, { stumble: true });
+            a.impact(-nx, -ny, k * TT.absorbK);
+            this.contactHits = (this.contactHits || 0) + 1;
+            this.v.arena.cheer(this.off, 0.25, 0.6);
+          } else {
+            const k = (6.5 + Math.random() * 2.5) * phys;
+            this.bump(help, a, k * 0.85); this.bump(a, help, k * 0.6);
+          }
         }
         if (!st.hip || !st.chest) this.at(this.T + 0.05, check, 'drive contact');
       };
       this.at(this.T + 0.25, check, 'drive contact');
+    }
+    /** the finish of a contact drive (Tune.traffic): the man in the lane between him and the rim (within helpFt of it, nearest his
+     *  line) is the one he goes through: the bodies allowed to touch, the shoulder into his chest as they meet (in the air too),
+     *  the help knocked back into a balance step, the driver absorbing absorbK of it and going on up. False with nobody there */
+    contactFinish(sh, cd, clipStart) {
+      const TT = M.Tune.traffic, rim = this.rim, b = this.v.ball;
+      const mine = () => b.holder === sh || (b.state === 'flight' && b.passTarget === sh);
+      if (!this.active || !mine()) return false;
+      const ux = rim.x - sh.x, uy = rim.y - sh.y, ul = Math.hypot(ux, uy) || 1;
+      let best = null, bd = 1e9;
+      for (const d of this.defActors()) {
+        const ax = d.x - sh.x, ay = d.y - sh.y, al = (ax * ux + ay * uy) / ul, lat = Math.abs((ax * -uy + ay * ux) / ul);
+        if (al < 0.5 || al > ul + 1.5 || lat > 3.5 || Math.hypot(d.x - rim.x, d.y - rim.y) > TT.helpFt) continue;
+        if (lat < bd) { bd = lat; best = d; }
+      }
+      if (!best) return false;
+      const until = clipStart + 0.8, tMax = clipStart + 3.0;
+      sh._contactDrive = { d: best, until: tMax, fouled: !!cd.fouled };
+      best._contact = { with: sh, until: tMax };
+      if (!cd.counted) { cd.counted = true; this.contactDrives = (this.contactDrives || 0) + 1; }
+      // (the help steps into his path, in the lane in front of the rim on the driver's line, the charge he means to take or the
+      // body he means to be: not off to the side of it; a help a stride off the line was never met)
+      if (!best.isBusy()) {
+        this.dtask[best.id] = { until: tMax };
+        best.track(() => { const dx = sh.x - rim.x, dy = sh.y - rim.y, dl = Math.hypot(dx, dy) || 1, k = Math.min(TT.setFt, Math.max(2.5, dl - 2.5)); return { x: rim.x + dx / dl * k, y: rim.y + dy / dl * k, vx: 0, vy: 0 }; }, { speed: best.maxSpeed * 0.9, stance: 'defense' });
+        best.setFace(() => Math.atan2(sh.y - best.y, sh.x - best.x));
+      }
+      const st = { hit: false, started: false }, phys = 1 + this.intensity() * 0.25;
+      const check = () => {
+        if (!this.active || st.hit || this.T > tMax) return;
+        // (the window: through the finish's own clip (not a gather's or a jump stop's before it), however long the beat waits to
+        // start it; over once it is done, or the ball is gone elsewhere)
+        const cs = sh.clip, inShot = !!(cs && !cs.done && cs === this.shotClipState), inClip = !!(cs && !cs.done);
+        if (inShot) st.started = true;
+        if (st.started && !inShot) return;
+        if (!mine() && !inClip) return;
+        if (Math.hypot(best.x - sh.x, best.y - sh.y) < 3.0 && (sh.speed > 4 || inClip)) {
+          st.hit = true;
+          const k = U.lerp(TT.chestK[0], TT.chestK[1], Math.random()) * phys;
+          let nx = best.x - sh.x, ny = best.y - sh.y; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+          best.impact(nx, ny, k, { stumble: true });
+          sh.impact(-nx, -ny, k * TT.absorbK);
+          this.contactHits = (this.contactHits || 0) + 1;
+          this.v.arena.cheer(this.off, 0.25, 0.6);
+          return;
+        }
+        this.at(this.T + 0.05, check, 'contact finish');
+      };
+      check();
+      void until;
+      return true;
+    }
+    /** a drive into traffic on purpose (Tune.traffic; the user: "players don't drive in traffic, they should, to try and draw a
+     *  foul"): the engine's finish at the rim fouled, or a contact seeker's drive against a look that was not open, contactP of
+     *  the time by his foul drawing. Null when not */
+    contactDrivePlan(a, nx) {
+      const TT = M.Tune.traffic;
+      if (!nx || nx.type !== 'shot' || !RIM_SHOTS[nx.kind] || nx.kind === 'alley' || nx.kind === 'tip') return null;
+      if (nx.fouled) return { fouled: true };
+      if (nx.contest === 'open') return null;
+      const lk = this.v.look(a.id) || {}, df = lk.drawFoul != null ? +lk.drawFoul : 55;
+      const p = U.lerp(TT.contactP[0], TT.contactP[1], U.clamp((df - 45) / 45, 0, 1));
+      return Math.random() < p ? { fouled: false } : null;
     }
     /**
      * Bodies in the paint: an offensive player off the ball inside the lane or on the blocks and the man guarding

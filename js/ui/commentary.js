@@ -573,6 +573,20 @@
             if (chance(0.6 * chatty())) say('color', pick(['That is why you stay down and stay square. Guess once, and the handler has you.', 'Handle like that, the defender is guessing. Once you guess wrong, it is over.', `${dn} is going to see that one on the highlight shows tonight.`, `Count the moves. ${ev.moves && ev.moves.length >= 3 ? 'Three, four, and the defender is reacting to the one before.' : 'The second one is the one that gets you.'}`]), { pri: 6, ttl: 9 });
             break;
           }
+          case 'post': {
+            // the court worked a post move before the shot (js/match/choreo.js runPost): the call as it starts, the shot's own after
+            const h = pl(ev.player), d = pl(ev.defender);
+            if (!h) break;
+            const dn = d ? d.last : 'the defender';
+            const line = ev.move === 'dropStep' ? pick([`${h.last} backs ${dn} down... drop step!`, `Drop step from ${h.last}, right past ${dn}.`, `${h.last} with the drop step on ${dn}...`])
+              : ev.move === 'upUnder' ? pick([`${h.last} pump fakes... ${dn} bites... steps through!`, `Up and under from ${h.last}!`, `The fake, and ${h.last} goes under ${dn}...`])
+              : ev.move === 'spin' ? pick([`${h.last} spins off ${dn}!`, `Spin move, ${h.last}, right round ${dn}...`, `${h.last} turns ${dn} around with the spin...`])
+              : ev.shake ? pick([`${h.last} shakes ${dn}... one way, back the other...`, `The dream shake from ${h.last}! ${dn} is leaning the wrong way.`, `${h.last} gets ${dn} going one way and comes back the other...`])
+              : pick([`Shoulder fake from ${h.last}, and ${dn} leans...`, `${h.last} fakes ${dn} off his feet...`, `The shoulder fake, ${h.last} the other way...`]);
+            say('pbp', line, { pri: 6, ttl: 2.2 });
+            if (chance(0.35 * chatty())) say('color', pick(['Footwork in the post. You do not see enough of that anymore.', `${dn} has to stay down there. Guess, and you are done.`, 'That is a big man who has done his work on the block.']), { pri: 5, ttl: 8 });
+            break;
+          }
           case 'adjust': {
             // a bench's adjustment (js/core/adjust.js)
             const who = nick(ev.team), k = ev.k, d = ev.def;

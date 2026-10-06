@@ -107,6 +107,8 @@
       this.decel = this.accel * TW.decelRatio;
       this.turnAcc = TW.turnAccel * this.kMass * Math.pow(this.H / TW.refHeightFt, TW.turnHeightExp) * (0.85 + 0.3 * this.rAgi);
       this.acx = 0; this.acy = 0; this.faceW = 0;
+      // (the offense's edge, Tune.edge: x his speed and his push while his side has the ball; the Director sets them)
+      this.edgeK = 1; this.edgeAK = 1;
       // state
       this.x = 47; this.y = 25; this.vx = 0; this.vy = 0; this.facing = 0; this.speed = 0;
       this.ax = 0; this.ay = 0;
@@ -1091,7 +1093,10 @@
         }
         const dx = tx - this.x, dy = ty - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        let want = g.speed;
+        // (the offense's edge: every order of his a little quicker while his side has the ball, Tune.edge; a timed order still
+        // arrives on time)
+        const ek = this.edgeK || 1;
+        let want = g.speed * ek;
         if (g.by != null) {
           const left = g.by - this.time;
           want = left > 0.05 ? Math.min(g.speed * 1.25, Math.max(dist / left * 1.12, dist > 0.5 ? 2.5 : 0)) : g.speed * 1.2;
@@ -1100,7 +1105,7 @@
         // (a burst past his man: a moment quicker than he can run otherwise, Actor.burst)
         const bu = this._burst && this.time < this._burst.until ? this._burst : null, bvK = bu ? bu.vK : 1;
         const svK = this._slow && this.time < this._slow.until ? this._slow.vK : 1;
-        want = Math.min(want, this.maxSpeed * 1.08 * bvK * svK);
+        want = Math.min(want, this.maxSpeed * 1.08 * bvK * svK * ek);
         // the traveling rule (the gameplay pass): his dribble picked up and the ball in his hands, he gets the steps it
         // takes to stop (Tune.rules: gather steps, a stride or two past the pick-up) and then only pivots; an order to go
         // somewhere with it is not taken (walking on with it was a travel), a clip's own steps aside (a layup, a jumper)
@@ -1116,7 +1121,7 @@
         if (dist > 1e-4) { dvx = dx / dist * want; dvy = dy / dist * want; }
         dvx += tvx; dvy += tvy;
         const dl = Math.hypot(dvx, dvy);
-        if (dl > this.maxSpeed * 1.1 * bvK) { dvx *= this.maxSpeed * 1.1 * bvK / dl; dvy *= this.maxSpeed * 1.1 * bvK / dl; }
+        if (dl > this.maxSpeed * 1.1 * bvK * ek) { dvx *= this.maxSpeed * 1.1 * bvK * ek / dl; dvy *= this.maxSpeed * 1.1 * bvK * ek / dl; }
         const av = this._avoid(dvx, dvy);
         dvx = av[0]; dvy = av[1];
         // the lines ahead (the gameplay pass): with the ball he brakes for a sideline or a baseline in time to stop
@@ -1158,7 +1163,8 @@
       // (the harder push of Tune.urgency's starts is for a player on the move; one sliding or backpedalling out of the
       // defensive stance keeps the gentler one his footwork was built on, Trial 5: pushed harder, a hip popped)
       const TUr = M.Tune.urgency, stA = A.STANCE[this.stance], hard = this.urgK > 1 && !(stA && stA.slide);
-      const bA = (this._burst && this.time < this._burst.until ? this._burst.aK : 1) * (this._slow && this.time < this._slow.until ? 0.75 : 1);
+      // (and the offense's edge in the push off the floor, Tune.edge.offAccelK)
+      const bA = (this._burst && this.time < this._burst.until ? this._burst.aK : 1) * (this._slow && this.time < this._slow.until ? 0.75 : 1) * (this.edgeAK || 1);
       const accelNow = Math.min(this.accel * bA, ((hard ? TUr.startFtps2 : TUr.slideStartFtps2) + (hard ? TUr.startPerFtps : TUr.slideStartPerFtps) * Math.max(Math.hypot(dvx, dvy), spd)) * bA);
       // the body is a mass (Trial 4): the push toward the wanted velocity builds up and eases off at a human rate of
       // force development (Tune.weight.jerkFtps3) instead of switching on and off in one step, and eases off as the
@@ -1363,7 +1369,9 @@
             hit = tca > 0 && Math.hypot(rx + wx * tca, ry + wy * tca) < touch + TW.passFt;
           }
           if (hit && into > 0) {
-            const v0 = this.hasBall ? TW.meetBallFtps : TW.meetFtps, gap = r - touch;
+            // (a contact drive, Tune.traffic: the help defender he means to go through is met at a run, not a walk)
+            const cdv = this._contactDrive, ram = cdv && cdv.d === b && this.time < cdv.until;
+            const v0 = ram ? M.Tune.traffic.meetFtps : this.hasBall ? TW.meetBallFtps : TW.meetFtps, gap = r - touch;
             const allow = gap <= 0 ? v0 * U.smooth(1 + gap / TW.leanFt) : Math.sqrt(v0 * v0 + 2 * TW.leanBrake * gap);
             if (into > allow) { ax -= nx * (into - allow); ay -= ny * (into - allow); }
           }

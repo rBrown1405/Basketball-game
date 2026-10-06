@@ -24,7 +24,7 @@
     };
   }
   function playerLook(p, teamIdx) {
-    return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle,
+    return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, drawFoul: p.r.drawFoul,
       // (the court's defense and offense read these: cushion by shooting, help by awareness, roles for bigs)
       three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, strength: p.r.strength, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, offIQ: Math.round(p.r.shotIQ * 0.55 + p.r.vision * 0.45), defIQ: Math.round(p.r.helpD * 0.7 + p.r.hustle * 0.3),
       expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral' };
@@ -790,9 +790,24 @@
     live('ankle', { fall: !!ev.fall, k: ev.k });
   }
 
+  /** the court worked a post move before a shot (js/match/choreo.js runPost's 'post' event; the user: "make the post moves
+   *  more visible"): a line as it starts, and the booth's call */
+  const POST_WORD = { dropStep: 'the drop step', upUnder: 'the up and under', spin: 'the spin', fake: 'the shoulder fake' };
+  function postMove(ev) {
+    const g = LG.g, pc = id => { for (const T of g.t) { const c = T.players.find(x => x.id === id); if (c) return c; } return null; };
+    const h = pc(ev.player), d = pc(ev.defender);
+    if (!h) return;
+    const on = d ? ' on ' + d.last : '';
+    const text = ev.move === 'fake' && ev.shake ? `${h.last} shakes${d ? ' ' + d.last : ''}: a fake one way, back the other` : ev.move === 'upUnder' ? `${h.last} pump fakes${on}... and steps through` : ev.move === 'spin' ? `${h.last} spins off${d ? ' ' + d.last : ' his man'}` : `${h.last} with ${POST_WORD[ev.move] || 'the move'}${on}`;
+    pushLine({ q: LG.P.period, clock: Math.max(0, LG.clockShow != null ? LG.clockShow : LG.P.clockStart), text, type: 'note', team: ev.team });
+    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+    gameAudio(ev, LG.P);
+  }
+
   function onViewEvent(ev) {
     if (!LG) return;
     if (ev.type === 'ankle') { ankleBreaker(ev); return; }
+    if (ev.type === 'post') { postMove(ev); return; }
     if (ev.type === 'score') {
       LG.dispScore[ev.team] += ev.pts; flashScore(ev.team);
       noteHighlight(ev.shotEvent || {}, true);
