@@ -368,6 +368,8 @@
         B.milestones[c.id + ':' + ms] = 1;
         return pick([`That's ${pts} for ${n} tonight. ${pr.He} has been unstoppable.`, `${n} is up to ${pts}. They have no answer for ${pr.him}.`, `${pts} points for ${n}, and ${pr.he} is not done.`]);
       }
+      // (a badge showing, Silver or better: js/core/badges.js)
+      if (sh.badge && sh.badge.player === sh.shooter && sh.badge.tier >= 2 && chance(0.55)) { const bl = badgeColor(sh, n, pr); if (bl) return bl; }
       if (sh.kind === 'dunk' || sh.kind === 'alley') {
         return pick([`Watch the explosion there. ${n} was up and through before anybody could rotate.`, `That's a statement. The whole building felt that one.`, `You just don't leave the lane open against ${n}.`, `${n} ${blurb(sh.shooter)}.`, `That's the kind of play that changes the energy in a game.`]);
       }
@@ -377,6 +379,24 @@
       if (chance(0.22)) { const b = blurb(sh.shooter); if (b) return `${n}, ${b}.`; }
       if (chance(0.25) && c.st.pts >= 10) return `${n} has ${statLine(c)}.`;
       return null;
+    }
+    /** the booth on a badge (a made shot's sh.badge): what that player does that others do not */
+    function badgeColor(sh, n, pr) {
+      switch (sh.badge.key) {
+        case 'deepRange': return pick([`${n} pulled that from ${sh.dist} feet like it was a free throw. That range bends the whole defense.`, `You have to pick ${pr.him} up as soon as ${pr.he} crosses half court. That range is not normal.`, `From way, way downtown. ${n} has the deepest range in the building.`]);
+        case 'deadeye': return pick([`A hand right in ${pr.his} face, and it did not matter one bit.`, `That was well defended and it still went in. ${n} does not see the contest.`]);
+        case 'catchShoot': return pick([`Catch and release in one motion. ${n} does not need a second look.`, `The ball barely touched ${pr.his} hands. That is a shooter.`]);
+        case 'pullUp': return pick([`${n} makes that shot out of nothing. One dribble and up.`, `That pull-up is automatic for ${n}.`]);
+        case 'midMaestro': return pick([`The lost art of the mid-range, and ${n} lives there.`, `${n} in ${pr.his} spot. That is money from the elbow.`]);
+        case 'clutchShooter': return pick([`This is when ${n} wants the ball. Ice in the veins.`, `Big moment, big shot. That is ${n}.`]);
+        case 'posterizer': return pick([`${n} went right at the contest and through it. Somebody is on a poster.`, `Do not jump with ${n}. That is a highlight for a long time.`]);
+        case 'acrobat': return pick([`Look at the body control by ${n}, finishing around the defense.`, `How does ${n} get that to go? Hung in the air and found the angle.`]);
+        case 'physicalFinisher': return pick([`${n} invites that contact. As strong a finisher as there is.`, `${pr.He} went right into the chest and finished anyway.`]);
+        case 'floatGame': return pick([`That floater is ${n}'s bread and butter. Soft touch over the bigs.`, `Up and over the length. ${n} has a beautiful floater.`]);
+        case 'postPowerhouse': return pick([`${n} goes to work on the block. Old-school post play.`, `Nobody can stop ${n} down low one on one.`]);
+        case 'putbackBoss': return pick([`${n} is relentless on the glass.`, `Second effort from ${n}. ${pr.He} just wanted it more.`]);
+        default: return null;
+      }
     }
     /** hot underdogs, cold favorites and upsets brewing (said once, at halftime or after the third) */
     function storyOfTheNight(bx, sc) {

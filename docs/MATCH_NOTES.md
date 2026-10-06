@@ -1164,3 +1164,149 @@ rushing to pick it up".
   and stand there. They go onto it now, a hand's reach from it (1.2 ft) and half a step behind the rebounder (3 ft at
   most), down low within 3.6 ft of it with both hands out for it; it is still the engine's rebounder's.
 
+
+## The whole floor on the catch, play styles and badges
+
+Asked for by the user: "they base their openness on how close the man guarding them is ... I need it so they are aware of the
+man that's supposed to guard them and the other defenders, the help defenders. If he's wide open, nobody around him at all,
+he should just shoot it if he has good shooting stats, unless he's a center that can't shoot, then he'll obviously pass ...
+as well as shoot contested shots because of the shooter's confidence. Also, I want to add badge systems and archetypes and
+player styles, so not every player plays the same: facilitators like Jokic and LeBron, Stephen Curry types, Damian Lillard
+types, Derrick Rose types."
+
+### The read on the catch
+
+* **Every defender, not just his man** (`flow.js closeoutGap`, `Tune.catchRead`): at the catch the court asks how close
+  each defender can get to the receiver by his release (`relS` 0.62 s after the catch, by the Shoot When Open slider): each
+  carries on at the speed he has toward him through his reaction to the catch (his own man 0.2 s, a helper 0.32 s, plus the
+  Offense Edge's lag; one busy in a clip of his own only once it is over), then closes at least at `ownCloseK` (0.3) /
+  `helpCloseK` (0.1) of his top speed. Those were fitted to the court's own defense on 276 logged catches: it holds its help
+  spots more than it sprints, and with full-sprint closeouts nobody was ever open. The gap at the release is the smallest
+  over the five.
+* **Left alone, he lets it fly** (`courtRead`): 6 ft or more (`wideFt`, NBA tracking's "wide open") and he shoots if he can
+  from there: his rating for that shot (3PT, mid-range; inside 12 ft anyone) on a scale from 46 (never) to 72 (always,
+  95 %), so a center who cannot shoot passes it on; 4 to 6 ft (`openFt`, a closeout coming) it takes a better shooter (54 to
+  80) and `openK` (0.42) as often. Both by his confidence tonight (`confK`, more on the 4 to 6 ft ones), his style's bar (a
+  floor general looks for the extra pass first) and the Catch & Shoot badge (more of the open ones, and a quicker release);
+  from beyond 26.5 ft only a deep shooter (3PT 82+, the Limitless Range badge or a Deep Range Shooter's style); with under 7 s on
+  the shot clock 90 % at least.
+* **The engine's shot becomes his** (`Sim.liveRead`, `Sim.resolveLive`): a watched game (`g.liveReads`, set by the live
+  view) leaves the possession's first half-court shot open (`shot.live`, drawn when the court comes to it). A man the court
+  sees left alone takes the shot instead: the events after the pass that found him are cut (passes, moves, screens,
+  hand-offs, the call and a called play's steps; never a foul, a turnover or a timeout), his shot is drawn as an open look
+  from where he caught it (a 4 to 6 ft one as contested), the passer gets the assist if it goes, and the rest of the
+  possession runs from there. A called play's record says the look was taken before the play was run (`rec.look`), as far
+  as it had got. The score on the court is the engine's, always. Simulated games are untouched.
+* **Contested shots by confidence** (`passUp`, `Sim.K.heatBar/coldBar`): the look a shooter waits for (the expected points
+  his shot needs) comes down by `heatBar` (0.12) x his confidence when he is feeling it, times 0.5 + his style's heat (a Deep
+  Range Shooter 0.8, a Shot Creator 0.7) + the Heat Check badge, and goes up by `coldBar` (0.08) x it when he is cold, less
+  with Ice Veins. His style's bar scales it too (a floor general 1.15, a deep range shooter 0.9).
+
+### Play styles (js/core/style.js)
+
+* **Eighteen styles**: Floor General, Point Forward, Playmaking Big (the facilitators: Jokic, LeBron); Deep Range Shooter
+  (Curry, Lillard), Movement Shooter; Explosive Slasher (Derrick Rose); Three-Level Scorer, Shot Creator; 3-and-D Wing,
+  Lockdown Defender; Stretch Big, Post Scorer, Rim Runner, Rim Protector, Glass Cleaner; and for a player who stands out in
+  nothing, Combo Guard, Two-Way Wing or Hustle Big. Each player's comes from how far he stands out from his position in the
+  skills that make the style, with gates on the absolute skill a style needs (a Deep Range Shooter shoots 81 or better from
+  three with a 66 handle), the archetype he was generated as counting a little; or it is picked in the player editor (Auto
+  follows the ratings again). A seed's league: about a third of the players stand out in nothing and play the Combo Guard,
+  Two-Way Wing or Hustle Big; the rest spread over the other fifteen (Glass Cleaner the rarest, a couple a league), the
+  league's best players mostly Deep Range Shooters, Floor Generals, Explosive Slashers and Post Scorers.
+* **In the engine** (`Style.mods`, `SM` centered on the league's own mix, `Style.leagueMean`): his usage, the plays his team
+  calls (a floor general calls the pick-and-roll, a post scorer the post, a movement shooter the screens, a playmaking big the
+  hand-offs), the roles he is picked for, where his shots come from (a slasher at the rim, a deep shooter above the break, a
+  stretch big from three), how (step-backs, pull-ups, dunks, floaters, lobs, the pick-and-pop), how often he kicks it or
+  finds the roll man rather than shooting, the assist on the drive, the deep share of his threes (27 to 32 ft) and the shot
+  he waits for.
+* **On the court** (`Style.court` in the player look, `Director.styK`): how hard he attacks a gap (`readOpen`), how long he
+  works the dribble (`comboMax`), his passing flair (`passVariant`), how much he relocates, cuts and screens off the ball
+  (`flowOffBall`), how much he works the block (`postPlan`), a lockdown defender's pressure on the ball (`shiftyK`,
+  `onBallGap`), and a deep shooter spacing further out above the break (`assignSpots`).
+
+### Badges (js/core/badges.js)
+
+* **Twenty-nine badges in six categories**, each in four tiers (Bronze, Silver, Gold, Hall of Fame) by a composite of his
+  ratings (a few with his ego or work ethic) against thresholds set so that about a fifth of the league's players have a
+  Bronze or better in a given badge, a twelfth Silver, one in thirty Gold and one in a hundred Hall of Fame. A seed's league:
+  about five badges a player, the stars twenty or more. They follow his ratings (`Badges.of`, cached on the player by his
+  ratings, never saved).
+* **In the engine** (`Badges.K` per tier, `BD`: his tier less the league's mean tier of that badge, weighted by who does
+  what it acts on, times the Badge Impact slider; the league's average player gets nothing, so the league keeps its numbers):
+  the make odds of the shots they are for (Deadeye on contested jumpers, Catch & Shoot, Pull-Up Artist, Mid-Range Maestro,
+  Clutch Shooter, Posterizer on contested dunks, Acrobat on contested layups, Float Game, Post Powerhouse, Putback Boss,
+  Dimer on the shots off his passes) and against them (Challenger, Rim Protector); free throws; blocks; shooting fouls and
+  and-ones at the rim (Physical Finisher); turnovers (Needle Threader, Unpluckable; Interceptor and Pickpocket on the
+  floor) and who gets the steal; the offensive glass (Box-Out Beast) and who gets the rebound (Rebound Chaser); the edge
+  off the dribble (Quick First Step, Ankle Breaker against Clamps) and the open looks a Table Setter gets his teammates;
+  confidence (Heat Check up quicker, Ice Veins down slower); legs (Tireless Motor); the deep threes of a Limitless Range shooter.
+* **On the court** (`Badges.court` in the player look, `Director.bdgT`, `Tune.badges`): a Quick First Step's burst and an
+  Ankle Breaker's broken ankles and falls (`breakdown`, `breakFt`, `ankleBreak`), Clamps tighter on the ball, a Limitless
+  Range shooter picked up out where he can shoot it and spacing further out, a Post Powerhouse working the block, Catch & Shoot on
+  the catch.
+* **Seen**: the player card's style line and best badges, a Badges tab (every badge by category, its tier, what it does,
+  how far to the next tier), the roster's style and top badges, the editor's Play Style picker; a made shot a Silver or
+  better badge was behind carries it (`shot.badge`): the booth has a line for it, and a Gold or Hall of Fame one ends the
+  play-by-play line and shows on the broadcast's lower third.
+* **The slider**: Badge Impact in League Settings (Players): 0 turns them off, 50 as tuned, 100 twice as much.
+
+### Measured (this pass)
+
+Headless games through the court, two periods on each of three seeds, everything on:
+
+| | seed 8 | seed 5 | seed 3 |
+|---|---|---|---|
+| catches read | 180 | 194 | 152 |
+| left alone (6 ft or more at the release) / open (4 to 6 ft) | 8 / 15 | 11 / 10 | 6 / 8 |
+| let it fly (from left alone) | 10 (6) | 12 (9) | 6 (5) |
+| refused by the engine | 0 | 0 | 0 |
+| nearest defender at those shots' release | 7.5 ft | 7.1 ft | 7.1 ft |
+| the court's score against the engine's | 51-73 = 51-73 | 53-62 = 53-62 | 70-69 = 70-69 |
+
+Of the 25 catches left alone, 20 were shot: every shooter rated 72 or better from there let it fly (a 97 and a 94 from
+three among them); the five passed on were a center rated 35 from three, two power forwards (55, 60) and two guards (57,
+58). Before the called play's steps could be cut, the engine had refused 6 of 10 such shots on one seed ("cuts step").
+
+A season (men, seed 7) grouped by the style each player's ratings give him, the styles on against off, the same players:
+
+| style | 3PA share on / off | FT per shot on / off | FGA per 36 on / off | AST per 36 on / off |
+|---|---|---|---|---|
+| Explosive Slasher (37) | 34 % / 41 % | 0.33 / 0.29 | 14.5 / 14.1 | 5.9 / 5.8 |
+| Floor General (28) | 50 % / 47 % | 0.22 / 0.22 | 10.2 / 11.8 | 7.0 / 6.6 |
+| Post Scorer (21) | 3 % / 4 % | 0.39 / 0.42 | 12.9 / 10.8 | 3.1 / 2.6 |
+| 3-and-D Wing (16) | 68 % / 61 % | 0.15 / 0.17 | 14.6 / 15.7 | 2.7 / 3.4 |
+| Stretch Big (14) | 48 % / 42 % | 0.20 / 0.23 | 12.2 / 12.7 | 1.7 / 1.8 |
+| Movement Shooter (11) | 66 % / 62 % | 0.16 / 0.17 | 17.4 / 16.5 | 2.9 / 2.8 |
+| Lockdown Defender (10) | 53 % / 49 % | 0.20 / 0.22 | 14.6 / 16.3 | 6.1 / 6.5 |
+
+Seasons against the last commit (the Badge Impact slider at 50), per team per game:
+
+| | men s7 before | men s7 now | men s11 before | men s11 now | women s7 before | women s7 now |
+|---|---|---|---|---|---|---|
+| points | 116.1 | 116.1 | 118.1 | 118.3 | 86.3 | 86.6 |
+| FG % | 48.7 | 48.8 | 48.3 | 48.5 | 43.8 | 44.3 |
+| 3P % | 36.1 | 36.0 | 36.2 | 36.1 | 33.9 | 33.6 |
+| FTA | 22.4 | 22.4 | 23.0 | 23.0 | 19.4 | 19.7 |
+| turnovers / steals / blocks | 14.6 / 8.7 / 5.3 | 14.8 / 8.8 / 5.4 | 15.1 / 8.9 / 5.2 | 15.3 / 9.0 / 5.4 | 13.3 / 7.8 / 4.4 | 13.6 / 8.1 / 4.4 |
+| the scoring leader (ppg) | 30.8 | 34.2 | 32.5 | 33.8 | 27.0 | 28.3 |
+| best / worst record | 60-22 / 17-65 | 63-19 / 12-70 | 62-20 / 18-64 | 63-19 / 20-62 | 36-8 / 9-35 | 37-7 / 11-33 |
+| team strength to win % (slope per point) | 0.056 | 0.076 | 0.048 | 0.065 | 0.114 | 0.141 |
+
+The league's numbers hold (the shooting by zone was set again: `Sim.K.zoneAdj`, and the women's rim base 0.55 to 0.54), but
+the stars stand out more and the better teams win more often: the badges and the styles both sit on top of the ratings, so
+a team of good players has more of them (with Badge Impact at 0 the slope was 0.060 on seed 7 and 0.050 on seed 11). In
+the real page: the roster with each player's style and best badges, a 94's card (5 Bronze, 9 Silver, 2 Gold, 5 Hall of
+Fame), the editor's picker (Auto and the eighteen), Badge Impact in League Settings, and almost three quarters live with no
+console errors and seventeen badge lines in the play-by-play ("Boyd pulls up from 28 ft... BANG! · 🌌 Limitless Range",
+"Shaw BLOCKS Franklin! · 🧱 Rim Protector"). Those counted Silver too; the line carries Gold and Hall of Fame ones only
+now, about seventeen a game over nine headless games. The gauntlet passes.
+
+### Limitations (this pass)
+
+* The read on the catch is the court's (live games only): it only comes before the possession's first shot in the half
+  court, one read per catch of the engine's passes, and never undoes what the engine has already decided (a foul or a
+  turnover after the catch keeps the play as it was).
+* A badge's effect is centered on the league's mean tier of it by an estimate of who does what it acts on (their minutes
+  and their skill at it), not by the shots actually taken: the seasons above show where that lands.
+* Styles and badges come from the ratings; a player's tendencies (the editor's) still shape his game on top of his style,
+  and the two can pull different ways for a player whose style was picked by hand.

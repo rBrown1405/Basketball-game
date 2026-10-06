@@ -275,6 +275,8 @@
     }
     finish() {
       if (!this.active) return;
+      // (a shot still left open for the court's read when the possession is cut short: drawn, so the game goes on)
+      this.liveResolve();
       this.g = Math.max(this.g, this.clockStart - this.clockEnd);
       this.lastClock = Math.max(0, this.clockStart - this.g);
       this.lastShotClock = this.shotClock();
@@ -354,6 +356,14 @@
     /** defenders clearly between the ball and the basket on a break: nearer the rim than `a` by 2 ft and inside the lane's width
      *  (a man level with the ball or out wide is not back) */
     defendersBack(a) { const u = this.U_(a.x); let n = 0; for (const d of this.defActors()) if (this.U_(d.x) < u - 2 && Math.abs(d.y - 25) < 12) n++; return n; }
+    /** the engine's shot zone of a point (rim, paint, mid, c3, ab3), by the court's own lines */
+    zoneAt(p) {
+      const dR = Math.hypot(p.x - this.rim.x, p.y - this.rim.y);
+      if (!this.isThree(p)) return dR < 4.5 ? 'rim' : dR < 12.5 ? 'paint' : 'mid';
+      const th = (this.v.court && this.v.court.three) || { arc: 23.75, corner: 22 };
+      const uMeet = this.U_(this.rim.x) + Math.sqrt(Math.max(0, th.arc * th.arc - th.corner * th.corner));
+      return this.U_(p.x) < uMeet ? 'c3' : 'ab3';
+    }
     /** beyond the three-point line: the court's own arc and corner lines (the corner's straight part out to where it meets the arc) */
     isThree(p) {
       const th = (this.v.court && this.v.court.three) || { arc: 23.75, corner: 22 };
@@ -580,7 +590,8 @@
     passVariant(from, to, kind, cs, extra) {
       const TP = M.Tune.pass, out = { name: null, clip: null, side: false, decoy: null, fake: null, fakeS: 0 };
       if (!from || from.lefty || from.kind !== 'player') return out;
-      const flair = U.clamp((this.rating(from.id, 'handle', 60) - TP.flairFrom) / (TP.flairTo - TP.flairFrom), 0, 1);
+      // (his style's flair on top: a floor general, a point forward and a playmaking big throw the fancy one more)
+      const flair = U.clamp((this.rating(from.id, 'handle', 60) - TP.flairFrom) / (TP.flairTo - TP.flairFrom) + this.styK(from.id, 'flair'), 0, 1);
       const rnd = (k) => { const x = Math.sin((from.uid || 1) * 12.9898 + this.T * 78.233 + k * 37.719) * 43758.5453; return x - Math.floor(x); };
       const rel = U.wrapPi(Math.atan2(cs.y - from.y, cs.x - from.x) - from.facing) / U.DEG, d = Math.hypot(cs.x - from.x, cs.y - from.y);
       const flat = kind === 'chest' || kind === 'kick' || kind === 'swing' || kind === 'bounce';
@@ -711,9 +722,41 @@
         to.lookAt(null, { hold: 1e-6 });
         if (onCatch) onCatch();
         this.afterCatch(to);
+        // (the read on the catch: left alone, a man who can shoot lets it fly, flow.js courtRead)
+        if (this.courtRead) U.safe(() => this.courtRead(to, from), this, 'court read');
       } });
       b.passTarget = to;
       to.receive(b, { from, kind, tEnd: b.flightEnd(), P: p1, C: p1.cx != null ? [p1.cx, p1.cy] : null, g: p1.g || null, rel, runOn: !!p1.runOn });
+    }
+    /** the shot left open for the court's read drawn as planned (Sim.resolveLive through the possession's handles), and what it
+     *  brought in kept in step: the possession's end and the watchdog */
+    liveResolve() {
+      const P0 = this.poss;
+      if (!P0 || !P0.live || !P0.pendingShot || !P0.pendingShot.live) return false;
+      P0.live.resolve();
+      this.liveSynced();
+      return true;
+    }
+    liveSynced() {
+      const P0 = this.poss;
+      if (P0 && P0.clockEnd != null) this.clockEnd = +P0.clockEnd;
+      this.watch = Math.max(this.watch || 0, this.T + Math.max(0, this.maxEventT() - this.g) * 2 + 30);
+    }
+    /** the court's read put the shot in a new man's hands (flow.js courtRead, the engine's Sim.liveRead): the beat planned from
+     *  the play that is no longer run is dropped with its jobs, the roles it held let go, and the shot is next */
+    liveRedirect(shotEv) {
+      const idx = this.events.indexOf(shotEv);
+      if (idx < 0) return false;
+      const bt = this.beat;
+      if (bt && !bt.fired) {
+        if (bt.jobs && bt.jobs.length) { const drop = new Set(bt.jobs); this.jobs = this.jobs.filter((j) => !drop.has(j)); }
+        this.beat = null;
+      }
+      for (const id in this.role) { const r = this.role[id]; if (r && String(id) !== String(shotEv.shooter) && (r.until || 0) > this.T + 0.3) r.until = this.T + 0.3; }
+      this.ei = idx;
+      this.liveSynced();
+      this.nextBeat();
+      return true;
     }
 
     /** how far the receiver gets before the catch (ft): to the catch spot the planner sent him to (`aim`), else along
@@ -2125,7 +2168,11 @@
     }
     // ---- dribble combos (the dribble work: "chain dribble moves into combos that break the defender")
     /** how long a chain this handler has in him (Tune.combo.maxMoves, by handle) and the time to reserve for it (s) */
-    comboMax(a) { const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1); return Math.max(hk > 0.3 ? 2 : 1, Math.round(U.lerp(M.Tune.combo.maxMoves[0], M.Tune.combo.maxMoves[1], hk))); }
+    comboMax(a) {
+      const hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
+      // (his style: a shot creator works the dribble longer, a floor general less; an Ankle Breaker one more)
+      return Math.max(hk > 0.3 ? 2 : 1, Math.round(U.lerp(M.Tune.combo.maxMoves[0], M.Tune.combo.maxMoves[1], hk) * this.styK(a.id, 'combo')) + (this.bdgT(a.id, 'ankles') >= 3 ? 1 : 0));
+    }
     /** the time to reserve for a chain of n moves (s): a move's bounce and the pound dribbles between (Tune.combo.poundP) */
     comboLead(a, n) {
       const TC = M.Tune.combo, hk = U.clamp((this.rating(a.id, 'handle', 55) - 45) / 45, 0, 1);
@@ -2214,7 +2261,7 @@
       // (the combo: his weight gone the way the moves pulled it counts too; broken, he is all the way sold)
       if (d._broken && this.T < d._broken.until) sold = 1;
       else if (pc && pc.man === a) sold = Math.max(sold, Math.min(1, this.wobble(d) / this.breakFt(a, d)) * M.Tune.combo.burstK);
-      const kb = U.clamp(sold * 0.7 + (k - 0.5) * 0.6, 0, 1);
+      const kb = U.clamp(sold * 0.7 + (k - 0.5) * 0.6 + M.Tune.badges.burstQuick * this.bdgT(a.id, 'quickStep'), 0, 1); // (a Quick First Step: the burst)
       if (kb < TS.burstMinK) return;
       a.burst(TS.burstS, kb);
       if (bt) bt.until = Math.max(bt.until, this.T + TS.burstHoldS * kb);
@@ -2265,13 +2312,15 @@
       if (!table) return no('post-up, no table for ' + kind);
       // (the Post Moves slider, League Settings: 0 none, 50 as tuned, 100 every post-up, none of the tables' straight-up
       // finishes and the double fake twice as often)
-      const pk = this.sliderK('postMoves', 0, 2);
-      if (!ev.postMove && Math.random() > Math.min(1, TP.moveP * pk)) return no('straight up');
+      // (his style and badge: a post scorer works the block more, Style.court postMove; a Post Powerhouse more still)
+      const pk = this.sliderK('postMoves', 0, 2), pw = this.styK(sh.id, 'postMove') * (1 + M.Tune.badges.postMoveK * this.bdgT(sh.id, 'postPower'));
+      if (!ev.postMove && Math.random() > Math.min(1, TP.moveP * pk * pw)) return no('straight up');
       const contest = ev.contest === 'open' || ev.contest === 'tight' ? ev.contest : 'contested';
       const lk = v.look(sh.id) || {}, r01 = (k, d) => U.clamp(((lk[k] != null ? +lk[k] : d) - 40) / 50, 0, 1);
       const str = r01('strength', 62), craft = r01('post', 50) * 0.7 + r01('agility', 60) * 0.3;
       const w = Object.assign({}, table[contest]);
       if (w.none && pk > 1) w.none *= 2 - pk;
+      if (w.none && pw > 1) w.none /= pw;
       if (w.dropStep) w.dropStep *= 0.5 + str;
       for (const k of ['upUnder', 'spin', 'fake']) if (w[k]) w[k] *= 0.5 + craft;
       // (a blocked shot: his man stayed down for it, no fake got him up; no man near: nothing to work on but the fake itself)
@@ -2538,6 +2587,8 @@
       const tMove = Math.hypot(to.x - cs.x, to.y - cs.y) / (to.maxSpeed * 0.8);
       beat.onStart = (fireAt) => {
         const tCatch = fireAt + flight - 0.05;
+        // (the engine's pass that finds him, for the read on his catch, flow.js courtRead)
+        to._rcEv = ev;
         const rt = this.role[to.id]; if (rt) { rt.until = fireAt + flight + 0.5; rt.spot = { x: cs.x, y: cs.y }; rt.jx = 0; rt.jy = 0; }
         const rf = this.role[from.id];
         if (rf) {
@@ -2723,6 +2774,8 @@
     // --- shot
     p_shot(ev, beat, gap) {
       const v = this.v;
+      // (a shot left open for the court's read, flow.js courtRead: drawn now, nobody having been left alone on the way to it)
+      if (ev.pending && ev.live) this.liveResolve();
       const sh = this.A(ev.shooter) || (v.ball.holder && v.ball.holder.team === this.off ? v.ball.holder : null);
       if (!sh) return 0.3;
       this.lastShot = ev;
@@ -4705,6 +4758,8 @@
      *  the time by his foul drawing. Null when not */
     contactDrivePlan(a, nx) {
       const TT = M.Tune.traffic;
+      // (the whistle it reads is the engine's: a shot still left open for the court's read is drawn first)
+      if (nx && nx.pending && nx.live) this.liveResolve();
       if (!nx || nx.type !== 'shot' || !RIM_SHOTS[nx.kind] || nx.kind === 'alley' || nx.kind === 'tip') return null;
       if (nx.fouled) return { fouled: true };
       if (nx.contest === 'open') return null;

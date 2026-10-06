@@ -1056,6 +1056,42 @@
 
     // ---------------------------------------------------------------- reading the space (the gameplay pass: a handler whose man
     // was beaten, or with nobody near him, kept dribbling where he was; flow.js readOpen)
+    // the read on the catch (flow.js courtRead; the user: "they base their openness on how close the man guarding them is; they
+    // should be aware of the man that's supposed to guard them and the help defenders; if he's completely left alone he should
+    // just let it fly, if he has good shooting stats, unless he's a center that can't shoot"): a man who catches it with nobody
+    // able to get within wideFt of him by his release (NBA tracking's "wide open", 6 ft or more to the nearest defender) shoots
+    // if he can, the possession's open shot his (the engine's Sim.liveRead)
+    // play styles and badges on the court (js/core/style.js Style.court, js/core/badges.js Badges.court; Director.styK, bdgT: a
+    // badge's tier times the Badge Impact slider): per tier
+    badges: {
+      shiftyQuick: 0.025, shiftyAnkles: 0.02, shiftyClamps: 0.03, // the handler against his man (shiftyK): a Quick First Step, an Ankle Breaker, Clamps
+      ankleBreakK: 0.05,            // an Ankle Breaker breaks his man sooner (his man's weight has this much less to go, breakFt)...
+      ankleFallK: 0.12,             // ...and puts him on the floor more (x 1 + this)
+      burstQuick: 0.05,             // a Quick First Step's burst past his man (breakdown)
+      deepFt: 2.2,                  // a Limitless Range shooter spaces this much further out (ft at Hall of Fame, his tier / 4 of it)
+      postMoveK: 0.15,              // a Post Powerhouse works the block more (a second fake, the move picked)
+      deepPickupFt: 4.3,            // a Limitless Range shooter with the ball beyond 25 ft: his man no further off than this (ft)
+      clampsGapK: 0.03,             // Clamps: his cushion on the ball this much tighter (x 1 - this)
+    },
+    catchRead: {
+      relS: 0.62,                   // a catch and shoot's release after the catch (s; NBA ~0.54 on average), / the Shoot When Open slider
+      reactS: 0.2, helpReactS: 0.32, // a defender's reaction to the catch (his own man, a helper; s, + the Offense Edge's lag)
+      ownCloseK: 0.3, helpCloseK: 0.1, // ...then he closes at least at this share of his top speed (his own man, a helper): fitted
+                                    // to the court's own defense on 276 catches (they hold their help spots more than they sprint;
+                                    // every catch read as wide open was 5 ft or more at the release)
+      wideFt: 6,                    // wide open at the release: nobody within this (ft), the look 'open'...
+      openFt: 4, openK: 0.42,       // ...open, 4 to 6 ft, a 'contested' look: openK as often, more so when he is feeling it
+      openConfK: 1.6,               // (confidence counts this much more on that one)
+      skillFrom: 54, skillTo: 80,   // the rating for the shot there (3PT, mid-range) from which he looks at it at all to all-in...
+      wideFrom: 46, wideTo: 72,     // ...and left alone (a 46 never lets it fly, a 72 always: a center who cannot shoot passes it on)
+      minP: 0.08, maxP: 0.95,       // how often he lets it fly at the bottom / the top of that...
+      confK: 0.45,                  // ...x (1 + confK x his confidence tonight, -1 cold to +1 on fire)...
+      lateScS: 7, lateP: 0.9,       // ...and at least lateP with less than lateScS (s) on the shot clock
+      csK: 0.15, csRelK: 0.04,      // a Catch & Shoot badge: per tier, more of the open ones taken, and the release this much quicker
+      deepFt: 26.5, deepFrom: 82,   // further out than deepFt only a deep shooter (3PT deepFrom+, Limitless Range or the style) lets it fly
+      rimFt: 12,                    // closer than this an open catch is a finish at the rim, for anyone
+      minU: 3.5, maxU: 31,          // in the frontcourt, this far from the baseline (ft)
+    },
     reads: {
       openFt: 7,                    // nobody of the other side this close to the man with the ball: he is open (NBA tracking's
                                     // "wide open" is a closest defender 6 ft or more away)...

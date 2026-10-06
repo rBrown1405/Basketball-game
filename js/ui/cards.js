@@ -41,6 +41,10 @@
     const ovrBlock = fog && fog.ovr.err ? `<span class="ovr ${UI.ovrTier(fog.ovr.est)} lg" title="Scouted estimate: ${fog.ovrLabel}">~${fog.ovr.est}</span><div class="tiny dim">${fog.ovrLabel}</div>` : UI.ovr(p.ovr, 'lg');
     const ptype = PBC.Persona ? PBC.Persona.TYPES[PBC.Persona.of(p)] : null;
     const req = p.tradeReq && p.tid >= 0 ? p.tradeReq : null;
+    // (his play style and his best badges: js/core/style.js, js/core/badges.js; a prospect's badges once he is scouted enough)
+    const sty = PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null;
+    const bdgSeen = PBC.Badges && (p.tid !== -2 || (p.scout && p.scout.known >= 50));
+    const bdgTop = bdgSeen ? PBC.Badges.list(p).slice(0, 6) : [];
     const body = UI.h(`<div>
       <div class="pc-head">${UI.avatar(p, 92)}
         <div style="flex:1;min-width:0">
@@ -49,6 +53,8 @@
           <div class="pc-meta">#${p.num} · ${C.POS_NAME[p.pos]} · ${U.esc(p.arch || '')} ${t ? '· ' + UI.teamBadge(t, 18) + ' ' + UI.teamLink(t) : ''} ${status}</div>
           <div class="pc-meta">${p.age} yrs · ${U.height(p.hgt)} · ${p.wgt} lbs · wingspan ${U.height(p.wing)} · ${p.hand === 'L' ? 'Left' : 'Right'}-handed · ${U.esc(p.origin || '')}</div>
           ${ptype ? `<div class="pc-pers" title="Personality"><span class="pi">${ptype.icon}</span><b>${U.esc(ptype.label)}</b><span class="pd">${U.esc(ptype.desc)}</span></div>` : ''}
+          ${sty ? `<div class="pc-pers" title="Play style: how this player plays${p.styleCustom ? ' (picked in the editor)' : ' (from the ratings)'}"><span class="pi">${sty.icon}</span><b>${U.esc(sty.label)}</b><span class="pd">${U.esc(sty.desc)}</span></div>` : ''}
+          ${bdgTop.length ? `<div class="row bdg-row" style="margin-top:6px">${bdgTop.map(b => UI.badgeChip(b)).join('')}${PBC.Badges.list(p).length > bdgTop.length ? `<span class="tiny dim">+${PBC.Badges.list(p).length - bdgTop.length} more</span>` : ''}</div>` : ''}
           <div class="row" style="margin-top:8px">${strengths.map(s => `<span class="tag good">${s}</span>`).join('')}${weaks.map(s => `<span class="tag bad">${s}</span>`).join('')}
             ${p.injury ? `<span class="tag bad">🚑 ${U.esc(PBC.Player.injuryLabel(p.injury))}</span>` : ''}
             ${req ? `<span class="tag warn" title="${U.esc(PBC.Player.name(p) + ' ' + (req.text || 'wants out'))}">📣 Trade request</span>` : ''}</div>
@@ -59,7 +65,7 @@
         <span>Contract</span><span>${contract}</span><span>Draft</span><span>${draft}</span>
         ${mine ? `<span>Morale</span><span>${p.morale != null ? p.morale : 70}/100</span><span>Promise</span><span>${p.promise ? U.esc(p.promise.type === 'starter' ? 'Starting role' : p.promise.min + '+ minutes') : '-'}</span>` : ''}
       </div>
-      <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button>${PBC.Tendency ? '<button class="tab" data-t="tend">Tendencies</button>' : ''}<button class="tab" data-t="stats">Stats</button>
+      <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button>${PBC.Badges ? '<button class="tab" data-t="badges">Badges</button>' : ''}${PBC.Tendency ? '<button class="tab" data-t="tend">Tendencies</button>' : ''}<button class="tab" data-t="stats">Stats</button>
         ${mine ? '<button class="tab" data-t="log">Game Log</button>' : ''}<button class="tab" data-t="awards">Awards</button><button class="tab" data-t="prog">Progression</button></div>
       <div id="pc-tab"></div>
       ${mine ? `<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
@@ -73,6 +79,7 @@
       body.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.t === key));
       if (key === 'ratings') tabEl.innerHTML = ratingsHtml(S, p);
       if (key === 'tend') tabEl.innerHTML = tendenciesHtml(S, p);
+      if (key === 'badges') tabEl.innerHTML = badgesHtml(S, p, bdgSeen);
       if (key === 'stats') statsTab(S, p, tabEl);
       if (key === 'log') gameLog(S, p, tabEl);
       if (key === 'awards') tabEl.innerHTML = awardsHtml(S, p);
@@ -132,6 +139,42 @@
       const v = Math.round(U.clamp(p.r[r.key] + noise, 25, 99));
       return `<div class="rbar range"><span class="lab">${r.label}</span><span class="val">${Math.max(25, v - err)}-${Math.min(99, v + err)}</span><div class="meter"><div class="meter-fill" style="width:${v}%;opacity:.6"></div></div></div>`;
     }).join('')}</div>`).join('')}</div>${prospect ? `<p class="small muted">Scouting knowledge: ${known}%. Scout this prospect to narrow the ranges.</p>` : ''}`;
+  }
+
+  /** his play style in a line (icon and label, the archetype he was generated as in the tooltip), and his best badges as icons */
+  UI.styleTag = function (p, nBadges) {
+    const st = PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null;
+    if (!st) return U.esc(p.arch || '');
+    const top = PBC.Badges && p.tid !== -2 ? PBC.Badges.list(p).slice(0, nBadges == null ? 3 : nBadges) : [];
+    return `<span class="sty-tag" title="${U.esc(st.desc + (p.arch ? ' (archetype: ' + p.arch + ')' : ''))}">${st.icon} ${U.esc(st.label)}</span>${top.length ? ' ' + top.map(b => UI.badgeChip(b, true)).join('') : ''}`;
+  };
+  /** a badge as a chip in its tier's color (UI.badgeChip({ icon, label, tierLabel, color, desc })) */
+  UI.badgeChip = function (b, small) {
+    return `<span class="bdg-chip${small ? ' sm' : ''}" style="--bc:${b.color}" title="${U.esc(b.tierLabel + ' ' + b.label + ': ' + b.desc)}"><span class="bi">${b.icon}</span>${small ? '' : U.esc(b.label)}</span>`;
+  };
+  /** the Badges tab: every badge he has by category, its tier and what it does, and how far he is from the next tier */
+  function badgesHtml(S, p, seen) {
+    const B = PBC.Badges;
+    if (!seen) return '<div class="empty">Scout this prospect to see the badges.</div>';
+    const have = B.of(p), cnt = B.counts(p);
+    const sty = PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null;
+    const head = `<div class="row" style="gap:10px;margin-bottom:10px">${B.TIERS.slice(1).map((t, i) => `<span class="bdg-count" style="--bc:${t.color}"><b>${cnt[i]}</b> ${t.label}</span>`).join('')}
+      ${sty ? `<span class="spacer"></span><span class="small muted">Play style: ${sty.icon} <b>${U.esc(sty.label)}</b></span>` : ''}</div>`;
+    const cats = B.CATS.map(cat => {
+      const rows = B.LIST.filter(b => b.cat === cat).map(b => {
+        const t = have[b.key] || 0, pr = B.progress(p, b.key), tier = t ? B.TIERS[t] : null;
+        const next = pr && pr.gated ? U.esc(b.gateText || 'not available') : pr && pr.next != null ? `${B.TIERS[t + 1].label} at ${pr.next}` : 'Maxed out';
+        const pct = pr ? Math.round(U.clamp((pr.v - (b.at[0] - 15)) / ((pr.next != null ? pr.next : b.at[3]) - (b.at[0] - 15)), 0, 1) * 100) : 0;
+        return `<div class="bdg-line${t ? '' : ' off'}" title="${U.esc(b.desc)}">
+          <span class="bdg-chip" style="--bc:${tier ? tier.color : '#5c6680'}"><span class="bi">${b.icon}</span>${U.esc(b.label)}</span>
+          <span class="bdg-tier" style="color:${tier ? tier.color : 'var(--muted)'}">${tier ? tier.label : '-'}</span>
+          <span class="bdg-desc small muted">${U.esc(b.desc)}</span>
+          <span class="bdg-next tiny dim">${pr ? pr.v : ''} · ${next}<span class="meter" style="width:70px;display:inline-block;margin-left:6px;vertical-align:middle"><span class="meter-fill" style="display:block;width:${pct}%;background:${tier ? tier.color : '#5c6680'}"></span></span></span>
+        </div>`;
+      }).join('');
+      return `<div class="bdg-cat"><h4>${cat}</h4>${rows}</div>`;
+    }).join('');
+    return head + `<div class="bdg-grid">${cats}</div><p class="tiny dim" style="margin-top:8px">Badges come from the ratings (a few from the personality) and change as the ratings do. How much they count is the Badge Impact slider in League Settings.</p>`;
   }
 
   function tendenciesHtml(S, p) {

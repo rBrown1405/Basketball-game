@@ -15,7 +15,7 @@
     { key: 'shooting', label: 'Shooting', icon: '🎯', desc: 'Shot selection and how often shots go in.' },
     { key: 'defense', label: 'Ball Security & Defense', icon: '🛡️', desc: 'Turnovers, steals, blocks, contests and fouls.' },
     { key: 'rebounding', label: 'Rebounding', icon: '🙌', desc: 'Battle on the glass.' },
-    { key: 'players', label: 'Players', icon: '🏃', desc: 'Fatigue, injuries, stars and clutch play.' },
+    { key: 'players', label: 'Players', icon: '🏃', desc: 'Fatigue, injuries, stars, clutch play and badges.' },
     { key: 'game', label: 'Game', icon: '🏟️', desc: 'Home court, upsets and how hard teams go in the playoffs.' },
     { key: 'ai', label: 'Live Game AI', icon: '🧠', desc: 'How players read the floor in the live game you watch: positioning, spacing, help and shot decisions. (The results are set by the groups above.)' },
     { key: 'user', label: 'User Team Difficulty', icon: '🎮', desc: 'Handicaps that only apply to your team (50 = fair).' },
@@ -75,6 +75,8 @@
       desc: 'How much the best scorers and go-to players dominate the shots.' },
     { key: 'clutch', group: 'players', label: 'Clutch Factor', map: ['mult0', 0.3, 3], fmt: 'x0', lo: 'Off', hi: 'Legends',
       desc: 'How much the Clutch rating matters in close games late.' },
+    { key: 'badges', group: 'players', label: 'Badge Impact', map: ['lin0', 0, 2], fmt: 'x0', lo: 'Off', hi: 'Legendary',
+      desc: 'How much player badges count (Deadeye, Limitless Range, Posterizer, Clamps and the rest): the shots they make, the whistles they draw, the steals, the rebounds, the confidence, and what they do on the live court. 0 turns them off, 50 is as tuned, 100 is twice as much. The league keeps its averages either way: the badges share them out among the players who have them.' },
     // Game
     { key: 'homeCourt', group: 'game', label: 'Home Court Advantage', map: ['lin0', 0, 3], fmt: 'x0', lo: 'Neutral', hi: 'Fortress',
       desc: 'Shooting, whistle and free throw edge for the home team.' },
@@ -269,7 +271,7 @@
     pace: 1, trans: 1, three: 1, dunk: 1, l3: 0, lMid: 0, lIn: 0, ft: 0, sfoul: 1,
     to: 1, stl: 1, blk: 1, contest: 0, nsfoul: 1, oreb: 0,
     fatigue: 1, inj: 1, injSev: 1, usage: 1, clutch: 1, home: 1, upset: 1, po: 1,
-    uShoot: 0, uDef: 0, uTo: 1, quick: 1,
+    uShoot: 0, uDef: 0, uTo: 1, quick: 1, badge: 1,
   };
 
   /** Multipliers/offsets for the game engine (cached by Sim.createGame on g.sl). All identity at the defaults. */
@@ -283,7 +285,7 @@
       fatigue: m('fatigue'), inj: m('injuries'), injSev: m('injurySeverity'), usage: m('starUsage'), clutch: m('clutch'),
       home: m('homeCourt'), upset: m('upsets'), po: m('playoffIntensity'),
       uShoot: m('userShooting'), uDef: m('userDefense'), uTo: m('userBallSecurity'),
-      quick: m('shootOpen'),
+      quick: m('shootOpen'), badge: m('badges'),
     };
   }
 

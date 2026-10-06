@@ -49,6 +49,8 @@ UI.portrait(player, size, opts)        // larger studio portrait for cards and t
 UI.ovr(value), UI.potLabel(p)          // chips; potLabel respects scouting knowledge
 UI.playerLink(p) / UI.teamLink(t)      // clickable names (open the player card / team page)
 UI.openPlayer(pid), UI.openTeam(tid), UI.openBox(gid)
+UI.styleTag(p, nBadges=3)              // a player's play style (icon and label) and best badges as small chips (PBC.Style, PBC.Badges)
+UI.badgeChip(badge, small)             // one badge from PBC.Badges.list(p) as a chip in its tier's color
 UI.table(container, { columns: [{ key, label, num, fmt(row), sort(row), title }], rows, sort: 'key', desc: true,
                       rowClass(row), onRow(row, ev), compact })
 UI.save()                              // after changing S: writes when the autosave policy allows it, otherwise marks the career unsaved

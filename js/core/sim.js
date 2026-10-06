@@ -12,13 +12,19 @@
     usageExp: 0.9, to: 0.175, toW: 0.196, stlBad: 0.72, stlLost: 0.85, outletTO: 0.035, shotTime: 14.72, shotTimeW: 15.12,
     // (each +0.02 with the confidence system: the old hot-hand counter only ever added, ~0.02 on average, where confidence comes
     // to nothing on average; the shot time +0.8 % against the quicker putbacks, so the pace and the scoring stay where they were)
-    zoneAdj: { rim: -0.36, paint: 0.04, mid: -0.1, c3: -0.2925, ab3: -0.1425 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
+    // (with the play styles and badges, set again so the league keeps its numbers: players finishing where they are best made more
+    // at the rim, and the hot hands' contested long twos fewer from the mid-range)
+    zoneAdj: { rim: -0.4, paint: 0.01, mid: -0.065, c3: -0.29, ab3: -0.1625 }, sfoul: 1.4, ftA: 0.25, nsfoul: 1.1, threeFreq: 1.08,
     coast: 1, // how much a team with a big lead lets up (shooting focus, glass, pressure); 0 = never
     // confidence (a player's, this game, -1 ice cold to +1 on fire): what it does to his shooting (logit at the extremes) and
     // how much he looks for his shot, how far a shot moves it (times how far the result beat what was expected of it), a
     // free throw, a turnover, a steal or a block, and how quickly it settles back to where he came in (s of his minutes)
     confMake: 0.14, confFtMake: 0.1, confUse: 0.22, confShot: 0.42, confFt: 0.14, confTo: 0.07, confStl: 0.05, confBlk: 0.05,
     confTau: 360, confCarry: 0.35,
+    // ...and the look he will take (passUp's bar, in expected points; the user: "shoot contested shots because of the shooter's
+    // confidence"): lower by heatBar x his confidence when he is feeling it (x 0.5 + his style's heat + the Heat Check badge),
+    // higher by coldBar x it when he is cold (less with Ice Veins)
+    heatBar: 0.12, coldBar: 0.08,
     // the ball does not sit (the user: "the players need to make all decisions faster"; the "0.5" game: catch, read, and in
     // about half a second shoot, drive or move it on): the time between the ball coming up the floor and the play, and the
     // time a play would otherwise be stretched over, is played as quick touches of flowTouchS each (s, from the release of
@@ -115,7 +121,7 @@
   // identity slider values (used when js/core/sliders.js is not loaded)
   const SL_DEFAULT = {
     pace: 1, trans: 1, three: 1, dunk: 1, l3: 0, lMid: 0, lIn: 0, ft: 0, sfoul: 1, to: 1, stl: 1, blk: 1, contest: 0, nsfoul: 1, oreb: 0,
-    fatigue: 1, inj: 1, injSev: 1, usage: 1, clutch: 1, home: 1, upset: 1, po: 1, uShoot: 0, uDef: 0, uTo: 1, quick: 1,
+    fatigue: 1, inj: 1, injSev: 1, usage: 1, clutch: 1, home: 1, upset: 1, po: 1, uShoot: 0, uDef: 0, uTo: 1, quick: 1, badge: 1,
   };
   const TEND_KEYS = ['three', 'mid', 'rim', 'dunk', 'pullup', 'stepback', 'drawFoul', 'iso', 'pnr', 'post', 'pass', 'push', 'crash', 'gamble', 'block', 'foul'];
   const NO_DEV = {};
@@ -139,11 +145,32 @@
     return tn;
   }
 
+  const STY_NONE = { key: '', use: 1, iso: 1, pnr: 1, post: 1, offscreen: 1, cut: 1, dho: 1, spot: 1, finish: 1, passOut: 1, assist: 1, rim: 1, paint: 1, mid: 1, c3: 1, ab3: 1, deep: 0, step: 1, pull: 1, dunk: 1, floater: 1, lob: 1, pop: 1, push: 1, crash: 1, bar: 1, heat: 0 };
+  /** a play style's multiplier for the game's player (js/core/style.js), centered on the league's mix of styles for the ones the
+   *  league as a whole feels (zones, plays: g.styMean), so the league keeps its numbers and the styles share them out */
+  function SM(g, c, k) {
+    const s = c && c.sty;
+    if (!s || s[k] == null) return 1;
+    const m = g && g.styMean && g.styMean[k];
+    return m ? s[k] / m : s[k];
+  }
+  const BDG_NONE = Object.freeze({});
+  /** a badge on the game's player (js/core/badges.js): his tier less the league's mean tier of it (g.bdgMean), times the Badge
+   *  Impact slider (g.bk). 0 for the league's average player, so the league keeps its numbers and the badges share them out */
+  function BD(g, c, k) {
+    if (!g.bk || !c) return 0;
+    const t = (c.bdg && c.bdg[k]) || 0, m = g.bdgMean ? g.bdgMean[k] || 0 : 0;
+    return (t - m) * g.bk;
+  }
   function mkPc(p, confAdd) {
     const c = {
       p, id: p.id, r: p.r, pos: p.pos, posN: C.POS_NUM[p.pos], energy: 100, sec: 0, pf: 0, on: false, starter: false,
       target: 0, out: false, inj: false, injNew: null, st: PBC.Stats.emptyLine(), last: p.last, name: PBC.Player.name(p),
       hgt: p.hgt, tn: tendProfile(p), pbFit: null,
+      // (his play style, js/core/style.js: what he looks for, where his shots come from, how he passes)
+      sty: PBC.Style ? PBC.Style.mods(p) : STY_NONE,
+      // (his badges, js/core/badges.js: { key: tier })
+      bdg: PBC.Badges ? PBC.Badges.of(p) : BDG_NONE,
       // confidence (Sim.K.conf*): where he comes into the game, how far a play moves him, where it is now; confAdd: the
       // room's chemistry and his morale (PBC.Desk.confMod, a League Setting)
       conf0: U.clamp(confBase(p) + (confAdd || 0), -0.5, 0.5), confK: confSwing(p), conf: 0, confS: 0, confNote: 0,
@@ -168,8 +195,10 @@
   function confMove(ctx, c, d) {
     const dt = c.sec - c.confS; c.confS = c.sec;
     if (dt > 0) c.conf = c.conf0 + (c.conf - c.conf0) * Math.exp(-dt / Sim.K.confTau);
-    c.conf = U.clamp(c.conf + d * c.confK, -1, 1);
     const g = ctx.g;
+    // (badges: a Heat Check gets hot quicker, Ice Veins shrug off a miss; his own tier, js/core/badges.js)
+    if (g.bk && c.bdg) { if (d > 0 && c.bdg.heatCheck) d *= 1 + PBC.Badges.K.heatCheck * c.bdg.heatCheck * g.bk; else if (d < 0 && c.bdg.iceVeins) d *= Math.max(0.3, 1 - PBC.Badges.K.iceVeins * c.bdg.iceVeins * g.bk); }
+    c.conf = U.clamp(c.conf + d * c.confK, -1, 1);
     if (g.lite) return;
     if (c.conf >= 0.55 && c.confNote <= 0) { c.confNote = 1; g.pbp.push({ q: g.period, clock: Math.max(0, g.clock - ctx.t), team: ctx.O.players.includes(c) ? ctx.O.idx : ctx.D.idx, text: `🔥 ${c.last} is heating up!`, type: 'note', score: g.score.slice(), possN: ctx.P.n }); }
     else if (c.conf <= -0.55 && c.confNote >= 0) { c.confNote = -1; g.pbp.push({ q: g.period, clock: Math.max(0, g.clock - ctx.t), team: ctx.O.players.includes(c) ? ctx.O.idx : ctx.D.idx, text: `🧊 ${c.last} has gone cold`, type: 'note', score: g.score.slice(), possN: ctx.P.n }); }
@@ -254,6 +283,7 @@
       pstats: null, plog: null, // (play tracking: js/core/playstats.js; declared here so the game object keeps one shape)
       zt: null, adj: null, // (shots by zone and the coaches' adjustments: js/core/adjust.js)
       coachEdge: null, rivalry: 0,
+      styMean: null, bdgMean: null, bk: 1, // (the league's mix of play styles and badges, for centering, and the Badge Impact slider: js/core/style.js, js/core/badges.js)
     };
     const sl = g.sl = PBC.Sliders && PBC.Sliders.simMods ? PBC.Sliders.simMods(S) : Object.assign({}, SL_DEFAULT);
     const st = Sim.stakesFor(S, opts);
@@ -269,6 +299,9 @@
     g.usageExp = sl.usage * (1 + 0.35 * I);
     g.homeMult = sl.home * (1 + 0.5 * I);
     g.clutchMult = sl.clutch * (1 + 0.8 * I);
+    g.styMean = PBC.Style && PBC.Style.leagueMean ? PBC.Style.leagueMean(S) : null;
+    g.bdgMean = PBC.Badges && PBC.Badges.leagueMean ? PBC.Badges.leagueMean(S) : null;
+    g.bk = sl.badge != null ? sl.badge : 1;
     g.t = [makeTeamCtx(S, g, homeTid, 0), makeTeamCtx(S, g, awayTid, 1)];
     // each team's playbook, the coach's play-calling memory and its pick-and-roll coverage (js/core/playcall.js)
     if (PBC.PlayCall) PBC.PlayCall.setup(g);
@@ -395,7 +428,7 @@
   function usageW(ctx, c) {
     const T = ctx.O, g = ctx.g;
     // star usage slider and playoff intensity sharpen the curve; pass-first players shoot less
-    let w = Math.pow(scoreSkill(c.r) / 70, Sim.K.usageExp * g.usageExp) * c.tn.f.use;
+    let w = Math.pow(scoreSkill(c.r) / 70, Sim.K.usageExp * g.usageExp) * c.tn.f.use * (c.sty ? c.sty.use : 1);
     const goToMod = C.OFFENSES[T.strat.off].mods.goTo || 1;
     const goToI = 1 + 0.1 * Math.min(1.5, g.intensity);
     const us = g.sl.usage, hero = us > 1 ? us : 1;     // star usage slider above default feeds the go-to players
@@ -463,7 +496,9 @@
 
   // near: the shooter's spot in a called play ([u, v]: feet from the baseline, from the sideline): the shot goes up
   // on that side of the floor, at about that angle (the zone, and so the make probability, is the same)
-  function locFor(ctx, zone, kind, near) {
+  /** where a shot goes up from. deep: the share of his threes above the break from way out (27 to 32 ft; 0.15 for most, more
+   *  for a Deep Range Shooter's style and the Limitless Range badge) */
+  function locFor(ctx, zone, kind, near, deep) {
     const g = ctx.g, idx = ctx.O.idx;
     const bx = basketX(idx, g.period), dir = dirX(idx, g.period);
     const L = g.L;
@@ -478,7 +513,11 @@
     if (zone === 'rim') { d = kind === 'dunk' || kind === 'alley' || kind === 'tip' ? U.range(0.5, 2.5) : U.range(1.5, 4); a = aim(-1.3, 1.3); }
     else if (zone === 'paint') { d = U.range(4.5, 12.5); a = aim(-0.95, 0.95); }
     else if (zone === 'mid') { d = U.range(10, 21.5); a = aim(-1.35, 1.35); }
-    else if (zone === 'ab3') { d = U.range(L.threePt.arc + 0.3, L.threePt.arc + (kind === 'heave' ? 40 : U.chance(0.15) ? 5.5 : 2.6)); a = aim(-1.1, 1.1); }
+    else if (zone === 'ab3') {
+      const dp = deep != null ? deep : 0.15;
+      d = U.range(L.threePt.arc + 0.3, L.threePt.arc + (kind === 'heave' ? 40 : U.chance(dp) ? (dp > 0.3 ? 8 : 5.5) : 2.6));
+      a = aim(-1.1, 1.1);
+    }
     if (zone === 'c3') {
       y = 25 + side * U.range(L.threePt.corner + 0.2, Math.min(24.2, L.threePt.corner + 1.8));
       x = bx - dir * U.range(-4.2, 8.5);
@@ -600,10 +639,19 @@
     { const mm = matchupsOf(ctx); P.matchups = {}; for (const o of ctx.O.on) if (mm[o.id]) P.matchups[mm[o.id].id] = o.id; } // defender id -> his man's id
     // (the head coach's orders on their men: deny, sag, double, force, hack; the court plays them, js/match/defense.js)
     P.dOrders = ctx.D.orders && Object.keys(ctx.D.orders).length ? Object.assign({}, ctx.D.orders) : null;
+    // (the confidence of the ten on the floor as it starts, for the court's reads: js/match/flow.js courtRead)
+    if (!g.lite) { P.conf = {}; for (const c of ctx.O.on.concat(ctx.D.on)) P.conf[c.id] = U.round(c.conf || 0, 2); }
     initiate(ctx, opts);
     if (!ctx.done) backcourtRules(ctx);
     runSegments(ctx, opts);
-    if (ctx.pendingShot) { g.pending = { P, ctx }; P.pendingShot = ctx.pendingShot; return P; }
+    if (ctx.pendingShot) {
+      const live = !!ctx.pendingShot.live;
+      g.pending = { P, ctx, live };
+      P.pendingShot = ctx.pendingShot;
+      // (the court's handles on a possession left open for its read: not part of the possession's data, never saved)
+      if (live) Object.defineProperty(P, 'live', { value: { resolve: () => Sim.resolveLive(g, P), read: (req) => Sim.liveRead(g, P, req) }, configurable: true, enumerable: false, writable: true });
+      return P;
+    }
     finishPossession(ctx);
     return P;
   };
@@ -1075,6 +1123,13 @@
     p *= g.toMult[O.idx] * Math.exp(0.25 * avgDev(D, 'gamble'));
     const exPress = coastExcess(g, g.score[D.idx] - g.score[O.idx]); // a defense up big stops pressing and gambling
     if (exPress > 2) p *= 1 - Math.min(0.3, (exPress - 2) * 0.011) * Sim.K.coast;
+    // (badges: a Needle Threader and an Unpluckable handler lose it less; Interceptors and Pickpockets on the floor take it more)
+    if (g.bk && PBC.Badges) {
+      const K = PBC.Badges.K;
+      let dh = 0;
+      for (const c of D.on) dh += BD(g, c, 'interceptor') + BD(g, c, 'pickpocket');
+      p *= Math.exp(-K.needleThreader * BD(g, h, 'needleThreader') - K.unpluckable * BD(g, h, 'unpluckable') + K.defHands * dh);
+    }
     return U.clamp(p, 0.03, 0.32 * Math.max(1, g.sl.to));
   }
 
@@ -1142,6 +1197,18 @@
     w.cut *= U.clamp((avgOn(O, 'speed') - 60) / 14, 0.6, 1.4);
     w.iso *= wavg(c => usageW(ctx, c), c => c.tn.f.isoTeam);
     w.pnr *= wavg(handlerW, c => c.tn.f.pnrTeam);
+    // (and by their play styles, js/core/style.js: a floor general calls for the pick-and-roll, a post scorer for the post, a
+    // movement shooter for screens, a playmaking big for hand-offs; the league's mix of styles centered out, SM)
+    {
+      const g0 = ctx.g, mx = (k) => U.clamp(Math.max(...on.map(c => SM(g0, c, k))), 0.6, 1.8);
+      w.iso *= U.clamp(wavg(c => usageW(ctx, c), c => SM(g0, c, 'iso')), 0.6, 1.6);
+      w.pnr *= U.clamp(wavg(handlerW, c => SM(g0, c, 'pnr')), 0.6, 1.6);
+      w.spot *= U.clamp(wavg(() => 1, c => SM(g0, c, 'spot')), 0.7, 1.4);
+      if (w.post != null) w.post *= mx('post');
+      if (w.offscreen != null) w.offscreen *= mx('offscreen');
+      if (w.cut != null) w.cut *= mx('cut');
+      if (w.handoff != null) w.handoff *= mx('dho');
+    }
     const dm = C.DEFENSES[D.strat.def].mods;
     if (dm.isZone) { w.iso *= 0.7; w.pnr *= 0.8; w.spot *= 1.35; w.post *= 1.1; w.cut *= 0.8; }
     if (D.strat.def === 'switch') { w.iso *= 1.25; w.post *= 1.15; }
@@ -1156,22 +1223,23 @@
     const others = arr => on.filter(c => !arr.includes(c));
     switch (play) {
       case 'pnr': {
-        const pnrW = c => handlerW(c) * c.tn.f.pnr;
+        const pnrW = c => handlerW(c) * c.tn.f.pnr * SM(ctx.g, c, 'pnr');
         info.handler = gim && gim.handler ? on.find(c => c.id === gim.handler) || pickFrom(on, pnrW) : pickFrom(on, pnrW);
         const bigs = others([info.handler]);
         info.screener = gim && gim.screener ? on.find(c => c.id === gim.screener) || bigs[0] : pickFrom(bigs, c => Math.pow(c.posN, 1.8) * (c.r.strength / 70));
-        info.pop = info.screener.r.three >= 70 && U.chance(0.25 + (info.screener.r.three - 70) / 60);
+        // (the pick-and-pop: a shooting big, the more so a Stretch Big; a rim runner rolls)
+        { const sc = info.screener, pk = sc.sty ? sc.sty.pop : 1; info.pop = sc.r.three >= (pk > 1.2 ? 64 : 70) && U.chance(U.clamp((0.25 + (sc.r.three - 70) / 60) * pk, 0.05, 0.92)); }
         info.setName = U.pick(info.pop ? SET_NAMES.pop : SET_NAMES.pnr);
         break;
       }
       case 'iso': {
-        info.handler = gim && gim.shooter ? on.find(c => c.id === gim.shooter) : pickFrom(on, c => Math.pow(usageW(ctx, c), 1.25) * (c.posN <= 3 ? 1 : 0.55) * c.tn.f.iso);
+        info.handler = gim && gim.shooter ? on.find(c => c.id === gim.shooter) : pickFrom(on, c => Math.pow(usageW(ctx, c), 1.25) * (c.posN <= 3 ? 1 : 0.55) * c.tn.f.iso * SM(ctx.g, c, 'iso'));
         info.setName = U.pick(SET_NAMES.iso);
         break;
       }
       case 'post': {
-        info.poster = gim && gim.shooter ? on.find(c => c.id === gim.shooter) : pickFrom(on, c => Math.pow(c.r.post / 60, 2.5) * (c.posN >= 3 ? 1 : 0.3) * usageW(ctx, c) * c.tn.f.post);
-        info.handler = pickFrom(others([info.poster]), c => c.r.pass * (c.posN <= 3 ? 1 : 0.3));
+        info.poster = gim && gim.shooter ? on.find(c => c.id === gim.shooter) : pickFrom(on, c => Math.pow(c.r.post / 60, 2.5) * (c.posN >= 3 ? 1 : 0.3) * usageW(ctx, c) * c.tn.f.post * SM(ctx.g, c, 'post'));
+        info.handler = pickFrom(others([info.poster]), c => c.r.pass * (c.posN <= 3 ? 1 : 0.3) * (c.sty ? c.sty.passOut : 1));
         info.setName = U.pick(SET_NAMES.post);
         break;
       }
@@ -1182,20 +1250,20 @@
       }
       case 'offscreen': {
         info.handler = pickFrom(on, handlerW);
-        info.shooter = gim && gim.shooter ? on.find(c => c.id === gim.shooter) : pickFrom(others([info.handler]), c => Math.pow(Math.max(c.tn.x3, c.tn.xMid) / 65, 5) * usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.3));
+        info.shooter = gim && gim.shooter ? on.find(c => c.id === gim.shooter) : pickFrom(others([info.handler]), c => Math.pow(Math.max(c.tn.x3, c.tn.xMid) / 65, 5) * usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.3) * SM(ctx.g, c, 'offscreen'));
         info.screener = pickFrom(others([info.handler, info.shooter]), c => c.posN);
         info.setName = U.pick(SET_NAMES.offscreen);
         break;
       }
       case 'handoff': {
-        info.big = pickFrom(on, c => (c.posN >= 4 ? 1 : 0.1) * c.r.pass);
+        info.big = pickFrom(on, c => (c.posN >= 4 ? 1 : 0.1) * c.r.pass * SM(ctx.g, c, 'dho'));
         info.handler = pickFrom(others([info.big]), c => usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.2));
         info.setName = U.pick(SET_NAMES.handoff);
         break;
       }
       case 'cut': {
         info.handler = pickFrom(on, c => c.r.pass * c.r.vision / 100 * (c.posN <= 2 ? 1.3 : c.posN >= 5 ? 0.9 : 0.7));
-        info.cutter = pickFrom(others([info.handler]), c => Math.pow((c.r.layup + c.r.dunk + c.r.speed) / 3 / 65, 4) * usageW(ctx, c) * c.tn.f.cut);
+        info.cutter = pickFrom(others([info.handler]), c => Math.pow((c.r.layup + c.r.dunk + c.r.speed) / 3 / 65, 4) * usageW(ctx, c) * c.tn.f.cut * SM(ctx.g, c, 'cut'));
         info.setName = U.pick(SET_NAMES.cut);
         break;
       }
@@ -1226,12 +1294,12 @@
     const on = ctx.O.on;
     const W = fn => U.pickW(on, c => Math.max(0.0001, fn(c)));
     switch (play.pick) {
-      case 'pnr': return W(c => handlerWOf(ctx, c) * c.tn.f.pnr);
-      case 'iso': return W(c => Math.pow(usageW(ctx, c), 1.25) * (c.posN <= 3 ? 1 : 0.55) * c.tn.f.iso * mismatchK(ctx, c));
-      case 'post': return W(c => Math.pow(c.r.post / 60, 2.5) * (c.posN >= 3 ? 1 : 0.3) * usageW(ctx, c) * c.tn.f.post * mismatchK(ctx, c));
-      case 'shooter': return W(c => Math.pow(Math.max(c.tn.x3, c.tn.xMid) / 65, 5) * usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.3));
+      case 'pnr': return W(c => handlerWOf(ctx, c) * c.tn.f.pnr * SM(ctx.g, c, 'pnr'));
+      case 'iso': return W(c => Math.pow(usageW(ctx, c), 1.25) * (c.posN <= 3 ? 1 : 0.55) * c.tn.f.iso * mismatchK(ctx, c) * SM(ctx.g, c, 'iso'));
+      case 'post': return W(c => Math.pow(c.r.post / 60, 2.5) * (c.posN >= 3 ? 1 : 0.3) * usageW(ctx, c) * c.tn.f.post * mismatchK(ctx, c) * SM(ctx.g, c, 'post'));
+      case 'shooter': return W(c => Math.pow(Math.max(c.tn.x3, c.tn.xMid) / 65, 5) * usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.3) * SM(ctx.g, c, 'offscreen'));
       case 'dho': return W(c => usageW(ctx, c) * (c.posN <= 3 ? 1 : 0.2));
-      case 'cutter': return W(c => Math.pow((c.r.layup + c.r.dunk + c.r.speed) / 3 / 65, 4) * usageW(ctx, c) * c.tn.f.cut);
+      case 'cutter': return W(c => Math.pow((c.r.layup + c.r.dunk + c.r.speed) / 3 / 65, 4) * usageW(ctx, c) * c.tn.f.cut * SM(ctx.g, c, 'cut'));
       default: return W(c => handlerWOf(ctx, c));
     }
   }
@@ -1902,6 +1970,8 @@
       v *= (dm.freq && dm.freq[z]) || 1;
       v *= fo[z] || 1;
       if (offDribble) v *= z === 'rim' ? c.tn.f.pullRim : z === 'paint' ? 1 : c.tn.f.pullJump;
+      // (his play style: a slasher at the rim, a deep range shooter from three, a post scorer in the paint; centered, SM)
+      v *= SM(g, c, z);
       w[z] = v;
     }
     return U.pickKey(w);
@@ -1909,27 +1979,27 @@
 
   function pickShooter(ctx, exclude, kind) {
     const cands = ctx.O.on.filter(c => !exclude.includes(c));
-    if (kind === 'spot') return U.pickW(cands, c => Math.pow(U.clamp((c.tn.x3 - 35) / 35, 0.05, 2), 3) * Math.sqrt(usageW(ctx, c)));
-    if (kind === 'finisher') return U.pickW(cands, c => Math.pow((c.r.layup + c.r.dunk + c.r.speed) / 3 / 65, 3) * (c.posN >= 2 ? 1 : 0.6) * c.tn.f.push);
+    if (kind === 'spot') return U.pickW(cands, c => Math.pow(U.clamp((c.tn.x3 - 35) / 35, 0.05, 2), 3) * Math.sqrt(usageW(ctx, c)) * SM(ctx.g, c, 'spot'));
+    if (kind === 'finisher') return U.pickW(cands, c => Math.pow((c.r.layup + c.r.dunk + c.r.speed) / 3 / 65, 3) * (c.posN >= 2 ? 1 : 0.6) * c.tn.f.push * (c.sty ? c.sty.finish : 1));
     return U.pickW(cands, c => usageW(ctx, c));
   }
 
   // step-back / fadeaway share scaled by the stepback tendency (fs = 1 keeps the old odds exactly)
   const stepP = (p, fs) => (p * fs) / (p * fs + 1 - p);
   // catch-and-shoot players with a pull-up habit put it on the floor for one dribble now and then
-  const pullOff = c => c.tn.d.pullup > 0 && U.chance(Math.min(0.35, 0.3 * c.tn.d.pullup));
+  const pullOff = c => (c.tn.d.pullup > 0 || (c.sty && c.sty.pull > 1.1)) && U.chance(Math.min(0.35, 0.3 * Math.max(c.tn.d.pullup, 0.25) * (c.sty ? c.sty.pull : 1)));
 
   function chooseKind(ctx, zone, hint, c, lob) {
-    const tn = c.tn, fs = tn.f.step, dk = ctx.g.sl.dunk;
+    const tn = c.tn, sy = c.sty || STY_NONE, fs = tn.f.step * sy.step, dk = ctx.g.sl.dunk * sy.dunk;
     if (zone === 'rim') {
       if (hint === 'putback') return U.chance(0.4) ? 'tip' : (tn.xDunk >= 65 && U.chance(0.35 * dk) ? 'dunk' : 'layup');
       const m = hint === 'roll' || hint === 'cut' || hint === 'transition' ? 1.35 : hint === 'offDribble' ? 0.6 : 1;
-      if (U.chance(U.clamp((tn.xDunk - 46) / 52, 0, 0.9) * m * dk)) return lob && U.chance(0.55) ? 'alley' : 'dunk';
+      if (U.chance(U.clamp((tn.xDunk - 46) / 52, 0, 0.9) * m * dk)) return lob && U.chance(U.clamp(0.55 * sy.lob, 0, 0.95)) ? 'alley' : 'dunk';
       return U.chance(0.12) ? 'reverse' : 'layup';
     }
     if (zone === 'paint') {
       if (c.posN >= 4) return U.pickKey({ hook: 55, jumper: 22, layup: 23 });
-      return U.pickKey({ floater: 55, pullup: 25, layup: 20 });
+      return U.pickKey({ floater: 55 * sy.floater, pullup: 25, layup: 20 });
     }
     if (zone === 'mid') {
       if (hint === 'catch') return pullOff(c) ? 'pullup' : 'jumper';
@@ -1947,8 +2017,10 @@
   function branchWeights(info) {
     const b = BRANCHES[info.play] || { self: 1 };
     const who = info.play === 'post' ? info.poster : info.play === 'offscreen' ? info.shooter : info.handler;
-    const f = who && who.tn ? who.tn.f : null;
-    if (!f) return b;
+    const f0 = who && who.tn ? who.tn.f : null;
+    if (!f0) return b;
+    // (his play style: a floor general kicks it and finds the roll man more, a shot creator keeps it)
+    const po = who.sty ? who.sty.passOut : 1, f = po === 1 ? f0 : Object.assign({}, f0, { passOut: f0.passOut * po, keep: f0.keep / Math.sqrt(po) });
     switch (info.play) {
       case 'pnr': return { handler: b.handler * f.keep * f.pull, roller: b.roller * f.passOut, kick: b.kick * f.passOut };
       case 'iso': case 'post': return { self: b.self * f.keep, kick: b.kick * f.passOut };
@@ -2000,7 +2072,7 @@
         break;
       case 'spot':
         if (branch === 'shooter') { shooter = pickShooter(ctx, [info.handler], 'spot'); assister = info.handler; base = { c3: 32, ab3: 50, mid: 14, rim: 4 }; hint = 'catch'; cKey = 'spot'; passKind = 'swing'; }
-        else { shooter = pickShooter(ctx, [], 'usage'); assister = shooter !== info.handler && U.chance(0.6 * info.handler.tn.f.assist) ? info.handler : null; base = { rim: 58, paint: 26, mid: 16 }; hint = 'offDribble'; cKey = 'drive'; }
+        else { shooter = pickShooter(ctx, [], 'usage'); assister = shooter !== info.handler && U.chance(Math.min(0.92, 0.6 * info.handler.tn.f.assist * (info.handler.sty ? info.handler.sty.assist : 1))) ? info.handler : null; base = { rim: 58, paint: 26, mid: 16 }; hint = 'offDribble'; cKey = 'drive'; }
         break;
       case 'offscreen':
         if (branch === 'shooter') { shooter = info.shooter; assister = info.handler; base = { ab3: 56, c3: 12, mid: 30, rim: 2 }; hint = 'catch'; cKey = 'offscreen'; passKind = 'chest'; }
@@ -2240,6 +2312,8 @@
       off = dv(sh, 'handle') * 0.4 + dv(sh, 'speed') * 0.25 + dv(sh, 'agility') * 0.2 + dv(sh, 'shotIQ') * 0.15;
       def = dv(d, 'perD') * 0.6 + dv(d, 'agility') * 0.25 + dv(d, 'speed') * 0.15;
       if (plan.kind === 'stepback' || plan.kind === 'fadeaway') off += 4 + dv(sh, 'handle') * 0.15;
+      // (badges: a Quick First Step and an Ankle Breaker get by him, Clamps keep him in front)
+      if (ctx.g.bk && PBC.Badges) { const K = PBC.Badges.K, g = ctx.g; off += K.quickFirstStep * BD(g, sh, 'quickFirstStep') + K.ankleBreaker * BD(g, sh, 'ankleBreaker'); def += K.clamps * BD(g, d, 'clamps'); }
     } else if (k === 'catch') {
       const ps = plan.assister;
       off = dv(sh, 'shotIQ') * 0.45 + dv(sh, 'speed') * 0.25 + dv(sh, 'agility') * 0.1 + (ps ? dv(ps, 'vision') * 0.2 : dv(sh, 'shotIQ') * 0.2);
@@ -2269,6 +2343,12 @@
       plan.edge = e;
       if (Sim.edgeLog) Sim.edgeLog.push([lookKind(plan), e]);
       open += (e - OPEN_MEAN[lookKind(plan)]) * OPEN_K;
+    }
+    // (badges: a Floor General on the floor gets his teammates better looks; his four teammates' tiers less the league's mean)
+    if (g.bk && PBC.Badges && sh) {
+      let ft = 0, n = 0;
+      for (const c of O.on) if (c !== sh) { ft += c.bdg.floorGeneral || 0; n++; }
+      open += PBC.Badges.K.floorGeneral * (ft - n * (g.bdgMean ? g.bdgMean.floorGeneral || 0 : 0)) * g.bk;
     }
     w[0] *= 1 + open * 3; w[2] *= 1 - open * 3;
     const i = U.pickW([0, 1, 2], w.map(x => Math.max(0.5, x)));
@@ -2307,7 +2387,33 @@
     return lead / cs - safe;
   }
 
-  function makeProb(ctx, sh, zone, kind, contest, d, info) {
+  /** what the shooter's badges (and his defender's, and the passer's) do to a shot's make odds, in logit (js/core/badges.js,
+   *  centered on the league's tiers: BD) */
+  const JUMP_KIND = { jumper: 1, pullup: 1, stepback: 1, fadeaway: 1, catch_shoot: 1 };
+  function badgeShot(ctx, sh, zone, kind, contest, d, info, plan) {
+    const g = ctx.g, K = PBC.Badges.K, cont = contest !== 'open';
+    const inside = zone === 'rim' || zone === 'paint', hint = plan ? plan.hint : null;
+    let x = 0;
+    if (!inside || JUMP_KIND[kind]) {
+      if (cont) x += K.deadeye * BD(g, sh, 'deadeye') - K.challenger * BD(g, d, 'challenger');
+      if (kind === 'catch_shoot' || hint === 'catch') x += K.catchShoot * BD(g, sh, 'catchShoot');
+      if (kind === 'pullup' || kind === 'stepback' || kind === 'fadeaway') x += K.pullUp * BD(g, sh, 'pullUp');
+      if (zone === 'mid') x += K.midMaestro * BD(g, sh, 'midMaestro');
+      if (isClutch(g)) x += K.clutchShooter * BD(g, sh, 'clutchShooter');
+      if (plan && plan.assister) x += K.dimer * BD(g, plan.assister, 'dimer');
+    }
+    if (inside) {
+      if (cont && (kind === 'dunk' || kind === 'alley')) x += K.posterizer * BD(g, sh, 'posterizer');
+      if (cont && (kind === 'layup' || kind === 'reverse')) x += K.acrobat * BD(g, sh, 'acrobat');
+      if (kind === 'floater') x += K.floatGame * BD(g, sh, 'floatGame');
+      if (kind === 'hook' || hint === 'post') x += K.postPowerhouse * BD(g, sh, 'postPowerhouse');
+      if (kind === 'tip' || (info && info.play === 'putback')) x += K.putbackBoss * BD(g, sh, 'putbackBoss');
+      x -= 0.4 * K.rimProtector * BD(g, d, 'rimProtector');
+    }
+    return x;
+  }
+
+  function makeProb(ctx, sh, zone, kind, contest, d, info, plan) {
     const g = ctx.g, O = ctx.O, D = ctx.D, L = g.L;
     const r = sh.r;
     let x = U.logit(L.shotBase[zone] / (1 - BLOCK_BASE[zone] * 0.9)) + Sim.K.zoneAdj[zone];
@@ -2360,6 +2466,8 @@
       const ofit = C.OFFENSES[O.strat.off].mods.needs === 'three' ? offenseFit(O) : 0;
       x += ofit * 0.05;
     }
+    // badges (js/core/badges.js): what he does better than his ratings say on this shot, against his defender's
+    if (g.bk && PBC.Badges) x += badgeShot(ctx, sh, zone, kind, contest, d, info, plan);
     return U.sigmoid(x);
   }
 
@@ -2369,6 +2477,8 @@
     p *= 1 - (sh.r.shotIQ - 65) * 0.006;
     const sb = ctx.g.sl.blk;
     p *= sb * d.tn.f.block;
+    // (badges: a Rim Protector at the rim and in the paint)
+    if ((zone === 'rim' || zone === 'paint') && ctx.g.bk && PBC.Badges) p *= Math.max(0.5, 1 + PBC.Badges.K.rimProtector * BD(ctx.g, d, 'rimProtector'));
     return U.clamp(p, 0.002, Math.min(0.45, 0.3 * Math.max(1, sb)));
   }
 
@@ -2385,6 +2495,8 @@
     if (ctx.transition && ctx.segN <= 1) p *= 1.15;
     // sliders, the shooter's contact seeking, the defender's foul / block habits, physical playoff games
     p *= g.sl.sfoul * sh.tn.f.drawFoul * d.tn.f.sfoulDef * (1 + 0.08 * Math.min(1.5, g.intensity));
+    // (badges: a Physical Finisher draws the whistle at the rim and in the paint)
+    if ((zone === 'rim' || zone === 'paint') && g.bk && PBC.Badges) p *= Math.max(0.5, 1 + PBC.Badges.K.physicalFinisher * BD(g, sh, 'physicalFinisher'));
     return U.clamp(p, 0.003, 0.45);
   }
 
@@ -2394,6 +2506,7 @@
     if (isClutch(g)) p += (c.r.clutch - 70) * 0.0012 * g.clutchMult;
     p -= Math.max(0, 68 - c.energy) * 0.001;
     p += (c.conf || 0) * Sim.K.confFtMake * 0.25; // (confidence: ~0.025 either way at the extremes, the logit's slope near 0.77)
+    if (g.bk && PBC.Badges) p += PBC.Badges.K.freeThrowAce * BD(g, c, 'freeThrowAce') * (isClutch(g) ? 1.5 : 1); // (badges: a Free Throw Ace)
     if (ctx.O.idx === 1) p -= 0.004 * g.homeMult;
     return U.clamp(p, 0.3, g.sl.ft > 0 ? 0.96 + g.sl.ft * 0.25 : 0.96);
   }
@@ -2412,9 +2525,18 @@
     if (why) return false;
     const scLeft = ctx.scStart + ctx.scLen - tShot;
     if (scLeft < 9) { if (!ctx.g.lite) ctx.read = { why: 'late', sc: U.round(scLeft, 1) }; return false; }
-    const ep = makeProb(ctx, plan.shooter, plan.zone, plan.kind, contest, d, info) * (is3(plan.zone) ? 3 : 2);
-    const bar = scLeft > 14 ? 0.86 : 0.78;
-    if (!ctx.g.lite) ctx.read = { ep: U.round(ep, 3), bar, sc: U.round(scLeft, 1), zone: plan.zone, contest, kind: plan.kind };
+    const ep = makeProb(ctx, plan.shooter, plan.zone, plan.kind, contest, d, info, plan) * (is3(plan.zone) ? 3 : 2);
+    let bar = scLeft > 14 ? 0.86 : 0.78;
+    // (his confidence and his play style: one who is feeling it takes the tougher look, a heat-check type (a Deep Range Shooter's
+    // or a Shot Creator's style, the Heat Check badge) the more so, a cold one passes up more (less with Ice Veins); a floor
+    // general holds out for the better shot, a deep range shooter less)
+    {
+      const sh = plan.shooter, sy = sh.sty || STY_NONE, cf = sh.conf || 0, bk = ctx.g.bk || 0, bd = sh.bdg || BDG_NONE;
+      bar *= sy.bar;
+      if (cf > 0) bar -= Sim.K.heatBar * cf * (0.5 + sy.heat + 0.15 * (bd.heatCheck || 0) * bk);
+      else if (cf < 0) bar += Sim.K.coldBar * -cf * Math.max(0.4, 1 - 0.15 * (bd.iceVeins || 0) * bk);
+    }
+    if (!ctx.g.lite) ctx.read = { ep: U.round(ep, 3), bar: U.round(bar, 3), sc: U.round(scLeft, 1), zone: plan.zone, contest, kind: plan.kind };
     if (ep >= bar) return false;
     const iq = U.clamp((plan.shooter.r.shotIQ - 50) / 40, 0, 1);
     return U.chance(U.clamp((bar - ep) / 0.3, 0, 1) * (0.3 + 0.45 * iq));
@@ -2470,7 +2592,8 @@
       } else playEvents(ctx, info, plan, tShot, contest, mode);
     }
     ctx.t = tShot;
-    const loc = locFor(ctx, zone, kind, plan.near);
+    // (a deep range shooter's threes from further out: his style's deep share, the Limitless Range badge)
+    const loc = locFor(ctx, zone, kind, plan.near, zone === 'ab3' ? U.clamp(0.15 + (sh.sty ? sh.sty.deep : 0) + 0.08 * ((sh.bdg && sh.bdg.deepRange) || 0) * g.bk, 0, 0.75) : null);
     if (kind === 'heave') {
       const bx = basketX(O.idx, g.period), dir = dirX(O.idx, g.period);
       loc.x = U.round(U.clamp(bx - dir * U.range(35, 70), 2, 92), 1); loc.y = U.round(U.range(12, 38), 1); loc.d = Math.round(Math.hypot(loc.x - bx, loc.y - 25));
@@ -2495,14 +2618,53 @@
       if (!g.lite) ctx.P.events.push(shot);
       return;
     }
+    // a watched game (g.liveReads, set by the live view): the possession's first shot in the half court is left open for the
+    // court's read of the floor (the user: "the player should be aware of the man guarding him and the help defenders; if he's
+    // completely left alone he should just let it fly"). Its outcome is drawn when the court comes to it (Sim.resolveLive), or
+    // a man the court sees left alone on a catch shoots instead (Sim.liveRead, js/match/flow.js courtRead). Simulated games are
+    // untouched
+    if (g.liveReads && !g.lite && !ctx.liveShotDone && LIVE_MODES[mode] && kind !== 'heave' && info.play !== 'putback') {
+      shot.pending = true;
+      shot.live = true;
+      ctx.pendingShot = shot;
+      ctx.pendingData = pending;
+      ctx.P.events.push(shot);
+      return;
+    }
     resolveShot(ctx, shot, pending, null);
+  }
+  const LIVE_MODES = { normal: 1, quick: 1, twoForOne: 1 };
+  // (what the court may cut from a possession left open when a man shoots on the catch: the ball movement and the actions of the
+  // play still to come, never a foul, a turnover, a timeout or anything else that has happened to the game)
+  const LIVE_DROP = { pass: 1, move: 1, screen: 1, handoff: 1, set: 1, step: 1, shot: 1 };
+
+  /** the badge a made shot showed off (Silver or better), or null: the deepest three of a Limitless Range shooter, a contested jumper
+   *  of a Deadeye, a posterizing dunk... the one with the highest tier */
+  function shotBadge(ctx, sh, zone, kind, contest, dist, andOne, info) {
+    const b = sh.bdg || BDG_NONE, cont = contest !== 'open', jump = !(zone === 'rim' || zone === 'paint') || JUMP_KIND[kind];
+    const c = [];
+    if (is3(zone) && dist >= 28) c.push('deepRange');
+    if (jump && cont) c.push('deadeye');
+    if (kind === 'catch_shoot') c.push('catchShoot');
+    if (kind === 'pullup' || kind === 'stepback' || kind === 'fadeaway') c.push('pullUp');
+    if (zone === 'mid') c.push('midMaestro');
+    if (jump && isClutch(ctx.g)) c.push('clutchShooter');
+    if ((kind === 'dunk' || kind === 'alley') && cont) c.push('posterizer');
+    if ((kind === 'layup' || kind === 'reverse') && cont) c.push('acrobat');
+    if (andOne) c.push('physicalFinisher');
+    if (kind === 'floater') c.push('floatGame');
+    if (kind === 'hook' || (info && info.play === 'post')) c.push('postPowerhouse');
+    if (kind === 'tip' || (info && info.play === 'putback')) c.push('putbackBoss');
+    let best = null, bt = 1;
+    for (const k of c) if ((b[k] || 0) > bt) { bt = b[k]; best = k; }
+    return best;
   }
 
   /** quality: null (normal) or {quality, score} from the GIM shot meter */
   function resolveShot(ctx, shot, data, quality) {
     const g = ctx.g, O = ctx.O, D = ctx.D;
     const { sh, d, zone, kind, contest, info, pts, plan } = data;
-    let pMake = makeProb(ctx, sh, zone, kind, contest, d, info);
+    let pMake = makeProb(ctx, sh, zone, kind, contest, d, info, plan);
     const xpMake = pMake;
     let pBlock = kind === 'heave' ? 0 : blockProb(ctx, zone, sh, d);
     let pFoul = shootingFoulProb(ctx, zone, sh, d, kind);
@@ -2517,7 +2679,8 @@
     }
     const blocked = U.chance(pBlock);
     const fouled = !blocked && U.chance(pFoul);
-    let made = !blocked && U.chance(fouled ? pMake * 0.5 : pMake);
+    // (fouled, the shot goes in half as often; a Physical Finisher finishes through the contact more: badges)
+    let made = !blocked && U.chance(fouled ? pMake * U.clamp(0.5 + (zone === 'rim' || zone === 'paint' ? 0.04 * BD(g, sh, 'physicalFinisher') : 0), 0.35, 0.7) : pMake);
     shot.made = made; shot.blocked = blocked; shot.fouled = fouled; shot.andOne = made && fouled;
     // (for the court's aim, Match.Aim: how likely the make was, and how he felt taking it)
     shot.pm = U.round(pMake, 3); shot.conf = U.round(sh.conf, 2);
@@ -2553,6 +2716,13 @@
     const dist = shot.dist;
     if (blocked) shot.text = U.pick([`${d.last} BLOCKS ${sh.last}!`, `Rejected! ${d.last} swats ${sh.last}'s shot`, `${d.last} with the block on ${sh.last}`]);
     else shot.text = made ? TXT.made(sh, kind, zone, dist, plan.assister, shot.andOne) : TXT.missed(sh, kind, zone, dist);
+    // (the badge behind it, Silver or better, for the booth and the broadcast (js/core/badges.js); a Gold or Hall of Fame one
+    // in the play-by-play line too)
+    if (!g.lite && g.bk && PBC.Badges) {
+      const bk = made ? shotBadge(ctx, sh, zone, kind, contest, dist, shot.andOne, info) : blocked ? (d.bdg.rimProtector >= 2 ? 'rimProtector' : null) : null;
+      const who = blocked ? d : sh, B = bk && PBC.Badges.BY_KEY[bk];
+      if (B) { shot.badge = { key: bk, tier: who.bdg[bk], player: who.id }; if (shot.badge.tier >= 3) shot.text += ` · ${B.icon} ${B.label}`; }
+    }
     if (!g.lite) {
       if (!ctx.P.events.includes(shot)) ctx.P.events.push(shot);
       g.pbp.push({ q: g.period, clock: Math.max(0, g.clock - shot.t), team: O.idx, text: shot.text, type: 'shot', score: null, possN: ctx.P.n, made, pts });
@@ -2658,11 +2828,14 @@
     if (exGlass > 2) x -= Math.min(0.6, (exGlass - 2) * 0.022) * Sim.K.coast;
     x -= (1 - avgEnergy(O) / 100) * 0.2;
     x += g.sl.oreb + 0.3 * avgDev(O, 'crash');       // slider + how hard this five crashes the glass
+    // (badges: Box-Out Beasts keep the other team off the glass)
+    if (g.bk && PBC.Badges) { let bo = 0; for (const c of D.on) bo += BD(g, c, 'boxoutBeast'); x -= PBC.Badges.K.boxoutBeast * bo; }
     const off = U.chance(U.sigmoid(x));
     const T = off ? O : D;
     const key = off ? 'oreb' : 'dreb';
     const posF = { 1: 0.72, 2: 0.8, 3: 0.95, 4: 1.1, 5: 1.22 };
-    const reb = U.pickW(T.on, c => Math.pow(c.r[key] / 50, 1.15) * posF[c.posN] * (0.7 + c.r.hustle / 230) * (c.id === shot.shooter ? 0.8 : 1) * (off ? c.tn.f.crash : 1));
+    const rk = g.bk && PBC.Badges ? PBC.Badges.K.reboundChaser * g.bk : 0; // (badges: a Rebound Chaser tracks down more of them)
+    const reb = U.pickW(T.on, c => Math.pow(c.r[key] / 50, 1.15) * posF[c.posN] * (0.7 + c.r.hustle / 230) * (c.id === shot.shooter ? 0.8 : 1) * (off ? c.tn.f.crash : 1) * (rk && c.bdg.reboundChaser ? 1 + rk * c.bdg.reboundChaser : 1));
     reb.st[off ? 'orb' : 'drb']++;
     const rd = zone === 'ft' ? U.range(3, 7) : is3(zone) ? U.range(5, 14) : zone === 'mid' ? U.range(4, 11) : U.range(2, 8);
     const ra = U.range(-1.3, 1.3);
@@ -2759,7 +2932,9 @@
     const label = { bad_pass: 'bad pass', lost_ball: 'lost ball', offensive_foul: 'offensive foul', travel: 'traveling', out_of_bounds: 'stepped out of bounds', shot_clock: 'shot clock violation', three_seconds: '3-second violation', eight_seconds: '8-second violation', backcourt: 'backcourt violation' }[kind];
     let stealer = null;
     if (stolen) {
-      stealer = U.pickW(D.on, c => Math.pow(c.r.steal / 55, 1.5) * (c.r.agility / 70) * c.tn.f.gamble);
+      // (badges: an Interceptor jumps the passing lanes, a Pickpocket pokes it loose)
+      const bk = g.bk && PBC.Badges ? g.bk : 0, sk = kind === 'bad_pass' ? 'interceptor' : 'pickpocket';
+      stealer = U.pickW(D.on, c => Math.pow(c.r.steal / 55, 1.5) * (c.r.agility / 70) * c.tn.f.gamble * (bk && c.bdg[sk] ? 1 + PBC.Badges.K[sk] * c.bdg[sk] * bk : 1));
       stealer.st.stl++;
       confMove(ctx, stealer, Sim.K.confStl);
     }
@@ -2860,7 +3035,7 @@
       for (const c of T.players) {
         if (c.on) {
           c.sec += dt;
-          const drain = 0.03 * (1.36 - c.r.stamina / 140) * (own.fatigue || 1) * offF * presF * paceF * g.sl.fatigue;
+          const drain = 0.03 * (1.36 - c.r.stamina / 140) * (own.fatigue || 1) * offF * presF * paceF * g.sl.fatigue * (g.bk ? Math.max(0.6, 1 - (PBC.Badges ? PBC.Badges.K.tirelessMotor : 0) * BD(g, c, 'tirelessMotor')) : 1);
           c.energy = Math.max(15, c.energy - drain * dt);
         } else {
           c.energy = Math.min(100, c.energy + 0.05 * dt);
@@ -3031,6 +3206,8 @@
   Sim.resolvePending = function (g, P, quality) {
     const pend = g.pending;
     if (!pend) return P;
+    // (a shot left open for the court's read: drawn as it was planned, no shot meter)
+    if (pend.live) { Sim.resolveLive(g, pend.P); return P; }
     const ctx = pend.ctx;
     g.pending = null;
     ctx.pendingShot = null;
@@ -3042,6 +3219,74 @@
     P.pendingShot = null;
     return P;
   };
+
+  /** the shot left open for the court's read (takeShot, g.liveReads) drawn as it was planned, and the rest of the possession
+   *  run: the court comes to it with nobody left alone on the way. False when there is none */
+  Sim.resolveLive = function (g, P) {
+    const pend = g.pending;
+    if (!pend || !pend.live || (P && pend.P !== P)) return false;
+    const ctx = pend.ctx, shot = pend.P.pendingShot;
+    g.pending = null;
+    ctx.pendingShot = null;
+    ctx.liveShotDone = true;
+    pend.P.pendingShot = null;
+    resolveShot(ctx, shot, ctx.pendingData, null);
+    if (!ctx.done) runSegments(ctx, {});
+    finishPossession(ctx);
+    return true;
+  };
+  /**
+   * The court's read (js/match/flow.js courtRead): a man left alone on a catch lets it fly. The possession's open shot gives way
+   * to his: the events after the pass that found him are cut (the rest of the play is not run), his shot is drawn as an open
+   * look (or as req.contest says) from where he caught it, the passer credited with the assist if it goes, and the rest of the
+   * possession run from there. req: { shooter, after (the pass event that found him), t (the engine time of his release), x, y,
+   * zone, kind?, contest? }. Returns the new shot event, or null when it cannot be (no open shot, he is not on the floor, the
+   * time is not before the planned shot, or something other than the play's ball movement would be cut)
+   */
+  Sim.liveRead = function (g, P, req) {
+    const pend = g.pending;
+    if (!pend || !pend.live || pend.P !== P || !req) return null;
+    const ctx = pend.ctx, O = ctx.O, data = ctx.pendingData, old = P.pendingShot;
+    const sh = O.on.find(c => c.id === req.shooter);
+    const k = P.events.indexOf(req.after);
+    const t = U.round(+req.t, 2);
+    // (why not, for the court's counters: Sim.liveRead.why)
+    const no = (w) => { Sim.liveRead.why = w; return null; };
+    if (!sh || !old || !data || k < 0 || !ZONE_OK[req.zone]) return no(!sh ? 'shooter' : k < 0 ? 'after' : 'data');
+    if (!(t > (+req.after.t || 0))) return no('before the pass');
+    if (!(t < old.t)) return no('after the shot');
+    for (let i = k + 1; i < P.events.length; i++) if (!LIVE_DROP[P.events[i].type]) return no('cuts ' + P.events[i].type);
+    P.events.splice(k + 1);
+    // (play tracking: a called play's open look taken before the play was run, as far as it had got)
+    const pb = data.info && data.info.pb;
+    if (pb && pb.rec && !pb.inbound) { pb.rec.look = true; const kk = pbStepAt(pb, t); if (kk < pb.rec.step) pb.rec.step = kk; }
+    // (the man who found him: the passer on the court, req.from, else the engine pass's)
+    const zone = req.zone, as = O.on.find(c => c.id === req.from) || (req.after.type === 'pass' || req.after.type === 'handoff' ? O.on.find(c => c.id === req.after.from) : null) || null;
+    const kind = req.kind || (is3(zone) ? 'catch_shoot' : zone === 'mid' ? 'jumper' : chooseKind(ctx, zone, 'catch', sh, false));
+    const plan = { branch: 'read', shooter: sh, assister: as && as !== sh ? as : null, zone, kind, cKey: 'spot', passKind: 'swing', hint: 'catch' };
+    const d = shotDefender(ctx, sh, zone, data.info);
+    const contest = req.contest === 'contested' || req.contest === 'tight' ? req.contest : 'open';
+    const bx = basketX(O.idx, g.period);
+    const x = U.round(U.clamp(+req.x, 0.8, 93.2), 1), y = U.round(U.clamp(+req.y, 0.8, 49.2), 1);
+    const loc = { x, y, d: Math.max(0, Math.round(Math.hypot(x - bx, y - 25))) };
+    const pts = is3(zone) ? 3 : 2;
+    ctx.t = t;
+    const shot = {
+      type: 'shot', t, team: O.idx, shooter: sh.id, pts, zone, kind, x, y, dist: loc.d, contest, defender: d.id,
+      assist: plan.assister ? plan.assister.id : null, made: undefined, blocked: false, blocker: null, fouled: false, fouler: null, andOne: false,
+      pending: false, created: contest === 'open' ? 'open' : null, read: { why: 'court', from: old.shooter, open: req.open != null ? U.round(+req.open, 1) : undefined },
+    };
+    P.events.push(shot);
+    g.pending = null;
+    ctx.pendingShot = null;
+    ctx.liveShotDone = true;
+    P.pendingShot = null;
+    resolveShot(ctx, shot, { plan, sh, d, zone, kind, contest, info: data.info, pts, loc }, null);
+    if (!ctx.done) runSegments(ctx, {});
+    finishPossession(ctx);
+    return shot;
+  };
+  const ZONE_OK = { rim: 1, paint: 1, mid: 1, c3: 1, ab3: 1 };
 
   // ---------------------------------------------------------------------------
   // Coach controls during a game

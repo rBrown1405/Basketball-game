@@ -111,11 +111,12 @@
       if (s.ast >= 3) parts.push(`<b>${s.ast}</b> AST`);
       if (s.stl + s.blk >= 3) parts.push(`${s.stl} STL ${s.blk} BLK`);
       const per = p && PBC.Persona ? PBC.Persona.info(p) : null;
+      const sty = p && PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null; // (his play style, js/core/style.js)
       const el = $('bc-l3');
       el.setAttribute('style', tcss(teamIdx));
       el.innerHTML = `<div class="l3-por">${UI.avatar(p, 64)}</div>
         <div class="l3-body"><div class="l3-top"><span class="l3-num">#${p ? p.num : ''}</span><span class="l3-name">${esc(p ? (p.first + ' ' + p.last) : c.name).toUpperCase()}</span>${headline ? `<span class="l3-hl">${esc(headline)}</span>` : ''}</div>
-        <div class="l3-stats">${parts.join('<i>·</i>')}</div>${per ? `<div class="l3-pers">${per.icon} ${esc(per.label)}</div>` : ''}</div>`;
+        <div class="l3-stats">${parts.join('<i>·</i>')}</div>${per || sty ? `<div class="l3-pers">${sty ? sty.icon + ' ' + esc(sty.label) : ''}${per && sty ? ' <i>·</i> ' : ''}${per ? per.icon + ' ' + esc(per.label) : ''}</div>` : ''}</div>`;
       el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
       B.l3T = secs || 5;
       B.lastL3 = B.possN;
@@ -200,6 +201,8 @@
             else if (c.st.tpm >= 4 && sh.pts === 3) hl = c.st.tpm + ' THREES';
             else if (sh.kind === 'dunk' || sh.kind === 'alley') hl = sh.kind === 'alley' ? 'ALLEY-OOP' : 'SLAM';
             else if (sh.andOne) hl = 'AND ONE';
+            // (a Gold or Hall of Fame badge showing: js/core/badges.js)
+            if (!hl && sh.badge && sh.badge.tier >= 3 && PBC.Badges && PBC.Badges.BY_KEY[sh.badge.key]) { const bd = PBC.Badges.BY_KEY[sh.badge.key]; hl = bd.icon + ' ' + bd.label.toUpperCase(); }
             if ((hl && B.possN - B.lastL3 >= 2) || (milestone && B.possN - B.lastL3 >= 1)) lowerThird(c, x.i, hl, 5.5);
             else if (B.possN - B.lastL3 >= 9 && pts >= 8 && Math.random() < 0.35) lowerThird(c, x.i, '', 4.5);
           }

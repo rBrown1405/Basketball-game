@@ -188,7 +188,7 @@
       cap: 1.51e6, tax: 1.8e6, apron: 1.9e6, minSalary: 66e3, maxPct: [0.16, 0.17, 0.18], mle: 110e3,
       rookieTop: 90e3, rookieFirstRoundLow: 70e3, rookieSecond: 66e3,
       draftRounds: 3, lotteryTeams: 4,
-      shotBase: { rim: 0.55, paint: 0.385, mid: 0.378, c3: 0.365, ab3: 0.33 },
+      shotBase: { rim: 0.54, paint: 0.385, mid: 0.378, c3: 0.365, ab3: 0.33 }, // (rim 0.55 before the play styles: the finishers finish more of them)
       threeRate: 0.56, ftBase: 0.012,
       tradeDeadlineFrac: 0.6, allStarFrac: 0.55,
     },

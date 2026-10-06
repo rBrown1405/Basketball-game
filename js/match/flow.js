@@ -148,6 +148,8 @@
     const w = Object.assign({}, pr.act);
     if (soon) { w.screen *= 0.2; w.cut *= 0.25; w.exchange *= 0.3; } // keep him near where the next play wants him
     if (big) { w.screen *= 1.6; w.relocate *= 0.6; w.big = 2.2; } else { w.big = 0; }
+    // (his play style, Style.court: a movement shooter never stops relocating, a slasher cuts, a hustle big screens more)
+    w.relocate *= this.styK(a.id, 'relocate'); w.cut *= this.styK(a.id, 'cutK'); w.screen *= this.styK(a.id, 'screenK');
     if (me.u < 9 && !big) w.cut *= 0.4; // already at the rim area
     const pick = U.pickKey ? U.pickKey(w) : pickKey(w);
     let ok = false;
@@ -425,7 +427,8 @@
     const beaten = !g || broken || along < -TR.beatenFt || (along < TR.besideAlongFt && across > TR.besideFt) || (!!sold && Math.hypot(sold.dx, sold.dy) > TR.biteBeatFt);
     // (the Attack Basket slider, League Settings, Director.attackK: 0 nobody attacks a gap and the open look waits for its time; 50
     // as tuned; 100 a lane half as wide counts as open, the drives come sooner, deeper and oftener, the look pulled further)
-    const ak = this.attackK(), akW = 0.5 + 0.5 * ak;
+    // (his play style too: an explosive slasher attacks every gap, a floor general looks to set up first; Style.court attack)
+    const ak = this.attackK() * this.styK(h.id, 'attack'), akW = 0.5 + 0.5 * ak;
     const open = near >= TR.openFt / akW, wide = near >= TR.wideFt / akW && dR < TR.wideRangeFt;
     h._openFt = near; h._beaten = beaten;
     if (ak <= 0.02 || (!open && !beaten)) return;
@@ -465,6 +468,103 @@
     h.lookAt(null);
     this.attacks = (this.attacks || 0) + 1;
     if (wide && !beaten) this.wideAttacks = (this.wideAttacks || 0) + 1;
+  };
+
+  // ------------------------------------------------------------ the read on the catch
+  // (the user: "they base their openness on how close the man guarding them is ... they should be aware of the man that's supposed
+  // to guard them and the other defenders, the help defenders; if he's completely left alone he should just let it fly, if he has
+  // good shooting stats, unless he's a center that can't shoot, then he'll pass")
+  /** how close the nearest defender can get to `a` by his release, tRel s from now (ft), and who: each defender carries on at
+   *  the speed he has toward him through his reaction to the catch (his own man's quicker than a helper's, plus the Offense
+   *  Edge's lag), then closes at that or at least ownCloseK / helpCloseK of his top speed; one busy in a move of his own (a
+   *  fall, a box-out's clip) only once it is over */
+  P.closeoutGap = function (a, tRel) {
+    const TR = M.Tune.catchRead, lag = this.edgeLag ? this.edgeLag() : 0;
+    let gap = 99, by = null;
+    for (const d of this.defActors()) {
+      const dx = a.x - d.x, dy = a.y - d.y, dist = Math.hypot(dx, dy) || 0.01;
+      const vr = Math.max(0, ((d.vx || 0) * dx + (d.vy || 0) * dy) / dist);
+      const own = this.matchup && String(this.matchup[d.id]) === String(a.id);
+      let react = (own ? TR.reactS : TR.helpReactS) + lag;
+      if (d.isBusy() && d.clip) react += Math.max(0, (d.clip.clip.dur - d.clip.t) / (d.clip.speed || 1));
+      const v2 = Math.max(vr, (d.maxSpeed || 20) * (own ? TR.ownCloseK : TR.helpCloseK));
+      const t1 = Math.min(react, tRel), t2 = Math.max(0, tRel - react);
+      const s = vr * t1 + v2 * t2;
+      const g = Math.max(0, dist - s);
+      if (g < gap) { gap = g; by = d; }
+    }
+    return { gap, by };
+  };
+  /** a man who has just caught the ball reads the floor (passBall's catch): left alone, nobody able to get within
+   *  Tune.catchRead.wideFt of him by his release, he lets it fly if he can shoot it from there (a center who cannot passes it on).
+   *  The possession's shot left open for the read (the engine's, Sim.liveRead through the possession's handles) becomes his,
+   *  the passer credited if it goes, and the rest of the play is not run. A catch on the court's own ball movement between the
+   *  engine's events counts too */
+  P.courtRead = function (to, from) {
+    const v = this.v, b = v.ball, P0 = this.poss, TR = M.Tune.catchRead;
+    if (!this.active || this.frozen || !P0 || !P0.live || !P0.pendingShot || !P0.pendingShot.live) return false;
+    if (b.holder !== to || to.team !== this.off || !from || from.team !== this.off || from === to) return false;
+    if (this.phase !== 'front' || to.isBusy() || to.stance === 'postUp' || to.stance === 'postHold') return false;
+    // (the last of the engine's events already played: the cut comes after it)
+    let after = null;
+    for (let i = this.ei - 1; i >= 0; i--) if (this.events[i] && this.events[i]._emitted) { after = this.events[i]; break; }
+    if (!after || !LIVE_BEATS[after.type]) return false;
+    // (one read per catch of an engine pass)
+    const pe = to._rcEv;
+    if (pe && pe._read) return false;
+    if (pe) pe._read = true;
+    const shot = P0.pendingShot;
+    const u = this.U_(to.x);
+    if (u < TR.minU || u > TR.maxU) return false;
+    const p = { x: to.x, y: to.y }, zone = this.zoneAt(p), dR = Math.hypot(p.x - this.rim.x, p.y - this.rim.y);
+    // (his own jumper the shot left open anyway: readOpen brings it forward)
+    if (String(shot.shooter) === String(to.id) && shot.zone !== 'rim' && shot.zone !== 'paint') return false;
+    // (his release after the catch: a Catch & Shoot badge gets it off quicker)
+    const cs = this.bdgT(to.id, 'catchShoot');
+    const tRel = TR.relS * Math.max(0.7, 1 - TR.csRelK * cs) / this.sliderK('shootOpen', 0.8, 1.25);
+    const cg = this.closeoutGap(to, tRel);
+    this.catchReads = (this.catchReads || 0) + 1;
+    if (cg.gap < TR.openFt) return false;
+    const wide = cg.gap >= TR.wideFt;
+    if (wide) this.wideCatches = (this.wideCatches || 0) + 1; else this.openCatches = (this.openCatches || 0) + 1;
+    // can he shoot it from there?
+    const lk = v.look(to.id) || {}, rate = (k, d) => (lk[k] != null ? +lk[k] : d);
+    // (left alone, a fair shooter is all-in; just open, it takes a good one)
+    const s0 = wide ? TR.wideFrom : TR.skillFrom, s1 = wide ? TR.wideTo : TR.skillTo;
+    const sk = (r) => U.clamp((r - s0) / (s1 - s0), 0, 1);
+    let skill;
+    if (zone === 'rim' || zone === 'paint') skill = dR < TR.rimFt ? 1 : sk(Math.max(rate('close', 55), rate('mid', 55)));
+    else if (zone === 'mid') skill = sk(rate('mid', 55));
+    else {
+      // (from way out only a deep shooter: 3PT deepFrom or better, the Limitless Range badge or a Deep Range Shooter's style)
+      const t3 = rate('three', 50), deep = t3 >= TR.deepFrom || this.bdgT(to.id, 'deepRange') > 0 || this.styK(to.id, 'deep') >= 0.3;
+      skill = dR > TR.deepFt && !deep ? 0 : sk(t3);
+    }
+    const conf = P0.conf && P0.conf[to.id] != null ? U.clamp(+P0.conf[to.id], -1, 1) : 0;
+    // (wide open: if he can shoot it, he does; just open, a closeout coming, a shooter who is feeling it more than one who is not,
+    // a Catch & Shoot badge more; his style's bar: a floor general looks for the extra pass first, a deep range shooter less)
+    const bar = this.styK(to.id, 'bar');
+    let pShoot = skill > 0 ? U.lerp(TR.minP, TR.maxP, skill) * (wide ? 1 : TR.openK * (1 + TR.csK * cs)) * Math.max(0.2, 1 + TR.confK * conf * (wide ? 1 : TR.openConfK)) / Math.pow(bar, wide ? 0.5 : 1) * this.sliderK('shootOpen', 0.5, 1.5) : 0;
+    if (skill > 0 && this.shotClock() < TR.lateScS) pShoot = Math.max(pShoot, TR.lateP);
+    pShoot = U.clamp(pShoot, 0, 0.98);
+    const who = (lk.last || ('#' + to.id));
+    if (!(Math.random() < pShoot)) {
+      this.passedOpen = (this.passedOpen || 0) + 1;
+      if (this.dbgOn && this.dbgOn()) this.dbgRead && this.dbgRead('READ ' + who + ': ' + (wide ? 'left alone' : 'open') + ' (' + cg.gap.toFixed(1) + ' ft at the release) but passes it on (' + Math.round(pShoot * 100) + '%)', '#ffd8a8');
+      return false;
+    }
+    const shotEv = P0.live.read({ shooter: to.id, from: from.id, after, t: this.g + tRel, x: p.x, y: p.y, zone, open: cg.gap, contest: wide ? 'open' : 'contested' });
+    if (!shotEv) {
+      this.readRefused = (this.readRefused || 0) + 1;
+      const Sm = window.PBC && window.PBC.Sim, rw = this.refusedWhy || (this.refusedWhy = {}), w = (Sm && Sm.liveRead && Sm.liveRead.why) || '?';
+      rw[w] = (rw[w] || 0) + 1;
+      return false;
+    }
+    this.courtShots = (this.courtShots || 0) + 1;
+    if (wide) this.courtShotsWide = (this.courtShotsWide || 0) + 1;
+    if (this.dbgOn && this.dbgOn()) this.dbgRead && this.dbgRead('READ ' + who + ': ' + (wide ? 'left alone' : 'open') + ' (' + cg.gap.toFixed(1) + ' ft at the release), lets it fly from ' + zone, '#8ce99a');
+    this.liveRedirect(shotEv);
+    return true;
   };
 
   // ------------------------------------------------------------ working the ball (hand switches)

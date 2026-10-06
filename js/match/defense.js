@@ -32,6 +32,12 @@
   const TMP = new Float64Array(3);
   /** a rating of a player from the Live view's player info (ratings 25-99), or `d` */
   P.rating = function (id, k, d) { const l = this.v.look(id); const x = l ? +l[k] : NaN; return isFinite(x) ? x : d; };
+  /** his play style's court multiplier k (js/core/style.js Style.court: attack, combo, relocate, cutK, roll, postMove, clamp...),
+   *  1 without one (0 for the additive flair and deep) */
+  P.styK = function (id, k) { const l = this.v.look(id), s = l && l.sty; const x = s ? +s[k] : NaN; return isFinite(x) ? x : (k === 'flair' || k === 'deep' || k === 'heat' ? 0 : 1); };
+  /** his tier of a badge on the court (js/core/badges.js Badges.court: deepRange, catchShoot, quickStep, ankles, clamps,
+   *  posterizer, postPower, heatCheck), times the Badge Impact slider; 0 without it */
+  P.bdgT = function (id, k) { const l = this.v.look(id), b = l && l.bdg; if (!b || !b[k]) return 0; const bk = this.v.ctx && this.v.ctx.badgeK != null ? +this.v.ctx.badgeK : 1; return b[k] * (isFinite(bk) ? bk : 1); };
 
   // ------------------------------------------------------------ matchups
   /** the engine's pairing (P.matchups: defender id -> his man's id) where both are on the floor, lineup order for the
@@ -155,6 +161,9 @@
     // (the coach's order on him: sag off and dare him to shoot, or get up into him)
     const od = this.order(m.id);
     if (od === 'sag' && dl > 12) gap *= 1.45; else if (od === 'deny') gap *= 0.85;
+    // (a Limitless Range shooter is picked up out where he can shoot it; a lockdown defender's style and Clamps play up on the ball)
+    if (dl > 25 && this.bdgT(m.id, 'deepRange') > 0) gap = Math.min(gap, M.Tune.badges.deepPickupFt);
+    gap *= Math.max(0.75, 1 - 0.5 * (this.styK(a.id, 'clamp') - 1) - M.Tune.badges.clampsGapK * this.bdgT(a.id, 'clamps'));
     return U.clamp(gap, 2, 16);
   };
 
@@ -216,8 +225,11 @@
   /** how good the handler is against him: 0 (a lockdown defender on a big who can't dribble) to 1 (the other way) */
   P.shiftyK = function (h, d) {
     const hd = this.rating(h.id, 'handle', 55), ag = this.rating(h.id, 'agility', 65);
-    const pd = this.rating(d.id, 'perD', 55), da = this.rating(d.id, 'agility', 65), iq = this.rating(d.id, 'defIQ', 55);
-    return U.clamp(0.5 + ((hd * 0.7 + ag * 0.3) - (pd * 0.6 + da * 0.25 + iq * 0.15)) / 50, 0, 1);
+    // (a lockdown defender's style is worth more on the ball: Style.court clamp)
+    const pd = this.rating(d.id, 'perD', 55) + (this.styK(d.id, 'clamp') - 1) * 40, da = this.rating(d.id, 'agility', 65), iq = this.rating(d.id, 'defIQ', 55);
+    // (badges: a Quick First Step and an Ankle Breaker against Clamps)
+    const TB = M.Tune.badges, bd = TB.shiftyQuick * this.bdgT(h.id, 'quickStep') + TB.shiftyAnkles * this.bdgT(h.id, 'ankles') - TB.shiftyClamps * this.bdgT(d.id, 'clamps');
+    return U.clamp(0.5 + ((hd * 0.7 + ag * 0.3) - (pd * 0.6 + da * 0.25 + iq * 0.15)) / 50 + bd, 0, 1);
   };
   /** where the man on the ball sees the handler: followed a reaction behind (Tune.shifty.lagS, by shiftyK), and pulled the
    *  way a move he bought sold him (defBite) while it lasts. Kept on the defender (a._pc) */
@@ -260,7 +272,7 @@
   P.breakFt = function (h, d) {
     const TC = M.Tune.combo, k = this.shiftyK(h, d);
     const cl = h._comboLook && this.T < h._comboLook.until ? h._comboLook : null;
-    return U.lerp(TC.breakFt[1], TC.breakFt[0], k) * (cl ? cl.k : 1) * this.sliderK('defIQ', 0.85, 1.15);
+    return U.lerp(TC.breakFt[1], TC.breakFt[0], k) * (cl ? cl.k : 1) * this.sliderK('defIQ', 0.85, 1.15) * Math.max(0.6, 1 - M.Tune.badges.ankleBreakK * this.bdgT(h.id, 'ankles'));
   };
   /** a dribble move is made (Ball, as its bounce starts): the man on the ball buys it as much as the handler is better than
    *  him (shiftyK; Tune.shifty): a crossover, between the legs or behind the back sells the side the ball is leaving, an in
@@ -317,7 +329,7 @@
     if (d._broken && T < d._broken.until) return;
     const bl = Math.hypot(dx, dy) || 1, nx = dx / bl, ny = dy / bl;
     const k = this.shiftyK(h, d);
-    const fall = !d.isBusy() && !((d.jumpZ || 0) > 0.05) && Math.random() < U.lerp(TC.fallP[0], TC.fallP[1], sev * k);
+    const fall = !d.isBusy() && !((d.jumpZ || 0) > 0.05) && Math.random() < U.lerp(TC.fallP[0], TC.fallP[1], sev * k) * (1 + M.Tune.badges.ankleFallK * this.bdgT(h.id, 'ankles'));
     const dur = U.lerp(TC.brokenS[0], TC.brokenS[1], sev) + (fall ? TC.fallBusyS : 0);
     d._broken = { until: T + dur, k: sev, t0: T, fall };
     if (d.slow) d.slow(dur, TC.brokenVK);

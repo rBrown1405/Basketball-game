@@ -104,6 +104,7 @@
       nickname: p.nickname || '', origin: p.origin || '',
       pers: Object.assign({ money: 50, win: 50, loyal: 50, pt: 50, market: 50, ego: 50, work: 60 }, p.pers || {}),
       persType: (p.pers && p.pers.type && PS && PS.TYPES[p.pers.type]) ? p.pers.type : 'auto',
+      style: p.styleCustom && PBC.Style && PBC.Style.BY_KEY[p.style] ? p.style : 'auto',
       morale: p.morale != null ? p.morale : 70,
       tend: TD ? Object.assign({}, TD.get(p)) : null, tendTouched: false, tendReset: false,
       contract: p.contract && p.tid !== -2 ? { amt: p.contract.amt, years: yearsLeft } : null,
@@ -114,6 +115,13 @@
     let tab = (opts && opts.tab) || 'main';
     const body = UI.h('<div class="ed"></div>');
     const archOpts = () => Object.keys(C.ARCHETYPES[d.pos] || {}).map(a => `<option ${d.arch === a ? 'selected' : ''}>${U.esc(a)}</option>`).join('');
+    // (his play style, js/core/style.js: Auto follows his ratings as they are in the editor; or one picked for him)
+    const autoStyle = () => (PBC.Style ? PBC.Style.detect(Object.assign({}, p, { r: d.r, pos: d.pos, arch: d.arch })) : '');
+    const styleOpts = () => {
+      if (!PBC.Style) return '';
+      const au = PBC.Style.BY_KEY[autoStyle()];
+      return `<option value="auto" ${d.style === 'auto' ? 'selected' : ''}>Auto${au ? ' (' + U.esc(au.label) + ')' : ''}</option>` + PBC.Style.LIST.map(st => `<option value="${st.key}" ${d.style === st.key ? 'selected' : ''}>${st.icon} ${U.esc(st.label)}</option>`).join('');
+    };
     const hairOpts = () => (HAIR[d.gender === 'f' ? 'f' : 'm']).map(h => `<option value="${h}" ${d.look.hair === h ? 'selected' : ''}>${HAIR_LABEL[h] || h}</option>`).join('');
     const swatches = (colors, cur, key) => colors.map(c => `<button class="sw ${String(cur).toLowerCase() === String(c).toLowerCase() ? 'on' : ''}" data-sw="${key}" data-v="${c}" style="background:${c}" title="${c}"></button>`).join('');
     const skinSw = () => C.SKIN_TONES.map((c, i) => `<button class="sw ${d.look.skin === i ? 'on' : ''}" data-sw="skin" data-v="${i}" style="background:${c}" title="tone ${i}"></button>`).join('');
@@ -139,7 +147,8 @@
             <div class="row">
               <label>#<input class="inp" id="ed-num" type="number" min="0" max="99" value="${d.num}"></label>
               <label>Pos<select class="inp" id="ed-pos">${C.POSITIONS.map(x => `<option ${d.pos === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
-              <label>Archetype<select class="inp" id="ed-arch">${archOpts()}</select></label></div>
+              <label>Archetype<select class="inp" id="ed-arch">${archOpts()}</select></label>
+              ${PBC.Style ? `<label title="How this player plays: what to look for with the ball, where the shots come from, the movement without it. Auto follows the ratings">Play Style<select class="inp" id="ed-style">${styleOpts()}</select></label>` : ''}</div>
             <div class="row">
               <label>Age<input class="inp" id="ed-age" type="number" min="17" max="45" value="${d.age}"></label>
               <label>Ht (in)<input class="inp" id="ed-hgt" type="number" min="64" max="90" value="${d.hgt}"></label>
@@ -332,6 +341,7 @@
       render();
     });
     UI.on(body, 'change', '#ed-arch', (e, el) => { d.arch = el.value; });
+    UI.on(body, 'change', '#ed-style', (e, el) => { d.style = el.value; });
     UI.on(body, 'change', '#ed-age,#ed-hgt,#ed-wgt,#ed-wing', (e, el) => {
       const k = { 'ed-age': 'age', 'ed-hgt': 'hgt', 'ed-wgt': 'wgt', 'ed-wing': 'wing' }[el.id];
       d[k] = Math.round(+el.value || d[k]);
@@ -455,6 +465,8 @@
               const t = S.teams[p.tid];
               if (t && (p.tid !== S.userTid || t.rot.auto !== false)) PBC.AI.autoRotation(S, p.tid);
             }
+            // play style: the one picked, or Auto (follows the ratings)
+            if (PBC.Style) PBC.Style.set(p, d.style);
             // tendencies: custom when edited, otherwise they follow the new ratings / personality
             if (TD) {
               if (d.tendTouched) { p.tend = Object.assign({}, d.tend); p.tendCustom = true; }

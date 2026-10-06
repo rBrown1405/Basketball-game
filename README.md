@@ -43,6 +43,11 @@ runs the tests. The gauntlet reports are in `docs/gauntlet/`, and every animatio
 - **Men's (30 teams, 82 games) or Women's (12 teams, 44 games) pro league**, fictional teams in real cities.
 - **27 player ratings**, 5 positions, archetypes, potential, contracts, injuries, aging and **personalities**
   (Easygoing, Floor General, Fierce Competitor, Showman, Cocky, Hothead, Cold-Blooded and more).
+- **Play styles and badges**: every player has one of 18 play styles (Floor General, Point Forward, Deep Range Shooter,
+  Explosive Slasher, Shot Creator, 3-and-D Wing, Post Scorer, Rim Runner and more) that shapes how they play, in the
+  simulation and on the live court, and badges in Bronze, Silver, Gold and Hall of Fame tiers (29 of them: Deadeye,
+  Limitless Range, Posterizer, Ankle Breaker, Clamps, Rim Protector and more) earned from their ratings. The player card
+  has a Badges tab; the Badge Impact slider sets how much they count.
 - **Detailed pixel-art portraits** everywhere, with facial expressions that match each player's personality
   (a warm smile, a smirk, a cocky grin, a mean mug) and moods for big moments.
 - **Manage your team**: starting five, rotation minutes, go-to players, 12 offensive systems, 12 defensive
@@ -75,13 +80,13 @@ runs the tests. The gauntlet reports are in `docs/gauntlet/`, and every animatio
   scheme and coverage. Past seasons are kept in each team's history.
 - **Game Impact Moments**: in clutch moments you draw up the play and hit the shot yourself with a shot meter.
 - **Gameplay sliders** (League Settings): pace, fast breaks, three-point rate and accuracy, shooting by zone,
-  dunks, fouls, turnovers, steals, blocks, defense, rebounding, fatigue, injuries, star usage, clutch, home
-  court, upsets and playoff intensity, with presets, plus difficulty handles for your own team.
+  dunks, fouls, turnovers, steals, blocks, defense, rebounding, fatigue, injuries, star usage, clutch, badges,
+  home court, upsets and playoff intensity, with presets, plus difficulty handles for your own team.
 - **League behaviour settings**: player progression, rookie development, aging, morale sensitivity and trade
   requests (unhappy players can ask out), contract demands, loyalty, AI trade frequency and trade difficulty.
 - **Player editor**: ratings and looks, **tendencies** (threes, mid-range, attacking the rim, dunking, pull-ups,
   step-backs, drawing fouls, isolation, pick and roll, post-ups, passing, pushing the pace, crashing, gambling,
-  blocking, fouling), personality type, facial expression and characteristics.
+  blocking, fouling), personality type, play style, facial expression and characteristics.
 - **Team editor**: city, name, abbreviation, colors, badge shape, home and away uniforms, court wood, paint and
   logo, arena name, market size, owner and default systems.
 - **Weekly practice mini-games** develop your players (focus players improve 3× faster).

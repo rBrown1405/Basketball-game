@@ -61,6 +61,22 @@
 .pc-pers { display: flex; gap: 8px; align-items: baseline; margin-top: 6px; font-size: 12.5px; }
 .pc-pers .pi { font-size: 16px; }
 .pc-pers .pd { color: var(--muted); }
+/* play styles and badges (js/core/style.js, js/core/badges.js): a badge chip in its tier's color (--bc) */
+.bdg-row { gap: 5px; flex-wrap: wrap; }
+.bdg-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 4px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  color: var(--bc); background: color-mix(in srgb, var(--bc) 14%, transparent); border: 1px solid color-mix(in srgb, var(--bc) 45%, transparent); }
+.bdg-chip .bi { font-size: 13px; line-height: 1; }
+.bdg-chip.sm { padding: 1px 4px; }
+.bdg-count { display: inline-flex; gap: 5px; align-items: baseline; font-size: 12px; color: var(--muted); }
+.bdg-count b { color: var(--bc); font-size: 15px; }
+.bdg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 6px 18px; }
+.bdg-cat h4 { margin: 8px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.bdg-line { display: grid; grid-template-columns: auto auto 1fr; gap: 2px 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.bdg-line .bdg-tier { font-size: 11px; font-weight: 800; }
+.bdg-line .bdg-desc { grid-column: 1 / -1; }
+.bdg-line .bdg-next { grid-column: 1 / -1; }
+.bdg-line.off { opacity: .55; }
+.sty-tag { font-size: 11px; color: var(--muted); }
 .pc-tend .rbar .meter-fill { background: linear-gradient(90deg, #4aa3ff, #7dbcff); }
 .pc-tend .rbar .val small { font-weight: 600; color: var(--dim); margin-left: 4px; font-size: 10.5px; }
 .pc-tend .rbar { grid-template-columns: 1fr auto; }

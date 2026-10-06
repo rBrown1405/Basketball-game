@@ -27,7 +27,9 @@
     return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, drawFoul: p.r.drawFoul,
       // (the court's defense and offense read these: cushion by shooting, help by awareness, roles for bigs)
       three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, strength: p.r.strength, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, offIQ: Math.round(p.r.shotIQ * 0.55 + p.r.vision * 0.45), defIQ: Math.round(p.r.helpD * 0.7 + p.r.hustle * 0.3),
-      expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral' };
+      expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral',
+      // (his play style and badges: how he plays it on the floor, js/core/style.js and js/core/badges.js)
+      sty: PBC.Style ? PBC.Style.court(p) : null, bdg: PBC.Badges ? PBC.Badges.court(p) : null };
   }
   UI.matchContext = function (S, g) {
     const L = PBC.League.cfg(S);
@@ -38,6 +40,7 @@
       league: L.key, periodLen: L.quarterLen, otLen: L.otLen, threePt: L.threePt,
       home: teamLook(home, true), away: teamLook(away, false), players,
       lineups: [g.t[0].on.map(c => c.id), g.t[1].on.map(c => c.id)], defScheme: [g.t[0].strat.def, g.t[1].strat.def],
+      badgeK: g.bk != null ? g.bk : 1, // (the Badge Impact slider, for what the badges do on the court)
     };
   };
 
@@ -272,6 +275,8 @@
         const canvas = root.querySelector('#court');
         LG.view = UI.makeCourtView(canvas, S, g);
         if (!LG.view) throw new Error('no court view');
+        // (a watched game: the court reads the floor on each catch and a man left alone can take the shot, PBC.Sim.liveRead)
+        g.liveReads = true;
         LG.onResize = () => { const st = root.querySelector('#stage'); if (LG && LG.view && LG.view.resize && st) LG.view.resize(st.clientWidth, st.clientHeight); };
         LG.onResize();
       } catch (e) {
@@ -282,7 +287,7 @@
         const cv = root.querySelector('#court'); if (cv) cv.remove();
       }
     }
-    if (!LG.view) { LG.onResize = () => {}; buildTextStage(); }
+    if (!LG.view) { g.liveReads = false; LG.onResize = () => {}; buildTextStage(); }
     window.addEventListener('resize', LG.onResize);
     if (window.ResizeObserver && LG.view) { LG.ro = new ResizeObserver(() => LG && LG.onResize()); LG.ro.observe(root.querySelector('#stage')); }
     // broadcast package: audio, commentary booth, TV graphics
@@ -681,6 +686,8 @@
       if (!LG) return;
       LG.busy = false;
     }
+    // (a shot the court left open for its read and never came to: drawn now, so the game goes on)
+    if (g.pending && g.pending.live) PBC.Sim.resolveLive(g, g.pending.P);
     snapStats();
     // Game Impact Moment?
     const gimCtx = PBC.Sim.gimCheck(g);
@@ -833,7 +840,7 @@
     if (ev.type === 'turnover' && ev.stealer && LG.P && LG.P.events.some(e => e.type === 'shot' && e.made && (e.kind === 'dunk' || e.kind === 'layup'))) { /* steal & score handled on score */ }
     if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
     gameAudio(ev, LG.P);
-    if (ev.type === 'shot' && ev.pending) resolveGimShot(ev);
+    if (ev.type === 'shot' && ev.pending && ev.gim) resolveGimShot(ev);
   }
 
   // ---------------------------------------------------------------------------
@@ -1092,7 +1099,7 @@
       gameAudio(ev, tx.P);
       // (no court in text mode: the result goes out with the shot)
       if (ev.type === 'shot' && !ev.pending && LG.at) LG.at.shotResult(ev, { via: 'text', text: true, sc: LG.dispScore });
-      if (ev.type === 'shot' && ev.pending) { tx.waiting = true; resolveGimShot(ev); return; }
+      if (ev.type === 'shot' && ev.pending && !ev.live) { tx.waiting = true; resolveGimShot(ev); return; }
     }
     if (tx.idx >= tx.P.events.length && tx.t >= tx.end) {
       LG.clockShow = tx.P.clockEnd != null ? tx.P.clockEnd : LG.g.clock;
@@ -1340,6 +1347,8 @@
   function fastForward(stop) {
     const g = LG.g;
     let guard = 0;
+    // (the possession on the court, still open for its read: drawn first)
+    if (g.pending) PBC.Sim.resolvePending(g, g.pending.P, { quality: 'good' });
     while (!g.final && guard++ < 1000) {
       if (stop && stop(g)) break;
       const P = PBC.Sim.nextPossession(g);
@@ -1363,6 +1372,7 @@
       stage.insertAdjacentHTML('afterbegin', '<canvas id="court"></canvas>');
       try {
         LG.view = UI.makeCourtView(stage.querySelector('#court'), LG.S, LG.g);
+        LG.g.liveReads = !!LG.view;
         if (LG.view) {
           LG.view.period = LG.g.period;
           if (LG.view.setAtmosphere) LG.view.setAtmosphere({ playoff: LG.stakes.playoff, level: LG.stakes.level, effort: LG.g.intensity, label: LG.stakes.short, finals: LG.stakes.playoff && LG.stakes.roundName === 'Finals' });
