@@ -1,5 +1,7 @@
-# Convert FBX animation files to BVH with Blender's own FBX importer and BVH exporter (bpy: Blender as a Python module,
-# pip install bpy), one BVH per action, for tools/mocap/retarget.js.
+# Convert FBX animation files to BVH with Blender's own FBX importer and BVH exporter, one BVH per action, for
+# tools/mocap/retarget.js. Either with Blender itself (the app from blender.org) or with bpy (Blender as a Python module,
+# pip install bpy):
+#   <Blender> --background --python tools/mocap/fbx2bvh.py -- <file.fbx | folder> <out folder>
 #   python3 -I tools/mocap/fbx2bvh.py <file.fbx | folder> <out folder>
 import os, sys
 
@@ -36,7 +38,9 @@ def convert(src, outdir):
 
 
 def main():
-    src, outdir = sys.argv[1], sys.argv[2]
+    # (run inside Blender, the script's own arguments come after a '--')
+    args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
+    src, outdir = args[0], args[1]
     os.makedirs(outdir, exist_ok=True)
     files = [src] if os.path.isfile(src) else sorted(os.path.join(dp, f) for dp, _, fs in os.walk(src) for f in fs if f.lower().endswith('.fbx'))
     for f in files:

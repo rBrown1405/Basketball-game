@@ -5,17 +5,18 @@ react to the game (feet held on the floor, IK, the ball in the hands) stay on to
 
 ## The pipeline
 
-1. **A take** comes in as BVH (the CMU database) or FBX (marketplace packs). FBX goes through Blender first:
-   `pip install bpy` (Blender as a Python module), then
-   `python3 -I tools/mocap/fbx2bvh.py <file.fbx | folder> <out folder>` (one BVH per action, Blender's own importer
-   and exporter).
+1. **A take** comes in as BVH (the CMU database) or FBX (marketplace packs). FBX goes through Blender first (one
+   BVH per action, Blender's own importer and exporter): with the app,
+   `<Blender> --background --python tools/mocap/fbx2bvh.py -- <file.fbx | folder> <out folder>`, or with bpy
+   (`pip install bpy`), `python3 tools/mocap/fbx2bvh.py <file.fbx | folder> <out folder>`.
 2. **Retarget** (`tools/mocap/retarget.js`). Our rig is posed like the take's rest pose, with its elbow and knee
    hinges measured from the take itself (where they bend) and the thumbs where the take's are. Every part of our
    body then turns, frame by frame, the way the take's matching joint turned from rest, and the rig's angles are read
    off joint by joint from our own solved parents. Lengths never carry over: the take is scaled to our leg, the
    hips go where the take's go, the feet are put on the floor where the take's are on it, and the frames each foot
    is planted (low and still) are recorded. Which joints are which per skeleton: `tools/mocap/maps.js` (`cmu`, `ue4`,
-   `ue5`; the up axis is read off the rest pose).
+   `ue5`, `mixamo` (not yet tried on a real file); `auto` reads it off the joints' names; the up axis is read off
+   the rest pose).
 3. **Pack** (`tools/mocap/pack.js <list.json> <takes folder> <out.js>`): a list of takes (file, name, label, trim)
    becomes a script under `js/mocap/` (30 frames a second, integers).
 4. **Play** (`js/match/mocap.js`, `PBC.Match.Mocap`): the pose comes from the frames (cubic between them), the body
@@ -31,6 +32,26 @@ react to the game (feet held on the floor, IK, the ball in the hands) stay on to
 
 Check a retarget: every bone's direction against the take's (`node tools/mocap/verify.js <take.bvh> [map] [from s]`),
 and the Animation Lab's planted-foot slide meter on every clip.
+
+## Convert a pack on your own computer (one command)
+
+For a licensed pack whose files must stay private. Needs Node.js and Blender (the free app from blender.org; or
+`pip install bpy`).
+
+1. Get this repository onto the computer (clone it, or download it from GitHub), on the branch with this file.
+2. In its folder, run:
+   `node tools/mocap/convert.js <folder with the pack's .fbx files> --name animo --label "Animo"`
+   It finds Blender (on a Mac at `/Applications/Blender.app`; or pass `--blender <path>`), converts every FBX to
+   BVH, reads which skeleton it is (UE4 or UE5 mannequin, Mixamo, CMU), retargets every clip and writes the lab's
+   private pack, `js/mocap/private/packs.js`.
+3. Run `python3 -m http.server 8765` in the folder and open `http://localhost:8765/lab.html`: the clips are in the
+   "Motion capture (Animo)" group.
+
+The clip list it writes (`tools/mocap/private/animo.json`) can be edited (labels, `from` and `to` in seconds to
+trim, `"ball": "dribble"` for clips that dribble; file names with "dribble" in them are marked already) and the
+command run again; new files are added and the edits kept. If the pack's files are Unreal `.uasset` files, export
+the animations to FBX from the Unreal editor first. Nothing under `tools/mocap/private/` or `js/mocap/private/` goes
+into git.
 
 ## Packs
 

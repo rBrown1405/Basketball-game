@@ -38,4 +38,29 @@ const MAPS = {
 // (the UE5 mannequin names its spine spine_01 to spine_05 and its neck neck_01, neck_02; the rest is the UE4 names)
 MAPS.ue5 = Object.assign({}, MAPS.ue4, { spine: ['spine_02', 'spine_03'], chest: ['spine_05'], neck: ['neck_01', 'neck_02'] });
 
+/** Mixamo's skeleton (Adobe), its bone names behind a prefix ('mixamorig:' as Blender imports them). Not yet tried on
+ *  a real file. */
+function mixamo(p) {
+  const side = (s) => {
+    const S = s === 'l' ? 'Left' : 'Right';
+    return {
+      hip: p + S + 'UpLeg', knee: p + S + 'Leg', ankle: p + S + 'Foot', ball: p + S + 'ToeBase', toe: p + S + 'Toe_End',
+      shoulder: p + S + 'Arm', elbow: p + S + 'ForeArm', wrist: p + S + 'Hand', forearm: p + S + 'ForeArm', hand: p + S + 'Hand',
+      fingerJ: p + S + 'HandMiddle1', finger: p + S + 'HandMiddle1', thumb: p + S + 'HandThumb1',
+    };
+  };
+  return { up: 'y', pelvis: [p + 'Hips'], spine: [p + 'Spine', p + 'Spine1'], chest: [p + 'Spine2'], neck: [p + 'Neck'], head: [p + 'Head'], l: side('l'), r: side('r') };
+}
+
+/** which map a take's joints fit, by their names: { name, map } or null */
+MAPS.detect = function (names) {
+  const has = (n) => names.indexOf(n) >= 0;
+  if (has('thigh_l') && has('spine_05')) return { name: 'ue5', map: MAPS.ue5 };
+  if (has('thigh_l') && has('spine_03')) return { name: 'ue4', map: MAPS.ue4 };
+  if (has('LeftUpLeg') && has('Spine1') && has('LThumb')) return { name: 'cmu', map: MAPS.cmu };
+  const hips = names.find(n => /Hips$/.test(n) && names.indexOf(n.replace(/Hips$/, 'LeftUpLeg')) >= 0 && names.indexOf(n.replace(/Hips$/, 'Spine2')) >= 0);
+  if (hips) return { name: 'mixamo', map: mixamo(hips.replace(/Hips$/, '')) };
+  return null;
+};
+
 module.exports = MAPS;

@@ -108,7 +108,9 @@ function loadRig() {
 function retarget(bvh, opt) {
   const M = opt.M || loadRig();
   const RG = M.Rig, CH = RG.CH, NCH = RG.NCH, LIM = RG.LIM;
-  const map = MAPS[opt.map || 'cmu'];
+  // (a map by name, 'auto' to read it off the joints' names, or a map itself)
+  let map = opt.map && typeof opt.map === 'object' ? opt.map : MAPS[opt.map || 'cmu'];
+  if (opt.map === 'auto') { const d = MAPS.detect(bvh.joints.map(j => j.name)); if (!d) throw new Error('no joint map fits this skeleton: ' + bvh.joints.map(j => j.name).join(', ')); map = d.map; }
   const look = { height: opt.height || 78, weight: 215, gender: 'm' };
   const dims = RG.makeDims(look), H = dims.H;
   const J = {};
