@@ -257,7 +257,7 @@ would make the view more faithful if they ever become available (all optional, t
 
 ## Live Game AI sliders (League Settings)
 
-Seven sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
+Eight sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
 set by the engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1,
 100 -> hi):
 
@@ -270,6 +270,7 @@ set by the engine's own sliders. The director reads them through `Director.slide
 | On-Ball Pressure (`defPressure`) | the cushion off the ball handler (NBA tracking by distance from the rim at 50) |
 | Help Defense (`helpD`) | how far help defenders may sag off their man toward the ball |
 | Player Speed (`moveSpeed`) | top speed, first-step push, braking and body turns of every player (0.8x to 1.25x), and the pace the director moves them at; read by the actor (`paceOf`) |
+| Offense Edge (`offEdge`) | how much quicker the side with the ball moves than the side without it and how late the defense reacts (`Tune.edge` x 0 at 0, x 1 at 50, x 2 at 100; `Director.edgeK`, `edgeLag`) |
 
 ## Movement, handling, the post and contact
 
@@ -992,7 +993,8 @@ well, right now players don't drive in traffic, they should, to try and draw a f
   ball runs 6 % quicker and pushes off 8 % harder than it could, every one of them, the man with the ball and the cutters
   alike (a timed order still arrives on time); the side without it reads the man it guards 60 ms later, on the ball
   (`_perceive`'s lag) and off it (the ball's part of a spot's lag, `guardPos`), and calls the re-match on a break that much
-  later. On top of the Player Speed and Defensive IQ sliders; the engine's outcomes are its own.
+  later. On top of the Player Speed and Defensive IQ sliders, and scaled by the Offense Edge slider in League Settings
+  (0 none, 50 this, 100 twice it; `Director.edgeK`, `edgeLag`); the engine's outcomes are its own.
 
 ### The contact drive
 

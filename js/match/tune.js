@@ -893,7 +893,8 @@
     // cutters alike; Actor._steer, set by the Director as the ball changes hands); the side without it reads the man it guards
     // defLagS later (on the ball, defense.js _perceive; off it, the spot's lag on the ball, guardPos; the call to re-match on a
     // break, transitionMatch): a step of space on a cut, a drive or a closeout. On top of the Player Speed and Defensive IQ
-    // sliders. The engine's outcomes are its own; this is the room the court shows
+    // sliders, and scaled by the Offense Edge slider (League Settings: 0 none, 50 these, 100 twice; Director.edgeK). The
+    // engine's outcomes are its own; this is the room the court shows
     edge: { offSpeedK: 1.06, offAccelK: 1.08, defLagS: 0.06 },
 
     // ---------------------------------------------------------------- shifty handlers (the gameplay pass: the man on the ball

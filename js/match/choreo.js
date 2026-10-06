@@ -1123,7 +1123,7 @@
       const key = changed.map((d) => d.id + ':' + next[d.id]).join(',');
       if (!this._tmCall || this._tmCall.key !== key) {
         const aw = Math.max(...changed.map((d) => this.aware(d, 'def')));
-        this._tmCall = { key, at: T + U.lerp(1.0, 0.1, aw) * (0.75 + Math.random() * 0.5) + M.Tune.edge.defLagS };
+        this._tmCall = { key, at: T + U.lerp(1.0, 0.1, aw) * (0.75 + Math.random() * 0.5) + this.edgeLag() };
       }
       if (T < this._tmCall.at) return;
       this._tmCall = null;
@@ -3728,14 +3728,18 @@
     /** the offense's edge (Tune.edge): the side with the ball a little quicker, the other a beat later; set on every player as the
      *  ball changes hands (the possession's start, a change inside it) */
     applyEdge(offTeam) {
-      const TE = M.Tune.edge, v = this.v;
+      const TE = M.Tune.edge, v = this.v, k = this.edgeK();
       for (const id in v.actors) {
         const a = v.actors[id];
         if (!a || a.kind !== 'player') continue;
         const on = a.team === offTeam;
-        a.edgeK = on ? TE.offSpeedK : 1; a.edgeAK = on ? TE.offAccelK : 1;
+        a.edgeK = on ? 1 + (TE.offSpeedK - 1) * k : 1; a.edgeAK = on ? 1 + (TE.offAccelK - 1) * k : 1;
       }
     }
+    /** the Offense Edge slider (League Settings, Live Game AI): 0 none, 50 the tune's edge (Tune.edge), 100 twice it */
+    edgeK() { return this.sliderK('offEdge', 0, 2); }
+    /** the defense's extra beat in reading its men (Tune.edge.defLagS x the slider, s) */
+    edgeLag() { return M.Tune.edge.defLagS * this.edgeK(); }
     flipAfterChange(newHolder) {
       const v = this.v;
       if (newHolder && newHolder.team != null) this.applyEdge(newHolder.team);

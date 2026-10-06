@@ -97,6 +97,8 @@
       desc: 'How fast players run, cut, turn and react in the live game you watch. At 50 top speeds and first steps match NBA player tracking.' },
     { key: 'helpD', group: 'ai', label: 'Help Defense', map: ['lin', 0.5, 1.5], fmt: 'level', lo: 'Stay home', hi: 'Swarm',
       desc: 'How far help defenders sink toward the ball and how hard they collapse on drives. More help protects the rim but leaves shooters open on the kick-out.' },
+    { key: 'offEdge', group: 'ai', label: 'Offense Edge', map: ['lin0', 0, 2], fmt: 'level', lo: 'Even', hi: 'A step ahead',
+      desc: 'How much quicker the side with the ball moves than the side without it, and how late the defense reacts: a step of space on cuts, drives and closeouts. At 0 the two sides are even; at 50 the offense runs about 6% quicker and the defense reads it 60 ms late; at 100 twice that.' },
     // User team
     { key: 'userShooting', group: 'user', label: 'Your Team: Shooting', map: ['add', -0.35, 0.35], fmt: 'fg', base: 0.47,
       desc: 'Make percentage for your team only. Higher makes the game easier.' },
