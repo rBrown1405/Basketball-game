@@ -216,6 +216,9 @@
             <div class="small muted">${U.esc(polDef.desc)}</div>
             <div class="row set-bk"><div><div class="set-lbl">Automatic backups</div><div class="tiny muted">Taken every in-season week, every playoff day, at each new phase and right before the offseason.</div></div>
               <div class="spacer"></div><select class="inp" data-backups>${Array.from({ length: 11 }, (_, n) => `<option value="${n}" ${n === nb ? 'selected' : ''}>${n ? 'Keep last ' + n : 'Off'}</option>`).join('')}</select></div>
+            <div class="row set-bk"><div style="flex:1;min-width:200px"><div class="set-lbl">Game logs</div><div class="tiny muted">${st.keepLogs === 'all' ? 'Every game of every player is kept for good (about 1 MB more save a season).' : 'Every player\'s games for this season and last, and every season a player spent on your team, for good. Career stats, highs and awards are always kept.'}</div></div>
+              <div class="seg">${[['recent', 'Recent'], ['all', 'Keep all']].map(([k, l]) => `<button class="${(st.keepLogs || 'recent') === k ? 'on' : ''}" data-keeplogs="${k}">${l}</button>`).join('')}</div></div>
+            ${typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist ? `<div class="row set-bk"><div style="flex:1;min-width:200px"><div class="set-lbl">Protect saves</div><div class="tiny muted" data-persist-txt>Ask the browser not to clear this game's saves when the disk runs low.</div></div><button class="btn sm" data-persist>🛡️ Protect</button></div>` : ''}
             <div class="row"><button class="btn primary" data-act="save">💾 Save now <span class="k">${UI.saveKeyLabel()}</span></button><button class="btn" data-save-as>📑 Save as new slot</button><button class="btn" data-nav="saves">🗂️ Manage saves</button></div>
             <div class="row"><button class="btn" data-act="export">⬇️ Export save file</button><button class="btn" data-act="import">⬆️ Import save file</button></div>
             <p class="tiny muted" style="margin:0">Saves live in this browser. Export a file to back up your career or move it to another computer; importing a file adds it as a new career.</p>
@@ -256,6 +259,24 @@
         await UI.saveNow({ silent: true });
         UI.toast(n ? `Keeping the last ${n} backup${n === 1 ? '' : 's'}` : 'Automatic backups are off', 'good', 1800);
       });
+      UI.on(root, 'click', '[data-keeplogs]', (e, el) => {
+        st.keepLogs = el.dataset.keeplogs;
+        UI.save();
+        UI.toast(st.keepLogs === 'all' ? 'Every game log is kept from now on' : 'Older game logs go at the start of next season', 'good', 2200);
+        UI.refresh();
+      });
+      // (persistent storage: the browser keeps the saves when it clears space)
+      const pBtn = root.querySelector('[data-persist]');
+      if (pBtn) {
+        const shown = on => { const t = root.querySelector('[data-persist-txt]'); if (on) { pBtn.disabled = true; pBtn.textContent = '🛡️ Protected'; if (t) t.textContent = 'The browser keeps this game\'s saves when it clears space (clearing site data by hand still deletes them: export a file to be safe).'; } };
+        if (navigator.storage.persisted) navigator.storage.persisted().then(shown).catch(() => {});
+        pBtn.onclick = async () => {
+          let ok = false;
+          try { ok = await navigator.storage.persist(); } catch (err) { ok = false; }
+          shown(ok);
+          if (!ok) UI.toast('The browser said no for now (it decides by how much you use the site). Exporting a save file always works.', 'info', 3600);
+        };
+      }
       root.querySelector('#set-import').onchange = e => { if (PBC.Saves) PBC.Saves.importFile(e.target.files[0]); };
       UI.on(root, 'click', '[data-act]', async (e, el) => {
         const a = el.dataset.act;

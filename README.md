@@ -84,9 +84,13 @@ runs the tests. The gauntlet reports are in `docs/gauntlet/`, and every animatio
   home court, upsets and playoff intensity, with presets, plus difficulty handles for your own team.
 - **League behaviour settings**: player progression, rookie development, aging, morale sensitivity and trade
   requests (unhappy players can ask out), contract demands, loyalty, AI trade frequency and trade difficulty.
-- **Player editor**: ratings and looks, **tendencies** (threes, mid-range, attacking the rim, dunking, pull-ups,
-  step-backs, drawing fouls, isolation, pick and roll, post-ups, passing, pushing the pace, crashing, gambling,
-  blocking, fouling), personality type, play style, facial expression and characteristics.
+- **Player editor** with the **in-game 3D model**: drag to turn him, zoom, frame the body or the face, home or away
+  uniform, and watch him stand, dribble, run dribble moves, shoot, defend, jog and celebrate as you change his looks
+  and body. Every rating has a slider and a number with what it was and a one-click reset; the live OVR, the badges
+  the ratings earn (new and lost ones marked), the list of changes, undo and reset all. Also **tendencies** (threes,
+  mid-range, attacking the rim, dunking, pull-ups, step-backs, drawing fouls, isolation, pick and roll, post-ups,
+  passing, pushing the pace, crashing, gambling, blocking, fouling), personality type, play style, facial expression,
+  contract and health.
 - **Team editor**: city, name, abbreviation, colors, badge shape, home and away uniforms, court wood, paint and
   logo, arena name, market size, owner and default systems.
 - **Weekly practice mini-games** develop your players (focus players improve 3× faster).
@@ -96,6 +100,10 @@ runs the tests. The gauntlet reports are in `docs/gauntlet/`, and every animatio
 - **COURTSIDE preview magazine** every season.
 - **Stats & records**: season and career stats, game logs, box scores, league and franchise records, champions,
   awards history, all-time greats, and your career record against every team.
+- **Whole careers on the record**: every player's stats every season (per game, totals, per 36, advanced, team
+  splits), game logs for every player (the last two seasons for everyone, every season of your own players for good,
+  or everything with Keep all), career highs and best games, a trophy case with every award, stat title, milestone,
+  record, Hall of Fame induction and retired number, and every rating season by season with what went up and down.
 - **Coaching career**: owner expectations, job security, contract extensions, getting fired and hired,
   achievements and a Hall of Fame meter.
 

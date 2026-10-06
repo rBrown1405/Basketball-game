@@ -243,6 +243,7 @@
     for (const [k, list, label] of MILES) for (const v of list) {
       const prev = (c[k] || 0) - (tonight[k] || 0);
       if (!(c[k] >= v && prev < v)) continue;
+      honor(S, p, 'milestone', `${v.toLocaleString('en-US')} career ${label}`);
       const key = 'mile:' + p.id + ':' + k + v;
       if (M.story(S, key)) continue;
       // where that puts him on the all-time list (the regular season's career totals)
@@ -252,6 +253,7 @@
     }
     // a new all-time leader (the career records, PBC.Legacy)
     if (PBC.Legacy && PBC.Legacy.passed) for (const x of PBC.Legacy.passed(S, p, tonight)) {
+      honor(S, p, 'allTime', `All-time ${REC_WORD[x.stat] || x.stat} leader`);
       const st = openStory(S, 'alltime', 'alltime:' + x.stat + ':' + p.id, { tid, pid: p.id, open: false });
       publish(S, 'alltime', 'oldschool', { sid: st.id, tid, tids: [tid, opp], pid: p.id, pri: 5, data: { stat: x.stat, val: x.val, prev: x.prev, age: p.age } });
     }
@@ -262,12 +264,20 @@
       if (!top || top.gid !== box.gid || top.pid !== p.id || R.game[k].length < 10 || top.val < (RECORD_BAR[k] || 0)) continue;
       const key = 'rec:' + k + ':' + box.gid;
       if (M.story(S, key)) continue;
+      honor(S, p, 'record', `League record: ${top.val} ${REC_WORD[k] || k} in a game`);
       const st = openStory(S, 'record', key, { tid, pid: p.id, open: false });
       const prev = R.game[k][1];
       publish(S, 'record', 'oldschool', { sid: st.id, tid, tids: [tid, opp], pid: p.id, pri: 5, data: { stat: k, v: top.val, prev: prev ? { val: prev.val, pid: prev.pid, name: prev.name, season: prev.season } : null } });
     }
   }
   const RECORD_BAR = { pts: 65, reb: 28, ast: 22, stl: 9, blk: 11, tpm: 13 };
+  const REC_WORD = { pts: 'points', reb: 'rebounds', ast: 'assists', stl: 'steals', blk: 'blocks', tpm: 'threes' };
+  /** a milestone, a record or an all-time lead onto the player's own record (p.awards), once */
+  function honor(S, p, type, detail) {
+    if (!p.awards) p.awards = [];
+    if (p.awards.some(a => a.type === type && a.detail === detail)) return;
+    p.awards.push({ season: S.season, type, detail });
+  }
   function allTimeRank(S, p, k, total) {
     let better = 0;
     for (const id in S.players) {

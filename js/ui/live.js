@@ -31,6 +31,9 @@
       // (his play style and badges: how he plays it on the floor, js/core/style.js and js/core/badges.js)
       sty: PBC.Style ? PBC.Style.court(p) : null, bdg: PBC.Badges ? PBC.Badges.court(p) : null };
   }
+  // (the player editor's model preview dresses him the way the game does: js/ui/model3d.js)
+  UI.playerLook = playerLook;
+  UI.teamLookOf = teamLook;
   UI.matchContext = function (S, g) {
     const L = PBC.League.cfg(S);
     const home = S.teams[g.tids[0]], away = S.teams[g.tids[1]];

@@ -471,7 +471,7 @@
     if (PBC.PlayStats) PBC.PlayStats.archive(S);
     // player rating history snapshot
     for (const p of Object.values(S.players)) {
-      if (p.tid >= 0 || p.tid === -1) p.hist.push({ season: S.season, ovr: p.ovr, pot: p.pot, tid: p.tid, age: p.age });
+      if (p.tid >= 0 || p.tid === -1) p.hist.push({ season: S.season, ovr: p.ovr, pot: p.pot, tid: p.tid, age: p.age, rt: PBC.Player.snapRatings(p.r) });
     }
     const coyTid = aw.coyTid;
     if (coyTid === S.userTid && PBC.Coach) PBC.Coach.unlock(S, 'coy');

@@ -144,6 +144,7 @@
           first: S.season - p.retired.season === L.WAIT, years: x.years, honors: x.h,
           line: { gp: x.c.gp, pts: x.c.pts, reb: x.c.reb, ast: x.c.ast, ppg: x.c.gp ? U.round(x.c.pts / x.c.gp, 1) : 0, rpg: x.c.gp ? U.round(x.c.reb / x.c.gp, 1) : 0, apg: x.c.gp ? U.round(x.c.ast / x.c.gp, 1) : 0 } };
         g.hof.push(e); out.push(e);
+        p.awards.push({ season: S.season, type: 'hof', detail: e.first ? 'First ballot' : '' }); // (on his record too)
         if (PBC.Coach && PBC.Coach.seasonsCoached && PBC.Coach.seasonsCoached(S, p) >= 5) PBC.Coach.unlock(S, 'hof_player');
       } else {
         const c = k.c;
@@ -179,6 +180,7 @@
         const e = { num, pid: p.id, season: S.season, name: PBC.Player.name(p) };
         list.push(e);
         out.push(Object.assign({ tid }, e));
+        p.awards.push({ season: S.season, type: 'numRetired', detail: `No. ${num}, ${S.teams[tid].abbr}` }); // (on his record too)
         if (PBC.Media && PBC.Media.offseason) PBC.Media.offseason(S, 'number', { tid, pid: p.id, pri: tid === S.userTid ? 4 : 3, data: { num, seasons, score: sc } });
         if (PBC.Season) PBC.Season.news(S, `👕 The ${S.teams[tid].city} ${S.teams[tid].name} will retire No. ${num} for ${PBC.Player.name(p)}.`, 'award', tid);
         if (tid === S.userTid && PBC.Coach && PBC.Coach.seasonsCoached(S, p) >= 5) PBC.Coach.unlock(S, 'number_retired');
@@ -202,8 +204,9 @@
   // ---------------------------------------------------------------------------
   // The save over decades: retired players keep what history needs
   // ---------------------------------------------------------------------------
-  /** the summer's cleanup: retired players drop what only the living use; the long-forgotten (a short career, no honors,
-   *  no Hall, never a coach) leave the save eight seasons after they retire. Returns { trimmed, removed }. */
+  /** the summer's cleanup: retired players drop what only the living use (a whole career stays: every season's stats, his
+   *  ratings through the years, his honors); a retired player who never played a game and won nothing leaves the save eight
+   *  seasons after he retires (the undrafted who never made it). Returns { trimmed, removed }. */
   L.compact = function (S) {
     let trimmed = 0, removed = 0;
     const keepIds = new Set();
@@ -219,12 +222,10 @@
       const p = S.players[id];
       if (p.tid !== -3 || !p.retired) continue;
       const out = S.season - p.retired.season;
-      if (out >= 1 && p.hist && p.hist.length > 1) { p.hist = p.hist.slice(-1); trimmed++; }
-      if (out >= 1) for (const k of ['train', 'scout', 'promise', 'tradeReq', 'lowWeeks', 'deskTalk', 'deskShop', 'deskOneMore', 'summer', 'conf', 'seasonStart']) if (k in p) delete p[k];
+      if (out >= 1) for (const k of ['train', 'scout', 'promise', 'tradeReq', 'lowWeeks', 'deskTalk', 'deskShop', 'deskOneMore', 'summer', 'conf', 'seasonStart']) if (k in p) { delete p[k]; trimmed++; }
       if (out < 8 || keepIds.has(p.id) || p.coachId != null || L.inHall(S, 'p:' + p.id) || (p.awards && p.awards.length)) continue;
-      let gp = 0;
-      for (const s of p.stats) if (!s.po) gp += s.gp;
-      if (gp >= 250) continue;
+      // (anyone who played keeps his career)
+      if (p.stats.some(s => s.gp > 0)) continue;
       delete S.players[id];
       removed++;
     }

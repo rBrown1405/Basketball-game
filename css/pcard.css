@@ -1,0 +1,137 @@
+/* Pro BBALL Coach: the player card's career tabs (js/ui/pcareer.js): stats, game log, awards, progression */
+.nowrap { white-space: nowrap; }
+.tag.sm { padding: 0 6px; font-size: 10px; line-height: 16px; }
+
+/* honors in the header */
+.pc-pills { margin-top: 7px; gap: 6px; }
+.pc-pill { border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .05); color: #d6deee; border-radius: 999px; padding: 2px 9px; font: 700 11.5px/1.6 var(--font-ui); cursor: pointer; white-space: nowrap; }
+.pc-pill:hover { border-color: rgba(255, 201, 64, .45); color: #fff; }
+.pc-pill.g-major { background: linear-gradient(180deg, rgba(255, 201, 64, .2), rgba(255, 201, 64, .08)); border-color: rgba(255, 201, 64, .35); color: #ffe08a; }
+.pc-pill.g-team { background: rgba(74, 163, 255, .1); border-color: rgba(74, 163, 255, .25); color: #a9d0ff; }
+.pc-pill.g-title { background: rgba(255, 107, 26, .12); border-color: rgba(255, 107, 26, .3); color: #ffb089; }
+
+/* the controls on top of a tab */
+.pc-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.pc-bar .seg button[disabled] { opacity: .35; cursor: default; }
+.pc-season { padding: 6px 10px; font-weight: 700; }
+.pc-note { margin: 8px 0 0; line-height: 1.5; }
+.pc-h4 { font: 800 12px/1 var(--font-display); letter-spacing: 1.4px; color: var(--accent); text-transform: uppercase; margin: 0 0 9px; }
+.pc-h5 { font: 800 10.5px/1 var(--font-ui); letter-spacing: 1.1px; color: var(--dim); text-transform: uppercase; margin: 0 0 7px; }
+
+/* this season and the career at a glance */
+.pc-glances { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.pc-glance { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; flex: 1; min-width: 260px; }
+.pc-gl-row { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 4px; }
+.pc-gl-row span { display: flex; flex-direction: column; align-items: flex-start; }
+.pc-gl-row b { font: 800 17px/1.1 var(--font-num); font-variant-numeric: tabular-nums; color: #fff; }
+.pc-gl-row i { font: 700 9.5px/1.2 var(--font-ui); font-style: normal; letter-spacing: .8px; color: var(--dim); }
+
+/* tables: the season column stays put while the rest scrolls */
+.pc-tbl { border: 1px solid var(--line); border-radius: 12px; max-height: 460px; overflow: auto; }
+.pc-tbl .tbl th:first-child, .pc-tbl .tbl td:first-child { position: sticky; left: 0; background: #111826; z-index: 2; }
+.pc-tbl .tbl th:first-child { z-index: 3; }
+.pc-tbl .tbl td { font-variant-numeric: tabular-nums; }
+.pc-stats tr.pc-split td { font-size: 11.5px; color: var(--muted); padding-top: 2px; padding-bottom: 2px; }
+.pc-stats tr.pc-cur td { background: rgba(255, 107, 26, .05); }
+.pc-stats tr.pc-cur td:first-child { box-shadow: inset 3px 0 0 var(--accent); background: #161d2c; }
+.pc-stats tr.pc-car td { background: rgba(255, 255, 255, .025); font-weight: 700; }
+.pc-stats tr.pc-car td:first-child { background: #151c2a; }
+.pc-stats td.pc-lead { color: var(--gold); font-weight: 900; text-shadow: 0 0 10px rgba(255, 201, 64, .35); }
+.pc-mk { margin-left: 4px; font-size: 11px; color: var(--gold); }
+
+/* game log */
+.pc-logsum { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-end; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; }
+.pc-his { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 12px; color: var(--muted); }
+.pc-hi b { color: #fff; font-size: 13.5px; }
+.pc-chartw { position: relative; margin: 0 0 8px; }
+.pc-chart { display: block; width: 100%; height: 96px; background: rgba(255, 255, 255, .02); border: 1px solid var(--line); border-radius: 10px; }
+.pc-avg { position: absolute; left: 8px; top: 5px; font: 700 10.5px/1.4 var(--font-ui); color: var(--gold); background: rgba(10, 14, 22, .78); padding: 1px 7px; border-radius: 6px; pointer-events: none; }
+.pc-avg i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin: 0 3px 0 6px; vertical-align: -1px; }
+.pc-avg i.w { background: rgba(41, 209, 125, .75); } .pc-avg i.l { background: rgba(255, 77, 94, .7); } .pc-avg i.p { border: 1.5px solid var(--gold); }
+.pc-chart rect.w { fill: rgba(41, 209, 125, .62); }
+.pc-chart rect.l { fill: rgba(255, 77, 94, .55); }
+.pc-chart rect.po { stroke: var(--gold); stroke-width: 1.2; }
+.pc-chart rect:hover { fill: #fff; }
+.pc-chart line.avg { stroke: var(--gold); stroke-width: 1.3; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.pc-chart line.zero { stroke: rgba(255, 255, 255, .25); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.pc-log td.pc-ch { box-shadow: inset 0 0 0 1.5px var(--gold); color: var(--gold); font-weight: 900; border-radius: 4px; }
+.pc-log tr.pc-po td { background: rgba(255, 201, 64, .035); }
+.pc-log tr.pc-trade td { background: rgba(74, 163, 255, .08); color: #a9d0ff; font-weight: 700; font-size: 11.5px; padding: 3px 8px; }
+
+/* awards */
+.pc-aw { display: flex; flex-direction: column; gap: 16px; }
+.pc-case { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.pc-tro { display: flex; gap: 10px; align-items: center; padding: 9px 11px; border-radius: 12px; background: var(--panel2); border: 1px solid var(--line); min-width: 0; }
+.pc-tro .ic { font-size: 26px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .4)); }
+.pc-tro .tx { min-width: 0; }
+.pc-tro .lb { font-weight: 800; font-size: 13px; display: flex; gap: 6px; align-items: baseline; }
+.pc-tro .n { color: var(--gold); font: 900 15px/1 var(--font-num); }
+.pc-tro .sb { font-size: 11px; color: var(--muted); line-height: 1.35; margin-top: 2px; overflow-wrap: anywhere; }
+.pc-tro.g-major { background: linear-gradient(135deg, rgba(255, 201, 64, .16), rgba(255, 201, 64, .03) 60%), var(--panel2); border-color: rgba(255, 201, 64, .32); }
+.pc-tro.g-team { border-color: rgba(74, 163, 255, .25); }
+.pc-tro.g-title { border-color: rgba(255, 107, 26, .3); }
+.pc-miles { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.pc-miles .li { padding: 7px 12px; font-size: 13px; }
+.pc-miles .ic { font-size: 16px; }
+.pc-his2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pc-hicol { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.pc-hirow { display: grid; grid-template-columns: 96px 38px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed rgba(255, 255, 255, .05); font-size: 12.5px; }
+.pc-hirow:last-child { border-bottom: 0; }
+.pc-hirow .l { color: var(--muted); }
+.pc-hirow b { font: 900 15px/1 var(--font-num); text-align: right; color: #fff; }
+.pc-hirow .w { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-feats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 12.5px; }
+.pc-feats b { color: var(--gold); }
+.pc-best { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.pc-bg { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 10px; padding: 8px 11px; display: flex; flex-direction: column; gap: 3px; }
+.pc-bg-h { font-size: 13.5px; }
+.pc-bg-h b { color: #fff; font-size: 15px; }
+.pc-tl { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(34, 45, 68, .6); align-items: start; }
+.pc-tl:last-child { border-bottom: 0; }
+.pc-tl-s { font-weight: 800; color: var(--muted); font-size: 12.5px; padding-top: 3px; }
+.pc-tl-c { display: flex; flex-wrap: wrap; gap: 5px; }
+.pc-chip { padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .07); color: #d6deee; }
+.pc-chip.g-major { background: rgba(255, 201, 64, .13); border-color: rgba(255, 201, 64, .3); color: #ffe08a; }
+.pc-chip.g-team { background: rgba(74, 163, 255, .1); border-color: rgba(74, 163, 255, .22); color: #a9d0ff; }
+.pc-chip.g-title { background: rgba(255, 107, 26, .12); border-color: rgba(255, 107, 26, .28); color: #ffb089; }
+.pc-chip.g-mile { background: rgba(41, 209, 125, .1); border-color: rgba(41, 209, 125, .25); color: #8ff0bd; }
+
+/* progression */
+.pc-prog { width: 100%; max-height: 270px; display: block; }
+.pc-prog .pg-grid line { stroke: rgba(255, 255, 255, .07); }
+.pc-prog .pg-grid text { fill: var(--dim); font: 600 10px var(--font-ui); }
+.pc-prog path.pg-ovr { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; }
+.pc-prog path.pg-pot { fill: none; stroke: #4aa3ff; stroke-width: 2; stroke-dasharray: 6 5; opacity: .8; }
+.pc-prog .pt circle { fill: var(--accent); stroke: #0f1624; stroke-width: 2; }
+.pc-prog .pt.peak circle { fill: var(--gold); }
+.pc-prog .pt text.v { fill: #e9eef6; font: 800 12px var(--font-ui); }
+.pc-prog .pt text.s { fill: #aab5c9; font: 700 10.5px var(--font-ui); }
+.pc-prog .pt text.a { fill: var(--dim); font: 600 9.5px var(--font-ui); }
+.pc-story { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; margin-top: 6px; }
+.pc-st { display: flex; flex-direction: column; }
+.pc-st i { font: 700 9.5px/1.2 var(--font-ui); font-style: normal; letter-spacing: .8px; color: var(--dim); text-transform: uppercase; }
+.pc-st b { font: 900 20px/1.1 var(--font-num); }
+.pc-moves { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; justify-content: flex-end; }
+.pc-mv { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.pc-mv.gain { background: rgba(41, 209, 125, .12); color: #58e39c; }
+.pc-mv.loss { background: rgba(255, 77, 94, .12); color: #ff8592; }
+.pc-rt td { min-width: 52px; }
+.pc-rt td sup { font-size: 9.5px; font-weight: 800; margin-left: 2px; }
+.pc-rt td sup.gain { color: #58e39c; }
+.pc-rt td sup.loss { color: #ff8592; }
+.pc-rt tr.pc-grp td { background: rgba(255, 255, 255, .03); color: var(--accent2); font: 800 10.5px/1 var(--font-ui); letter-spacing: 1.2px; text-transform: uppercase; padding: 7px 8px; }
+.pc-rt tr.pc-grp td:first-child { background: #151c2a; }
+.pc-rt tr.pc-ovr td { border-bottom: 1px solid var(--line2); }
+.pc-rt th .tiny { font-weight: 600; letter-spacing: 0; text-transform: none; margin-top: 3px; }
+
+@media (max-width: 700px) {
+  /* the card's head on a phone: the portrait and OVR on top, who he is under them at full width */
+  .pc-head { flex-wrap: wrap; align-items: flex-start; gap: 10px 14px; }
+  .pc-head > div[style*="flex:1"] { order: 2; flex: 1 1 100% !important; }
+  .pc-head > .center { order: 1; margin-left: auto; }
+  .pc-pers { flex-wrap: wrap; row-gap: 2px; }
+  .pc-his2 { grid-template-columns: minmax(0, 1fr); }
+  .pc-glance { min-width: 0; }
+  .pc-moves { justify-content: flex-start; }
+  .pc-tbl { max-height: 380px; }
+}

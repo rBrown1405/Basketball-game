@@ -45,6 +45,9 @@
     const sty = PBC.Style ? PBC.Style.BY_KEY[PBC.Style.of(p)] : null;
     const bdgSeen = PBC.Badges && (p.tid !== -2 || (p.scout && p.scout.known >= 50));
     const bdgTop = bdgSeen ? PBC.Badges.list(p).slice(0, 6) : [];
+    // (his honors at a glance: js/ui/pcareer.js)
+    const pills = UI.PC && UI.PC.pills ? UI.PC.pills(p, 7) : '';
+    const hasGames = p.stats.some(s => s.gp > 0);
     const body = UI.h(`<div>
       <div class="pc-head">${UI.avatar(p, 92)}
         <div style="flex:1;min-width:0">
@@ -54,6 +57,7 @@
           <div class="pc-meta">${p.age} yrs · ${U.height(p.hgt)} · ${p.wgt} lbs · wingspan ${U.height(p.wing)} · ${p.hand === 'L' ? 'Left' : 'Right'}-handed · ${U.esc(p.origin || '')}</div>
           ${ptype ? `<div class="pc-pers" title="Personality"><span class="pi">${ptype.icon}</span><b>${U.esc(ptype.label)}</b><span class="pd">${U.esc(ptype.desc)}</span></div>` : ''}
           ${sty ? `<div class="pc-pers" title="Play style: how this player plays${p.styleCustom ? ' (picked in the editor)' : ' (from the ratings)'}"><span class="pi">${sty.icon}</span><b>${U.esc(sty.label)}</b><span class="pd">${U.esc(sty.desc)}</span></div>` : ''}
+          ${pills ? `<div class="row pc-pills">${pills}</div>` : ''}
           ${bdgTop.length ? `<div class="row bdg-row" style="margin-top:6px">${bdgTop.map(b => UI.badgeChip(b)).join('')}${PBC.Badges.list(p).length > bdgTop.length ? `<span class="tiny dim">+${PBC.Badges.list(p).length - bdgTop.length} more</span>` : ''}</div>` : ''}
           <div class="row" style="margin-top:8px">${strengths.map(s => `<span class="tag good">${s}</span>`).join('')}${weaks.map(s => `<span class="tag bad">${s}</span>`).join('')}
             ${p.injury ? `<span class="tag bad">🚑 ${U.esc(PBC.Player.injuryLabel(p.injury))}</span>` : ''}
@@ -66,7 +70,7 @@
         ${mine ? `<span>Morale</span><span>${p.morale != null ? p.morale : 70}/100</span><span>Promise</span><span>${p.promise ? U.esc(p.promise.type === 'starter' ? 'Starting role' : p.promise.min + '+ minutes') : '-'}</span>` : ''}
       </div>
       <div class="tabs" style="margin:6px 0 12px"><button class="tab active" data-t="ratings">Ratings</button>${PBC.Badges ? '<button class="tab" data-t="badges">Badges</button>' : ''}${PBC.Tendency ? '<button class="tab" data-t="tend">Tendencies</button>' : ''}<button class="tab" data-t="stats">Stats</button>
-        ${mine ? '<button class="tab" data-t="log">Game Log</button>' : ''}<button class="tab" data-t="awards">Awards</button><button class="tab" data-t="prog">Progression</button></div>
+        ${hasGames ? '<button class="tab" data-t="log">Game Log</button>' : ''}<button class="tab" data-t="awards">Awards</button><button class="tab" data-t="prog">Progression</button></div>
       <div id="pc-tab"></div>
       ${mine ? `<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
         <button class="btn sm" data-a="goto1">⭐ Go-to #1</button><button class="btn sm" data-a="goto2">Go-to #2</button>
@@ -80,12 +84,14 @@
       if (key === 'ratings') tabEl.innerHTML = ratingsHtml(S, p);
       if (key === 'tend') tabEl.innerHTML = tendenciesHtml(S, p);
       if (key === 'badges') tabEl.innerHTML = badgesHtml(S, p, bdgSeen);
-      if (key === 'stats') statsTab(S, p, tabEl);
-      if (key === 'log') gameLog(S, p, tabEl);
-      if (key === 'awards') tabEl.innerHTML = awardsHtml(S, p);
-      if (key === 'prog') tabEl.innerHTML = progressionSvg(S, p);
+      // (the career tabs: js/ui/pcareer.js)
+      if (key === 'stats') UI.PC.stats(S, p, tabEl, showTab);
+      if (key === 'log') UI.PC.log(S, p, tabEl, showTab);
+      if (key === 'awards') UI.PC.awards(S, p, tabEl);
+      if (key === 'prog') UI.PC.prog(S, p, tabEl);
     };
     UI.on(body, 'click', '.tab', (e, el) => showTab(el.dataset.t));
+    UI.on(body, 'click', '[data-pc-aw]', () => showTab('awards'));
     showTab('ratings');
     const m = UI.modal({ title: '', body, wide: true });
     UI.on(body, 'click', '[data-a]', async (e, el) => {
@@ -188,58 +194,9 @@
       <p class="small muted" style="margin:12px 0 0">${sig.length ? `<b class="pc-sig">${U.esc(p.last)} ${sig.map(x => U.esc(x.text)).join(', ')}.</b> ` : ''}Tendencies decide what he looks for on the floor; ratings decide how well it works.${p.tendCustom ? ' <span class="tag warn">Custom</span>' : ''}</p>`;
   }
 
-  function statsTab(S, p, el) {
-    const rows = U.sortBy(p.stats.filter(s => !s.po), s => s.season);
-    const po = U.sortBy(p.stats.filter(s => s.po), s => s.season);
-    const car = PBC.Stats.career(p, false), carPo = PBC.Stats.career(p, true);
-    const cols = UI.statLineCols();
-    const line = (s, label) => `<tr ${label === 'Career' ? 'class="sep"' : ''}><td class="bold">${label}</td>${cols.map(c => `<td class="num">${c.fmt ? c.fmt(s) : s[c.key]}</td>`).join('')}</tr>`;
-    const lab = s => `${U.seasonLabel(s.season)} <span class="dim">${S.teams[s.tid] ? S.teams[s.tid].abbr : ''}</span>`;
-    el.innerHTML = rows.length ? `<div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>Season</th>${cols.map(c => `<th class="num">${c.label}</th>`).join('')}</tr></thead>
-      <tbody>${rows.map(s => line(s, lab(s))).join('')}${rows.length > 1 ? line(car, 'Career') : ''}</tbody></table></div>
-      ${po.length ? `<h4 class="up" style="margin:16px 0 6px;font-size:13px;color:var(--gold)">Playoffs</h4><div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>Season</th>${cols.map(c => `<th class="num">${c.label}</th>`).join('')}</tr></thead>
-      <tbody>${po.map(s => line(s, lab(s))).join('')}${po.length > 1 ? line(carPo, 'Career') : ''}</tbody></table></div>` : ''}`
-      : '<div class="empty">No games played yet.</div>';
-  }
-
-  function gameLog(S, p, el) {
-    const games = Object.values(S.boxes || {}).filter(b => b.teams.some(T => T.players.some(x => x.pid === p.id && !x.dnp))).sort((a, b) => b.gid - a.gid);
-    if (!games.length) { el.innerHTML = '<div class="empty">No games this season.</div>'; return; }
-    el.innerHTML = `<div class="tbl-wrap"><table class="tbl compact hover"><thead><tr><th>Date</th><th>Opp</th><th>Result</th><th class="num">MIN</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">STL</th><th class="num">BLK</th><th class="num">FG</th><th class="num">3P</th><th class="num">FT</th><th class="num">+/-</th></tr></thead><tbody>
-      ${games.map(b => {
-        const u = b.h === S.userTid ? 0 : 1;
-        const x = b.teams[u].players.find(q => q.pid === p.id);
-        const my = u === 0 ? b.hs : b.as, th = u === 0 ? b.as : b.hs;
-        return `<tr class="click" data-open-box="${b.gid}"><td>${b.playoff ? '🏆 ' : ''}${PBC.League.dateLabel(S, b.day)}</td><td>${u === 0 ? 'vs' : '@'} ${S.teams[u === 0 ? b.a : b.h].abbr}</td><td class="${my > th ? 'good-t' : 'bad-t'}">${my > th ? 'W' : 'L'} ${my}-${th}</td>
-          <td class="num">${x.min}</td><td class="num bold">${x.pts}</td><td class="num">${x.orb + x.drb}</td><td class="num">${x.ast}</td><td class="num">${x.stl}</td><td class="num">${x.blk}</td>
-          <td class="num">${x.fgm}-${x.fga}</td><td class="num">${x.tpm}-${x.tpa}</td><td class="num">${x.ftm}-${x.fta}</td><td class="num ${x.pm > 0 ? 'good-t' : x.pm < 0 ? 'bad-t' : ''}">${x.pm > 0 ? '+' : ''}${x.pm}</td></tr>`;
-      }).join('')}</tbody></table></div>`;
-  }
-
   const AWARD_LABEL = { mvp: '🏆 MVP', dpoy: '🛡️ Defensive Player of the Year', roy: '🌱 Rookie of the Year', smoy: '🪑 Sixth Player of the Year', mip: '📈 Most Improved Player', fmvp: '🏅 Finals MVP', allLeague: 'All-League', allDefense: 'All-Defensive', allRookie: 'All-Rookie Team', allStar: '🌟 All-Star', champion: '💍 Champion', potw: 'Player of the Week',
     asgMvp: '⭐ All-Star Game MVP', threeChamp: '🎯 Three-Point Contest champion', dunkChamp: '🚀 Dunk Contest champion', skillsChamp: '⚡ Skills Challenge champion' };
   UI.AWARD_LABEL = AWARD_LABEL;
-  function awardsHtml(S, p) {
-    if (!p.awards.length) return '<div class="empty">No awards yet.</div>';
-    const potw = p.awards.filter(a => a.type === 'potw').length;
-    const list = U.sortBy(p.awards.filter(a => a.type !== 'potw'), a => -a.season);
-    return `<div class="list">${list.map(a => `<div class="li"><span class="dim" style="min-width:64px">${U.seasonLabel(a.season)}</span><span class="bold">${AWARD_LABEL[a.type] || a.type}</span><span class="muted">${U.esc(a.detail || '')}</span></div>`).join('')}
-      ${potw ? `<div class="li"><span class="dim" style="min-width:64px">Career</span><span class="bold">Player of the Week ×${potw}</span></div>` : ''}</div>`;
-  }
-
-  function progressionSvg(S, p) {
-    const pts = p.hist.map(h => ({ season: h.season, ovr: h.ovr, pot: h.pot }));
-    pts.push({ season: S.phase === 'regular' || S.phase === 'preseason' ? S.season : S.season + 1, ovr: p.ovr, pot: p.pot, now: true });
-    if (pts.length < 2) return `<div class="empty">Progression history appears after the first season. Current: OVR ${p.ovr}, potential ${UI.potLabel(p)}.</div>`;
-    const W = 640, H = 220, pad = 34;
-    const minV = Math.min(...pts.map(x => x.ovr)) - 4, maxV = Math.max(...pts.map(x => Math.max(x.ovr, p.tid === S.userTid ? x.pot : x.ovr))) + 3;
-    const X = i => pad + (i / (pts.length - 1)) * (W - pad * 2), Y = v => H - pad - ((v - minV) / (maxV - minV)) * (H - pad * 2);
-    const line = pts.map((x, i) => `${i ? 'L' : 'M'}${X(i)},${Y(x.ovr)}`).join(' ');
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:260px"><g stroke="rgba(255,255,255,.07)">${[0, 0.25, 0.5, 0.75, 1].map(f => `<line x1="${pad}" x2="${W - pad}" y1="${pad + f * (H - pad * 2)}" y2="${pad + f * (H - pad * 2)}"/>`).join('')}</g>
-      <path d="${line}" fill="none" stroke="#ff6b1a" stroke-width="3"/>${pts.map((x, i) => `<circle cx="${X(i)}" cy="${Y(x.ovr)}" r="4.5" fill="#ff6b1a"/><text x="${X(i)}" y="${Y(x.ovr) - 10}" fill="#e9eef6" font-size="12" text-anchor="middle" font-weight="700">${x.ovr}</text>
-      <text x="${X(i)}" y="${H - 10}" fill="#8d99b0" font-size="11" text-anchor="middle">${x.now ? 'Now' : U.seasonLabel(x.season)}</text>`).join('')}</svg>`;
-  }
-
   // ---------------------------------------------------------------------------
   // Box score
   // ---------------------------------------------------------------------------

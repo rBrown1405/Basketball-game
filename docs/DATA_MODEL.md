@@ -14,9 +14,9 @@ Read the source for details — this is the map.
 | `PBC.U` | util.js | seeded RNG (`rand, int, range, gauss, chance, pick, pickW, pickKey, shuffle`), math (`clamp, lerp, sigmoid, logit, sum, avg, maxBy, minBy, sortBy`), formatting (`money, height, pct, pct3, num, ordinal, clock, periodName, seasonLabel, esc, shade, rgba, textOn`) |
 | `PBC.Names` | names.js | name pools, colleges, countries |
 | `PBC.Config` | config.js | `RATINGS` (27 ratings), `POSITIONS`, `LEAGUES.men / .women` (league rules, money, roster sizes, playoff format), team lists, `OFFENSES` (12), `DEFENSES` (12), `TEMPOS`, `FOCUS`, `CRASH`, `PRESSURE`, `AWARDS`, `ACHIEVEMENTS` |
-| `PBC.Player` | player.js | `create`, `calcOvr`, `ovrAt`, `marketValue(p, L)`, `maxSalary`, `contractYears`, `rookieSalary(pick, round, L)`, `progress(p)` (one offseason of development; call after `age++`), `addTraining`, `genInjury`, `injuryLabel`, `name`, `shortName`, `isInjured`, `assignNumber(S, p)`, `strengths`, `weaknesses` |
-| `PBC.League` | league.js | `create(opts)` → new state `S`; `cfg(S)`; `roster(S, tid)` (sorted by OVR); `freeAgents(S)`; `prospects(S)`; `newSeasonSetup(S)`; `makeSchedule`; `standings(S)`; `sorted(S, conf)`; `teamStrength(S, tid)`; `projectedWinPct`; `powerRankings(S)`; postseason (`startPostseason`, `postseasonGamesToday`, `recordPostseasonGame`, `roundName`, `playoffResult`); `dateLabel(S, day)` |
-| `PBC.Stats` | stats.js | box-score application, season/career lines (`season(p, year, po)`, `career(p, po)`), `leaders`, records (`S.records`), `computeAwards`, `grantAwards`, `gmsc` |
+| `PBC.Player` | player.js | `create`, `calcOvr`, `ovrAt`, `marketValue(p, L)`, `maxSalary`, `contractYears`, `rookieSalary(pick, round, L)`, `progress(p)` (one offseason of development; call after `age++`), `addTraining`, `genInjury`, `injuryLabel`, `name`, `shortName`, `isInjured`, `assignNumber(S, p)`, `strengths`, `weaknesses`; the ratings over a career: `RATING_KEYS`, `snapRatings(r)` (all 27 ratings as a 54-character string, two digits each in `C.RATINGS` order), `readRatings(s)`, `ratingHistory(p, S)` → `[{ season, age, ovr, pot, tid, r, start, now, retired }]` |
+| `PBC.League` | league.js | `create(opts)` → new state `S`; `cfg(S)`; `roster(S, tid)` (sorted by OVR); `freeAgents(S)`; `prospects(S)`; `newSeasonSetup(S)`; `makeSchedule`; `standings(S)`; `sorted(S, conf)`; `teamStrength(S, tid)`; `projectedWinPct`; `powerRankings(S)`; postseason (`startPostseason`, `postseasonGamesToday`, `recordPostseasonGame`, `roundName`, `playoffResult`); `dateLabel(S, day, withDow, season)` (another season's calendar when `season` is given) |
+| `PBC.Stats` | stats.js | box-score application, season/career lines (`season(p, year, po)`, `career(p, po)`), `leaders`, records (`S.records`), `computeAwards`, `grantAwards` (with the stat titles and the MVP vote), `gmsc`, `ts`; game logs and career highs (every player, every game): `logGame`, `gameLog(p, season, po)` → games, `logSeasons(p)`, `careerHighs(p, po)`, `bestGames(p)`, `pruneLogs(S)`, `catchUp(S)` (an older save as it loads), `logLine` / `readLine` (the 27-character line), `GL_LEN`, `HI_CATS` |
 | `PBC.AI` | ai.js | `autoRotation(S, tid)`, `chooseStrategy(S, tid)`, `setupTeam`, `fillRoster(S, tid, opts)`, `release(S, p)`, `payroll(S, tid)`, `daily(S)` |
 | `PBC.Sim` | sim.js | the possession engine (see `docs/MATCH_API.md`) |
 | `PBC.Season` | season.js | `news(S, text, type, tid)`, `startRegularSeason`, `simDay`, `endDay`, `advanceToUserGame`, `quickSim`, `completeGame`, practice (`practiceAvailable`, `applyPractice`), `endRegularSeason`, `finishPostseason`, `endSeason` |
@@ -34,7 +34,7 @@ Read the source for details — this is the map.
 | `PBC.AllStar` | allstar.js | All-Star weekend: `announce` (the invitations, with the rosters), `due`/`run` (the contests and the game on the first day of the break), `userInvites`, `holdOut`, `latest` |
 | `PBC.Story` | story.js | the season documentary: `season(S)` → `{ title, chapters: [{ kick, h, p }], heads }` (see `docs/POLISH_NOTES.md`) |
 | `PBC.Persona` | persona.js | player personality types (`TYPES`, `of(p)`, `info`, `face(p, { mood })`, `blurb`) used by portraits, the booth and the player card |
-| `PBC.Store` | storage.js | saves in IndexedDB (localStorage fallback). Latest save per career: `save(S, { backup, backupCount })`, `load(id)`, `list()`; named slots and rotating backups: `saveSlot`, `saveBackup`, `pruneBackups`, `listAll()`, `listCareer(id)`; `remove`, `removeCareer`, `rename`, `copy`; files: `exportString`, `importString` (new id). Each record is `{ id, data, meta }` plus a small index record `'#meta:' + id` so lists never load full saves. Ids: main = `S.saveId`, slot = `saveId::slot::<time>`, backup = `saveId::backup::<k>` |
+| `PBC.Store` | storage.js | saves in IndexedDB (localStorage fallback). Latest save per career: `save(S, { backup, backupCount })`, `load(id)`, `list()`; named slots and rotating backups: `saveSlot`, `saveBackup`, `pruneBackups`, `listAll()`, `listCareer(id)`; `remove`, `removeCareer`, `rename`, `copy`; files: `exportString`, `importString` (new id). Each record is `{ id, data, meta }` plus a small index record `'#meta:' + id` so lists never load full saves. Ids: main = `S.saveId`, slot = `saveId::slot::<time>`, backup = `saveId::backup::<k>`. `serialize(S)` writes each player's `stats` and `hist` as packed rows (`packRows` / `unpackRows`: `{ $rows: 1, k: [keys], v: [[values]] }`, `'\u0000'` for a missing value); `migrate(S)` unpacks them (`unpackPlayers`) and runs `Stats.catchUp` |
 
 ## The state object `S` (one career = one save)
 
@@ -58,6 +58,8 @@ S = {
              bracket: [{ r, c, hi, lo, w, win, sh, sl }], playIn: [{ c, st, hi, lo, win }] }],
   records, settings, practice, teamSeason: { [tid]: totals }, flags, preseasonProj: { [tid]: winPct },
   // settings.autosave: 'always' | 'game' | 'week' | 'phase' | 'off'; settings.backupCount 0-10 (default 3)
+  // settings.keepLogs: 'recent' (default: every player's game logs for this season and last, and for good every season a
+  //   player spent on the user's team) | 'all' (every game log for good)
   sliders: { v, preset, <slider key>: 0-100, tradeRequests: bool },   // created lazily by PBC.Sliders.get(S)
   regularAwards,              // computed at the end of the regular season
   desk: { v, tick, seq, items: [Item], cd, fu, chem: { [tid]: 0-100 }, bond: { [tid]: ± }, media: 0-100, m0, c0,
@@ -107,7 +109,17 @@ S = {
   origin, draft: { year, round, pick, tid } | null,
   injury: { name, days, total } | null,
   stats: [{ season, tid, po, gp, gs, min, pts, fgm, fga, tpm, tpa, ftm, fta, orb, drb, ast, stl, blk, tov, pf, pm, dd, td, hiPts, hiReb, hiAst }],
-  awards: [{ season, type, detail }], hist: [{ season, ovr, pot, tid, age }],
+  awards: [{ season, type, detail }],
+                               // type: mvp, dpoy, roy, smoy, mip, fmvp, champion, allLeague / allDefense ('1st Team'...),
+                               // allRookie, allStar, potw, asgMvp, threeChamp, dunkChamp, skillsChamp; the stat titles
+                               // ptsTitle, rebTitle, astTitle, stlTitle, blkTitle (detail '31.2 ppg'); mvpVote (2nd to 5th);
+                               // hof ('First ballot'); numRetired ('No. 23, CHI'); milestone ('20,000 career points');
+                               // allTime ('All-time points leader'); record ('League record: 70 points in a game')
+  hist: [{ season, ovr, pot, tid, age, rt }],   // the end of every season he played; rt: all his ratings then (Player.snapRatings)
+  hist0: { season, age, ovr, pot, tid, rt },    // where his career on the record starts (a new league's players, every rookie)
+  glog: { [season]: '<27 characters a game>' }, // his game log (Stats.gameLog reads it; Stats.pruneLogs keeps what settings.keepLogs says)
+  hi: { rs: { pts: [v, season, day, oppTid], reb, ast, stl, blk, tpm, fgm, ftm, min }, po: { ... } },   // career highs, for good
+  best: [[season, logLine, gameScore]],         // his three best games (game score 20 and up), for good
   morale (0–100), train, yearsPro, promise: null | { type:'starter'|'minutes', min, season, tid, desk, gp0, min0, gs0 },
                                // (a promise made mid-season through the Desk is judged from the day it was made)
   deskTalk, deskShop, deskOneMore, miles: ['pts10000', ...], summer: { season, focus },   // the Desk's marks
@@ -120,6 +132,25 @@ S = {
   scout: { pts, known }        // prospects only: scouting knowledge 0–100 for the user
 }
 ```
+
+## Whole careers on the record
+
+Nothing about a player's career is thrown away: every season's stat rows (regular season and playoffs, a row per team
+in a trade season), his ratings at the end of every season (`hist[].rt`, plus `hist0` where he started), every honor on
+`p.awards`, his career highs (`p.hi`) and best games (`p.best`). `Legacy.compact` keeps every retired player who played a
+game (it only drops the long retired who never played and won nothing) and no longer trims `hist`.
+
+Game logs are the one part with a retention rule, because they are the big one (about 0.85 MB a season for a league):
+a game is a fixed-width line of 27 base-64 characters (`Stats.GL_FIELDS`: day, opponent, his team, flags for home /
+playoffs / started / won / overtime, both scores, then his line, +/- stored with 2048 added), appended to
+`p.glog[season]`. At the start of a season `Stats.pruneLogs` drops logs older than last season, except the seasons a
+player spent on the user's team (from `S.history[].userTid`), unless `settings.keepLogs` is `'all'`.
+
+Saves: `Store.serialize` packs each player's `stats` and `hist` arrays into rows (one list of keys, then the values),
+which cuts a 14-season save from 6.0 MB to 4.6 MB; `Store.migrate` unpacks them, so the rest of the game only sees plain
+arrays. `Stats.catchUp` runs on every load: for an older save without game logs it rebuilds this season's logs (and
+highs) from the user's box scores, and it adds the honors the record gained later (the stat titles and MVP vote places from
+`S.history`, Hall of Fame inductions and retired numbers from `S.legacy`), never twice.
 
 ## Season flow
 

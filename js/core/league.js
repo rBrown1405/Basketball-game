@@ -24,13 +24,14 @@
   // ---------------------------------------------------------------------------
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  League.dateOf = (S, day) => {
+  // (season: another season's calendar, for the game logs; this one by default)
+  League.dateOf = (S, day, season) => {
     const startMonth = S.leagueKey === 'women' ? 4 : 9; // May vs Oct
     const startDay = S.leagueKey === 'women' ? 16 : 21;
-    return new Date(Date.UTC(S.season, startMonth, startDay + day));
+    return new Date(Date.UTC(season != null ? season : S.season, startMonth, startDay + day));
   };
-  League.dateLabel = (S, day, withDow) => {
-    const d = League.dateOf(S, day);
+  League.dateLabel = (S, day, withDow, season) => {
+    const d = League.dateOf(S, day, season);
     return (withDow ? DOW[d.getUTCDay()] + ', ' : '') + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCDate();
   };
   League.monthOf = (S, day) => MONTHS[League.dateOf(S, day).getUTCMonth()];
@@ -135,6 +136,8 @@
     S.day = 0;
     S.playoffs = null;
     S.boxes = {};
+    // (game logs older than last season go, but your own players' and everything with Keep every game log: Stats.pruneLogs)
+    if (PBC.Stats && PBC.Stats.pruneLogs) PBC.Stats.pruneLogs(S);
     S.teamSeason = {};
     for (const t of S.teams) S.teamSeason[t.id] = PBC.Stats.emptyTeamSeason();
     S.playStats = { season: S.season, rs: {}, po: {} }; // plays and defensive schemes this season (js/core/playstats.js)
@@ -143,7 +146,12 @@
     S.practice = { week: -1, done: false, log: [] };
     S.flags = { tradeDeadlinePassed: false, allStarDone: false };
     for (const p of Object.values(S.players)) {
-      if (p.tid >= 0 || p.tid === -1) p.seasonStart = { ovr: p.ovr, tid: p.tid };
+      if (p.tid >= 0 || p.tid === -1) {
+        p.seasonStart = { ovr: p.ovr, tid: p.tid };
+        // (where a career on the record starts: the ratings he came into his first season here with, a new league's
+        // players and every rookie; his history then has a point every season after it)
+        if (!p.hist0 && !(p.hist && p.hist.length)) p.hist0 = { season: S.season, age: p.age, ovr: p.ovr, pot: p.pot, tid: p.tid, rt: PBC.Player.snapRatings(p.r) };
+      }
     }
     League.preseasonProjections(S);
   };
