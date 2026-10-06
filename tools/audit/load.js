@@ -58,7 +58,7 @@ function engineGame(PBC, seed, women) {
   const teamLook = (t, home) => ({ id: t.id, abbr: t.abbr, city: t.city, name: t.name, colors: Object.assign({}, t.colors), uniform: uniformFor(t, home), court: { paint: t.colors.primary, logoText: t.abbr, wood: t.wood || 'light' } });
   const playerLook = (p, teamIdx) => ({ id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, drawFoul: p.r.drawFoul,
     // (the court's defense and offense read these, js/match/defense.js and offense.js)
-    three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, expr: 'neutral',
+    three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, layup: p.r.layup, dunk: p.r.dunk, block: p.r.block, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, expr: 'neutral',
     // (his play style and badges, as live.js)
     sty: PBC.Style ? PBC.Style.court(p) : null, bdg: PBC.Badges ? PBC.Badges.court(p) : null });
   const L = PBC.League.cfg(S0), players = {};

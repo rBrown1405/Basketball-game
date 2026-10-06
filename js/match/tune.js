@@ -1110,6 +1110,38 @@
       wideRangeFt: 26,              // too, past his man or not (the help has to come to him; the kick-out follows from there)
       moveLeadS: 0.35,              // his own move next (a drive, a hesitation, a crossover, a spin): it comes now, brought forward
                                     // so it keeps this much beyond its beat's own time (s), pullMaxS at most
+      // the lane read (the user: "the player is clearly open or there is a driving lane but he does not drive to the hoop";
+      // Director.laneOf, laneRead, laneDrive, laneAttack; docs/MATCH_NOTES.md "The lane read").
+      // The lane: nobody can get into it ahead of him anywhere on the way to the rim, checked every stepFt (a help defender
+      // reacts in helpReactS and runs at helpFtps, his own man reacts in ownReactS and slides at slideFtps, to within laneFt of
+      // the point, while the driver gets there at driveFtps, startS later from a standstill, startHeldS with the ball held);
+      // a defender has to be later than him by marginS (worst to best handler, by his handle and speed: a poor handler needs
+      // a wider lane, like 2K's "drive the lane" tendency). His own man is out of it beaten, or flying at him on a closeout
+      // (closeoutFtps, within 8 ft). The last rimZoneFt are not the lane's: a big waiting at the rim (rimProtFt) is the
+      // finish's contest, not a closed lane.
+      // The finish, finishFt from the rim, gatherS after he gets there: contested by a rim protector (tight when he defends the
+      // rim tightRimFrom or better) or by a man in the help (within helpZoneFt of the rim) who can be within laneFt of it by
+      // the release (contestS of slack); a man out on the floor with his own man, or chasing from behind, does not count.
+      // Otherwise open.
+      // The decision, once per look after he reacts (reactS, worst to best court IQ): an open finish he takes freeP of the time
+      // (worst to best finisher) and finishes; a contested one pDrive (by his finishing, handle and speed), beatenP more with
+      // his man beaten, protK x at a rim protector (by his finishing), farK x from beyond farFt (to 1 for the best handler),
+      // shooterK x (the best shooter) with his own jumper next, at least lateP inside the last lateScS of the shot clock; then
+      // the finish finishP of the time (by his finishing; tightK x at a shot blocker, kickK x with his own pass next, always with
+      // his own shot next), otherwise the drive and the play's pass out of it. Within finishNowFt with nobody within wideOpenFt:
+      // the finish, every time (the research's "finish now"). A new look once he has got relookFt closer; a lane closed for
+      // closedS ends the look. The finish is his layup or dunk picked off the dribble, assisted only straight off a catch
+      // (assistS). The Attack Basket slider and his style scale it. The court's own drive (no finish of his to read: the
+      // possession's shot already played, or none left open for it) is not taken into a play of his due within attackClearS,
+      // nor with his own jump shot still to come
+      lane: {
+        minFt: 4, maxFt: 27, laneFt: 3.25, helpReactS: 0.25, helpFtps: 14, ownReactS: 0.15, slideFtps: 12, driveFtps: 16, stepFt: 1.5,
+        startS: 0.1, startHeldS: 0.25, rimProtFt: 5.5, rimZoneFt: 5, closeoutFtps: 9, tightRimFrom: 72, marginS: [0.35, 0.1],
+        reactS: [0.38, 0.12], freeP: [0.85, 0.98], pDrive: [0.75, 0.97], beatenP: 0.1, protK: [0.8, 1], farFt: 20, farK: 0.6,
+        shooterK: 0.5, finishP: [0.15, 0.65], tightK: 0.6, kickK: 0.5,
+        lateScS: 5, lateP: 0.9, finishFt: 3.5, gatherS: 0.35, assistS: 0.9, closedS: 0.35, contestS: 0, helpZoneFt: 16, attackClearS: 0.6,
+        finishNowFt: 10, wideOpenFt: 6, relookFt: 6,
+      },
       // the fast break (the user: "on the fast breaks the players don't drive to the hoop, they will be open 99% of the time and
       // they just run to the corner"; Director.ambient's lanes, handlerAmbient, assignSpots 'transition')
       pushReadU: 38,                // on a break the reads above are on once the ball is this far from the baseline it attacks (ft)

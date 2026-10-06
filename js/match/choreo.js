@@ -720,6 +720,8 @@
         if (to.isBusy() && to.clip && to.clip.clip.name === 'alley') { b.give(to); if (onCatch) onCatch(); return; }
         b.give(to, 'chest', { absorb: true });
         to.lookAt(null, { hold: 1e-6 });
+        // (when and from whom: a drive straight off the catch is assisted, flow.js laneRead)
+        to._caught = { T: this.T, from: from.id };
         if (onCatch) onCatch();
         this.afterCatch(to);
         // (the read on the catch: left alone, a man who can shoot lets it fly, flow.js courtRead)

@@ -431,8 +431,11 @@
     const ak = this.attackK() * this.styK(h.id, 'attack'), akW = 0.5 + 0.5 * ak;
     const open = near >= TR.openFt / akW, wide = near >= TR.wideFt / akW && dR < TR.wideRangeFt;
     h._openFt = near; h._beaten = beaten;
-    if (ak <= 0.02 || (!open && !beaten)) return;
     const own = bt && !bt.fired && ev && (ev.player === h.id || ev.from === h.id || ev.shooter === h.id || ev.by === h.id);
+    // (an open lane to the rim: he takes it, a layup or a dunk of his own when the possession's shot is still the court's to
+    // read; laneRead)
+    if (this.laneRead && this.laneRead(h, { beaten, ak, bt, ev, own })) return;
+    if (ak <= 0.02 || (!open && !beaten)) return;
     // his own shot is next: now
     if (own && ev.type === 'shot' && this.A(ev.shooter) === h) {
       if (bt.pulled || ev.pending || !PULL_KINDS[ev.kind]) return;
@@ -468,6 +471,242 @@
     h.lookAt(null);
     this.attacks = (this.attacks || 0) + 1;
     if (wide && !beaten) this.wideAttacks = (this.wideAttacks || 0) + 1;
+  };
+
+  // ------------------------------------------------------------ the lane read
+  // (the user: "these moments happen a lot: the player is clearly open or there is a driving lane but he doesn't drive to the
+  // hoop"; measured before, over seven games: of the moments the man with the ball had an open lane he finished at the rim on
+  // 18% and passed on 62%: the court's own attack stopped 11 ft out and waited for the engine's pass. Tune.reads.lane)
+  /** the man with the ball's lane to the rim: { ok (nobody can get into it ahead of him by the time he gets there), dR, tArr
+   *  (s to his finish), prot (a big waiting at the rim), by (who could contest the finish), contest ('open', 'contested': a
+   *  rim protector or a man in the help there in time, 'tight': a rim protector who blocks shots), beaten, gap (ft to the
+   *  nearest defender) } */
+  P.laneOf = function (h, beaten) {
+    const TL = M.Tune.reads.lane, rim = this.rim;
+    const dR = Math.hypot(rim.x - h.x, rim.y - h.y);
+    const out = { ok: false, dR, tArr: 0, prot: null, by: null, contest: 'open', beaten: !!beaten, gap: 99 };
+    if (dR < TL.minFt || dR > TL.maxFt) return out;
+    const ux = (rim.x - h.x) / dR, uy = (rim.y - h.y) / dR, vD = TL.driveFtps;
+    const g = this.guardOf(h.id);
+    // (from a standstill, the ball held: a beat to put it on the floor and get going; and a defender has to be later than him by
+    // a margin, the wider the poorer a handler he is)
+    const start = Math.hypot(h.vx || 0, h.vy || 0) < 4 ? (this.v.ball.state === 'held' ? TL.startHeldS : TL.startS) : 0;
+    const lkH = this.v.look(h.id) || {}, rH = (k, dflt) => (lkH[k] != null && isFinite(+lkH[k]) ? +lkH[k] : dflt);
+    const margin = U.lerp(TL.marginS[0], TL.marginS[1], U.clamp(0.6 * (rH('handle', 55) - 40) / 45 + 0.4 * (rH('speed', 60) - 45) / 45, 0, 1));
+    const tArr = start + Math.max(0, dR - TL.finishFt) / vD + TL.gatherS;
+    const fx = rim.x - ux * TL.finishFt, fy = rim.y - uy * TL.finishFt;
+    let helpT = 99, help = null;
+    for (const d of this.defActors()) {
+      const dx = d.x - h.x, dy = d.y - h.y, dd = Math.hypot(dx, dy) || 0.01;
+      const s = dx * ux + dy * uy;
+      if (dd < out.gap) out.gap = dd;
+      // (busy in a move of his own, a fall or a box-out's clip: only once it is over)
+      const busy = d.isBusy() && d.clip ? Math.max(0, (d.clip.clip.dur - d.clip.t) / (d.clip.speed || 1)) : 0;
+      // (his own man past him, or flying at him on a closeout he goes by)
+      let past = false;
+      if (d === g) {
+        past = !!beaten || (-((d.vx || 0) * dx + (d.vy || 0) * dy) / dd > TL.closeoutFtps && dd < 8);
+        if (past) out.beaten = true;
+      }
+      // (who could contest his finish: a man in the help, there within reach of it by the release; not one out on the floor
+      // with his own man (the strong side's shooters are not left), nor one chasing him from behind, a swipe at the ball rather
+      // than a contest: the research's "rearview pursuit")
+      const dRim = Math.hypot(d.x - rim.x, d.y - rim.y);
+      if (!past && s > -0.5 && dRim <= TL.helpZoneFt) {
+        const tF = busy + TL.helpReactS + Math.max(0, Math.hypot(d.x - fx, d.y - fy) - TL.laneFt) / ((d.maxSpeed || 20) * 0.85);
+        if (tF < helpT) { helpT = tF; help = d; }
+      }
+      if (dRim < TL.rimProtFt) { if (!out.prot) out.prot = d; continue; }
+      if (past || s < -1 || s > dR + 1) continue;
+      // (his own man on the ball: quicker to it, sliding)
+      let react = TL.helpReactS, vDef = Math.min(TL.helpFtps, (d.maxSpeed || 20) * 0.8);
+      if (d === g) { react = TL.ownReactS; vDef = TL.slideFtps; }
+      // (in his lane, or able to get into it ahead of him anywhere on the way: the point of the drive he reaches first, a
+      // defender reacting, then coming at it while the driver gets there from a standstill or on the move)
+      // (outside the rim zone: a man who can only get there at the rim is a rim protector, the finish's contest, not the lane's)
+      for (let k = Math.max(0, s - 2); k <= dR - TL.rimZoneFt + 0.01; k += TL.stepFt) {
+        const px = h.x + ux * k, py = h.y + uy * k;
+        const tD = busy + react + Math.max(0, Math.hypot(d.x - px, d.y - py) - TL.laneFt) / vDef;
+        if (tD <= k / vD + start + margin) return out;
+      }
+    }
+    out.ok = true;
+    out.tArr = tArr;
+    const contested = !!out.prot || helpT <= tArr + TL.contestS;
+    out.contest = contested ? 'contested' : 'open';
+    out.by = out.prot || (contested ? help : g) || null;
+    // (a big set at the rim who blocks shots, there well before the driver: tight)
+    if (out.prot) {
+      const lk = this.v.look(out.prot.id) || {}, rp = (+lk.intD || 50) * 0.6 + (+lk.block || +lk.intD || 50) * 0.4;
+      if (rp >= TL.tightRimFrom && !out.prot.isBusy()) out.contest = 'tight';
+    }
+    return out;
+  };
+  /** how quickly he sees it (s): his court IQ */
+  P.laneReact = function (h) {
+    const TL = M.Tune.reads.lane, lk = this.v.look(h.id) || {};
+    const iq = lk.offIQ != null && isFinite(+lk.offIQ) ? +lk.offIQ : 60;
+    return U.lerp(TL.reactS[0], TL.reactS[1], U.clamp((iq - 45) / 45, 0, 1));
+  };
+  /** how good a finisher he is, 0 to 1 (his layup, his dunk or close shot) */
+  P.laneFin = function (h) {
+    const lk = this.v.look(h.id) || {}, r = (k, d) => (lk[k] != null && isFinite(+lk[k]) ? +lk[k] : d);
+    const close = r('close', 60);
+    return U.clamp((0.55 * r('layup', close) + 0.45 * Math.max(r('dunk', 45), close) - 45) / 40, 0, 1);
+  };
+  /** the share of the time he takes an open lane: his finishing, handle and speed; his man beaten, a rim protector waiting,
+   *  how far out, his own open jumper next; his style and the Attack Basket slider (o.ak); late in the shot clock, he goes */
+  P.laneP = function (h, ln, o) {
+    const TL = M.Tune.reads.lane, lk = this.v.look(h.id) || {};
+    const r = (k, d) => (lk[k] != null && isFinite(+lk[k]) ? +lk[k] : d);
+    const fin = this.laneFin(h);
+    const hnd = U.clamp((r('handle', 55) - 40) / 45, 0, 1), spd = U.clamp((r('speed', 60) - 45) / 45, 0, 1);
+    // (a free lane, nobody at the rim and no help there in time: he takes it, a poor finisher too; into a big at the rim, nearly
+    // always as well by how good a driver he is (the finish or the kick comes after: laneFinishP); a poor handler from far out
+    // less; the lane test's margin already asks a poor handler for more room)
+    const free = ln.contest === 'open';
+    let p = free ? U.lerp(TL.freeP[0], TL.freeP[1], fin) : U.lerp(TL.pDrive[0], TL.pDrive[1], 0.5 * fin + 0.3 * hnd + 0.2 * spd);
+    if (ln.beaten) p += TL.beatenP;
+    if (ln.prot) p *= U.lerp(TL.protK[0], TL.protK[1], fin);
+    if (ln.dR > TL.farFt && !free) p *= U.lerp(TL.farK, 1, hnd);
+    const ev = o.ev;
+    if (o.own && ev && ev.type === 'shot' && ev.zone !== 'rim' && ev.zone !== 'paint') {
+      const sr = ev.zone === 'mid' ? r('mid', 55) : r('three', 50);
+      p *= U.lerp(1, TL.shooterK, U.clamp((sr - 60) / 30, 0, 1));
+    }
+    p *= free ? Math.min(1, o.ak) : o.ak;
+    if (this.shotClock && this.shotClock() < TL.lateScS) p = Math.max(p, TL.lateP * Math.min(1, o.ak));
+    return U.clamp(p, 0, 0.98);
+  };
+  /** into a big at the rim (or help there in time): how often the drive goes all the way to his own finish, by his finishing;
+   *  less at a shot blocker, less with his own pass to come (the drive and kick) */
+  P.laneFinishP = function (h, ln, o) {
+    const TL = M.Tune.reads.lane;
+    let p = U.lerp(TL.finishP[0], TL.finishP[1], this.laneFin(h));
+    if (ln.contest === 'tight') p *= TL.tightK;
+    if (o.own && o.ev && (o.ev.type === 'pass' || o.ev.type === 'handoff')) p *= TL.kickK;
+    if (this.shotClock && this.shotClock() < TL.lateScS) p = Math.max(p, 0.7);
+    return U.clamp(p, 0, 0.95);
+  };
+  /** the next thing the play has for him (the beat now if it is his and still to come, else the first of the events after it
+   *  that is his: a pass of his, his shot, his move), or null */
+  P.laneNextOwn = function (h, o) {
+    if (o.own && o.ev) return o.ev;
+    const id = h.id;
+    return this.findNext((e) => e.player === id || e.from === id || e.shooter === id || e.by === id);
+  };
+  /** the lane read, every frame for the man with the ball (readOpen): the lane open (laneOf) and seen (laneReact), he takes it
+   *  laneP of the time, decided once each time it opens; taken, with the possession's shot still the court's to read
+   *  (Sim.liveRead) the finish is his (laneDrive), otherwise the court's own drive at the rim (laneAttack). True when he goes */
+  P.laneRead = function (h, o) {
+    const TL = M.Tune.reads.lane, T = this.T, b = this.v.ball, P0 = this.poss;
+    if (!P0 || P0.gim || o.ak <= 0.02) return false;
+    let st = h._lane;
+    // (not read for a while: he gave the ball up since; the next time he has it is a new look)
+    if (st && T - st.seen > 0.5) st = h._lane = null;
+    // (not now, without spending the read: posting up, a pass on its way out, a dribble move under way, his own shot about to go)
+    if (h.stance === 'postUp' || h.stance === 'postHold' || h.throwing() || h.isBusy()) return false;
+    if (b.dr && (b.dr.move || b.dr.pendingMove)) { if (st) st.seen = T; return false; }
+    if (o.own && o.ev && o.ev.type === 'shot' && o.bt.fireAt - T < 0.6) return false;
+    // (his dribble picked up: there is no drive in it, the rules)
+    if (b.state !== 'dribble' && h.dribUsed) return false;
+    const ln = this.laneOf(h, o.beaten);
+    if (!ln.ok) {
+      if (st) { st.seen = T; if (st.closedAt == null) st.closedAt = T; else if (T - st.closedAt > TL.closedS) h._lane = null; }
+      return false;
+    }
+    // (a new look once he has got well closer since he decided: the attack that took him in, the lane still open)
+    if (st && st.done && st.dR0 - ln.dR > TL.relookFt) st = h._lane = null;
+    if (!st) st = h._lane = { t0: T, seen: T, done: false };
+    st.seen = T; st.closedAt = null;
+    // (in close with nobody near him: the finish, now and every time; the research's "finish now", the user: "wide open")
+    const now = ln.dR <= TL.finishNowFt && ln.gap >= TL.wideOpenFt;
+    if (st.done || (!now && T - st.t0 < this.laneReact(h))) return false;
+    // (the ball held a moment longer, the catch or a pump of his: the read waits for it, seen already)
+    if (b.state !== 'dribble' && h.holdBallUntil > T) return false;
+    st.done = true; st.dR0 = ln.dR;
+    this.laneOpens = (this.laneOpens || 0) + 1;
+    const p = now ? 1 : this.laneP(h, ln, o);
+    const lk = this.v.look(h.id) || {}, who = lk.last || ('#' + h.id);
+    if (!(Math.random() < p)) {
+      this.laneDeclined = (this.laneDeclined || 0) + 1;
+      if (this.dbgOn && this.dbgOn()) this.dbgRead('LANE ' + who + ': open lane (' + ln.dR.toFixed(0) + ' ft' + (ln.prot ? ', a big at the rim' : '') + ') but he keeps it in the play (' + Math.round(p * 100) + '%)', '#ffd8a8');
+      return false;
+    }
+    // (a free lane is his to finish, and in close with nobody near; into a big at the rim, the finish or the drive and the play's
+    // pass out of it)
+    // (his own shot the next thing the play has for him: there is no kick out of this drive, it is his finish)
+    const nx = this.laneNextOwn(h, o);
+    o.next = nx;
+    const fin = now || ln.contest === 'open' || (nx && nx.type === 'shot') || Math.random() < this.laneFinishP(h, ln, o);
+    if (fin && this.laneDrive(h, ln, o)) {
+      if (this.dbgOn && this.dbgOn()) this.dbgRead('LANE ' + who + ': open lane' + (ln.beaten ? ', his man beaten' : '') + ', he takes it to the rim (' + ln.contest + ', ' + Math.round(p * 100) + '%)', '#8ce99a');
+      return true;
+    }
+    const went = this.laneAttack(h, ln, o);
+    if (went && this.dbgOn && this.dbgOn()) this.dbgRead('LANE ' + who + ': open lane, he drives it' + (ln.prot ? ' at the big' : '') + ' (the play goes on from there)', '#a5d8ff');
+    return went;
+  };
+  /** his drive to his own finish: the possession's shot left open for the court (Sim.liveRead) becomes his layup or dunk when he
+   *  gets there, the rest of the play not run */
+  P.laneDrive = function (h, ln, o) {
+    const TL = M.Tune.reads.lane, P0 = this.poss, T = this.T;
+    const no = (w) => { const m = this.laneNoRead || (this.laneNoRead = {}); m[w] = (m[w] || 0) + 1; return false; };
+    // (none left open for it: none planned that way (a turnover or a foul to come, the break, the end of the clock), or the
+    // possession's first shot already played, the play after an offensive rebound)
+    if (!P0 || !P0.live) return no('no live shot');
+    if (!P0.pendingShot || !P0.pendingShot.live) return no('shot played');
+    if (this.phase !== 'front') return no('phase');
+    // (the last of the engine's events already played: the read cuts the play's ball movement after it)
+    let after = null;
+    for (let i = this.ei - 1; i >= 0; i--) if (this.events[i] && this.events[i]._emitted) { after = this.events[i]; break; }
+    if (!after || !LIVE_BEATS[after.type]) return no('after ' + (after ? after.type : 'none'));
+    const rim = this.rim, ux = (rim.x - h.x) / ln.dR, uy = (rim.y - h.y) / ln.dR;
+    const c = h._caught, from = c && T - c.T < TL.assistS && c.from != null ? c.from : null;
+    const old = P0.pendingShot, oldT = +old.t;
+    const shotEv = P0.live.read({ shooter: h.id, from, after, t: this.g + ln.tArr, x: rim.x - ux * TL.finishFt, y: rim.y - uy * TL.finishFt,
+      zone: 'rim', hint: 'offDribble', contest: ln.contest, defender: ln.by ? ln.by.id : null, open: ln.gap, drive: true, beaten: ln.beaten });
+    if (!shotEv) {
+      this.laneRefused = (this.laneRefused || 0) + 1;
+      const Sm = window.PBC && window.PBC.Sim, rw = this.laneWhy || (this.laneWhy = {}), w = (Sm && Sm.liveRead && Sm.liveRead.why) || '?';
+      rw[w] = (rw[w] || 0) + 1;
+      return false;
+    }
+    this.driveReads = (this.driveReads || 0) + 1;
+    if (ln.contest === 'open') this.driveOpen = (this.driveOpen || 0) + 1;
+    // (what it took the place of, for the measurements: the shot the engine had planned, and how much sooner this one goes)
+    const lg = this.laneLog || (this.laneLog = []);
+    if (lg.length < 400) lg.push({ zone: old.zone, kind: old.kind, contest: old.contest, own: String(old.shooter) === String(h.id), sooner: +(oldT - shotEv.t).toFixed(2), made: !!shotEv.made, fouled: !!shotEv.fouled, blk: !!shotEv.blocked, pm: shotEv.pm, pts: shotEv.made ? shotEv.pts : 0, c: ln.contest, kindNow: shotEv.kind });
+    h._attackT = T;
+    this.liveRedirect(shotEv);
+    return true;
+  };
+  /** the court's own drive at the rim when the finish cannot be his (the possession's shot is not the court's to read): he
+   *  attacks the lane, the next play coming from wherever it gets him (the kick out of it, the dump-off) */
+  P.laneAttack = function (h, ln, o) {
+    const TR = M.Tune.reads, T = this.T, b = this.v.ball;
+    const no = (w) => { const m = this.laneNo || (this.laneNo = {}); m[w] = (m[w] || 0) + 1; return false; };
+    // (an engine drive of his under way is the engine's; the gap attack readOpen had him on, stopping 11 ft out, is taken on
+    // further: the lane is a new look, decided once)
+    if (this.driving(h)) return no('driving');
+    if (b.state !== 'dribble' && (h.dribUsed || h.holdBallUntil > T)) return no('picked up');
+    const r = this.role[h.id];
+    if (!r) return no('role');
+    if (o.own && o.bt && o.bt.fireAt - T < M.Tune.reads.lane.attackClearS) return no('own soon:' + o.bt.type);
+    // (his own jump shot still to come in the play: in to the rim and back out to the arc for it is no drive, he keeps it)
+    if (o.next && o.next.type === 'shot' && o.next.zone !== 'rim' && o.next.zone !== 'paint') return no('own jumper');
+    // (in close, the last couple of steps in)
+    const stopFt = U.clamp(ln.dR - 2.5, 4, Math.max(5, TR.attackStopFt * 0.6));
+    if (ln.dR < stopFt + 1) return no('close');
+    if (b.state !== 'dribble' && b.dribble(h) === false) return no('dribble');
+    r.path = null;
+    const rim = this.rim, ux = (rim.x - h.x) / ln.dR, uy = (rim.y - h.y) / ln.dR, go = ln.dR - stopFt;
+    h._attackT = T;
+    r.until = T + TR.attackS + 0.4; r.probe = null; r.probeAnchor = null;
+    h.moveTo(h.x + ux * go, h.y + uy * go, { speed: h.maxSpeed * TR.attackK, face: 'move', stance: 'dribble' });
+    h.lookAt(null);
+    this.laneAttacks = (this.laneAttacks || 0) + 1;
+    return true;
   };
 
   // ------------------------------------------------------------ the read on the catch

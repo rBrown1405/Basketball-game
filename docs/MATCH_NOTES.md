@@ -1310,3 +1310,73 @@ now, about seventeen a game over nine headless games. The gauntlet passes.
   and their skill at it), not by the shots actually taken: the seasons above show where that lands.
 * Styles and badges come from the ratings; a player's tendencies (the editor's) still shape his game on top of his style,
   and the two can pull different ways for a player whose style was picked by hand.
+
+## The lane read: an open lane is taken
+
+Asked for by the user, with four screenshots marked "drive lane", "WIDE OPEN" and "CLEAR LANE (DID NOT DRIVE FOR DUNK OR
+LAYUP)": "these moments happen a lot, the player is clearly open or there is a driving lane but he doesn't drive to the hoop".
+Measured before the change over seven headless games: of the moments the man with the ball had an open lane he finished at
+the rim on 18% and passed on 62%. The court's own attack stopped 11 ft out and waited for the engine's next event, a pass.
+
+### The read (js/match/flow.js laneOf, laneRead, laneDrive, laneAttack; Tune.reads.lane)
+
+* **The lane** is a time-to-intercept test (the soccer analysts' "pitch control"): every 1.5 ft along his line to the rim,
+  can any defender get within reach (3.25 ft) of that point before he does? Help reacts in 0.25 s and runs at 14 ft/s, his
+  own man reacts in 0.15 s and slides at 12 ft/s, the driver goes at 16 ft/s (a beat later from a standstill). A defender
+  has to be later than him by a margin, 0.35 s for a poor handler down to 0.10 s for the best (2K's "drive the lane"
+  tendency works the same way: a poor driver needs a bigger lane). His own man is out of it once beaten or flying at him on a
+  closeout. The last 5 ft are not the lane's: a big waiting at the rim contests the finish, he does not close the lane.
+* **The finish's contest**: tight against a rim protector who defends the rim well, contested against any other big at the
+  rim or a man in the help (within 16 ft of the rim) who can be within reach of the finish by the release, open otherwise.
+  A man out on the floor with his own man, or one chasing from behind, does not count.
+* **The decision**, once per look, after he reacts (0.38 s to 0.12 s by court IQ): an open finish he takes 85% to 98% of the
+  time by his finishing and finishes it; a contested one 75% to 97% by his finishing, handle and speed (more with his man
+  beaten, less at a rim protector, less from far out for a poor handler, less for a great shooter with his own open jumper
+  next, at least 90% late in the shot clock), then the finish 15% to 65% by his finishing (less at a shot blocker, less with
+  his own pass next, always when his own shot is next), otherwise the drive and the play's pass out of it. In close (10 ft) with nobody within 6 ft: the finish,
+  every time. A new look once he has got 6 ft closer. The Attack Basket slider and his play style scale all of it.
+* **The finish is his** (`Sim.liveRead` with `drive`): the possession's open shot becomes his layup or dunk at the time his
+  drive gets there (after the planned shot's time too, inside the shot clock), picked off the dribble, assisted only straight
+  off a catch. The score is the engine's, always; simulated games are untouched.
+* **The drive and kick**: when he does not finish, he still drives, and the play's next pass comes out of the drive; never
+  in to the rim and back out to the arc for a jump shot of his own still to come.
+* **The rules**: no drive with his dribble picked up (that layup came from 15 ft), the read waits for a catch's hold.
+
+### Measured (this pass)
+
+Seven headless games through the court (seeds 8, 21, 34, 47, 55, 63, 71), two periods each, before and after:
+
+| | before | after |
+|---|---|---|
+| points a game (two periods, both teams) | 113.6 | 114.0 |
+| FG % | 43.4 | 42.9 |
+| shots at the rim or in the paint | 45.3 % | 52.0 % |
+| open-lane moments finished at the rim / passed | 17.9 % / 61.5 % | 21.7 % / 58.0 % |
+| lane reads a game (declined) | - | 37.6 (9.5 %) |
+| drive finishes a game | - | 8.4 |
+| drive finishes made / fouled | - | 56 % / 31 % |
+
+The drive finishes came 4.3 s sooner than the shots they replaced, 35 of 59 of which were jumpers. Their make odds by contest:
+open 0.73, contested 0.72, tight (a shot blocker at the rim) 0.51; the league shoots 66% in the restricted area and about 47 to
+50% against the best rim protectors. The rim share sits a little above the NBA's paint share (about 48%), as asked: more
+drives. The gauntlet passes.
+
+### Limitations (this pass)
+
+* Only the possession's first shot in the half court can become his drive (as with the read on the catch). After an
+  offensive rebound the drive and kick still goes, the finish does not. Letting every shot of a trip stay open was tried:
+  the engine alone gave identical games, but four court games scored lower than expected and it was taken back out.
+* The help is judged from where the defenders stand when he decides; the court's help rotations come after.
+* A drive whose pass comes late can stop near the rim for a moment before the kick. Holding the drive back unless the pass was
+  due on arrival was tried: it halved the drive and kicks and the open catch-and-shoot looks they make, and the court games
+  scored lower, so it was taken back out.
+
+### Sources
+
+* Time-to-intercept and reaction times: Spearman's pitch control and Laurie Shaw's reference code (Friends of Tracking);
+  choice reaction 0.40 s, simple 0.24 s (CEJSSM 2017).
+* Shooting by zone and rim protection: NBA.com stats leaders (restricted area 66.2%), "The Dwight Effect" (Sloan).
+* Drives and pass-outs: FanSided on NBA team drives, NBA.com best scorers on drives.
+* Reading the help: Half Court Hoops "core skills" (shoulder to shoulder, finish; see chest, jump stop and spray), Breakthrough
+  Basketball on help positioning, Cleaning the Glass on NBA rotations (the strong-side corner stays home).
+* The same complaint in a commercial game: Operation Sports, "NBA 2K26's AI refuses to attack the basket".

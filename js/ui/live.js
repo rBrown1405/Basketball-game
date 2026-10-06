@@ -26,7 +26,7 @@
   function playerLook(p, teamIdx) {
     return { id: p.id, teamIdx, first: p.first, last: p.last, num: p.num, pos: p.pos, height: p.hgt, wing: p.wing, weight: p.wgt, hand: p.hand, gender: p.gender, look: p.look, speed: p.r.speed, agility: p.r.agility, vert: p.r.vert, handle: p.r.handle, drawFoul: p.r.drawFoul,
       // (the court's defense and offense read these: cushion by shooting, help by awareness, roles for bigs)
-      three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, strength: p.r.strength, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, offIQ: Math.round(p.r.shotIQ * 0.55 + p.r.vision * 0.45), defIQ: Math.round(p.r.helpD * 0.7 + p.r.hustle * 0.3),
+      three: p.r.three, mid: p.r.mid, close: p.r.close, post: p.r.post, layup: p.r.layup, dunk: p.r.dunk, block: p.r.block, strength: p.r.strength, perD: p.r.perD, helpD: p.r.helpD, intD: p.r.intD, arch: p.arch, offIQ: Math.round(p.r.shotIQ * 0.55 + p.r.vision * 0.45), defIQ: Math.round(p.r.helpD * 0.7 + p.r.hustle * 0.3),
       expr: PBC.Persona ? PBC.Persona.face(p) : 'neutral',
       // (his play style and badges: how he plays it on the floor, js/core/style.js and js/core/badges.js)
       sty: PBC.Style ? PBC.Style.court(p) : null, bdg: PBC.Badges ? PBC.Badges.court(p) : null };

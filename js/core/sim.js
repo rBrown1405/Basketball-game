@@ -2621,8 +2621,8 @@
     // a watched game (g.liveReads, set by the live view): the possession's first shot in the half court is left open for the
     // court's read of the floor (the user: "the player should be aware of the man guarding him and the help defenders; if he's
     // completely left alone he should just let it fly"). Its outcome is drawn when the court comes to it (Sim.resolveLive), or
-    // a man the court sees left alone on a catch shoots instead (Sim.liveRead, js/match/flow.js courtRead). Simulated games are
-    // untouched
+    // a man the court sees left alone on a catch shoots instead (Sim.liveRead, js/match/flow.js courtRead), or the man with the
+    // ball takes an open lane to the rim (laneRead). Simulated games are untouched
     if (g.liveReads && !g.lite && !ctx.liveShotDone && LIVE_MODES[mode] && kind !== 'heave' && info.play !== 'putback') {
       shot.pending = true;
       shot.live = true;
@@ -3241,7 +3241,11 @@
    * look (or as req.contest says) from where he caught it, the passer credited with the assist if it goes, and the rest of the
    * possession run from there. req: { shooter, after (the pass event that found him), t (the engine time of his release), x, y,
    * zone, kind?, contest? }. Returns the new shot event, or null when it cannot be (no open shot, he is not on the floor, the
-   * time is not before the planned shot, or something other than the play's ball movement would be cut)
+   * time is not before the planned shot, or something other than the play's ball movement would be cut).
+   * The drive read (req.drive, flow.js readOpen): the man with the ball takes an open lane to the rim, a layup or a dunk of his
+   * (req.hint 'drive' picks it from his ratings), at the time his drive gets there: after the planned shot's time too, inside
+   * the shot clock and the period; req.defender the man the court has contesting it, req.from the passer only when he went
+   * straight off the catch (the assist)
    */
   Sim.liveRead = function (g, P, req) {
     const pend = g.pending;
@@ -3254,17 +3258,23 @@
     const no = (w) => { Sim.liveRead.why = w; return null; };
     if (!sh || !old || !data || k < 0 || !ZONE_OK[req.zone]) return no(!sh ? 'shooter' : k < 0 ? 'after' : 'data');
     if (!(t > (+req.after.t || 0))) return no('before the pass');
-    if (!(t < old.t)) return no('after the shot');
+    // (a drive's finish may come after the planned shot's time, not after the shot clock or the period)
+    const tMax = req.drive ? Math.min(ctx.scStart + ctx.scLen - 0.15, g.clock - 0.05) : old.t;
+    if (!(t < tMax)) return no(req.drive ? 'clock' : 'after the shot');
     for (let i = k + 1; i < P.events.length; i++) if (!LIVE_DROP[P.events[i].type]) return no('cuts ' + P.events[i].type);
     P.events.splice(k + 1);
     // (play tracking: a called play's open look taken before the play was run, as far as it had got)
     const pb = data.info && data.info.pb;
     if (pb && pb.rec && !pb.inbound) { pb.rec.look = true; const kk = pbStepAt(pb, t); if (kk < pb.rec.step) pb.rec.step = kk; }
     // (the man who found him: the passer on the court, req.from, else the engine pass's)
-    const zone = req.zone, as = O.on.find(c => c.id === req.from) || (req.after.type === 'pass' || req.after.type === 'handoff' ? O.on.find(c => c.id === req.after.from) : null) || null;
-    const kind = req.kind || (is3(zone) ? 'catch_shoot' : zone === 'mid' ? 'jumper' : chooseKind(ctx, zone, 'catch', sh, false));
-    const plan = { branch: 'read', shooter: sh, assister: as && as !== sh ? as : null, zone, kind, cKey: 'spot', passKind: 'swing', hint: 'catch' };
-    const d = shotDefender(ctx, sh, zone, data.info);
+    // (a drive is assisted only straight off the catch: the court names the passer then)
+    const zone = req.zone, as = req.drive ? (req.from != null ? O.on.find(c => c.id === req.from) || null : null)
+      : O.on.find(c => c.id === req.from) || (req.after.type === 'pass' || req.after.type === 'handoff' ? O.on.find(c => c.id === req.after.from) : null) || null;
+    const hint = req.hint || 'catch';
+    const kind = req.kind || (is3(zone) ? 'catch_shoot' : zone === 'mid' ? 'jumper' : chooseKind(ctx, zone, hint, sh, false));
+    const plan = { branch: 'read', shooter: sh, assister: as && as !== sh ? as : null, zone, kind, cKey: req.drive ? 'drive' : 'spot', passKind: 'swing', hint };
+    // (the man the court has contesting it, when it names one on the floor; else the engine's own choice)
+    const d = (req.defender != null && ctx.D.on.find(c => c.id === req.defender)) || shotDefender(ctx, sh, zone, data.info);
     const contest = req.contest === 'contested' || req.contest === 'tight' ? req.contest : 'open';
     const bx = basketX(O.idx, g.period);
     const x = U.round(U.clamp(+req.x, 0.8, 93.2), 1), y = U.round(U.clamp(+req.y, 0.8, 49.2), 1);
@@ -3274,7 +3284,8 @@
     const shot = {
       type: 'shot', t, team: O.idx, shooter: sh.id, pts, zone, kind, x, y, dist: loc.d, contest, defender: d.id,
       assist: plan.assister ? plan.assister.id : null, made: undefined, blocked: false, blocker: null, fouled: false, fouler: null, andOne: false,
-      pending: false, created: contest === 'open' ? 'open' : null, read: { why: 'court', from: old.shooter, open: req.open != null ? U.round(+req.open, 1) : undefined },
+      pending: false, created: req.drive ? (req.beaten ? 'beat' : contest === 'open' ? 'open' : 'inside') : contest === 'open' ? 'open' : null,
+      read: { why: 'court', from: old.shooter, open: req.open != null ? U.round(+req.open, 1) : undefined, drive: req.drive ? true : undefined },
     };
     P.events.push(shot);
     g.pending = null;
