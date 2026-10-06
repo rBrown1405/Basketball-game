@@ -257,7 +257,7 @@ would make the view more faithful if they ever become available (all optional, t
 
 ## Live Game AI sliders (League Settings)
 
-Eleven sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
+Twelve sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
 set by the engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1,
 100 -> hi):
 
@@ -274,6 +274,7 @@ set by the engine's own sliders. The director reads them through `Director.slide
 | Contact Drives (`contactDrives`) | how often a driver with a help defender in the lane goes at his chest to draw the foul (`Tune.traffic.contactP` x 0 at 0, x 1 at 50, x 2 at 100; a shot the engine fouled always has the contact; `contactDrivePlan`) |
 | Post Moves (`postMoves`) | how often a post-up works a move before its shot (`Tune.post.moveP` x 0 at 0, x 1 at 50, every one at 100 with no straight-up finishes left in the tables and the double fake twice as often; `postPlan`) |
 | Hard Falls (`hardFalls`) | how often a shooter knocked on a heavily contested shot, or a defender run through on a contact drive, goes down (`Tune.fall` x 0 at 0, x 1 at 50, x 2 at 100; `planFall`, `goDown`) |
+| Attack Basket (`attackBasket`) | how eagerly the man with the ball attacks a lane the defense gives him: the drive at the gap (`readOpen`: a lane `Tune.reads.openFt/wideFt` / (0.5 + 0.5 k) wide counts as open, the drive to `attackStopFt` x (1.2 - 0.2 k), no oftener than `attackGapS` / k), the break pushed on to the rim (`pushDepthU`: to the top at 0, the drive and the kick with two back at 100) and the open look pulled forward (`pullMaxS` x k, 1.5 at most); nothing at 0, as tuned at 50, twice as eager at 100 |
 
 ## Movement, handling, the post and contact
 
@@ -1068,11 +1069,20 @@ rushing to pick it up".
 
 ### The outlet man attacks
 
-* **The push goes on at the rim** (`handlerAmbient`, `pushDepthU`, `Tune.urgency.pushRimU/pushKickU`): a break's handler
-  used to push the ball to the top of the key (21 ft) and wait there for the engine's beat, nobody near him. Now how far he
-  pushes depends on what is his next: his own finish, all the way to the rim (6 ft); his jumper, to its distance; a pass or
-  a move next, the drive and the kick, to the free throw line extended (14 ft) when there is a defender back at most, else
-  to the top as before.
+* **The push goes on at the rim** (`handlerAmbient`, `pushDepthU`, `p_pass`, `Tune.urgency.pushRimU/pushKickU`): a break's
+  handler used to push the ball to the top of the key (21 ft) and wait there for the engine's beat, nobody near him; and
+  with a pass next he did not even get that far: the pass's beat locked his role the moment it was planned (the flow is
+  off on a break, so the lock the half court lifts until just before the pass stayed on), and he stood where the advance
+  left him, ~40 ft out, with the ball until the pass. The lock lifts on a break now (`Tune.pass.pushLockS`: he pushes until 0.85 s before the wind-up, and the jump stop into
+  the pass squares him up when he comes in at a run), and how far he pushes depends on what is his next: his own finish, all the way to the rim (6 ft); his jumper, to its distance; a
+  pass or a move next, the drive and the kick, to the free throw line extended (14 ft) when there is a defender back at
+  most, else to the top as before. The numbers are read once, as the ball comes into the frontcourt (`defendersBack`:
+  nearer the rim than the ball by 2 ft and inside the lane's width; a man level with the ball or out wide is not back):
+  a handler who sees a lane attacks the paint and kicks when the help comes, whatever the defense does on the way. Read
+  every step, the defense sprinting home had three back before he got going and the drive never went.
+* **The slider**: Attack Basket in League Settings (`attackK`): at 0 none of the drives at a gap, the break's push past the
+  top or the early open look (the way it was before this pass); at 50 as tuned; at 100 a lane half as wide counts as open
+  and the drives come sooner, deeper and more often. Who shoots and whether it goes in stay the engine's.
 * **The open look goes now** (`readOpen`): a shooter open with his own shot next had it brought forward only when more
   than the beat's planned need was left, and the need was the one planned from where he stood when the beat was planned,
   with a run to the spot in it; by the time he was open there was never that much left, and `readShots` was 0 in a half.

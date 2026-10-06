@@ -286,6 +286,8 @@
       quickTurnRadps: 7,            // a quick throw (an outlet, the ball moved on to the play's man) waits for the passer's turn to
                                     // him at this rate (rad/s, 0.5 s at most) when he faces more than ~30 deg away
       jumpStopLeadS: 0.8,           // a driver's jump stop into his pass this long before the wind-up (s; was 0.46, still turning)
+      pushLockS: 0.85,              // on a break the passer pushes the ball (handlerAmbient) until this long before the wind-up (s),
+                                    // then is set, the jump stop squaring him up when he comes in at a run
       btbP: 0.3,                    // behind the back to a man on his left (70 to 160 deg round), at most this often
       whipP: 0.25, whipKickP: 0.2,  // a one-handed whip out to a man on his right (40 to 120 deg): kicks this much more often
       noLookP: 0.12,                // a no-look pass

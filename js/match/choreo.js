@@ -351,6 +351,9 @@
     }
     /** how many of the defense are back already, level with this man or nearer the basket he attacks (a break's numbers) */
     defendersAhead(a) { const u = this.U_(a.x); let n = 0; for (const d of this.defActors()) if (this.U_(d.x) < u + 3) n++; return n; }
+    /** defenders clearly between the ball and the basket on a break: nearer the rim than `a` by 2 ft and inside the lane's width
+     *  (a man level with the ball or out wide is not back) */
+    defendersBack(a) { const u = this.U_(a.x); let n = 0; for (const d of this.defActors()) if (this.U_(d.x) < u - 2 && Math.abs(d.y - 25) < 12) n++; return n; }
     /** beyond the three-point line: the court's own arc and corner lines (the corner's straight part out to where it meets the arc) */
     isThree(p) {
       const th = (this.v.court && this.v.court.three) || { arc: 23.75, corner: 22 };
@@ -384,6 +387,9 @@
      *  move next, the drive and the kick to pushKickU with pushKickBackN defenders back at most, else to the top (pushToU) */
     pushDepthU(a) {
       const TU = M.Tune.urgency, bt = this.beat, be = bt && !bt.fired ? bt.ev : null;
+      // (the Attack Basket slider: at 0 the push stops at the top as it used to; at 100 the drive and the kick goes with two back)
+      const ak = this.attackK();
+      if (ak <= 0.02) return TU.pushToU;
       const cur = be && (be.from === a.id || be.shooter === a.id || be.player === a.id) ? be : null;
       const nx = cur || this.nextFor(a.id);
       if (nx && nx.type === 'shot') {
@@ -391,7 +397,15 @@
         if (isFinite(+nx.x)) return U.clamp(this.U_(+nx.x) - 1, TU.pushRimU, TU.pushToU);
         return TU.pushToU;
       }
-      return this.defendersAhead(a) <= TU.pushKickBackN ? TU.pushKickU : TU.pushToU;
+      // (the numbers read once, as the ball comes into the frontcourt (defendersBack): a handler who sees a lane attacks the paint
+      // and kicks when the help comes, whatever the defense does on the way; read every step, the defense sprinting home had
+      // three back before he got going and the drive never went)
+      const pd = a._pushDepth;
+      if (pd && pd.nx === nx) return pd.u;
+      const back = this.defendersBack(a);
+      const u = back <= TU.pushKickBackN + (ak >= 1.5 ? 1 : 0) ? TU.pushKickU : TU.pushToU;
+      a._pushDepth = { nx, u, back };
+      return u;
     }
     assignSpots(kind, ev) {
       const offs = this.v.onCourt[this.off];
@@ -2528,8 +2542,20 @@
         const rf = this.role[from.id];
         if (rf) {
           // the passer keeps working (probe dribbles, a swing and return) until shortly before the pass
+          // (and on a break he keeps pushing the ball, handlerAmbient's push to the rim or the kick spot (pushDepthU): locked to the
+          // beat he stood where the advance left him, ~40 ft out, with the ball until the pass; the user: "he got the ball on the
+          // outlet but never drives to the hoop")
           const tLock = fireAt - windup - 0.9;
-          if (tLock - this.T > 1.0 && this.flowOK && this.flowOK() && !this.driving(from)) {
+          const pushing = this.tempo === 'push' && this.phase === 'front' && v.ball.holder === from;
+          const tLockP = fireAt - windup - M.Tune.pass.pushLockS;
+          if (pushing && tLockP - this.T > 0.3 && !this.driving(from)) {
+            // (a break's pass comes quickly: he pushes until just before the wind-up, and the jump stop into the pass squares him up)
+            rf.until = 0;
+            this.at(tLockP, () => {
+              const r2 = this.role[from.id]; if (r2) { r2.until = fireAt + 0.3; r2.probe = null; r2.path = null; }
+              if (!from.isBusy() && v.ball.holder === from) from.moveTo(from.x, from.y, { speed: 3, face: { x: cs.x, y: cs.y }, stance: 'dribble' });
+            }, 'passer set');
+          } else if (tLock - this.T > 1.0 && this.flowOK && this.flowOK() && !this.driving(from)) {
             rf.until = 0;
             this.at(tLock, () => {
               rf.until = fireAt + 0.3; rf.probe = null; rf.path = null;
@@ -3870,6 +3896,9 @@
     }
     /** the Offense Edge slider (League Settings, Live Game AI): 0 none, 50 the tune's edge (Tune.edge), 100 twice it */
     edgeK() { return this.sliderK('offEdge', 0, 2); }
+    /** the Attack Basket slider, League Settings (0 nobody attacks a gap, pushes a break past the top or takes the open look early;
+     *  50 as tuned; 100 twice as eager): readOpen, pushDepthU */
+    attackK() { return this.sliderK('attackBasket', 0, 2); }
     /** the defense's extra beat in reading its men (Tune.edge.defLagS x the slider, s) */
     edgeLag() { return M.Tune.edge.defLagS * this.edgeK(); }
     flipAfterChange(newHolder) {
