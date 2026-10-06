@@ -39,7 +39,8 @@ and the Animation Lab's planted-foot slide meter on every clip.
 | CMU basketball (`js/mocap/cmu_bball.js`, list `tools/mocap/cmu_bball.json`) | 42: dribbling (forward, back, sideways, turns, crossovers, low freestyle, through the legs), shots (set, jump, free throw, layup, crossover into a shot), game-speed moves (spins, go left and right, feints, shot fakes, drives, pivots, tight turns) and defense (slides, zigzag, stop and go) | CMU Graphics Lab Motion Capture Database, mocap.cs.cmu.edu, created with funding from NSF EIA-0196217; free for research and commercial use; BVH conversion by B. Hahne, no added restrictions | yes |
 | Animo "Basketball" (Fab), 167 clips on the UE4 mannequin | bought by the owner | licensed: the files and anything converted from them must not be public | **no**: kept in a private repository; this repository is public (`js/mocap/private/` and `tools/mocap/private/` are ignored by git) |
 
-In the lab: the "Motion capture (CMU)" group, one scenario per clip.
+In the lab: the "Motion capture (CMU)" group, one scenario per clip. A licensed pack is packed to
+`js/mocap/private/packs.js` (ignored by git), which the lab loads when it is there, its clips in their own group.
 
 ## First results (CMU, a 6'6" player)
 
