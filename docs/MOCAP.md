@@ -22,6 +22,12 @@ react to the game (feet held on the floor, IK, the ball in the hands) stay on to
    follows the clip's track scaled to the player's height, and each foot on the floor is held where it landed by
    the legs' IK: on its heel during a clear heel strike, on its ball otherwise (pivots turn on the ball), let go over
    `Tune.mocap.liftS` as it lifts. Tunables: `Tune.mocap`.
+5. **The ball** of a dribbling clip (`ball: "dribble"` in the pack list): worked out on the player's own body when the
+   clip starts. A push is a hand dropping faster than `Tune.mocap.pushFtps` at its fastest; the ball leaves there and
+   flies, one bounce at the floor's real restitution for its impact speed (`Ball.eFloor`), to the hand that takes it
+   next, `Tune.mocap.catchLeadS` before that hand's highest point, its launch speed solved so it gets there; in
+   between it rides a radius out from the palm. The CMU dribbles come out at 10 to 16 ft/s launches and 0.2 to 0.6 s
+   flights, the range of real dribbles.
 
 Check a retarget: every bone's direction against the take's (`node tools/mocap/verify.js <take.bvh> [map] [from s]`),
 and the Animation Lab's planted-foot slide meter on every clip.
@@ -51,5 +57,6 @@ In the lab: the "Motion capture (CMU)" group, one scenario per clip.
 
 ## Open
 
-- No ball yet on the mocap clips: the dribble needs its bounce timed to the hand's pushes in the clip.
+- The ball rides with the dribbling clips only; the shots, passes and layups do not release one yet (their release
+  frames are not marked).
 - In the game itself the players still use the procedural animation; the mocap clips play in the lab only.

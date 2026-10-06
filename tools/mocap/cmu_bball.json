@@ -6,47 +6,284 @@
   "fps": 30,
   "group": "Motion capture (CMU)",
   "clips": [
-    { "file": "06_02.bvh", "name": "cmu_dribFwd", "label": "Dribble forward, walking", "from": 0.3 },
-    { "file": "06_04.bvh", "name": "cmu_dribFwd2", "label": "Dribble forward, quicker", "from": 0.3 },
-    { "file": "06_06.bvh", "name": "cmu_dribBack", "label": "Dribble backing up", "from": 0.3 },
-    { "file": "06_08.bvh", "name": "cmu_dribSide", "label": "Dribble sideways", "from": 0.3 },
-    { "file": "06_09.bvh", "name": "cmu_dribSide2", "label": "Dribble sideways (other way)", "from": 0.3 },
-    { "file": "06_10.bvh", "name": "cmu_dribTurnL", "label": "Dribble with left turns", "from": 0.3 },
-    { "file": "06_12.bvh", "name": "cmu_dribCross", "label": "Dribble with right turns and a crossover", "from": 0.3 },
-    { "file": "06_13.bvh", "name": "cmu_dribFree", "label": "Low, fast freestyle dribble", "from": 0.6, "to": 12.0 },
-    { "file": "06_13.bvh", "name": "cmu_dribFree2", "label": "Low, fast freestyle dribble, through the legs", "from": 20.0, "to": 32.0 },
-    { "file": "06_14.bvh", "name": "cmu_crossShot", "label": "Crossover, then the shot", "from": 0.3 },
-    { "file": "06_15.bvh", "name": "cmu_dribShot", "label": "Dribble, then the shot", "from": 0.3 },
-    { "file": "124_03.bvh", "name": "cmu_setShot", "label": "Set shot", "from": 2.4, "to": 7.0 },
-    { "file": "124_04.bvh", "name": "cmu_freeThrow", "label": "Free throw", "from": 1.0, "to": 6.0 },
-    { "file": "124_05.bvh", "name": "cmu_jumpShot", "label": "Jump shot", "from": 1.8, "to": 6.2 },
-    { "file": "124_06.bvh", "name": "cmu_layup", "label": "Layup", "from": 1.4, "to": 5.6 },
-    { "file": "102_05.bvh", "name": "cmu_run", "label": "Running with the ball", "from": 0.02 },
-    { "file": "102_10.bvh", "name": "cmu_runNoBall", "label": "Running, no ball", "from": 0.02 },
-    { "file": "102_01.bvh", "name": "cmu_runTurnR", "label": "Run, wide turn right", "from": 0.02 },
-    { "file": "102_02.bvh", "name": "cmu_runTurnL", "label": "Run, wide turn left", "from": 0.02 },
-    { "file": "102_03.bvh", "name": "cmu_tightL", "label": "Run, very tight turn left", "from": 0.02 },
-    { "file": "102_04.bvh", "name": "cmu_tightR", "label": "Run, very tight turn right", "from": 0.02 },
-    { "file": "102_11.bvh", "name": "cmu_spinL", "label": "Offensive move: spin left", "from": 0.02 },
-    { "file": "102_15.bvh", "name": "cmu_spinR", "label": "Offensive move: spin right", "from": 0.02 },
-    { "file": "102_13.bvh", "name": "cmu_goR", "label": "Offensive move: go right", "from": 0.02 },
-    { "file": "102_14.bvh", "name": "cmu_goL", "label": "Offensive move: go left", "from": 0.02 },
-    { "file": "102_16.bvh", "name": "cmu_evadeL", "label": "Walk, evade left", "from": 0.02 },
-    { "file": "102_17.bvh", "name": "cmu_evadeR", "label": "Walk, evade right", "from": 0.02 },
-    { "file": "102_18.bvh", "name": "cmu_feintL", "label": "Feint left, go right", "from": 0.02 },
-    { "file": "102_19.bvh", "name": "cmu_feintR", "label": "Feint right, go left", "from": 0.02 },
-    { "file": "102_20.bvh", "name": "cmu_fakeR", "label": "Shot fake, break right", "from": 0.02 },
-    { "file": "102_21.bvh", "name": "cmu_fakeL", "label": "Shot fake, break left", "from": 0.02 },
-    { "file": "102_29.bvh", "name": "cmu_pivot", "label": "Pivoting", "from": 0.02 },
-    { "file": "102_30.bvh", "name": "cmu_drive", "label": "Straight drive from a stop", "from": 0.02 },
-    { "file": "102_31.bvh", "name": "cmu_driveR", "label": "Drive right (jab left first)", "from": 0.02 },
-    { "file": "102_32.bvh", "name": "cmu_driveL", "label": "Drive left (jab right first)", "from": 0.02 },
-    { "file": "102_22.bvh", "name": "cmu_defRun", "label": "Defense: run straight, no stop", "from": 0.02 },
-    { "file": "102_23.bvh", "name": "cmu_defStop", "label": "Defense: run straight and stop", "from": 0.02 },
-    { "file": "102_24.bvh", "name": "cmu_defRstop", "label": "Defense: right, stop to stop", "from": 0.02 },
-    { "file": "102_25.bvh", "name": "cmu_defLstop", "label": "Defense: left, stop to stop", "from": 0.02 },
-    { "file": "102_26.bvh", "name": "cmu_defZig", "label": "Defense: zigzag", "from": 0.02 },
-    { "file": "102_27.bvh", "name": "cmu_defSlide", "label": "Defense: side to side", "from": 0.02 },
-    { "file": "102_28.bvh", "name": "cmu_defSlide2", "label": "Defense: side to side, longer", "from": 0.02 }
+    {
+      "file": "06_02.bvh",
+      "name": "cmu_dribFwd",
+      "label": "Dribble forward, walking",
+      "from": 0.3,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_04.bvh",
+      "name": "cmu_dribFwd2",
+      "label": "Dribble forward, quicker",
+      "from": 0.3,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_06.bvh",
+      "name": "cmu_dribBack",
+      "label": "Dribble backing up",
+      "from": 0.3,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_08.bvh",
+      "name": "cmu_dribSide",
+      "label": "Dribble sideways",
+      "from": 0.3,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_09.bvh",
+      "name": "cmu_dribSide2",
+      "label": "Dribble sideways (other way)",
+      "from": 0.3,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_10.bvh",
+      "name": "cmu_dribTurnL",
+      "label": "Dribble with left turns",
+      "from": 0.3,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_12.bvh",
+      "name": "cmu_dribCross",
+      "label": "Dribble with right turns and a crossover",
+      "from": 0.3,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_13.bvh",
+      "name": "cmu_dribFree",
+      "label": "Low, fast freestyle dribble",
+      "from": 0.6,
+      "to": 12.0,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_13.bvh",
+      "name": "cmu_dribFree2",
+      "label": "Low, fast freestyle dribble, through the legs",
+      "from": 20.0,
+      "to": 32.0,
+      "ball": "dribble"
+    },
+    {
+      "file": "06_14.bvh",
+      "name": "cmu_crossShot",
+      "label": "Crossover, then the shot",
+      "from": 0.3
+    },
+    {
+      "file": "06_15.bvh",
+      "name": "cmu_dribShot",
+      "label": "Dribble, then the shot",
+      "from": 0.3
+    },
+    {
+      "file": "124_03.bvh",
+      "name": "cmu_setShot",
+      "label": "Set shot",
+      "from": 2.4,
+      "to": 7.0
+    },
+    {
+      "file": "124_04.bvh",
+      "name": "cmu_freeThrow",
+      "label": "Free throw",
+      "from": 1.0,
+      "to": 6.0
+    },
+    {
+      "file": "124_05.bvh",
+      "name": "cmu_jumpShot",
+      "label": "Jump shot",
+      "from": 1.8,
+      "to": 6.2
+    },
+    {
+      "file": "124_06.bvh",
+      "name": "cmu_layup",
+      "label": "Layup",
+      "from": 1.4,
+      "to": 5.6
+    },
+    {
+      "file": "102_05.bvh",
+      "name": "cmu_run",
+      "label": "Running with the ball",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_10.bvh",
+      "name": "cmu_runNoBall",
+      "label": "Running, no ball",
+      "from": 0.02
+    },
+    {
+      "file": "102_01.bvh",
+      "name": "cmu_runTurnR",
+      "label": "Run, wide turn right",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_02.bvh",
+      "name": "cmu_runTurnL",
+      "label": "Run, wide turn left",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_03.bvh",
+      "name": "cmu_tightL",
+      "label": "Run, very tight turn left",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_04.bvh",
+      "name": "cmu_tightR",
+      "label": "Run, very tight turn right",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_11.bvh",
+      "name": "cmu_spinL",
+      "label": "Offensive move: spin left",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_15.bvh",
+      "name": "cmu_spinR",
+      "label": "Offensive move: spin right",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_13.bvh",
+      "name": "cmu_goR",
+      "label": "Offensive move: go right",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_14.bvh",
+      "name": "cmu_goL",
+      "label": "Offensive move: go left",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_16.bvh",
+      "name": "cmu_evadeL",
+      "label": "Walk, evade left",
+      "from": 0.02
+    },
+    {
+      "file": "102_17.bvh",
+      "name": "cmu_evadeR",
+      "label": "Walk, evade right",
+      "from": 0.02
+    },
+    {
+      "file": "102_18.bvh",
+      "name": "cmu_feintL",
+      "label": "Feint left, go right",
+      "from": 0.02
+    },
+    {
+      "file": "102_19.bvh",
+      "name": "cmu_feintR",
+      "label": "Feint right, go left",
+      "from": 0.02
+    },
+    {
+      "file": "102_20.bvh",
+      "name": "cmu_fakeR",
+      "label": "Shot fake, break right",
+      "from": 0.02
+    },
+    {
+      "file": "102_21.bvh",
+      "name": "cmu_fakeL",
+      "label": "Shot fake, break left",
+      "from": 0.02
+    },
+    {
+      "file": "102_29.bvh",
+      "name": "cmu_pivot",
+      "label": "Pivoting",
+      "from": 0.02
+    },
+    {
+      "file": "102_30.bvh",
+      "name": "cmu_drive",
+      "label": "Straight drive from a stop",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_31.bvh",
+      "name": "cmu_driveR",
+      "label": "Drive right (jab left first)",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_32.bvh",
+      "name": "cmu_driveL",
+      "label": "Drive left (jab right first)",
+      "from": 0.02,
+      "ball": "dribble"
+    },
+    {
+      "file": "102_22.bvh",
+      "name": "cmu_defRun",
+      "label": "Defense: run straight, no stop",
+      "from": 0.02
+    },
+    {
+      "file": "102_23.bvh",
+      "name": "cmu_defStop",
+      "label": "Defense: run straight and stop",
+      "from": 0.02
+    },
+    {
+      "file": "102_24.bvh",
+      "name": "cmu_defRstop",
+      "label": "Defense: right, stop to stop",
+      "from": 0.02
+    },
+    {
+      "file": "102_25.bvh",
+      "name": "cmu_defLstop",
+      "label": "Defense: left, stop to stop",
+      "from": 0.02
+    },
+    {
+      "file": "102_26.bvh",
+      "name": "cmu_defZig",
+      "label": "Defense: zigzag",
+      "from": 0.02
+    },
+    {
+      "file": "102_27.bvh",
+      "name": "cmu_defSlide",
+      "label": "Defense: side to side",
+      "from": 0.02
+    },
+    {
+      "file": "102_28.bvh",
+      "name": "cmu_defSlide2",
+      "label": "Defense: side to side, longer",
+      "from": 0.02
+    }
   ]
 }

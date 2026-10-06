@@ -1,6 +1,7 @@
 // Retarget a list of takes and pack them into a script the game loads (js/mocap/<pack>.js), for js/match/mocap.js.
 //   node tools/mocap/pack.js <list.json> <takes dir> <out.js>
-// list.json: { pack, credit, map, clips: [{ file, name, label, group, from, to }] }
+// list.json: { pack, credit, map, clips: [{ file, name, label, group, from, to, ball ('dribble': the clip dribbles a ball
+// the player times to its hands, js/match/mocap.js) }] }
 // The pose channels are kept as integers (angles in tenths of a degree, lengths in thousandths of a foot or ten
 // thousandths of the height), 30 frames a second.
 'use strict';
@@ -30,7 +31,7 @@ function main() {
       name: c.name, label: c.label, group: c.group || list.group, src: list.credit + ' ' + c.file.replace(/\.bvh$/, ''),
       fps: r.fps, n: r.n, H: r.H, ch: r.ch, q: q.map(v => +v.toFixed(6)), f,
       tx: r.track.x.map(v => Math.round(v * 1e4)), ty: r.track.y.map(v => Math.round(v * 1e4)), yaw: r.track.yaw.map(v => Math.round(v * 1e4)),
-      yaw0: +r.yaw0.toFixed(5), c: r.contacts,
+      yaw0: +r.yaw0.toFixed(5), c: r.contacts, ball: c.ball || undefined,
     });
     console.log(c.name.padEnd(14), (r.n / r.fps).toFixed(2) + 's', 'feet off the floor (p90)', (r.stats.floorMiss * 12).toFixed(1) + ' in', 'contacts', r.contacts.l.length + '/' + r.contacts.r.length);
   }

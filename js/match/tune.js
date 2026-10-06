@@ -896,9 +896,15 @@
     // A planted foot is held on its heel only while the clip has its toes up by more than heelDeg (a heel strike; held
     // there until they come back to half of it), and on its ball otherwise: pivots turn on the ball, and a foot a few
     // degrees toes-up on the retargeted body (the take's foot is not ours) still pivots on it
+    // A dribbling clip brings its ball: a push is a hand dropping faster than pushFtps (ft/s) at its fastest; the ball is
+    // let go there and caught catchLeadS before the hand that takes it reaches its highest point, flying no less than
+    // minFlightS in between (one bounce)
     mocap: {
       liftS: 0.1,
       heelDeg: 8,
+      pushFtps: 3.5,
+      catchLeadS: 0.05,
+      minFlightS: 0.2,
     },
 
     // ---------------------------------------------------------------- urgency (the gameplay pass: everyone moved slowly)
