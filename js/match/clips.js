@@ -417,8 +417,10 @@
       // played quicker, the swing from the hip threw the hand at over 1500 ft/s^2, the gameplay pass)
       { t: 0.4, p: { rootZ: -0.09, pelPitch: 20, spFlex: 8, nkFlex: -14, lShF: -20, lShA: 20, lElF: 40, rShF: 55, rShA: 22, rElF: 95, rWrF: -20, both: { HipF: 45, Knee: 70, Ank: 20 } }, ball: [0.17, 0.15, 0.68], grip: 'right' },
       // (up the outside of the right shoulder on the palm, the left arm out for balance rather than across the face)
-      { t: 0.5, p: Object.assign({ rootZ: -0.02, pelPitch: 8, spFlex: 0, chFlex: -4, chTwist: 6, nkFlex: -16, rHipF: 70, rKnee: 90, lHipF: 5, lKnee: 30, lAnk: -25 }, LAY.takeoff, { lShF: 60, lShA: 55, lShT: 30, lElF: 50, lPro: 90, lWrF: 0, lWrD: 0 }), ball: [0.2, 0.2, 0.9], grip: 'layLiftR' },
-      { t: 0.6, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -8, nkFlex: -20, lShF: 75, lShA: 60, lShT: 30, lElF: 40, rShF: 175, rShA: 20, rElF: 70, rPro: 20, rWrF: -40, rHipF: 60, rKnee: 90, lHipF: 10, lKnee: 40, lAnk: -30 }, ball: [0.1, -0.04, 1.35], grip: 'rightTop' },
+      // (the free knee driven up hard off the take-off, a one-foot dunker's: it read as a jog's knee lift once the run-up was hit at
+      // speed and the release moved in to the rim)
+      { t: 0.5, p: Object.assign({ rootZ: -0.02, pelPitch: 8, spFlex: 0, chFlex: -4, chTwist: 6, nkFlex: -16, rHipF: 84, rKnee: 96, lHipF: 5, lKnee: 30, lAnk: -25 }, LAY.takeoff, { lShF: 60, lShA: 55, lShT: 30, lElF: 50, lPro: 90, lWrF: 0, lWrD: 0 }), ball: [0.2, 0.2, 0.9], grip: 'layLiftR' },
+      { t: 0.6, p: { rootZ: 0, pelPitch: 0, spFlex: -8, chFlex: -8, nkFlex: -20, lShF: 75, lShA: 60, lShT: 30, lElF: 40, rShF: 175, rShA: 20, rElF: 70, rPro: 20, rWrF: -40, rHipF: 72, rKnee: 92, lHipF: 10, lKnee: 40, lAnk: -30 }, ball: [0.1, -0.04, 1.35], grip: 'rightTop' },
       { t: 0.86, p: { rootZ: 0, pelPitch: 4, spFlex: 4, chFlex: 0, nkFlex: -24, lShF: 110, lShA: 36, lElF: 40, rShF: 150, rShA: 16, rElF: 10, rPro: 20, rWrF: 30, rFing: 0.5, rHipF: 40, rKnee: 70, lHipF: 20, lKnee: 60 }, ball: [0.1, 0.3, 1.32], grip: 'slam' },
       { t: 1.0, p: { rootZ: 0, pelPitch: 0, spFlex: -2, nkFlex: -30, lShF: 90, lShA: 40, lElF: 40, rShF: 170, rShA: 14, rElF: 6, rWrF: 20, rFing: 0.9, rHipF: 30, rKnee: 60, lHipF: 30, lKnee: 60 } },
       // (the landing: toes first with the legs long, then the knees and hips give, a dunker's harder)

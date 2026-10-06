@@ -430,7 +430,10 @@
     // his own shot is next: now
     if (own && ev.type === 'shot' && this.A(ev.shooter) === h) {
       if (bt.pulled || ev.pending || !PULL_KINDS[ev.kind]) return;
-      const left = bt.fireAt - T, need = (bt.need || 0.5) + TR.pullLeadS;
+      // (what the shot needs from here, not from where he was as its beat was planned: the run to its spot it allowed for is mostly
+      // behind him by now; the user: "wide open but doesn't take the shot")
+      const sp = bt.spot || (isFinite(+ev.x) ? { x: +ev.x, y: +ev.y } : h), dSp = Math.hypot(h.x - sp.x, h.y - sp.y);
+      const left = bt.fireAt - T, need = Math.min(bt.need || 0.5, dSp / 10 * 1.25 + 0.25 + (bt.relS != null ? bt.relS : 0.7)) + TR.pullLeadS;
       if (left > need + 0.25 && this.retime(bt, bt.fireAt - Math.min(TR.pullMaxS, left - need))) { bt.pulled = true; this.readShots = (this.readShots || 0) + 1; }
       return;
     }
@@ -473,6 +476,9 @@
     // the move starting on a ball snatched off the floor and the steps going three, Trial 9)
     const bt = this.beat;
     if (bt && !bt.fired && bt.type === 'shot' && bt.ev && bt.ev.shooter === a.id && bt.fireAt - T < M.Tune.shot.noMoveBeforeShotS) return;
+    // (nor into his own pass: a move under way as the pass began kept him from turning to it and the throw went out of the side of
+    // his body, the user: "players sometimes don't face the correct way when passing")
+    if (bt && !bt.fired && (bt.type === 'pass' || bt.type === 'handoff') && bt.ev && bt.ev.from === a.id && bt.fireAt - T < M.Tune.pass.noMoveBeforePassS) return;
     const hs = a._hs || (a._hs = { next: T + 0.3 + Math.random() * 0.5 });
     if (T < hs.next) return;
     const skill = a.rHandle == null ? 0.5 : a.rHandle;

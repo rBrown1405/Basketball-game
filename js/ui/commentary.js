@@ -573,6 +573,16 @@
             if (chance(0.6 * chatty())) say('color', pick(['That is why you stay down and stay square. Guess once, and the handler has you.', 'Handle like that, the defender is guessing. Once you guess wrong, it is over.', `${dn} is going to see that one on the highlight shows tonight.`, `Count the moves. ${ev.moves && ev.moves.length >= 3 ? 'Three, four, and the defender is reacting to the one before.' : 'The second one is the one that gets you.'}`]), { pri: 6, ttl: 9 });
             break;
           }
+          case 'floor': {
+            // a player went down off a knock (js/match/choreo.js goDown): a shooter on a heavily contested shot, the help run through
+            const h = pl(ev.player), by = pl(ev.by);
+            if (!h) break;
+            const bn = by ? by.last : 'the defender';
+            if (ev.charge) say('pbp', pick([`${h.last} is flattened! ${bn} went right through him.`, `Oh! ${h.last} goes down, ${bn} ran him over.`, `${bn} through the chest of ${h.last}, and ${h.last} is on the floor.`]), { pri: 7, ttl: 3 });
+            else say('pbp', pick([`${h.last} goes DOWN. Hard landing.`, `And ${h.last} is on the floor after that one.`, `${h.last} down hard after the contact${ev.fouled ? ', and they got the whistle' : ''}.`]), { pri: 7, ttl: 3 });
+            if (chance(0.5 * chatty())) say('color', pick(['You hold your breath when they land like that. Give him a second.', 'That is the kind of contact the league has been trying to take out of the game. He was in the air.', `${h.last} will feel that one tomorrow.`]), { pri: 6, ttl: 8 });
+            break;
+          }
           case 'post': {
             // the court worked a post move before the shot (js/match/choreo.js runPost): the call as it starts, the shot's own after
             const h = pl(ev.player), d = pl(ev.defender);

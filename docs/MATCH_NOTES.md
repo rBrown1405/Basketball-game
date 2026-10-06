@@ -257,7 +257,7 @@ would make the view more faithful if they ever become available (all optional, t
 
 ## Live Game AI sliders (League Settings)
 
-Ten sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
+Eleven sliders (0-100, 50 = calibrated) shape how players read the floor and move in the live game; the results are still
 set by the engine's own sliders. The director reads them through `Director.sliderK(key, lo, hi)` (0 -> lo, 50 -> 1,
 100 -> hi):
 
@@ -273,6 +273,7 @@ set by the engine's own sliders. The director reads them through `Director.slide
 | Offense Edge (`offEdge`) | how much quicker the side with the ball moves than the side without it and how late the defense reacts (`Tune.edge` x 0 at 0, x 1 at 50, x 2 at 100; `Director.edgeK`, `edgeLag`) |
 | Contact Drives (`contactDrives`) | how often a driver with a help defender in the lane goes at his chest to draw the foul (`Tune.traffic.contactP` x 0 at 0, x 1 at 50, x 2 at 100; a shot the engine fouled always has the contact; `contactDrivePlan`) |
 | Post Moves (`postMoves`) | how often a post-up works a move before its shot (`Tune.post.moveP` x 0 at 0, x 1 at 50, every one at 100 with no straight-up finishes left in the tables and the double fake twice as often; `postPlan`) |
+| Hard Falls (`hardFalls`) | how often a shooter knocked on a heavily contested shot, or a defender run through on a contact drive, goes down (`Tune.fall` x 0 at 0, x 1 at 50, x 2 at 100; `planFall`, `goDown`) |
 
 ## Movement, handling, the post and contact
 
@@ -1036,3 +1037,120 @@ their hits are in the audit's report (`fgPostMoves`, `fgContactDrives`, `fgConta
   miss as the engine had it. The engine's foul odds already carry the shooter's foul drawing; the court shows the drive.
 * The edge is a flat step for the whole side; it does not grow with a player's quickness over his man (that is the dribble
   breakdown's, `shiftyK`).
+
+## Going down
+
+Asked for by the user: "make it so on heavy contested shots players can fall to the ground, layups and jump shots".
+
+* **The body in the shot** (`planContest`, `Tune.fall.bodyK`): the contest puts a body into the shooter now, as the shot
+  goes: at the rim the contester's body as the two meet (7.5 ft/s on a tight look, 5.5 contested, 8.5 with the whistle,
+  x the game's physicality), on a tight jumper the contester jumping into him (4.5), on a fouled jumper the reach (6.5). The
+  knock shows in the air as it did (the torso with the push, the arms out, the head lagging) and does not touch the shot.
+* **The fall** (`planFall`, `goDown`, the ankle breaker's fall clip, `Tune.fall`): as the shot's clip lands, the biggest
+  knock he took within 1.6 s (`Actor.impact` keeps it, `_knock`: the push itself is over in 0.6 s, well before he lands,
+  and the first cut of this read the push and never saw a knock) decides it: from 5.5 ft/s (12 % at most) to 11 and more (50 %), x the look's contest (open
+  0.25, contested 0.7, tight 1.2), x 1.6 with the whistle, x 1.3 for a finish at the rim and x 0.55 for a jumper (he lands
+  on his own feet more), less for a strong man, more in a physical game. He goes down the way he was knocked, is held out
+  of his job for 1.6 s and gets up with the clip; not twice within 8 s. The help a contact drive went through can go down
+  too (30 % at a full knock). The play-by-play says so ("Stephens goes down hard on the finish, Hill into him") and the
+  booth calls it.
+* **The slider**: Hard Falls in League Settings (0 nobody falls, 50 as tuned, 100 twice as often); nothing about the shot
+  or the call changes.
+
+## Six things seen in a game: the outlet, the dunk, the throw-in, the facing, the passing around, the loose ball
+
+Asked for by the user, from watching: "he got the ball on the outlet but never drives to the hoop or is wide open but
+doesn't take the shot", "dunks don't connect to the hoop", "players take a jump shot and would just zip to the spot and
+shoot", "inbounding on fouls is happening on the court instead of the sideline", "players sometimes don't face the correct
+way when passing or shooting", "the players keep passing the ball around instead of making a play, run motion offense or
+something", "on rebounds all the players will circle the ball and just stare at it instead of fighting for the ball or
+rushing to pick it up".
+
+### The outlet man attacks
+
+* **The push goes on at the rim** (`handlerAmbient`, `pushDepthU`, `Tune.urgency.pushRimU/pushKickU`): a break's handler
+  used to push the ball to the top of the key (21 ft) and wait there for the engine's beat, nobody near him. Now how far he
+  pushes depends on what is his next: his own finish, all the way to the rim (6 ft); his jumper, to its distance; a pass or
+  a move next, the drive and the kick, to the free throw line extended (14 ft) when there is a defender back at most, else
+  to the top as before.
+* **The open look goes now** (`readOpen`): a shooter open with his own shot next had it brought forward only when more
+  than the beat's planned need was left, and the need was the one planned from where he stood when the beat was planned,
+  with a run to the spot in it; by the time he was open there was never that much left, and `readShots` was 0 in a half.
+  The need is now read from where he is (the distance to the spot at a jog, the move's own release), so an open shooter
+  goes within ~1 s. Wide open is nobody within 8 ft now (was 9).
+
+### The dunk that connects, the jumper from where he is
+
+* **The dunk's jump** (`p_shot`, `Tune.shot.dunkJumpBoostK/dunkJumpMaxFt/dunkRimFt`): a dunker whose reach only just got
+  to the rim's height was let dunk (the old lines: a hand on the rim at 10.6 ft, 9.95 for the putback dunk), the ball on
+  the rim's edge from below at the slam (released at z 9.6-9.9 in a half's dunks), and then pulled on through the rim
+  by the stuff. The lines are now where the ball goes over the rim (11.0 ft for the one hand, whose body is twisted under
+  it, 10.8 for the two-hand dunk, 10.7 for the putback dunk), and a dunk takes the jump it needs to get there: his own, or
+  up to 1.4 x his own and 3.5 ft; a man who gets it over with two hands but not one dunks it with two. A man who cannot
+  get it there lays it up or puts it back, and that shot now flies to the rim as a layup does (`releaseShot`: it used to
+  be stuffed from the hand's release point a stride off the rim, a 14 ft/s zip).
+* **The run-up** (`dunkRelFt`, `dunkSlipMaxFt`, `dunkWaitS`, `putbackFt`): a dunk's release is within 1.4 ft of the rim
+  whatever the engine's spot (from 2-3 ft out the one hand's reach forward cost it the height; the run-up absorbs the
+  difference), and the run-up's start is hit at a run, not braked to (the move's root leaves at a sprint, and a body
+  stopped there lagged it by a stride); a dunk waits up to 3 s (was 2) for the dunker to get to its start, and one that
+  never got near it (held up on the way, the dribble used up; 4 ft) is laid up or put back from where he is instead of
+  being dragged to the rim or thrown down a stride short of it. A standing finish from further than 6.5 ft takes a
+  layup's two steps rather than a putback's one-foot gather, which released 5 ft short. And a dunk is stuffed only from
+  at the rim (`releaseShot`, `dunkStuffFt/dunkStuffZ`: the ball within 1.6 ft of its middle at the rim's height): a dunk
+  pushed back by a body in the lane let the ball go a stride off the rim and the stuff pulled it on through from there;
+  it flies in as a layup's now. The one-foot dunk's free knee
+  drives up harder off the take-off (clips.js). Measured, a half's dunk clips: the ball over the rim at the slam
+  (z 10.0-10.6 ft, 0.4-1.2 ft from its middle), where the one-hand dunks had been at 9.5-9.9.
+* **The jumper from his side** (`swingSpot`, `isThree`, `Tune.shot.swingFromFt/swingMaxDeg`): a jumper off the dribble is
+  taken from the shooter's own side of the floor: the engine's spot is swung round the rim to the line from the rim through
+  where he has the ball, at the engine's distance, kept in its zone (a three pushed out beyond the line there, a two pulled
+  inside it, the court's own arc and corner lines) and within 88 deg of the rim's axis. The approach to it is a jog of 10
+  ft/s (`approachFtps`; 1.3 x that at most when the beat is near), where it was a run at his top speed timed to arrive on
+  the beat.
+
+### The throw-in from behind the line
+
+* **The inbounder who could not walk** (`p_inbound`, `deadBall`): traced headless through throw-ins after fouls, one
+  in a half came from the middle of the floor. The man fouled with his dribble used up had the ball in his hands and the
+  traveling rule (`Actor._steer`, the gameplay pass) let him take no step with it; picked as the inbounder, he stood where
+  the foul was for the throw-in's whole wait and threw from there. The whistle ends the dribble now: a dead ball clears
+  the used dribble for the offense, and the throw-in clears the inbounder's again. His role and the receiver's are held
+  off every 0.15 s until the throw too (the spacing hands out new roles after a foul, and the lock put on at the start
+  held nothing), both sent back to their spots when anything moves them, and the inbounder stands a full step behind the
+  line (2 ft, was 1.2-1.4), on the sideline and the baseline alike. Retraced, both throw-ins after fouls in that half
+  came from behind the line.
+
+### Facing the pass, set for the shot
+
+* **The passer's turn** (`p_pass`, `throwBall`, `p_turnover`, `Tune.pass.turnLeadS/noMoveBeforePassS/quickTurnRadps`):
+  measured against the ball's own flight, a fifth of a half's passes left a body facing more than 60 deg away, most of
+  them the quick throws (`throwBall`: a rebounder's outlet, the ball moved on to the play's man) thrown 0.18 s after the
+  turn was asked for, out of the back of a body still facing the rim. A quick throw waits for the turn now (7 rad/s, 0.5 s
+  at most); a called pass's turn to the catch spot comes 0.7 s before the wind-up (was 0.45), and a passer in a move of his
+  own (a dribble move's body, a jump stop) is turned as soon as it lets him instead of not at all; no dribble move starts
+  within 0.9 s of his own pass; a bad pass turns to the man it was meant for first; a hand-off's big faces the man coming
+  by him rather than where he was when the beat began; a driver's jump stop into his pass comes 0.8 s before the wind-up
+  (was 0.46: still turning as the ball went). Measured against the catch point, the passes thrown more than 60 deg off
+  the body went from about a fifth of a half's to a seventh, the rest mostly a hand-off's toss to the side, a running
+  kick-out, or the behind-the-back and whip variations that go out to the side by design.
+* **The shooter's feet** (`p_pass`, `catchFor`, `Actor.expectPass`, `Tune.pass.squareUpDeg`): a receiver whose jumper is
+  next sets his feet to the rim before the ball gets there, the eyes on the passer, for a pass from in front or the side
+  (within 115 deg of the rim's way); from behind him he turns to it as before. He used to face the passer and swing round
+  to the rim as the shot started.
+
+### Motion in the quick touches
+
+* **Ball screens and hand-offs** (`Sim.flowTouches`, `Sim.K.flowScreenP/flowScreenMinS/flowScreenDriveK/flowDhoP`): the
+  quick touches between the ball coming up and the play were swings only, swing, swing, swing: 3.7 passes a possession in
+  a half (the NBA's ~3). Now a big sets a ball screen on a guard's touch with 1.5 s of room in it (40 % of them), the drive
+  off it 1.8 x as likely; a big's touch to a guard is a dribble hand-off (45 %) instead of a pass; the touches are a little
+  longer (1.2-2.4 s, were 1.0-2.1) and the drive and kick a little more frequent (26 %, was 20). Live games only, as the
+  touches were: the results and the numbers are the engine's.
+
+### The loose ball is fought for
+
+* **Onto it** (`rebound.js scrambleLoose`, `Tune.glass.scrambleKeepFt/scrambleBehindFt/scrambleMaxFt/scrambleReachFt`):
+  the two nearest of each side used to ring a loose ball a stride off (2.6 ft, a step behind the rebounder, 6 ft at most)
+  and stand there. They go onto it now, a hand's reach from it (1.2 ft) and half a step behind the rebounder (3 ft at
+  most), down low within 3.6 ft of it with both hands out for it; it is still the engine's rebounder's.
+

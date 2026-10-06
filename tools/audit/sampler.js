@@ -666,7 +666,7 @@
     { const dr = v.director; R.combo = { chains: dr.chains || 0, moves: dr.chainMoves || 0, bites: dr.bites || 0, counters: dr.counters || 0, breaks: dr.breaks || 0, falls: dr.falls || 0, breakdowns: dr.breakdowns || 0, rocks: dr.rocks || 0, retreats: dr.retreats || 0, sizeups: dr.probeSizeups || 0 }; }
     // the fast break's rim cuts (a wing ahead of the defense cutting to the rim) and the post fight (the back-down's shoves, the
     // fight for position before the entry, the post moves worked)
-    { const dr = v.director; R.fight = { rimCuts: dr.rimCuts || 0, postShoves: dr.postShoves || 0, postFights: dr.postFights || 0, postMoves: dr.postLog ? dr.postLog.n || 0 : 0, postContacts: dr.postContacts || 0, contactDrives: dr.contactDrives || 0, contactHits: dr.contactHits || 0 }; }
+    { const dr = v.director; R.fight = { rimCuts: dr.rimCuts || 0, postShoves: dr.postShoves || 0, postFights: dr.postFights || 0, postMoves: dr.postLog ? dr.postLog.n || 0 : 0, postContacts: dr.postContacts || 0, contactDrives: dr.contactDrives || 0, contactHits: dr.contactHits || 0, floorFalls: dr.floorFalls || 0, helpFalls: dr.helpFalls || 0, readShots: dr.readShots || 0 }; }
     // play tracking (Phase 5, js/core/playstats.js): the game's tallies, to check them against the game itself
     const PSt = window.PBC.PlayStats;
     if (g.pstats && PSt) {

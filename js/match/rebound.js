@@ -400,10 +400,11 @@
   P.pickUp = function (a, pk) { return this.runDown(a, pk); };
   /** a rebound gone to the floor is fought for: the nearest of each side (Tune.glass.scrambleN within scrambleRebFt of it, not the
    *  one the engine gives it to) go after it flat out a reaction after it comes off, each onto the ball from the side they come
-   *  from, but a step behind whoever is nearest it of the two (scrambleBehindFt: they get there as it is taken, not first; it is
-   *  the engine's rebounder's), and never onto it (scrambleKeepFt). Called on every tick of the chase. (They used to stop 2.8 ft
-   *  short of where it first came down and watch it bounce and roll on, the rebounder the only one after it, the shot physics
-   *  pass) */
+   *  from, a hand's reach from it (scrambleKeepFt) and a half step behind whoever is nearest it of the two (scrambleBehindFt: it is
+   *  the engine's rebounder's), the hands out for it from scrambleReachFt and the body low. Called on every tick of the chase.
+   *  (They used to stop 2.8 ft short of where it first came down and watch it bounce and roll on, the rebounder the only one after
+   *  it, the shot physics pass; then ringed it a stride off, standing, the user: "all the players will circle the ball and just
+   *  stare at it instead of fighting for the ball") */
   P.scrambleLoose = function (pr) {
     const b = this.v.ball, T = TG(), a = pr.actor;
     if (!a || b.holder) return;
@@ -423,7 +424,14 @@
         }, { speed: q.maxSpeed, face: (me) => Math.atan2(b.y - me.y, b.x - me.x), stance: 'ready' });
       }
     }
-    for (const q of pr.scr) if (!q.isBusy()) { if (q.team === this.off) this.lockOff(q, 0.4); else this.lockDef(q, 0.4); }
+    for (const q of pr.scr) {
+      if (q.isBusy()) continue;
+      if (q.team === this.off) this.lockOff(q, 0.4); else this.lockDef(q, 0.4);
+      // (near it: down low, the hands out onto it; not theirs, it goes on to the rebounder through them)
+      const near = Math.hypot(q.x - b.x, q.y - b.y) < T.scrambleReachFt;
+      q.setStance(near ? 'defense' : 'ready');
+      if (near && !(q._reach && q._reach.b === b && q._reach.until > this.T + 0.1)) q.reachFor(b, this.T + 0.2, { until: this.T + 0.45, hands: [0, 1], lead: 0.2, w: 0.85 });
+    }
   };
   /** once a step: a free ball (a carom off the rim or the glass, a make coming down out of the net, a blocked or a loose ball)
    *  coming into someone's trunk or head (at Tune.glass.bodyHitFtps or more) comes off them: the way it hit them, with most of

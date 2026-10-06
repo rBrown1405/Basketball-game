@@ -229,6 +229,8 @@ function metrics(games) {
       m.fgPostFights = c('postFights') / n;
       m.fgContactDrives = c('contactDrives') / n;
       m.fgContactHits = c('contactDrives') ? pct(c('contactHits'), c('contactDrives')) : null;
+      m.fgFalls = (c('floorFalls') + c('helpFalls')) / n;
+      m.fgReadShots = c('readShots') / n;
     }
     if (U('n')) {
       m.cUserPerGame = U('n') / pn;
@@ -468,6 +470,8 @@ const SECTIONS = [
     ['fgPostFights', 'Bumps fighting for post position per game', '', '', ''],
     ['fgContactDrives', 'Contact drives per game (into the help defender on purpose, to draw the foul)', '', '', ''],
     ['fgContactHits', '  that got the shoulder into his chest', '%', 'up', ''],
+    ['fgFalls', 'Falls per game (a shooter knocked on a heavily contested shot, the help a contact drive ran through)', '', '', ''],
+    ['fgReadShots', 'Shots an open shooter brought forward per game (readOpen)', '', '', ''],
     ['cCovHonored', '  with the called pick-and-roll coverage', '%', 'up', '100'],
     ['cDefReverted', 'Defensive calls that went back to the team\'s own scheme when they ran out', '%', 'up', '100'],
   ]],

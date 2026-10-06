@@ -28,7 +28,11 @@
     // play's steps at most playStretch x their drawn length (was 1.25), called playCallS before its first step (was 1.8), a
     // generated play at most spanMax s from its call to its shot. Live games only: the events are the court's, the results
     // and the season's numbers are not touched
-    flowTouchS: [1.0, 2.1], flowMinS: 1.5, flowLeadS: [0.15, 0.5], flowDriveP: 0.2, flowDriveBuild: 1.0, playStretch: 0.9, playCallS: 1.4,
+    flowTouchS: [1.2, 2.4], flowMinS: 1.5, flowLeadS: [0.15, 0.5], flowDriveP: 0.26, flowDriveBuild: 1.0, playStretch: 0.9, playCallS: 1.4,
+    // motion in the quick touches (the user: "the players keep passing the ball around instead of making a play, run motion offense
+    // or something"): a big's ball screen on a guard's touch with flowScreenMinS of room in it, flowScreenP of them, the drive off
+    // it flowScreenDriveK as likely; a big's touch handed off to the guard coming by him, flowDhoP of them, instead of passed
+    flowScreenP: 0.4, flowScreenMinS: 1.5, flowScreenDriveK: 1.8, flowDhoP: 0.45,
     spanMax: { pnr: 4.5, iso: 4.5, post: 4.5, spot: 4, offscreen: 5, handoff: 4.5, cut: 4 },
     // the look before the call (the user: "the players don't have to run the play all the time if they have an open look; a
     // clear drive to the hoop, they can just go get the bucket"; coaches: forget the play and rip it to the rim when your man
@@ -1556,6 +1560,7 @@
     for (let i = 0; i < n; i++) { const d = U.range(lo, hi); lens.push(d); sum += d; }
     const k = room / sum;
     const W = (c, h, prev) => c === h ? 0 : (c.posN <= 3 ? 1 : c.posN === 4 ? 0.55 : 0.3) * (c === prev ? 0.35 : 1);
+    const bigs = O.on.filter(c => c.posN >= 4);
     let h = from, prev = null, t = tFrom, drove = false, since = 0;
     for (let i = 0; i < n; i++) {
       const last = i === n - 1;
@@ -1563,15 +1568,21 @@
       const r = last ? to : U.pickW(O.on, c => W(c, h, prev) * (i === n - 2 && c === to ? 0 : 1));
       const dur = lens[i] * k;
       if (!r || r === h) { t += dur; continue; }
+      // motion (Sim.K.flowScreenP, flowDhoP): a big's ball screen on a guard's touch with room in it, the drive off it the likelier
+      const scr = !last && dur > K.flowScreenMinS && h.posN <= 3 && bigs.length && U.chance(K.flowScreenP) ? U.pick(bigs.filter(c => c !== h && c !== r)) : null;
+      if (scr) { const ts = U.round(t + dur * 0.25, 2); cue(ts); evAt(ctx, ts, 'screen', { screener: scr.id, user: h.id, kind: 'ball', cov: PBC.PlayCall ? PBC.PlayCall.coverage(ctx.D) : undefined, team: idx }); }
       // a hard drive at the gap and the kick out of it, by a man who can put it on the floor
       const dk = h.posN >= 4 ? 0.25 : U.clamp(((h.r.handle + h.r.speed) / 2 - 50) / 30, 0.2, 1);
       // (more likely the longer the ball has only been swung: swing, swing, attack)
-      drove = !last && dur > 1.1 && U.chance(K.flowDriveP * dk * (1 + K.flowDriveBuild * since));
+      drove = !last && dur > 1.1 && U.chance(K.flowDriveP * dk * (1 + K.flowDriveBuild * since) * (scr ? K.flowScreenDriveK : 1));
       since = drove ? 0 : since + 1;
       if (drove) { const tm = U.round(t + dur * 0.3, 2); cue(tm); evAt(ctx, tm, 'move', { player: h.id, move: 'drive', team: idx }); }
       const tp = U.round(t + dur, 2);
       cue(tp);
-      evAt(ctx, tp, 'pass', { from: h.id, to: r.id, kind: drove ? 'kick' : 'swing', team: idx });
+      // (a big's touch given to the guard coming by him: the dribble hand-off)
+      const dho = !drove && !scr && h.posN >= 4 && r.posN <= 3 && dur > 1.0 && U.chance(K.flowDhoP);
+      if (dho) evAt(ctx, tp, 'handoff', { from: h.id, to: r.id, team: idx });
+      else evAt(ctx, tp, 'pass', { from: h.id, to: r.id, kind: drove ? 'kick' : 'swing', team: idx });
       prev = h; h = r; t += dur;
     }
     return h;

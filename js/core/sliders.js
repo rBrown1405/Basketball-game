@@ -103,6 +103,8 @@
       desc: 'How often a driver with a help defender in the lane goes at his chest to draw the foul instead of around him. At 0 only a drive the whistle actually catches has the contact; at 50 contact seekers do it most of the time and the rest now and then; at 100 twice as often. The whistle itself is set by Shooting Fouls.' },
     { key: 'postMoves', group: 'ai', label: 'Post Moves', map: ['lin0', 0, 2], fmt: 'level', lo: 'Straight up', hi: 'Work the block',
       desc: 'How often a post-up works a move before the shot (the drop step, the up and under, the spin, the shoulder fake) instead of going straight up, and how often the crafty ones shake twice. At 0 none; at 50 nearly every post-up; at 100 every one, with the double fake twice as often. How often teams post up at all comes from their players\' tendencies.' },
+    { key: 'hardFalls', group: 'ai', label: 'Hard Falls', map: ['lin0', 0, 2], fmt: 'level', lo: 'Stay up', hi: 'Hit the deck',
+      desc: 'How often a shooter knocked on a heavily contested layup or jumper, or a defender run through on a contact drive, goes down to the floor. At 0 nobody falls; at 50 a few a game, more on fouls and at the rim; at 100 twice as often. Nothing about the shot or the call changes.' },
     // User team
     { key: 'userShooting', group: 'user', label: 'Your Team: Shooting', map: ['add', -0.35, 0.35], fmt: 'fg', base: 0.47,
       desc: 'Make percentage for your team only. Higher makes the game easier.' },

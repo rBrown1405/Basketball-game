@@ -804,10 +804,23 @@
     gameAudio(ev, LG.P);
   }
 
+  /** a player went down to the floor off a knock (js/match/choreo.js goDown's 'floor' event: a shooter on a heavily contested
+   *  finish or jumper, the help a contact drive went through): the line and the booth's call */
+  function wentDown(ev) {
+    const g = LG.g, pc = id => { for (const T of g.t) { const c = T.players.find(x => x.id === id); if (c) return c; } return null; };
+    const h = pc(ev.player), by = pc(ev.by);
+    if (!h) return;
+    const text = ev.charge ? `${h.last} is run over${by ? ' by ' + by.last : ''} and goes down` : ev.fouled ? `${h.last} goes down hard on the foul${by ? ' by ' + by.last : ''}` : `${h.last} goes down hard on the ${ev.shot === 'jumper' || ev.shot === 'pullup' || ev.shot === 'stepback' || ev.shot === 'catch_shoot' ? 'jumper' : 'finish'}${by ? ', ' + by.last + ' into him' : ''}`;
+    pushLine({ q: LG.P.period, clock: Math.max(0, LG.clockShow != null ? LG.clockShow : LG.P.clockStart), text, type: 'note', team: ev.team });
+    if (LG.bc) LG.bc.onEvent(ev, LG.P, LG.dispScore);
+    gameAudio(ev, LG.P);
+  }
+
   function onViewEvent(ev) {
     if (!LG) return;
     if (ev.type === 'ankle') { ankleBreaker(ev); return; }
     if (ev.type === 'post') { postMove(ev); return; }
+    if (ev.type === 'floor') { wentDown(ev); return; }
     if (ev.type === 'score') {
       LG.dispScore[ev.team] += ev.pts; flashScore(ev.team);
       noteHighlight(ev.shotEvent || {}, true);

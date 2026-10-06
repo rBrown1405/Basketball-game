@@ -334,7 +334,8 @@
       // (standing, he turns to the passer now: turned only as the ball came, a man facing away was still turning, and
       // stepping round, as it got to him)
       const g = this.goal;
-      if (!this.clip && this.speed < 2 && (!g || g.mode === 'idle' || Math.hypot(g.x - this.x, g.y - this.y) < 0.6)) this.setFace({ x: from.x, y: from.y, passer: true });
+      // (not a shooter set to the rim for the catch, Director.p_pass's square-up: the eyes go to the passer, the feet stay)
+      if (!this.clip && this.speed < 2 && (!g || g.mode === 'idle' || Math.hypot(g.x - this.x, g.y - this.y) < 0.6) && !(this._squareUp > (this.time || 0))) this.setFace({ x: from.x, y: from.y, passer: true });
     }
     /** the ball is in the air to him (Trial 10, from Director.passBall): it gets to the catch point P (world) at tEnd; the
      *  eyes follow it and the hands go to where it will be, there before it is. o: { from, kind, tEnd, P, rel (where it
@@ -544,6 +545,10 @@
       // the body's speed, and the lean it gave went in one frame)
       if (h && h.t < 0.6) { const o = this._hitsOld || (this._hitsOld = []); o.push(h); if (o.length > 3) o.shift(); }
       this.hit = { nx, ny, s, k: U.smooth((s - 2.5) / 7), t: 0, air };
+      // (the hardest knock of the last moment or two, kept past the push itself for what comes of it later: the fall off a
+      // contested finish is decided as he lands, Director.planFall, ~1 s after the contest's body met him)
+      const kn = this._knock;
+      if (!kn || this.time - kn.at > 1.2 || s >= kn.s) this._knock = { nx, ny, s, at: this.time };
       // knocked hard enough, he has to catch his balance: a quick step the way he was pushed (in the air, when he
       // comes down)
       // (not leaning on a man on purpose, a box-out, a post-up or a screen, where the bodies push all the time)

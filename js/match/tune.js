@@ -278,6 +278,14 @@
       meetS: 0.12,                  // ...and over the last this-long (s) go onto the ball's own path, where it really comes
       // variations (Trial 10), for a passer with the flair: his handle from flairFrom (none) to flairTo (all of it)
       flairFrom: 60, flairTo: 95,
+      // the passer turned to his target (the user: "players sometimes don't face the correct way when passing"): the turn to the
+      // catch spot turnLeadS before the throw's wind-up (and as soon as a move of his own lets him), no dribble move started with
+      // his own pass within noMoveBeforePassS; a shooter's catch, his jumper next: the feet set to the rim before the ball gets
+      // there, the eyes on the passer, for a pass from within squareUpDeg of the rim's way (from behind him he turns to it)
+      turnLeadS: 0.7, noMoveBeforePassS: 0.9, squareUpDeg: 115,
+      quickTurnRadps: 7,            // a quick throw (an outlet, the ball moved on to the play's man) waits for the passer's turn to
+                                    // him at this rate (rad/s, 0.5 s at most) when he faces more than ~30 deg away
+      jumpStopLeadS: 0.8,           // a driver's jump stop into his pass this long before the wind-up (s; was 0.46, still turning)
       btbP: 0.3,                    // behind the back to a man on his left (70 to 160 deg round), at most this often
       whipP: 0.25, whipKickP: 0.2,  // a one-handed whip out to a man on his right (40 to 120 deg): kicks this much more often
       noLookP: 0.12,                // a no-look pass
@@ -364,7 +372,23 @@
       dunkReachH: 1.24,             // a dunk only for a player whose reach (this x height, the arm up) plus the dunk's own jump comes
                                     // to this (ft, each dunk's own: set from where the Lab's dunks first get a hand on the rim, for
                                     // heights 6-0 to 6-9 and springs 40 to 95); anyone shorter lays it up
-      dunkRimFt: { dunk: 10.6, dunk2: 10.5, putbackDunk: 9.95 },
+      dunkRimFt: { dunk: 11.0, dunk2: 10.8, putbackDunk: 10.7 }, // (the one hand reaches less: the body twisted under it)
+      // a jumper off the dribble (the user: "players take a jump shot and just zip to the spot and shoot"): taken from the shooter's
+      // own side of the floor when he has the ball further than swingFromFt from the engine's spot (Director.swingSpot: the spot
+      // swung round the rim to his line, at its distance, within swingMaxDeg of the rim's axis, its zone kept), and the approach
+      // to it a jog of approachFtps (ft/s; approachMaxK x that at most when the beat is near)
+      swingFromFt: 4, swingMaxDeg: 88, approachFtps: 10, approachMaxK: 1.3,
+      // a dunk's jump (the user: "dunks don't connect to the hoop": a dunker whose hand only just got to the rim's height put
+      // the ball on its edge from below, and it was pulled on through): as high as getting the ball over the rim needs (dunkRimFt
+      // from the floor, the arm up), up to dunkJumpBoostK x his own jump and dunkJumpMaxFt; a man who cannot get it there lays it up
+      dunkJumpBoostK: 1.4, dunkJumpMaxFt: 3.5,
+      dunkRelFt: 1.4,               // a dunk's release this close to the rim at most (ft, the engine's spot otherwise): the run-up
+                                    // absorbs the difference (from 2-3 ft out the one hand's reach forward cost it the height)
+      dunkSlipMaxFt: 4,             // a dunk started further than this (ft) from its run-up's start is laid up or put back instead
+      dunkWaitS: 3,                 // ...and waits up to this long (s) past its planned start for the dunker to get to it
+      putbackFt: 6.5,               // a standing finish from further than this (ft) from the rim is a layup's two steps, not a putback
+      dunkStuffFt: 1.6,             // a dunk's ball let go within this (ft) of the rim's middle and at the rim's height is stuffed
+      dunkStuffZ: 9.6,              // through it; from further off (a body in the lane pushed the move back) it flies in as a layup's
       pullUpFromFt: 6,              // a jumper the shooter takes off the dribble from further than this off its spot is a pull-up (ft),
                                     // and so is any jump shot started straight out of a dribble
       cnsHoldS: 0.1,                // a catch-and-shoot holds the ball at most this much longer than the shot itself needs (s)
@@ -489,7 +513,10 @@
       // a rebound gone to the floor is fought for (Director.scrambleLoose): the scrambleN nearest of each side within
       // scrambleRebFt go after it too, onto the ball scrambleLeadS ahead of where it is, a step (scrambleBehindFt) behind the
       // engine's rebounder (but in to scrambleMaxFt of it whatever) and never nearer it than scrambleKeepFt
-      scrambleN: 2, scrambleRebFt: 16, scrambleLeadS: 0.2, scrambleBehindFt: 1.4, scrambleKeepFt: 2.6, scrambleMaxFt: 6,
+      // (the user: "on rebounds all the players will circle the ball and just stare at it instead of fighting for the ball":
+      // they go onto it, a hand's reach from it at most, the hands out for it from scrambleReachFt, a low stance)
+      scrambleN: 2, scrambleRebFt: 16, scrambleLeadS: 0.2, scrambleBehindFt: 0.4, scrambleKeepFt: 1.2, scrambleMaxFt: 3.0,
+      scrambleReachFt: 3.6,
       gatherCutFtps: 0.5,           // a ball going along the floor faster than this is picked up cut off (from beside its way)
       gatherEarlyS: 0.1,            // a pick-up: on their spot and stopped this long before the bend
       gatherBrakeK: 0.45,           // planned stops brake at this much of their braking (the strides' flight between the plants)...
@@ -878,7 +905,11 @@
                                     // engine's crossing, crept up at 7 ft/s and waited at half court)
       advanceTopU: 27,              // ...there, this far from the baseline he attacks at least (ft; the top spot or further out)
       pushToU: 21,                  // on a break the man with the ball pushes it to this far from the baseline (ft, the top of the
-                                    // key's inside edge), toward the middle, wherever he caught it (Director.handlerAmbient)
+                                    // key's inside edge), toward the middle, wherever he caught it (Director.handlerAmbient)...
+      pushRimU: 6,                  // ...and on at the rim, to this (ft), with his own finish next (the user: "he got the ball on the
+                                    // outlet but never drives to the hoop"; his jumper next: to its distance), or to pushKickU with a
+      pushKickU: 14,                // pass or a move next and pushKickBackN defenders back at most: the drive and the kick
+      pushKickBackN: 1,
       offHoldK: 0.4,                // off the ball in the half court the holds between a player's cuts, lifts and relocations
                                     // are this share of what they were (~1-3 s standing between small shuffles)...
       offMoveK: 1.35,               // ...and the moves themselves this much longer (a v-cut 5-9 ft, a relocation 2-5 ft)
@@ -1030,14 +1061,14 @@
       besideFt: 3.2, besideAlongFt: 1.0, // no more than besideAlongFt in front): past his man
       biteBeatFt: 1.4,              // ...or sold on a move by more than this (defBite: the breakdown, the moment to go)
       rangeFt: 30,                  // (within this of the rim)
-      pullLeadS: 0.9,               // his own shot next, it comes now: brought forward so it keeps this much beyond the time its beat
+      pullLeadS: 0.6,               // his own shot next, it comes now: brought forward so it keeps this much beyond the time its beat
       pullMaxS: 2.5,                // needs (s), by this much at most (s; the clock runs a little quick meanwhile)
       attackStopFt: 11,             // something else next: he attacks the gap, a drive at the rim to this far from it (ft)...
       attackS: 1.3,                 // ...for this long (s) at this share of his top speed...
       attackK: 0.9,
       attackGapS: 2.5,              // ...no oftener than this (s)...
       attackClearS: 1.0,            // ...and not with a play of his own due within this (s)
-      wideFt: 9,                    // nobody within this (ft) and inside wideRangeFt of the rim: wide open, he goes at the rim
+      wideFt: 8,                    // nobody within this (ft) and inside wideRangeFt of the rim: wide open, he goes at the rim
       wideRangeFt: 26,              // too, past his man or not (the help has to come to him; the kick-out follows from there)
       moveLeadS: 0.35,              // his own move next (a drive, a hesitation, a crossover, a spin): it comes now, brought forward
                                     // so it keeps this much beyond its beat's own time (s), pullMaxS at most
@@ -1062,6 +1093,23 @@
     // whistle the engine gave it, the rest go up through the contact. contactP is scaled by the Contact Drives slider (League
     // Settings: 0 none of these, 50 as here, 100 twice); a fouled shot's contact is the whistle's and stays
     traffic: { contactP: [0.15, 0.75], helpFt: 10, meetFtps: 12, chestK: [8.5, 11], absorbK: 0.35, hipK: 1.25, setFt: 4.5 }, // (setFt: the help sets himself this far in front of the rim on the driver's line)
+
+    // ---------------------------------------------------------------- going down (the user: "on heavy contested shots players can
+    // fall to the ground, layups and jump shots"; Director.planFall, goDown, the contest's body in planContest). A shooter knocked
+    // on the way up or in the air (the contester's body at the rim, a tight contest's jump into him, a foul's reach, a contact
+    // drive's shoulder) can come down off his feet as his finish lands: the fall clip the way he was knocked, up in fallBusyS.
+    // fallP by the knock he took (its speed, ft/s, within hitWithinS of the landing), x the look's contest, the whistle, the
+    // kind of shot, his strength and the game's physicality; and the help a contact drive went through goes down too
+    // (defFallP, by the knock). The Hard Falls slider (League Settings) scales both: 0 none, 50 these, 100 twice
+    fall: {
+      fallP: [0.12, 0.5], fallKnock: [5.5, 11], hitWithinS: 1.6,
+      contestK: { open: 0.25, contested: 0.55, tight: 1.0 }, fouledK: 1.6, finishK: 1.3, jumperK: 0.55, strengthK: 0.5,
+      defFallP: 0.3, defFallKnock: [8.5, 12],
+      fallBusyS: 1.6, minGapS: 8,
+      // the contester's body into the shooter as the shot goes (planContest; ft/s, x the game's physicality): at the rim, a tight
+      // one, a contested one, a fouled one; a tight jumper's contest jumping into him; a fouled jumper's reach
+      bodyK: { tight: 7.5, contested: 5.5, fouled: 8.5, jumper: 4.5, jumperFouled: 6.5 },
+    },
 
     // ---------------------------------------------------------------- denying the ball (the gameplay pass: one pass away the
     // defenders sat a step off in the lane and none of them took the pass away; defense.js denyK, guardPos, Actor._armTargets)
